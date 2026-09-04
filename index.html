@@ -79,6 +79,7 @@
             position: fixed; top: 10px; left: 10px; color: #f0e4c0;
             background: rgba(20,15,8,0.8); border: 1px solid #6b5a3a;
             padding: 8px; border-radius: 4px; font-size: 14px; z-index: 95;
+            max-width: 55%;
         }
         #pan-hint {
             position: fixed; top: 165px; right: 10px; width: 150px; text-align: center;
@@ -122,13 +123,16 @@
         // ========== GAME STATE ==========
         const MAP_W = 48, MAP_H = 48, TILE = 16;
         const TILE_GRASS = 0, TILE_WATER = 1, TILE_TREE = 2, TILE_PATH = 3, TILE_HUB = 4;
+        const CHUNK = 4; // spatial hash chunk size, in tiles
+        const WALL_MAX_LEN = 4;
         let map = [];
         let tileCanvases = {};
         let game = {
             canvas: null, ctx: null, minimapCtx: null,
             cmdCard: null, buildMenu: null,
             width: 0, height: 0,
-            units: [], buildings: [], projectiles: [],
+            units: [], buildings: [], projectiles: [], effects: [],
+            unitGrid: {},
             hub: null, // central building (also in buildings array)
             selected: [],
             camera: { x: 0, y: 0 },
@@ -136,24 +140,24 @@
             panning: false, panStart: null,
             queue: [], // training queue of unit types (strings)
             queueTimer: 0,
-            spawnInterval: 3, // seconds per unit from queue
             waveNumber: 1,
-            waveTimer: 3,
+            waveTimer: 18,
             kills: 0,
             lastTime: 0,
             isBuildMode: false,
             buildType: null,
+            wallPreview: null,
             maxUnits: 20,
             unitCount: 0
         };
 
         // ========== UNIT DEFINITIONS ==========
-        // Ranges are in map tiles (same scale buildings/towers use).
+        // Ranges are in map tiles (same scale buildings/towers use). atkSpeed is seconds between hits.
         const UNIT_TYPES = {
-            sword:  { name: 'Sword',  hp: 80, attack: 10, range: 12, speed: 45, trainTime: 10, color: '#8b6f3a' },
-            spear:  { name: 'Spear',  hp: 60, attack: 8,  range: 10, speed: 55, trainTime: 7,  color: '#6a5a3a' },
-            archer: { name: 'Archer', hp: 40, attack: 14, range: 20, speed: 40, trainTime: 12, color: '#4a7c2e' },
-            builder:{ name: 'Builder',hp: 50, attack: 3,  range: 8,  speed: 40, trainTime: 15, color: '#7a7a7a' }
+            sword:  { name: 'Sword',  hp: 80, attack: 10, range: 12, speed: 28, atkSpeed: 1.0, trainTime: 10, color: '#8b6f3a' },
+            spear:  { name: 'Spear',  hp: 60, attack: 8,  range: 10, speed: 32, atkSpeed: 0.85, trainTime: 7,  color: '#6a5a3a' },
+            archer: { name: 'Archer', hp: 40, attack: 14, range: 20, speed: 24, atkSpeed: 1.3, trainTime: 12, color: '#4a7c2e' },
+            builder:{ name: 'Builder',hp: 50, attack: 3,  range: 8,  speed: 22, atkSpeed: 1.5, trainTime: 15, color: '#7a7a7a' }
         };
 
         // ========== BUILDING DEFINITIONS ==========
@@ -248,7 +252,7 @@
                     if (y > 42 && x > 10 && x < 35) tile = TILE_WATER;
                     // A few internal trees
                     if (Math.random() < 0.05 && (x > 10 && x < 38 && y > 10 && y < 38)) tile = TILE_TREE;
-                    // Paths – horizontal and vertical lines connecting entrances
+                    // Paths – horizontal and vertical lines connecting entrances (always passable)
                     if (y === 24 || x === 24) tile = TILE_PATH;
                     row.push(tile);
                 }
@@ -260,6 +264,62 @@
             for (let dy = 0; dy < 3; dy++)
                 for (let dx = 0; dx < 3; dx++)
                     map[hy + dy][hx + dx] = TILE_HUB;
+        }
+
+        // ========== COLLISION ==========
+        function tileBlocked(tx, ty) {
+            if (tx < 0 || ty < 0 || tx >= MAP_W || ty >= MAP_H) return true;
+            const t = map[ty][tx];
+            if (t === TILE_WATER || t === TILE_TREE) return true;
+            for (const b of game.buildings) {
+                if (tx >= b.x && tx < b.x + b.size && ty >= b.y && ty < b.y + b.size) return true;
+            }
+            return false;
+        }
+
+        function moveWithCollision(unit, stepX, stepY) {
+            const nx = unit.x + stepX;
+            const ny = unit.y + stepY;
+            if (!tileBlocked(Math.floor(nx), Math.floor(ny))) {
+                unit.x = nx; unit.y = ny;
+                return;
+            }
+            // Try sliding along one axis so units don't just freeze at every obstacle corner
+            if (!tileBlocked(Math.floor(nx), Math.floor(unit.y))) {
+                unit.x = nx;
+                return;
+            }
+            if (!tileBlocked(Math.floor(unit.x), Math.floor(ny))) {
+                unit.y = ny;
+            }
+        }
+
+        // ========== SPATIAL HASH GRID ==========
+        // Rebuilt once per frame. Keeps target-search cheap even with lots of units on screen.
+        function buildSpatialHash() {
+            const grid = {};
+            for (const u of game.units) {
+                const cx = Math.floor(u.x / CHUNK);
+                const cy = Math.floor(u.y / CHUNK);
+                const key = cx + ',' + cy;
+                (grid[key] = grid[key] || []).push(u);
+            }
+            game.unitGrid = grid;
+        }
+
+        function nearbyUnits(x, y, radiusTiles) {
+            const chunkRadius = Math.max(1, Math.ceil(radiusTiles / CHUNK));
+            const cx = Math.floor(x / CHUNK);
+            const cy = Math.floor(y / CHUNK);
+            let result = [];
+            for (let dx = -chunkRadius; dx <= chunkRadius; dx++) {
+                for (let dy = -chunkRadius; dy <= chunkRadius; dy++) {
+                    const key = (cx + dx) + ',' + (cy + dy);
+                    const bucket = game.unitGrid[key];
+                    if (bucket) result = result.concat(bucket);
+                }
+            }
+            return result;
         }
 
         // ========== CLASSES ==========
@@ -274,6 +334,7 @@
                 this.attack = this.def.attack;
                 this.range = this.def.range;
                 this.speed = this.def.speed;
+                this.atkCooldown = 0;
                 this.targetX = x; this.targetY = y;
                 this.selected = false;
                 this.targetUnit = null;
@@ -283,18 +344,37 @@
                 this.repairTarget = null;
             }
             update(dt) {
-                // Move toward target
-                const dx = this.targetX - this.x;
-                const dy = this.targetY - this.y;
-                const dist = Math.sqrt(dx*dx + dy*dy);
-                if (dist > 1) {
-                    this.x += (dx/dist) * this.speed * dt;
-                    this.y += (dy/dist) * this.speed * dt;
-                }
-                // Auto-attack — applies to BOTH sides, so enemies actually fight back.
+                if (this.atkCooldown > 0) this.atkCooldown -= dt;
+
                 if (!this.buildMode) {
+                    // Move toward current order, sliding around obstacles
+                    const dx = this.targetX - this.x;
+                    const dy = this.targetY - this.y;
+                    const dist = Math.sqrt(dx*dx + dy*dy);
+                    if (dist > 1) {
+                        moveWithCollision(this, (dx/dist) * this.speed * dt, (dy/dist) * this.speed * dt);
+                    }
+
+                    // Gentle separation so units don't stack on top of each other
+                    const closeBy = nearbyUnits(this.x, this.y, 1);
+                    let sepX = 0, sepY = 0;
+                    const minDist = 0.7;
+                    for (const other of closeBy) {
+                        if (other === this) continue;
+                        const ddx = this.x - other.x, ddy = this.y - other.y;
+                        const d2 = ddx*ddx + ddy*ddy;
+                        if (d2 > 0.0001 && d2 < minDist*minDist) {
+                            const d = Math.sqrt(d2);
+                            sepX += (ddx/d) * (minDist - d);
+                            sepY += (ddy/d) * (minDist - d);
+                        }
+                    }
+                    if (sepX !== 0 || sepY !== 0) {
+                        moveWithCollision(this, sepX * dt * 3, sepY * dt * 3);
+                    }
+
+                    // Combat — applies to BOTH sides, so enemies actually fight back
                     let target = null, isBuilding = false;
-                    // Honor a player-issued attack order first, as long as it's still alive
                     if (this.targetUnit && this.targetUnit.hp > 0) {
                         target = this.targetUnit; isBuilding = false;
                     } else if (this.targetBuilding && this.targetBuilding.hp > 0) {
@@ -302,9 +382,8 @@
                     } else {
                         this.targetUnit = null;
                         this.targetBuilding = null;
-                        // Auto-acquire nearest opposing unit in range
                         let nearest = null, nd = Infinity;
-                        for (const u of game.units) {
+                        for (const u of nearbyUnits(this.x, this.y, this.range)) {
                             if (u.owner !== this.owner) {
                                 const d = Math.sqrt((u.x - this.x)**2 + (u.y - this.y)**2);
                                 if (d < this.range && d < nd) { nd = d; nearest = u; }
@@ -313,7 +392,6 @@
                         if (nearest) {
                             target = nearest; isBuilding = false;
                         } else {
-                            // Fall back to nearest opposing building in range
                             let nearestB = null, nbd = Infinity;
                             for (const b of game.buildings) {
                                 if (b.owner !== this.owner) {
@@ -331,11 +409,18 @@
                         const d = Math.sqrt((tx - this.x)**2 + (ty - this.y)**2);
                         this.targetX = tx;
                         this.targetY = ty;
-                        if (d < this.range + 1) {
-                            target.hp -= this.attack * dt;
+                        if (d < this.range + 1 && this.atkCooldown <= 0) {
+                            if (this.type === 'archer') {
+                                game.projectiles.push({ x: this.x, y: this.y, target: target, speed: 130, dmg: this.attack });
+                            } else {
+                                target.hp -= this.attack;
+                                game.effects.push({ x: tx, y: ty, timer: 0.15, maxTimer: 0.15 });
+                            }
+                            this.atkCooldown = this.def.atkSpeed;
                         }
                     }
                 }
+
                 // Builder repair: find nearby damaged friendly building
                 if (this.type === 'builder' && this.owner === 0 && !this.buildMode) {
                     if (!this.repairTarget || this.repairTarget.hp >= this.repairTarget.maxHp) {
@@ -426,7 +511,7 @@
                 // Tower auto-attack
                 if (this.type === 'tower' && this.cooldown <= 0) {
                     let target = null, td = Infinity;
-                    for (const u of game.units) {
+                    for (const u of nearbyUnits(this.x, this.y, 8)) {
                         if (u.owner !== this.owner) {
                             const d = Math.sqrt((u.x - this.x)**2 + (u.y - this.y)**2);
                             if (d < 8 && d < td) { td = d; target = u; }
@@ -436,14 +521,15 @@
                         game.projectiles.push({
                             x: this.x, y: this.y,
                             target: target,
-                            speed: 120
+                            speed: 120,
+                            dmg: 10
                         });
                         this.cooldown = 0.8;
                     }
                 }
                 // Triage healing
                 if (this.type === 'triage') {
-                    for (const u of game.units) {
+                    for (const u of nearbyUnits(this.x, this.y, 6)) {
                         if (u.owner === this.owner) {
                             const d = Math.sqrt((u.x - this.x)**2 + (u.y - this.y)**2);
                             if (d < 6 && u.hp < u.maxHp) u.hp += 5 * dt;
@@ -542,8 +628,7 @@
             clampCamera();
 
             setupEvents();
-            window.addEventListener('resize', resizeCanvas);
-            window.addEventListener('orientationchange', () => setTimeout(resizeCanvas, 300));
+            attachGlobalListeners();
             requestAnimationFrame(loop);
         }
 
@@ -562,6 +647,19 @@
             game.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
             clampCamera();
+        }
+
+        function handleOrientationChange() { setTimeout(resizeCanvas, 300); }
+
+        // Named handlers (not anonymous) so they can be cleanly removed with detachGlobalListeners()
+        // if this ever gets embedded in something bigger, e.g. an SPA, instead of a standalone page.
+        function attachGlobalListeners() {
+            window.addEventListener('resize', resizeCanvas);
+            window.addEventListener('orientationchange', handleOrientationChange);
+        }
+        function detachGlobalListeners() {
+            window.removeEventListener('resize', resizeCanvas);
+            window.removeEventListener('orientationchange', handleOrientationChange);
         }
 
         function setupMinimapDPR() {
@@ -668,6 +766,17 @@
         function endInput() {
             if (!game.mouse.down) return;
             game.mouse.down = false;
+
+            // Dragging out a wall footprint takes priority over normal tap/box-select
+            if (game.isBuildMode && game.buildType === 'wall') {
+                const startTileX = Math.floor((game.mouse.startX + game.camera.x) / TILE);
+                const startTileY = Math.floor((game.mouse.startY + game.camera.y) / TILE);
+                const endTileX = Math.floor((game.mouse.curX + game.camera.x) / TILE);
+                const endTileY = Math.floor((game.mouse.curY + game.camera.y) / TILE);
+                setWallPreview(startTileX, startTileY, endTileX, endTileY);
+                return;
+            }
+
             const dx = game.mouse.curX - game.mouse.startX;
             const dy = game.mouse.curY - game.mouse.startY;
             const dist = Math.sqrt(dx*dx + dy*dy);
@@ -688,28 +797,19 @@
             const wx = (sx + game.camera.x) / TILE;
             const wy = (sy + game.camera.y) / TILE;
 
-            // If build mode active
-            if (game.isBuildMode && game.buildType) {
-                // Find a selected builder
+            // If build mode active (tower/triage — wall has its own drag flow, handled in endInput)
+            if (game.isBuildMode && game.buildType && game.buildType !== 'wall') {
                 const builder = game.selected.find(u => u.type === 'builder');
                 if (builder) {
                     const bx = Math.floor(wx);
                     const by = Math.floor(wy);
-                    // Check tile is buildable (grass or path)
                     if (isBuildable(bx, by, game.buildType)) {
                         game.buildings.push(new Building(game.buildType, bx, by, 0));
-                        game.isBuildMode = false;
-                        game.buildType = null;
-                        updateBuildMenu();
-                        return;
-                    } else {
-                        // Not buildable – cancel or show error
-                        // For simplicity, just cancel
-                        game.isBuildMode = false;
-                        game.buildType = null;
-                        updateBuildMenu();
-                        return;
                     }
+                    game.isBuildMode = false;
+                    game.buildType = null;
+                    updateBuildMenu();
+                    return;
                 }
             }
 
@@ -751,7 +851,6 @@
                 // Move selected units
                 const selUnits = game.selected.filter(u => u instanceof Unit && u.owner === 0);
                 for (const u of selUnits) {
-                    if (u.type === 'builder' && game.isBuildMode) continue; // build mode handled above
                     u.targetX = wx; u.targetY = wy;
                     u.targetUnit = null;
                     u.targetBuilding = null;
@@ -770,6 +869,61 @@
                 if (x >= b.x && x < b.x + b.size && y >= b.y && y < b.y + b.size) return false;
             }
             return true;
+        }
+
+        // ========== WALL DRAG-TO-PLACE ==========
+        function setWallPreview(sx, sy, ex, ey) {
+            const dxT = ex - sx, dyT = ey - sy;
+            let tiles = [];
+            if (Math.abs(dxT) >= Math.abs(dyT)) {
+                const dir = dxT >= 0 ? 1 : -1;
+                const len = Math.min(WALL_MAX_LEN, Math.max(1, Math.abs(dxT) + 1));
+                for (let i = 0; i < len; i++) tiles.push({ x: sx + i*dir, y: sy });
+            } else {
+                const dir = dyT >= 0 ? 1 : -1;
+                const len = Math.min(WALL_MAX_LEN, Math.max(1, Math.abs(dyT) + 1));
+                for (let i = 0; i < len; i++) tiles.push({ x: sx, y: sy + i*dir });
+            }
+            game.wallPreview = tiles;
+            showWallConfirm();
+        }
+
+        function showWallConfirm() {
+            const card = game.cmdCard;
+            card.style.display = 'grid';
+            card.innerHTML = '';
+            const confirmBtn = document.createElement('button');
+            confirmBtn.textContent = 'Confirm Wall';
+            confirmBtn.onclick = placeWallPreview;
+            const cancelBtn = document.createElement('button');
+            cancelBtn.textContent = 'Cancel';
+            cancelBtn.onclick = () => {
+                game.wallPreview = null;
+                game.isBuildMode = false;
+                game.buildType = null;
+                card.style.display = 'none';
+                updateBuildMenu();
+            };
+            card.appendChild(confirmBtn);
+            card.appendChild(cancelBtn);
+            document.getElementById('selection-info').textContent = 'Wall preview — Confirm or Cancel';
+        }
+
+        function placeWallPreview() {
+            if (!game.wallPreview) return;
+            const allOk = game.wallPreview.every(t => isBuildable(t.x, t.y, 'wall'));
+            if (allOk) {
+                for (const t of game.wallPreview) {
+                    game.buildings.push(new Building('wall', t.x, t.y, 0));
+                }
+            } else {
+                alert('Cannot place wall there — blocked tile in the path.');
+            }
+            game.wallPreview = null;
+            game.isBuildMode = false;
+            game.buildType = null;
+            game.cmdCard.style.display = 'none';
+            updateBuildMenu();
         }
 
         // ========== UI ==========
@@ -809,7 +963,6 @@
             const card = document.getElementById('cmd-card');
             card.style.display = 'grid';
             card.innerHTML = '';
-            // Simple commands – could add "stop" / "attack move" later
             const btn = document.createElement('button');
             btn.textContent = 'Stop';
             btn.onclick = () => { game.selected.forEach(u => { u.targetX = u.x; u.targetY = u.y; u.targetUnit = null; u.targetBuilding = null; }); };
@@ -830,7 +983,7 @@
                         return;
                     }
                     game.queue.push(t);
-                    game.queueTimer = game.queueTimer || 0; // reset
+                    game.queueTimer = game.queueTimer || 0;
                     updateHubUI();
                 };
                 card.appendChild(btn);
@@ -843,17 +996,19 @@
         }
 
         function updateBuildMenu() {
-            // Re-render build menu with selected state
             const menu = game.buildMenu;
             menu.innerHTML = '';
             const types = ['wall', 'tower', 'triage'];
             types.forEach(t => {
                 const btn = document.createElement('button');
-                btn.textContent = BUILDING_TYPES[t].name;
+                btn.textContent = t === 'wall' ? 'Wall (drag)' : BUILDING_TYPES[t].name;
                 btn.onclick = () => {
                     game.isBuildMode = true;
                     game.buildType = t;
                     updateBuildMenu();
+                    if (t === 'wall') {
+                        document.getElementById('selection-info').textContent = 'Drag up to 4 tiles to size the wall';
+                    }
                 };
                 if (game.isBuildMode && game.buildType === t) btn.style.background = '#664';
                 menu.appendChild(btn);
@@ -865,7 +1020,6 @@
         }
 
         function updateHubUI() {
-            // Update queue display in selection info
             const info = document.getElementById('selection-info');
             let q = 'Hub – Queue: ';
             if (game.queue.length === 0) q += 'empty';
@@ -888,7 +1042,6 @@
                 if (game.queueTimer >= UNIT_TYPES[type].trainTime) {
                     game.queue.shift();
                     game.queueTimer = 0;
-                    // Spawn near hub
                     const hx = game.hub.x + 4, hy = game.hub.y + 4;
                     game.units.push(new Unit(type, hx, hy, 0));
                     game.unitCount = game.units.length;
@@ -903,28 +1056,24 @@
         function updateWaves(dt) {
             game.waveTimer -= dt;
             if (game.waveTimer <= 0) {
-                // Spawn wave
                 const entrances = [
                     { x: 2, y: 24 }, // left
                     { x: 24, y: 2 }, // top
                     { x: 46, y: 24 }, // right
                     { x: 24, y: 46 } // bottom
                 ];
-                const waveSize = 3 + game.waveNumber; // scales
+                const waveSize = 2 + Math.floor(game.waveNumber * 0.6);
                 for (let i = 0; i < waveSize; i++) {
                     const entrance = entrances[Math.floor(Math.random() * entrances.length)];
                     const type = ['sword', 'spear', 'archer', 'builder'][Math.floor(Math.random() * 4)];
-                    // Enemies are same unit types but red
                     const e = new Unit(type, entrance.x, entrance.y, 1);
-                    // Target the hub
                     e.targetX = game.hub.x + 1;
                     e.targetY = game.hub.y + 1;
                     e.targetBuilding = game.hub;
                     game.units.push(e);
                 }
                 game.waveNumber++;
-                game.waveTimer = Math.max(5, 20 - game.waveNumber); // faster waves
-                // Optionally show interstitial ad every 5 waves
+                game.waveTimer = Math.max(8, 25 - game.waveNumber);
                 if (game.waveNumber % 5 === 0) {
                     showInterstitialAd();
                 }
@@ -943,7 +1092,8 @@
                 const dy = p.target.y - p.y;
                 const dist = Math.sqrt(dx*dx + dy*dy);
                 if (dist < 0.5) {
-                    p.target.hp -= 10; // damage
+                    p.target.hp -= (p.dmg || 10);
+                    game.effects.push({ x: p.x, y: p.y, timer: 0.15, maxTimer: 0.15 });
                     game.projectiles.splice(i, 1);
                 } else {
                     p.x += (dx/dist) * p.speed * dt;
@@ -952,10 +1102,20 @@
             }
         }
 
+        // ========== HIT EFFECTS ==========
+        function updateEffects(dt) {
+            for (let i = game.effects.length - 1; i >= 0; i--) {
+                game.effects[i].timer -= dt;
+                if (game.effects[i].timer <= 0) game.effects.splice(i, 1);
+            }
+        }
+
         // ========== UPDATE LOOP ==========
         function loop(t) {
             const dt = Math.min((t - game.lastTime) / 1000, 0.05);
             game.lastTime = t;
+
+            buildSpatialHash();
 
             // Update units
             for (const u of game.units) u.update(dt);
@@ -968,19 +1128,15 @@
 
             // Update buildings
             for (const b of game.buildings) b.update(dt);
-            // Remove destroyed buildings (except hub)
             game.buildings = game.buildings.filter(b => b.hp > 0 || b === game.hub);
-            // If hub destroyed, lose
             if (game.hub.hp <= 0) {
                 gameOver(false);
             }
 
-            // Training queue
             updateTraining(dt);
-            // Waves
             updateWaves(dt);
-            // Projectiles
             updateProjectiles(dt);
+            updateEffects(dt);
 
             updateStats();
             render();
@@ -1010,6 +1166,19 @@
                 }
             }
 
+            // Wall placement preview
+            if (game.wallPreview) {
+                for (const wt of game.wallPreview) {
+                    const px = wt.x * TILE - game.camera.x;
+                    const py = wt.y * TILE - game.camera.y;
+                    ctx.fillStyle = 'rgba(255,255,0,0.35)';
+                    ctx.fillRect(px, py, TILE, TILE);
+                    ctx.strokeStyle = '#ff0';
+                    ctx.lineWidth = 2;
+                    ctx.strokeRect(px, py, TILE, TILE);
+                }
+            }
+
             // Draw buildings
             game.buildings.forEach(b => b.draw(ctx, game.camera));
 
@@ -1022,6 +1191,18 @@
                 const py = p.y * TILE - game.camera.y;
                 ctx.fillStyle = '#ff0';
                 ctx.fillRect(px-2, py-2, 4, 4);
+            });
+
+            // Draw hit effects
+            game.effects.forEach(e => {
+                const px = e.x * TILE - game.camera.x;
+                const py = e.y * TILE - game.camera.y;
+                const t = Math.max(0, e.timer / e.maxTimer);
+                ctx.strokeStyle = `rgba(255,255,255,${t})`;
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.arc(px, py, 8 * (1 - t) + 2, 0, Math.PI * 2);
+                ctx.stroke();
             });
 
             // Draw selection box
@@ -1037,7 +1218,6 @@
                 ctx.fillRect(minX, minY, w, h);
             }
 
-            // Draw minimap heatmap
             drawMinimap();
         }
 
@@ -1046,7 +1226,6 @@
             mctx.fillStyle = '#222';
             mctx.fillRect(0, 0, 150, 150);
             const scale = 150 / MAP_W;
-            // Draw map base
             for (let y = 0; y < MAP_H; y++) {
                 for (let x = 0; x < MAP_W; x++) {
                     const tile = map[y][x];
@@ -1055,7 +1234,6 @@
                     mctx.fillRect(x*scale, y*scale, scale, scale);
                 }
             }
-            // Heat overlay – player units green, enemy red
             mctx.globalCompositeOperation = 'source-over';
             for (const u of game.units) {
                 mctx.fillStyle = u.owner === 0 ? '#0f0' : '#f00';
@@ -1063,10 +1241,8 @@
                 mctx.fillRect(u.x*scale - 1, u.y*scale - 1, 2, 2);
             }
             mctx.globalAlpha = 1;
-            // Hub marker
             mctx.fillStyle = '#fff';
             mctx.fillRect(game.hub.x*scale - 2, game.hub.y*scale - 2, 4, 4);
-            // Camera viewport marker
             mctx.strokeStyle = '#fff';
             mctx.lineWidth = 1;
             mctx.strokeRect(
@@ -1085,9 +1261,6 @@
         function showInterstitialAd() {
             // For web: you'd embed an ad network here.
             // For APK: Capacitor AdMob would call native interstitial.
-            // For now, just a placeholder alert.
-            // alert('Interstitial ad would show here');
-            // You can trigger a real ad library later.
         }
 
         // Start

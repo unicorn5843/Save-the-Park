@@ -17,12 +17,13 @@
         }
         #ad-banner {
             width: 100%; height: 48px;
-            background: #222;
-            color: #fff;
+            background: linear-gradient(180deg, #2a2a2a, #161616);
+            color: #ccc;
             text-align: center;
             line-height: 48px;
             font-size: 14px;
             position: fixed; bottom: 0; left: 0; z-index: 100;
+            border-top: 1px solid #444;
         }
         #rotate-overlay {
             display: none; position: fixed; inset: 0;
@@ -36,32 +37,69 @@
         canvas { display: block; }
         #ui-panel {
             position: fixed; left: 0; bottom: 48px; right: 0;
-            height: 70px; background: rgba(40,40,40,0.95);
+            height: 70px;
+            background: linear-gradient(180deg, #3a3226, #201a11);
             display: flex; align-items: center;
             padding: 5px; gap: 5px; z-index: 90;
-            border-top: 1px solid #555;
+            border-top: 2px solid #6b5a3a;
             overflow-x: auto;
         }
-        .stat { padding: 4px 8px; background: #333; border-radius: 4px; color: #ddd; font-size: 14px; white-space: nowrap; }
-        .stat span { color: #fff; font-weight: bold; }
+        .stat {
+            padding: 4px 10px;
+            background: linear-gradient(180deg, #4a3f2e, #2c2419);
+            border: 1px solid #6b5a3a;
+            border-radius: 6px;
+            color: #e8d9b0;
+            font-size: 14px;
+            white-space: nowrap;
+        }
+        .stat span { color: #ffd76a; font-weight: bold; }
         #cmd-card {
             position: fixed; bottom: 118px; left: 50%; transform: translateX(-50%);
-            display: none; background: #333; border: 1px solid #555; padding: 5px; border-radius: 6px; z-index: 100;
+            display: none;
+            background: linear-gradient(180deg, #4a3f2e, #2c2419);
+            border: 2px solid #6b5a3a; padding: 5px; border-radius: 6px; z-index: 100;
             grid-template-columns: repeat(3, 1fr); gap: 4px;
         }
-        #cmd-card button { padding: 12px; background: #444; color: #fff; border: none; border-radius: 4px; font-size: 12px; cursor: pointer; }
-        #cmd-card button:active { background: #666; }
-        #minimap { position: fixed; top: 10px; right: 10px; background: #222; border: 1px solid #555; z-index: 95; touch-action: none; }
-        #selection-info { position: fixed; top: 10px; left: 10px; color: #fff; background: rgba(0,0,0,0.6); padding: 8px; border-radius: 4px; font-size: 14px; z-index: 95; }
-        #pan-hint { position: fixed; top: 165px; right: 10px; width: 150px; text-align: center; color: #999; background: rgba(0,0,0,0.5); padding: 4px; border-radius: 4px; font-size: 10px; z-index: 95; }
+        #cmd-card button {
+            padding: 12px;
+            background: linear-gradient(180deg, #6b5a3a, #4a3f2e);
+            border: 1px solid #8a7550; border-radius: 4px;
+            color: #f0e4c0; text-shadow: 0 1px 1px rgba(0,0,0,0.5);
+            font-size: 12px; cursor: pointer;
+        }
+        #cmd-card button:active { background: linear-gradient(180deg, #4a3f2e, #6b5a3a); }
+        #minimap {
+            position: fixed; top: 10px; right: 10px;
+            background: #1a1710; border: 2px solid #6b5a3a; border-radius: 3px;
+            z-index: 95; touch-action: none;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.5);
+        }
+        #selection-info {
+            position: fixed; top: 10px; left: 10px; color: #f0e4c0;
+            background: rgba(20,15,8,0.8); border: 1px solid #6b5a3a;
+            padding: 8px; border-radius: 4px; font-size: 14px; z-index: 95;
+        }
+        #pan-hint {
+            position: fixed; top: 165px; right: 10px; width: 150px; text-align: center;
+            color: #b0a480; background: rgba(20,15,8,0.7); border: 1px solid #6b5a3a;
+            padding: 4px; border-radius: 4px; font-size: 10px; z-index: 95;
+        }
         #build-menu {
             position: fixed; bottom: 118px; right: 10px;
-            display: none; background: #333; border: 1px solid #555; padding: 5px; border-radius: 6px; z-index: 100;
+            display: none;
+            background: linear-gradient(180deg, #4a3f2e, #2c2419);
+            border: 2px solid #6b5a3a; padding: 5px; border-radius: 6px; z-index: 100;
             flex-direction: column; gap: 4px;
         }
-        #build-menu button { padding: 10px; background: #444; color: #fff; border: none; border-radius: 4px; font-size: 12px; cursor: pointer; }
-        #build-menu button:active { background: #666; }
-        #hub-health { color: #0f0; }
+        #build-menu button {
+            padding: 10px;
+            background: linear-gradient(180deg, #6b5a3a, #4a3f2e);
+            border: 1px solid #8a7550; border-radius: 4px;
+            color: #f0e4c0; text-shadow: 0 1px 1px rgba(0,0,0,0.5);
+            font-size: 12px; cursor: pointer;
+        }
+        #build-menu button:active { background: linear-gradient(180deg, #4a3f2e, #6b5a3a); }
     </style>
 </head>
 <body>
@@ -85,6 +123,7 @@
         const MAP_W = 48, MAP_H = 48, TILE = 16;
         const TILE_GRASS = 0, TILE_WATER = 1, TILE_TREE = 2, TILE_PATH = 3, TILE_HUB = 4;
         let map = [];
+        let tileCanvases = {};
         let game = {
             canvas: null, ctx: null, minimapCtx: null,
             cmdCard: null, buildMenu: null,
@@ -124,6 +163,72 @@
             tower:   { name: 'Tower',    hp: 120, size: 1, color: '#6b4a8a' },
             triage:  { name: 'Triage',   hp: 80,  size: 2, color: '#4a8ab0' }
         };
+
+        // ========== COLOR HELPER ==========
+        function lighten(hex, amt) {
+            const num = parseInt(hex.slice(1), 16);
+            let r = Math.min(255, (num >> 16) + Math.round(255 * amt));
+            let g = Math.min(255, ((num >> 8) & 0xff) + Math.round(255 * amt));
+            let b = Math.min(255, (num & 0xff) + Math.round(255 * amt));
+            return `rgb(${r},${g},${b})`;
+        }
+
+        // ========== TILE TEXTURES (baked once, then blitted — cheap & crisp) ==========
+        function buildTileTextures() {
+            function make(drawFn) {
+                const c = document.createElement('canvas');
+                c.width = TILE; c.height = TILE;
+                drawFn(c.getContext('2d'));
+                return c;
+            }
+            tileCanvases[TILE_GRASS] = make(t => {
+                const g = t.createLinearGradient(0, 0, 0, TILE);
+                g.addColorStop(0, '#5a8f38'); g.addColorStop(1, '#3f6b23');
+                t.fillStyle = g; t.fillRect(0, 0, TILE, TILE);
+                t.fillStyle = 'rgba(255,255,255,0.08)';
+                t.fillRect(2, 3, 2, 1); t.fillRect(9, 7, 2, 1); t.fillRect(5, 12, 2, 1);
+                t.fillStyle = 'rgba(0,0,0,0.1)';
+                t.fillRect(11, 2, 2, 1); t.fillRect(3, 9, 2, 1); t.fillRect(13, 13, 2, 1);
+            });
+            tileCanvases[TILE_WATER] = make(t => {
+                const g = t.createLinearGradient(0, 0, 0, TILE);
+                g.addColorStop(0, '#5fa2c9'); g.addColorStop(1, '#356e93');
+                t.fillStyle = g; t.fillRect(0, 0, TILE, TILE);
+                t.strokeStyle = 'rgba(255,255,255,0.3)'; t.lineWidth = 1;
+                t.beginPath(); t.moveTo(1, 5); t.quadraticCurveTo(8, 3, 15, 6); t.stroke();
+                t.beginPath(); t.moveTo(1, 12); t.quadraticCurveTo(8, 10, 15, 13); t.stroke();
+            });
+            tileCanvases[TILE_PATH] = make(t => {
+                const g = t.createLinearGradient(0, 0, 0, TILE);
+                g.addColorStop(0, '#d4b06a'); g.addColorStop(1, '#b58c4a');
+                t.fillStyle = g; t.fillRect(0, 0, TILE, TILE);
+                t.fillStyle = 'rgba(0,0,0,0.12)';
+                [[4,4,1.3],[11,9,1.1],[7,13,1.2],[13,3,1]].forEach(([x,y,r]) => {
+                    t.beginPath(); t.arc(x, y, r, 0, Math.PI*2); t.fill();
+                });
+            });
+            tileCanvases[TILE_HUB] = make(t => {
+                const g = t.createLinearGradient(0, 0, 0, TILE);
+                g.addColorStop(0, '#a8894f'); g.addColorStop(1, '#8a6f3a');
+                t.fillStyle = g; t.fillRect(0, 0, TILE, TILE);
+            });
+        }
+
+        function drawTree(ctx, px, py) {
+            // grass base already drawn by caller; draw trunk + canopy on top
+            ctx.fillStyle = '#4a3420';
+            ctx.fillRect(px + 7, py + 9, 2, 6);
+            ctx.beginPath();
+            ctx.fillStyle = 'rgba(0,0,0,0.18)';
+            ctx.ellipse(px + 9, py + 14, 6, 2.3, 0, 0, Math.PI * 2);
+            ctx.fill();
+            const g = ctx.createRadialGradient(px + 6, py + 5, 1, px + 8, py + 7, 7);
+            g.addColorStop(0, '#3f7a34'); g.addColorStop(1, '#1c451c');
+            ctx.fillStyle = g;
+            ctx.beginPath(); ctx.arc(px + 8, py + 7, 6.5, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = 'rgba(255,255,255,0.18)';
+            ctx.beginPath(); ctx.arc(px + 6, py + 5, 2, 0, Math.PI * 2); ctx.fill();
+        }
 
         // ========== MAP GENERATION ==========
         function generateMap() {
@@ -262,18 +367,47 @@
                 const px = this.x * TILE - cam.x;
                 const py = this.y * TILE - cam.y;
                 if (px < -30 || py < -30 || px > game.width + 30 || py > game.height + 30) return;
-                ctx.fillStyle = this.owner === 0 ? this.def.color : '#a03030';
+
+                // Drop shadow
+                ctx.beginPath();
+                ctx.fillStyle = 'rgba(0,0,0,0.3)';
+                ctx.ellipse(px, py + 5, 6, 2.3, 0, 0, Math.PI * 2);
+                ctx.fill();
+
+                const baseColor = this.owner === 0 ? this.def.color : '#a03030';
+                const grad = ctx.createRadialGradient(px - 2, py - 3, 1, px, py, 7);
+                grad.addColorStop(0, lighten(baseColor, 0.4));
+                grad.addColorStop(1, baseColor);
+                ctx.fillStyle = grad;
                 ctx.beginPath();
                 ctx.arc(px, py, 6, 0, Math.PI*2);
                 ctx.fill();
-                ctx.strokeStyle = this.selected ? '#ff0' : '#000';
+                ctx.strokeStyle = this.selected ? '#ff0' : 'rgba(0,0,0,0.6)';
                 ctx.lineWidth = this.selected ? 2 : 1;
                 ctx.stroke();
+
+                // Type marker so silhouettes read differently at a glance
+                ctx.strokeStyle = 'rgba(255,255,255,0.9)';
+                ctx.lineWidth = 1.3;
+                ctx.beginPath();
+                if (this.type === 'sword') {
+                    ctx.moveTo(px - 3, py + 3); ctx.lineTo(px + 3, py - 3);
+                } else if (this.type === 'spear') {
+                    ctx.moveTo(px - 4, py + 4); ctx.lineTo(px + 4, py - 4);
+                } else if (this.type === 'archer') {
+                    ctx.arc(px, py, 4, -0.9, 0.9);
+                } else if (this.type === 'builder') {
+                    ctx.moveTo(px - 3, py - 3); ctx.lineTo(px + 3, py + 3);
+                    ctx.moveTo(px + 3, py - 3); ctx.lineTo(px - 3, py + 3);
+                }
+                ctx.stroke();
+
                 // HP bar
-                ctx.fillStyle = 'red';
-                ctx.fillRect(px-6, py-9, 12, 2);
-                ctx.fillStyle = 'green';
-                ctx.fillRect(px-6, py-9, 12 * (this.hp/this.maxHp), 2);
+                ctx.fillStyle = 'rgba(0,0,0,0.5)';
+                ctx.fillRect(px - 7, py - 10, 14, 3);
+                const pct = this.hp / this.maxHp;
+                ctx.fillStyle = pct > 0.5 ? '#4caf50' : (pct > 0.25 ? '#ffb300' : '#e53935');
+                ctx.fillRect(px - 6, py - 9.5, 12 * pct, 2);
             }
         }
 
@@ -321,22 +455,48 @@
             draw(ctx, cam) {
                 const px = this.x * TILE - cam.x;
                 const py = this.y * TILE - cam.y;
+                const s = this.size * TILE;
                 if (px < -80 || py < -80 || px > game.width + 80 || py > game.height + 80) return;
-                ctx.fillStyle = this.owner === 0 ? this.def.color : '#a05050';
-                ctx.fillRect(px, py, this.size*TILE, this.size*TILE);
-                ctx.strokeStyle = '#000';
-                ctx.strokeRect(px, py, this.size*TILE, this.size*TILE);
+
+                // Drop shadow
+                ctx.fillStyle = 'rgba(0,0,0,0.25)';
+                ctx.fillRect(px + 3, py + 3, s, s);
+
+                const baseColor = this.owner === 0 ? this.def.color : '#a05050';
+                const g = ctx.createLinearGradient(px, py, px, py + s);
+                g.addColorStop(0, lighten(baseColor, 0.25));
+                g.addColorStop(1, baseColor);
+                ctx.fillStyle = g;
+                ctx.fillRect(px, py, s, s);
+
+                // Bevel: light top-left edge, dark bottom-right edge, for a pseudo-3D block look
+                ctx.strokeStyle = 'rgba(255,255,255,0.35)';
+                ctx.lineWidth = 1.5;
+                ctx.beginPath();
+                ctx.moveTo(px + 1, py + s - 1); ctx.lineTo(px + 1, py + 1); ctx.lineTo(px + s - 1, py + 1);
+                ctx.stroke();
+                ctx.strokeStyle = 'rgba(0,0,0,0.35)';
+                ctx.beginPath();
+                ctx.moveTo(px + s - 1, py + 1); ctx.lineTo(px + s - 1, py + s - 1); ctx.lineTo(px + 1, py + s - 1);
+                ctx.stroke();
+
+                ctx.strokeStyle = 'rgba(0,0,0,0.5)';
+                ctx.lineWidth = 1;
+                ctx.strokeRect(px, py, s, s);
+
                 // Icon
                 ctx.fillStyle = '#fff';
-                ctx.font = '10px monospace';
+                ctx.font = Math.max(10, s * 0.3) + 'px monospace';
                 ctx.textAlign = 'center';
                 const icons = { hub: '🏛', wall: '▬', tower: '🗼', triage: '⛑' };
-                ctx.fillText(icons[this.type] || '?', px + (this.size*TILE)/2, py + (this.size*TILE)/2 + 4);
+                ctx.fillText(icons[this.type] || '?', px + s/2, py + s/2 + 4);
+
                 // HP bar
-                ctx.fillStyle = 'red';
-                ctx.fillRect(px, py-3, this.size*TILE, 2);
-                ctx.fillStyle = 'green';
-                ctx.fillRect(px, py-3, this.size*TILE * (this.hp/this.maxHp), 2);
+                ctx.fillStyle = 'rgba(0,0,0,0.5)';
+                ctx.fillRect(px, py - 4, s, 3);
+                const pct = this.hp / this.maxHp;
+                ctx.fillStyle = pct > 0.5 ? '#4caf50' : (pct > 0.25 ? '#ffb300' : '#e53935');
+                ctx.fillRect(px, py - 3.5, s * pct, 2);
             }
         }
 
@@ -348,9 +508,10 @@
             game.minimapCtx = document.getElementById('minimap').getContext('2d');
             game.cmdCard = document.getElementById('cmd-card');
             game.buildMenu = document.getElementById('build-menu');
-            game.width = canvas.width = window.innerWidth;
-            game.height = canvas.height = window.innerHeight - 48 - 70;
-            document.body.style.height = window.innerHeight + 'px';
+
+            buildTileTextures();
+            setupMinimapDPR();
+            resizeCanvas();
 
             generateMap();
             // Place hub
@@ -381,7 +542,36 @@
             clampCamera();
 
             setupEvents();
+            window.addEventListener('resize', resizeCanvas);
+            window.addEventListener('orientationchange', () => setTimeout(resizeCanvas, 300));
             requestAnimationFrame(loop);
+        }
+
+        // ========== CANVAS SIZING (fixes blur + fit issues on mobile) ==========
+        function resizeCanvas() {
+            const dpr = window.devicePixelRatio || 1;
+            game.width = window.innerWidth;
+            game.height = window.innerHeight - 48 - 70;
+            document.body.style.height = window.innerHeight + 'px';
+
+            const canvas = game.canvas;
+            canvas.width = Math.round(game.width * dpr);
+            canvas.height = Math.round(game.height * dpr);
+            canvas.style.width = game.width + 'px';
+            canvas.style.height = game.height + 'px';
+            game.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+            clampCamera();
+        }
+
+        function setupMinimapDPR() {
+            const dpr = window.devicePixelRatio || 1;
+            const mm = document.getElementById('minimap');
+            mm.width = 150 * dpr;
+            mm.height = 150 * dpr;
+            mm.style.width = '150px';
+            mm.style.height = '150px';
+            game.minimapCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
         }
 
         // ========== CAMERA ==========
@@ -804,25 +994,18 @@
             ctx.fillStyle = '#000';
             ctx.fillRect(0, 0, game.width, game.height);
 
-            // Draw map
+            // Draw map (baked textures, blitted — sharp and cheap)
             for (let y = 0; y < MAP_H; y++) {
                 for (let x = 0; x < MAP_W; x++) {
                     const px = x * TILE - game.camera.x;
                     const py = y * TILE - game.camera.y;
                     if (px < -TILE || py < -TILE || px > game.width + TILE || py > game.height + TILE) continue;
                     const tile = map[y][x];
-                    const colors = {
-                        [TILE_GRASS]: '#4a7c2e',
-                        [TILE_WATER]: '#4a8ab0',
-                        [TILE_TREE]: '#2e5c2e',
-                        [TILE_PATH]: '#c4a35a',
-                        [TILE_HUB]: '#8a6f3a'
-                    };
-                    ctx.fillStyle = colors[tile] || '#000';
-                    ctx.fillRect(px, py, TILE, TILE);
                     if (tile === TILE_TREE) {
-                        ctx.fillStyle = '#1e4c1e';
-                        ctx.fillRect(px+4, py+4, 8, 8);
+                        ctx.drawImage(tileCanvases[TILE_GRASS], px, py);
+                        drawTree(ctx, px, py);
+                    } else {
+                        ctx.drawImage(tileCanvases[tile], px, py);
                     }
                 }
             }

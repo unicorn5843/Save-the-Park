@@ -1,1 +1,914 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Park Defense</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html, body {
+            width: 100%; height: 100%;
+            overflow: hidden;
+            background: #000;
+            font-family: monospace;
+            touch-action: none;
+            position: fixed;
+            overscroll-behavior: none;
+        }
+        #ad-banner {
+            width: 100%; height: 48px;
+            background: #222;
+            color: #fff;
+            text-align: center;
+            line-height: 48px;
+            font-size: 14px;
+            position: fixed; bottom: 0; left: 0; z-index: 100;
+        }
+        #rotate-overlay {
+            display: none; position: fixed; inset: 0;
+            background: #000; color: #fff;
+            text-align: center; padding-top: 40%; font-size: 24px;
+            z-index: 999;
+        }
+        @media (orientation: portrait) {
+            #rotate-overlay { display: block; }
+        }
+        canvas { display: block; }
+        #ui-panel {
+            position: fixed; left: 0; bottom: 48px; right: 0;
+            height: 70px; background: rgba(40,40,40,0.95);
+            display: flex; align-items: center;
+            padding: 5px; gap: 5px; z-index: 90;
+            border-top: 1px solid #555;
+            overflow-x: auto;
+        }
+        .stat { padding: 4px 8px; background: #333; border-radius: 4px; color: #ddd; font-size: 14px; white-space: nowrap; }
+        .stat span { color: #fff; font-weight: bold; }
+        #cmd-card {
+            position: fixed; bottom: 118px; left: 50%; transform: translateX(-50%);
+            display: none; background: #333; border: 1px solid #555; padding: 5px; border-radius: 6px; z-index: 100;
+            grid-template-columns: repeat(3, 1fr); gap: 4px;
+        }
+        #cmd-card button { padding: 12px; background: #444; color: #fff; border: none; border-radius: 4px; font-size: 12px; cursor: pointer; }
+        #cmd-card button:active { background: #666; }
+        #minimap { position: fixed; top: 10px; right: 10px; background: #222; border: 1px solid #555; z-index: 95; touch-action: none; }
+        #selection-info { position: fixed; top: 10px; left: 10px; color: #fff; background: rgba(0,0,0,0.6); padding: 8px; border-radius: 4px; font-size: 14px; z-index: 95; }
+        #pan-hint { position: fixed; top: 165px; right: 10px; width: 150px; text-align: center; color: #999; background: rgba(0,0,0,0.5); padding: 4px; border-radius: 4px; font-size: 10px; z-index: 95; }
+        #build-menu {
+            position: fixed; bottom: 118px; right: 10px;
+            display: none; background: #333; border: 1px solid #555; padding: 5px; border-radius: 6px; z-index: 100;
+            flex-direction: column; gap: 4px;
+        }
+        #build-menu button { padding: 10px; background: #444; color: #fff; border: none; border-radius: 4px; font-size: 12px; cursor: pointer; }
+        #build-menu button:active { background: #666; }
+        #hub-health { color: #0f0; }
+    </style>
+</head>
+<body>
+    <div id="rotate-overlay">Please rotate your device to landscape!</div>
+    <canvas id="game"></canvas>
+    <canvas id="minimap" width="150" height="150"></canvas>
+    <div id="pan-hint">Tap minimap to jump camera · 2-finger drag to pan</div>
+    <div id="selection-info">No selection</div>
+    <div id="ui-panel">
+        <div class="stat">❤️ <span id="hub-hp">100</span></div>
+        <div class="stat">👥 <span id="unit-count">0/20</span></div>
+        <div class="stat">🌊 <span id="wave">1</span></div>
+        <div class="stat">💀 <span id="kills">0</span></div>
+    </div>
+    <div id="cmd-card"></div>
+    <div id="build-menu"></div>
+    <div id="ad-banner">AD SPACE – replace with your ad code</div>
 
+    <script>
+        // ========== GAME STATE ==========
+        const MAP_W = 48, MAP_H = 48, TILE = 16;
+        const TILE_GRASS = 0, TILE_WATER = 1, TILE_TREE = 2, TILE_PATH = 3, TILE_HUB = 4;
+        let map = [];
+        let game = {
+            canvas: null, ctx: null, minimapCtx: null,
+            cmdCard: null, buildMenu: null,
+            width: 0, height: 0,
+            units: [], buildings: [], projectiles: [],
+            hub: null, // central building (also in buildings array)
+            selected: [],
+            camera: { x: 0, y: 0 },
+            mouse: { down: false, startX: 0, startY: 0, curX: 0, curY: 0 },
+            panning: false, panStart: null,
+            queue: [], // training queue of unit types (strings)
+            queueTimer: 0,
+            spawnInterval: 3, // seconds per unit from queue
+            waveNumber: 1,
+            waveTimer: 3,
+            kills: 0,
+            lastTime: 0,
+            isBuildMode: false,
+            buildType: null,
+            maxUnits: 20,
+            unitCount: 0
+        };
+
+        // ========== UNIT DEFINITIONS ==========
+        // Ranges are in map tiles (same scale buildings/towers use).
+        const UNIT_TYPES = {
+            sword:  { name: 'Sword',  hp: 80, attack: 10, range: 12, speed: 45, trainTime: 10, color: '#8b6f3a' },
+            spear:  { name: 'Spear',  hp: 60, attack: 8,  range: 10, speed: 55, trainTime: 7,  color: '#6a5a3a' },
+            archer: { name: 'Archer', hp: 40, attack: 14, range: 20, speed: 40, trainTime: 12, color: '#4a7c2e' },
+            builder:{ name: 'Builder',hp: 50, attack: 3,  range: 8,  speed: 40, trainTime: 15, color: '#7a7a7a' }
+        };
+
+        // ========== BUILDING DEFINITIONS ==========
+        const BUILDING_TYPES = {
+            hub:     { name: 'Hub',      hp: 300, size: 3, color: '#c4a35a' },
+            wall:    { name: 'Wall',     hp: 150, size: 1, color: '#8a8a8a' },
+            tower:   { name: 'Tower',    hp: 120, size: 1, color: '#6b4a8a' },
+            triage:  { name: 'Triage',   hp: 80,  size: 2, color: '#4a8ab0' }
+        };
+
+        // ========== MAP GENERATION ==========
+        function generateMap() {
+            map = [];
+            for (let y = 0; y < MAP_H; y++) {
+                let row = [];
+                for (let x = 0; x < MAP_W; x++) {
+                    // Create irregular park outline: mostly grass, edges are water/trees
+                    let tile = TILE_GRASS;
+                    // Left side water (lake)
+                    if (x < 6 && y > 8 && y < 38) tile = TILE_WATER;
+                    // Right side trees
+                    if (x > 38 && y > 5 && y < 42) tile = TILE_TREE;
+                    // Top trees
+                    if (y < 5 && x > 8 && x < 40) tile = TILE_TREE;
+                    // Bottom water/river
+                    if (y > 42 && x > 10 && x < 35) tile = TILE_WATER;
+                    // A few internal trees
+                    if (Math.random() < 0.05 && (x > 10 && x < 38 && y > 10 && y < 38)) tile = TILE_TREE;
+                    // Paths – horizontal and vertical lines connecting entrances
+                    if (y === 24 || x === 24) tile = TILE_PATH;
+                    row.push(tile);
+                }
+                map.push(row);
+            }
+            // Place hub at center
+            const hx = Math.floor(MAP_W / 2) - 1;
+            const hy = Math.floor(MAP_H / 2) - 1;
+            for (let dy = 0; dy < 3; dy++)
+                for (let dx = 0; dx < 3; dx++)
+                    map[hy + dy][hx + dx] = TILE_HUB;
+        }
+
+        // ========== CLASSES ==========
+        class Unit {
+            constructor(type, x, y, owner) {
+                this.type = type;
+                this.def = UNIT_TYPES[type];
+                this.x = x; this.y = y;
+                this.owner = owner; // 0 = player, 1 = enemy
+                this.hp = this.def.hp;
+                this.maxHp = this.def.hp;
+                this.attack = this.def.attack;
+                this.range = this.def.range;
+                this.speed = this.def.speed;
+                this.targetX = x; this.targetY = y;
+                this.selected = false;
+                this.targetUnit = null;
+                this.targetBuilding = null;
+                this.buildMode = false;
+                this.buildType = null;
+                this.repairTarget = null;
+            }
+            update(dt) {
+                // Move toward target
+                const dx = this.targetX - this.x;
+                const dy = this.targetY - this.y;
+                const dist = Math.sqrt(dx*dx + dy*dy);
+                if (dist > 1) {
+                    this.x += (dx/dist) * this.speed * dt;
+                    this.y += (dy/dist) * this.speed * dt;
+                }
+                // Auto-attack — applies to BOTH sides, so enemies actually fight back.
+                if (!this.buildMode) {
+                    let target = null, isBuilding = false;
+                    // Honor a player-issued attack order first, as long as it's still alive
+                    if (this.targetUnit && this.targetUnit.hp > 0) {
+                        target = this.targetUnit; isBuilding = false;
+                    } else if (this.targetBuilding && this.targetBuilding.hp > 0) {
+                        target = this.targetBuilding; isBuilding = true;
+                    } else {
+                        this.targetUnit = null;
+                        this.targetBuilding = null;
+                        // Auto-acquire nearest opposing unit in range
+                        let nearest = null, nd = Infinity;
+                        for (const u of game.units) {
+                            if (u.owner !== this.owner) {
+                                const d = Math.sqrt((u.x - this.x)**2 + (u.y - this.y)**2);
+                                if (d < this.range && d < nd) { nd = d; nearest = u; }
+                            }
+                        }
+                        if (nearest) {
+                            target = nearest; isBuilding = false;
+                        } else {
+                            // Fall back to nearest opposing building in range
+                            let nearestB = null, nbd = Infinity;
+                            for (const b of game.buildings) {
+                                if (b.owner !== this.owner) {
+                                    const bx = b.x + b.size/2, by = b.y + b.size/2;
+                                    const d = Math.sqrt((bx - this.x)**2 + (by - this.y)**2);
+                                    if (d < this.range && d < nbd) { nbd = d; nearestB = b; }
+                                }
+                            }
+                            if (nearestB) { target = nearestB; isBuilding = true; }
+                        }
+                    }
+                    if (target) {
+                        const tx = isBuilding ? target.x + target.size/2 : target.x;
+                        const ty = isBuilding ? target.y + target.size/2 : target.y;
+                        const d = Math.sqrt((tx - this.x)**2 + (ty - this.y)**2);
+                        this.targetX = tx;
+                        this.targetY = ty;
+                        if (d < this.range + 1) {
+                            target.hp -= this.attack * dt;
+                        }
+                    }
+                }
+                // Builder repair: find nearby damaged friendly building
+                if (this.type === 'builder' && this.owner === 0 && !this.buildMode) {
+                    if (!this.repairTarget || this.repairTarget.hp >= this.repairTarget.maxHp) {
+                        let best = null, bd = Infinity;
+                        for (const b of game.buildings) {
+                            if (b.owner === 0 && b.hp < b.maxHp) {
+                                const bx = b.x + b.size/2, by = b.y + b.size/2;
+                                const d = Math.sqrt((bx - this.x)**2 + (by - this.y)**2);
+                                if (d < 20 && d < bd) { bd = d; best = b; }
+                            }
+                        }
+                        this.repairTarget = best;
+                    }
+                    if (this.repairTarget) {
+                        this.targetX = this.repairTarget.x + this.repairTarget.size/2;
+                        this.targetY = this.repairTarget.y + this.repairTarget.size/2;
+                        const bx = this.repairTarget.x + this.repairTarget.size/2;
+                        const by = this.repairTarget.y + this.repairTarget.size/2;
+                        const dist2 = Math.sqrt((bx - this.x)**2 + (by - this.y)**2);
+                        if (dist2 < 5) {
+                            this.repairTarget.hp += 10 * dt;
+                            if (this.repairTarget.hp > this.repairTarget.maxHp) this.repairTarget.hp = this.repairTarget.maxHp;
+                        }
+                    }
+                }
+                // If dead, remove (handled in update loop)
+            }
+            draw(ctx, cam) {
+                const px = this.x * TILE - cam.x;
+                const py = this.y * TILE - cam.y;
+                if (px < -30 || py < -30 || px > game.width + 30 || py > game.height + 30) return;
+                ctx.fillStyle = this.owner === 0 ? this.def.color : '#a03030';
+                ctx.beginPath();
+                ctx.arc(px, py, 6, 0, Math.PI*2);
+                ctx.fill();
+                ctx.strokeStyle = this.selected ? '#ff0' : '#000';
+                ctx.lineWidth = this.selected ? 2 : 1;
+                ctx.stroke();
+                // HP bar
+                ctx.fillStyle = 'red';
+                ctx.fillRect(px-6, py-9, 12, 2);
+                ctx.fillStyle = 'green';
+                ctx.fillRect(px-6, py-9, 12 * (this.hp/this.maxHp), 2);
+            }
+        }
+
+        class Building {
+            constructor(type, x, y, owner) {
+                this.type = type;
+                this.def = BUILDING_TYPES[type];
+                this.x = x; this.y = y;
+                this.owner = owner;
+                this.hp = this.def.hp;
+                this.maxHp = this.def.hp;
+                this.size = this.def.size;
+                this.cooldown = 0;
+            }
+            update(dt) {
+                // Tower auto-attack
+                if (this.type === 'tower' && this.cooldown <= 0) {
+                    let target = null, td = Infinity;
+                    for (const u of game.units) {
+                        if (u.owner !== this.owner) {
+                            const d = Math.sqrt((u.x - this.x)**2 + (u.y - this.y)**2);
+                            if (d < 8 && d < td) { td = d; target = u; }
+                        }
+                    }
+                    if (target) {
+                        game.projectiles.push({
+                            x: this.x, y: this.y,
+                            target: target,
+                            speed: 120
+                        });
+                        this.cooldown = 0.8;
+                    }
+                }
+                // Triage healing
+                if (this.type === 'triage') {
+                    for (const u of game.units) {
+                        if (u.owner === this.owner) {
+                            const d = Math.sqrt((u.x - this.x)**2 + (u.y - this.y)**2);
+                            if (d < 6 && u.hp < u.maxHp) u.hp += 5 * dt;
+                        }
+                    }
+                }
+                if (this.cooldown > 0) this.cooldown -= dt;
+            }
+            draw(ctx, cam) {
+                const px = this.x * TILE - cam.x;
+                const py = this.y * TILE - cam.y;
+                if (px < -80 || py < -80 || px > game.width + 80 || py > game.height + 80) return;
+                ctx.fillStyle = this.owner === 0 ? this.def.color : '#a05050';
+                ctx.fillRect(px, py, this.size*TILE, this.size*TILE);
+                ctx.strokeStyle = '#000';
+                ctx.strokeRect(px, py, this.size*TILE, this.size*TILE);
+                // Icon
+                ctx.fillStyle = '#fff';
+                ctx.font = '10px monospace';
+                ctx.textAlign = 'center';
+                const icons = { hub: '🏛', wall: '▬', tower: '🗼', triage: '⛑' };
+                ctx.fillText(icons[this.type] || '?', px + (this.size*TILE)/2, py + (this.size*TILE)/2 + 4);
+                // HP bar
+                ctx.fillStyle = 'red';
+                ctx.fillRect(px, py-3, this.size*TILE, 2);
+                ctx.fillStyle = 'green';
+                ctx.fillRect(px, py-3, this.size*TILE * (this.hp/this.maxHp), 2);
+            }
+        }
+
+        // ========== GAME INIT ==========
+        function init() {
+            const canvas = document.getElementById('game');
+            game.canvas = canvas;
+            game.ctx = canvas.getContext('2d');
+            game.minimapCtx = document.getElementById('minimap').getContext('2d');
+            game.cmdCard = document.getElementById('cmd-card');
+            game.buildMenu = document.getElementById('build-menu');
+            game.width = canvas.width = window.innerWidth;
+            game.height = canvas.height = window.innerHeight - 48 - 70;
+            document.body.style.height = window.innerHeight + 'px';
+
+            generateMap();
+            // Place hub
+            const hx = Math.floor(MAP_W/2) - 1;
+            const hy = Math.floor(MAP_H/2) - 1;
+            game.hub = new Building('hub', hx, hy, 0);
+            game.buildings.push(game.hub);
+
+            // Start units
+            const startPos = [
+                { x: hx + 5, y: hy + 2, type: 'sword' },
+                { x: hx + 4, y: hy + 3, type: 'sword' },
+                { x: hx + 5, y: hy + 4, type: 'spear' },
+                { x: hx + 6, y: hy + 4, type: 'spear' },
+                { x: hx + 6, y: hy + 2, type: 'archer' },
+                { x: hx + 7, y: hy + 3, type: 'archer' },
+                { x: hx + 3, y: hy + 2, type: 'builder' },
+                { x: hx + 3, y: hy + 3, type: 'builder' }
+            ];
+            for (const s of startPos) {
+                game.units.push(new Unit(s.type, s.x, s.y, 0));
+            }
+            game.unitCount = game.units.length;
+
+            // Camera at hub
+            game.camera.x = hx * TILE - game.width/2;
+            game.camera.y = hy * TILE - game.height/2;
+            clampCamera();
+
+            setupEvents();
+            requestAnimationFrame(loop);
+        }
+
+        // ========== CAMERA ==========
+        function clampCamera() {
+            const maxX = Math.max(0, MAP_W * TILE - game.width);
+            const maxY = Math.max(0, MAP_H * TILE - game.height);
+            game.camera.x = Math.max(0, Math.min(game.camera.x, maxX));
+            game.camera.y = Math.max(0, Math.min(game.camera.y, maxY));
+        }
+
+        // ========== INPUT ==========
+        function setupEvents() {
+            const c = game.canvas;
+
+            c.addEventListener('touchstart', e => {
+                e.preventDefault();
+                if (e.touches.length === 2) {
+                    // Two fingers = pan the camera, cancel any single-finger action
+                    game.panning = true;
+                    game.mouse.down = false;
+                    const t1 = e.touches[0], t2 = e.touches[1];
+                    game.panStart = {
+                        x: (t1.clientX + t2.clientX) / 2,
+                        y: (t1.clientY + t2.clientY) / 2,
+                        camX: game.camera.x,
+                        camY: game.camera.y
+                    };
+                } else if (e.touches.length === 1) {
+                    game.panning = false;
+                    startInput(e.touches[0].clientX, e.touches[0].clientY);
+                }
+            }, {passive:false});
+
+            c.addEventListener('touchmove', e => {
+                e.preventDefault();
+                if (game.panning && e.touches.length === 2) {
+                    const t1 = e.touches[0], t2 = e.touches[1];
+                    const midX = (t1.clientX + t2.clientX) / 2;
+                    const midY = (t1.clientY + t2.clientY) / 2;
+                    game.camera.x = game.panStart.camX - (midX - game.panStart.x);
+                    game.camera.y = game.panStart.camY - (midY - game.panStart.y);
+                    clampCamera();
+                } else if (!game.panning && e.touches.length === 1) {
+                    moveInput(e.touches[0].clientX, e.touches[0].clientY);
+                }
+            }, {passive:false});
+
+            c.addEventListener('touchend', e => {
+                e.preventDefault();
+                if (e.touches.length < 2) game.panning = false;
+                if (!game.panning) endInput();
+            }, {passive:false});
+
+            c.addEventListener('mousedown', e => startInput(e.clientX, e.clientY));
+            c.addEventListener('mousemove', e => moveInput(e.clientX, e.clientY));
+            c.addEventListener('mouseup', e => endInput());
+            c.addEventListener('contextmenu', e => e.preventDefault());
+
+            // Tap/click the minimap to jump the camera there
+            const minimap = document.getElementById('minimap');
+            const jumpCameraTo = (clientX, clientY) => {
+                const rect = minimap.getBoundingClientRect();
+                const mx = clientX - rect.left;
+                const my = clientY - rect.top;
+                const scale = 150 / MAP_W;
+                const worldX = mx / scale;
+                const worldY = my / scale;
+                game.camera.x = worldX * TILE - game.width / 2;
+                game.camera.y = worldY * TILE - game.height / 2;
+                clampCamera();
+            };
+            minimap.addEventListener('touchstart', e => {
+                e.preventDefault();
+                e.stopPropagation();
+                jumpCameraTo(e.touches[0].clientX, e.touches[0].clientY);
+            }, {passive:false});
+            minimap.addEventListener('mousedown', e => {
+                e.stopPropagation();
+                jumpCameraTo(e.clientX, e.clientY);
+            });
+        }
+
+        function startInput(x, y) {
+            game.mouse.down = true;
+            game.mouse.startX = x; game.mouse.startY = y;
+            game.mouse.curX = x; game.mouse.curY = y;
+        }
+
+        function moveInput(x, y) {
+            if (!game.mouse.down) return;
+            game.mouse.curX = x; game.mouse.curY = y;
+        }
+
+        function endInput() {
+            if (!game.mouse.down) return;
+            game.mouse.down = false;
+            const dx = game.mouse.curX - game.mouse.startX;
+            const dy = game.mouse.curY - game.mouse.startY;
+            const dist = Math.sqrt(dx*dx + dy*dy);
+            if (dist < 10) {
+                handleTap(game.mouse.curX, game.mouse.curY);
+            } else {
+                // Box select
+                const minX = Math.min(game.mouse.startX, game.mouse.curX) + game.camera.x;
+                const maxX = Math.max(game.mouse.startX, game.mouse.curX) + game.camera.x;
+                const minY = Math.min(game.mouse.startY, game.mouse.curY) + game.camera.y;
+                const maxY = Math.max(game.mouse.startY, game.mouse.curY) + game.camera.y;
+                game.selected = game.units.filter(u => u.owner === 0 && u.x*TILE >= minX && u.x*TILE <= maxX && u.y*TILE >= minY && u.y*TILE <= maxY);
+                updateSelectionUI();
+            }
+        }
+
+        function handleTap(sx, sy) {
+            const wx = (sx + game.camera.x) / TILE;
+            const wy = (sy + game.camera.y) / TILE;
+
+            // If build mode active
+            if (game.isBuildMode && game.buildType) {
+                // Find a selected builder
+                const builder = game.selected.find(u => u.type === 'builder');
+                if (builder) {
+                    const bx = Math.floor(wx);
+                    const by = Math.floor(wy);
+                    // Check tile is buildable (grass or path)
+                    if (isBuildable(bx, by, game.buildType)) {
+                        game.buildings.push(new Building(game.buildType, bx, by, 0));
+                        game.isBuildMode = false;
+                        game.buildType = null;
+                        updateBuildMenu();
+                        return;
+                    } else {
+                        // Not buildable – cancel or show error
+                        // For simplicity, just cancel
+                        game.isBuildMode = false;
+                        game.buildType = null;
+                        updateBuildMenu();
+                        return;
+                    }
+                }
+            }
+
+            // Select units/buildings
+            let found = null;
+            for (const u of game.units) {
+                const d = Math.sqrt((u.x - wx)**2 + (u.y - wy)**2);
+                if (d < 1) { found = u; break; }
+            }
+            if (!found) {
+                for (const b of game.buildings) {
+                    if (wx >= b.x && wx < b.x + b.size && wy >= b.y && wy < b.y + b.size) {
+                        found = b;
+                        break;
+                    }
+                }
+            }
+
+            if (found && found.owner === 0) {
+                // Select player unit/building
+                game.selected = [found];
+                updateSelectionUI();
+            } else if (found && found.owner === 1) {
+                // Attack enemy
+                const selUnits = game.selected.filter(u => u instanceof Unit && u.owner === 0 && u.type !== 'builder');
+                for (const u of selUnits) {
+                    if (found instanceof Unit) {
+                        u.targetUnit = found;
+                        u.targetBuilding = null;
+                        u.targetX = found.x; u.targetY = found.y;
+                    } else {
+                        u.targetBuilding = found;
+                        u.targetUnit = null;
+                        u.targetX = found.x + found.size/2;
+                        u.targetY = found.y + found.size/2;
+                    }
+                }
+            } else {
+                // Move selected units
+                const selUnits = game.selected.filter(u => u instanceof Unit && u.owner === 0);
+                for (const u of selUnits) {
+                    if (u.type === 'builder' && game.isBuildMode) continue; // build mode handled above
+                    u.targetX = wx; u.targetY = wy;
+                    u.targetUnit = null;
+                    u.targetBuilding = null;
+                }
+            }
+        }
+
+        function isBuildable(x, y, type) {
+            if (x < 0 || y < 0 || x >= MAP_W || y >= MAP_H) return false;
+            const tile = map[y][x];
+            if (tile === TILE_WATER || tile === TILE_TREE) return false;
+            // Hub area can't build on it
+            if (tile === TILE_HUB) return false;
+            // Check no building already there
+            for (const b of game.buildings) {
+                if (x >= b.x && x < b.x + b.size && y >= b.y && y < b.y + b.size) return false;
+            }
+            return true;
+        }
+
+        // ========== UI ==========
+        function updateSelectionUI() {
+            const sel = game.selected;
+            const info = document.getElementById('selection-info');
+            if (sel.length === 0) {
+                info.textContent = 'No selection';
+                game.cmdCard.style.display = 'none';
+                game.buildMenu.style.display = 'none';
+                return;
+            }
+            if (sel.length === 1 && sel[0] instanceof Unit && sel[0].type === 'builder') {
+                info.textContent = 'Builder selected';
+                showBuildMenu();
+                game.cmdCard.style.display = 'none';
+                return;
+            }
+            if (sel.length === 1 && sel[0] instanceof Building && sel[0].type === 'hub') {
+                info.textContent = 'Hub – Tap unit to train';
+                showHubMenu();
+                game.buildMenu.style.display = 'none';
+                return;
+            }
+            if (sel.length > 0 && sel[0] instanceof Unit) {
+                info.textContent = sel.length + ' unit(s) selected';
+                game.buildMenu.style.display = 'none';
+                showUnitCommands();
+                return;
+            }
+            info.textContent = 'Building selected';
+            game.buildMenu.style.display = 'none';
+            game.cmdCard.style.display = 'none';
+        }
+
+        function showUnitCommands() {
+            const card = document.getElementById('cmd-card');
+            card.style.display = 'grid';
+            card.innerHTML = '';
+            // Simple commands – could add "stop" / "attack move" later
+            const btn = document.createElement('button');
+            btn.textContent = 'Stop';
+            btn.onclick = () => { game.selected.forEach(u => { u.targetX = u.x; u.targetY = u.y; u.targetUnit = null; u.targetBuilding = null; }); };
+            card.appendChild(btn);
+        }
+
+        function showHubMenu() {
+            const card = document.getElementById('cmd-card');
+            card.style.display = 'grid';
+            card.innerHTML = '';
+            const types = ['sword', 'spear', 'archer', 'builder'];
+            types.forEach(t => {
+                const btn = document.createElement('button');
+                btn.textContent = UNIT_TYPES[t].name + ' (' + UNIT_TYPES[t].trainTime + 's)';
+                btn.onclick = () => {
+                    if (game.unitCount >= game.maxUnits) {
+                        alert('Unit limit reached! Kill a unit to free a slot.');
+                        return;
+                    }
+                    game.queue.push(t);
+                    game.queueTimer = game.queueTimer || 0; // reset
+                    updateHubUI();
+                };
+                card.appendChild(btn);
+            });
+        }
+
+        function showBuildMenu() {
+            updateBuildMenu();
+            game.buildMenu.style.display = 'flex';
+        }
+
+        function updateBuildMenu() {
+            // Re-render build menu with selected state
+            const menu = game.buildMenu;
+            menu.innerHTML = '';
+            const types = ['wall', 'tower', 'triage'];
+            types.forEach(t => {
+                const btn = document.createElement('button');
+                btn.textContent = BUILDING_TYPES[t].name;
+                btn.onclick = () => {
+                    game.isBuildMode = true;
+                    game.buildType = t;
+                    updateBuildMenu();
+                };
+                if (game.isBuildMode && game.buildType === t) btn.style.background = '#664';
+                menu.appendChild(btn);
+            });
+            const cancelBtn = document.createElement('button');
+            cancelBtn.textContent = 'Cancel';
+            cancelBtn.onclick = () => { game.isBuildMode = false; game.buildType = null; updateBuildMenu(); };
+            menu.appendChild(cancelBtn);
+        }
+
+        function updateHubUI() {
+            // Update queue display in selection info
+            const info = document.getElementById('selection-info');
+            let q = 'Hub – Queue: ';
+            if (game.queue.length === 0) q += 'empty';
+            else q += game.queue.map(t => UNIT_TYPES[t].name[0]).join(', ');
+            info.textContent = q;
+        }
+
+        function updateStats() {
+            document.getElementById('hub-hp').textContent = Math.ceil(game.hub.hp);
+            document.getElementById('unit-count').textContent = game.unitCount + '/' + game.maxUnits;
+            document.getElementById('wave').textContent = game.waveNumber;
+            document.getElementById('kills').textContent = game.kills;
+        }
+
+        // ========== TRAINING & SPAWN ==========
+        function updateTraining(dt) {
+            if (game.queue.length > 0) {
+                game.queueTimer += dt;
+                const type = game.queue[0];
+                if (game.queueTimer >= UNIT_TYPES[type].trainTime) {
+                    game.queue.shift();
+                    game.queueTimer = 0;
+                    // Spawn near hub
+                    const hx = game.hub.x + 4, hy = game.hub.y + 4;
+                    game.units.push(new Unit(type, hx, hy, 0));
+                    game.unitCount = game.units.length;
+                    updateHubUI();
+                }
+            } else {
+                game.queueTimer = 0;
+            }
+        }
+
+        // ========== ENEMY WAVES ==========
+        function updateWaves(dt) {
+            game.waveTimer -= dt;
+            if (game.waveTimer <= 0) {
+                // Spawn wave
+                const entrances = [
+                    { x: 2, y: 24 }, // left
+                    { x: 24, y: 2 }, // top
+                    { x: 46, y: 24 }, // right
+                    { x: 24, y: 46 } // bottom
+                ];
+                const waveSize = 3 + game.waveNumber; // scales
+                for (let i = 0; i < waveSize; i++) {
+                    const entrance = entrances[Math.floor(Math.random() * entrances.length)];
+                    const type = ['sword', 'spear', 'archer', 'builder'][Math.floor(Math.random() * 4)];
+                    // Enemies are same unit types but red
+                    const e = new Unit(type, entrance.x, entrance.y, 1);
+                    // Target the hub
+                    e.targetX = game.hub.x + 1;
+                    e.targetY = game.hub.y + 1;
+                    e.targetBuilding = game.hub;
+                    game.units.push(e);
+                }
+                game.waveNumber++;
+                game.waveTimer = Math.max(5, 20 - game.waveNumber); // faster waves
+                // Optionally show interstitial ad every 5 waves
+                if (game.waveNumber % 5 === 0) {
+                    showInterstitialAd();
+                }
+            }
+        }
+
+        // ========== PROJECTILES ==========
+        function updateProjectiles(dt) {
+            for (let i = game.projectiles.length - 1; i >= 0; i--) {
+                const p = game.projectiles[i];
+                if (!p.target || p.target.hp <= 0) {
+                    game.projectiles.splice(i, 1);
+                    continue;
+                }
+                const dx = p.target.x - p.x;
+                const dy = p.target.y - p.y;
+                const dist = Math.sqrt(dx*dx + dy*dy);
+                if (dist < 0.5) {
+                    p.target.hp -= 10; // damage
+                    game.projectiles.splice(i, 1);
+                } else {
+                    p.x += (dx/dist) * p.speed * dt;
+                    p.y += (dy/dist) * p.speed * dt;
+                }
+            }
+        }
+
+        // ========== UPDATE LOOP ==========
+        function loop(t) {
+            const dt = Math.min((t - game.lastTime) / 1000, 0.05);
+            game.lastTime = t;
+
+            // Update units
+            for (const u of game.units) u.update(dt);
+            // Count enemy kills, then remove dead units
+            for (const u of game.units) {
+                if (u.hp <= 0 && u.owner === 1) game.kills++;
+            }
+            game.units = game.units.filter(u => u.hp > 0);
+            game.unitCount = game.units.length;
+
+            // Update buildings
+            for (const b of game.buildings) b.update(dt);
+            // Remove destroyed buildings (except hub)
+            game.buildings = game.buildings.filter(b => b.hp > 0 || b === game.hub);
+            // If hub destroyed, lose
+            if (game.hub.hp <= 0) {
+                gameOver(false);
+            }
+
+            // Training queue
+            updateTraining(dt);
+            // Waves
+            updateWaves(dt);
+            // Projectiles
+            updateProjectiles(dt);
+
+            updateStats();
+            render();
+
+            requestAnimationFrame(loop);
+        }
+
+        // ========== RENDER ==========
+        function render() {
+            const ctx = game.ctx;
+            ctx.fillStyle = '#000';
+            ctx.fillRect(0, 0, game.width, game.height);
+
+            // Draw map
+            for (let y = 0; y < MAP_H; y++) {
+                for (let x = 0; x < MAP_W; x++) {
+                    const px = x * TILE - game.camera.x;
+                    const py = y * TILE - game.camera.y;
+                    if (px < -TILE || py < -TILE || px > game.width + TILE || py > game.height + TILE) continue;
+                    const tile = map[y][x];
+                    const colors = {
+                        [TILE_GRASS]: '#4a7c2e',
+                        [TILE_WATER]: '#4a8ab0',
+                        [TILE_TREE]: '#2e5c2e',
+                        [TILE_PATH]: '#c4a35a',
+                        [TILE_HUB]: '#8a6f3a'
+                    };
+                    ctx.fillStyle = colors[tile] || '#000';
+                    ctx.fillRect(px, py, TILE, TILE);
+                    if (tile === TILE_TREE) {
+                        ctx.fillStyle = '#1e4c1e';
+                        ctx.fillRect(px+4, py+4, 8, 8);
+                    }
+                }
+            }
+
+            // Draw buildings
+            game.buildings.forEach(b => b.draw(ctx, game.camera));
+
+            // Draw units
+            game.units.forEach(u => u.draw(ctx, game.camera));
+
+            // Draw projectiles
+            game.projectiles.forEach(p => {
+                const px = p.x * TILE - game.camera.x;
+                const py = p.y * TILE - game.camera.y;
+                ctx.fillStyle = '#ff0';
+                ctx.fillRect(px-2, py-2, 4, 4);
+            });
+
+            // Draw selection box
+            if (game.mouse.down && Math.abs(game.mouse.curX - game.mouse.startX) > 5) {
+                const minX = Math.min(game.mouse.startX, game.mouse.curX);
+                const minY = Math.min(game.mouse.startY, game.mouse.curY);
+                const w = Math.abs(game.mouse.curX - game.mouse.startX);
+                const h = Math.abs(game.mouse.curY - game.mouse.startY);
+                ctx.strokeStyle = '#0f0';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(minX, minY, w, h);
+                ctx.fillStyle = 'rgba(0,255,0,0.2)';
+                ctx.fillRect(minX, minY, w, h);
+            }
+
+            // Draw minimap heatmap
+            drawMinimap();
+        }
+
+        function drawMinimap() {
+            const mctx = game.minimapCtx;
+            mctx.fillStyle = '#222';
+            mctx.fillRect(0, 0, 150, 150);
+            const scale = 150 / MAP_W;
+            // Draw map base
+            for (let y = 0; y < MAP_H; y++) {
+                for (let x = 0; x < MAP_W; x++) {
+                    const tile = map[y][x];
+                    const c = { [TILE_GRASS]: '#4a7c2e', [TILE_WATER]: '#4a8ab0', [TILE_TREE]: '#2e5c2e', [TILE_PATH]: '#c4a35a', [TILE_HUB]: '#8a6f3a' }[tile];
+                    mctx.fillStyle = c;
+                    mctx.fillRect(x*scale, y*scale, scale, scale);
+                }
+            }
+            // Heat overlay – player units green, enemy red
+            mctx.globalCompositeOperation = 'source-over';
+            for (const u of game.units) {
+                mctx.fillStyle = u.owner === 0 ? '#0f0' : '#f00';
+                mctx.globalAlpha = 0.8;
+                mctx.fillRect(u.x*scale - 1, u.y*scale - 1, 2, 2);
+            }
+            mctx.globalAlpha = 1;
+            // Hub marker
+            mctx.fillStyle = '#fff';
+            mctx.fillRect(game.hub.x*scale - 2, game.hub.y*scale - 2, 4, 4);
+            // Camera viewport marker
+            mctx.strokeStyle = '#fff';
+            mctx.lineWidth = 1;
+            mctx.strokeRect(
+                game.camera.x/TILE*scale, game.camera.y/TILE*scale,
+                game.width/TILE*scale, game.height/TILE*scale
+            );
+        }
+
+        // ========== GAME OVER ==========
+        function gameOver(win) {
+            alert(win ? 'You survived! Waves: ' + game.waveNumber : 'Game Over – You lost! Waves survived: ' + game.waveNumber);
+            location.reload();
+        }
+
+        // ========== ADS ==========
+        function showInterstitialAd() {
+            // For web: you'd embed an ad network here.
+            // For APK: Capacitor AdMob would call native interstitial.
+            // For now, just a placeholder alert.
+            // alert('Interstitial ad would show here');
+            // You can trigger a real ad library later.
+        }
+
+        // Start
+        window.onload = init;
+    </script>
+</body>
+</html>

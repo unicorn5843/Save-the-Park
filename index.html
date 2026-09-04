@@ -102,45 +102,6 @@
             font-weight: bold;
             font-size: 14px;
         }
-        #cmd-card {
-            position: fixed;
-            bottom: 92px;
-            left: 50%;
-            transform: translateX(-50%);
-            display: none;
-            background: linear-gradient(180deg, #3d3428, #1a140d);
-            border: 2px solid #5a4a2e;
-            border-radius: 10px;
-            padding: 6px;
-            z-index: 100;
-            gap: 5px;
-            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.7);
-            flex-wrap: wrap;
-            justify-content: center;
-            max-width: 90vw;
-        }
-        #cmd-card button {
-            padding: 10px 16px;
-            background: linear-gradient(180deg, #5a4a2e, #3d3428);
-            border: 1px solid #7a6548;
-            border-radius: 8px;
-            color: #f0e4c0;
-            text-shadow: 0 1px 1px rgba(0, 0, 0, 0.5);
-            font-size: 12px;
-            cursor: pointer;
-            font-weight: 600;
-            letter-spacing: 0.3px;
-            transition: all 0.1s ease;
-            white-space: nowrap;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);
-        }
-        #cmd-card button:hover {
-            background: linear-gradient(180deg, #6b5a3a, #4a3d28);
-        }
-        #cmd-card button:active {
-            background: linear-gradient(180deg, #3d3428, #5a4a2e);
-            transform: scale(0.96);
-        }
         #minimap {
             position: fixed;
             top: 10px;
@@ -186,22 +147,34 @@
             backdrop-filter: blur(4px);
             letter-spacing: 0.4px;
         }
-        #build-menu {
+        /* ===== Bottom control dock: options panel + persistent tab bar ===== */
+        #control-dock {
             position: fixed;
+            left: 0;
+            right: 0;
             bottom: 92px;
-            right: 10px;
+            z-index: 100;
+            display: flex;
+            flex-direction: column;
+        }
+        #options-panel {
             display: none;
             background: linear-gradient(180deg, #3d3428, #1a140d);
             border: 2px solid #5a4a2e;
-            border-radius: 10px;
-            padding: 6px;
-            z-index: 100;
-            flex-direction: column;
-            gap: 4px;
-            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.7);
+            border-bottom: none;
+            padding: 8px;
+            gap: 6px;
+            flex-wrap: wrap;
+            justify-content: center;
+            max-height: 34vh;
+            overflow-y: auto;
+            box-shadow: 0 -2px 12px rgba(0, 0, 0, 0.5);
         }
-        #build-menu button {
-            padding: 10px 16px;
+        #options-panel.show {
+            display: flex;
+        }
+        #options-panel button {
+            padding: 10px 14px;
             background: linear-gradient(180deg, #5a4a2e, #3d3428);
             border: 1px solid #7a6548;
             border-radius: 8px;
@@ -214,14 +187,32 @@
             white-space: nowrap;
             box-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);
         }
-        #build-menu button:active {
+        #options-panel button:active {
             background: linear-gradient(180deg, #3d3428, #5a4a2e);
             transform: scale(0.96);
         }
-        #build-menu button.active-build {
-            background: linear-gradient(180deg, #7a6548, #5a4a2e);
-            border-color: #ffd76a;
-            box-shadow: 0 0 12px rgba(255, 215, 106, 0.4);
+        #tab-bar {
+            display: flex;
+            background: linear-gradient(180deg, #2d2618, #1a140d);
+            border-top: 2px solid #5a4a2e;
+        }
+        .tab-btn {
+            flex: 1;
+            padding: 12px 4px;
+            background: linear-gradient(180deg, #3d3428, #241d12);
+            border: none;
+            border-right: 1px solid #5a4a2e;
+            color: #cbb98a;
+            font-size: 13px;
+            font-weight: 700;
+            letter-spacing: 0.3px;
+        }
+        .tab-btn:last-child {
+            border-right: none;
+        }
+        .tab-btn.active-tab {
+            background: linear-gradient(180deg, #6b5a3a, #4a3d28);
+            color: #ffd76a;
         }
         #wave-banner {
             position: fixed;
@@ -260,11 +251,6 @@
                 transform: translate(-50%, -50%) scale(1.2);
             }
         }
-        /* Builder timer bar above builder units */
-        .builder-timer {
-            font-size: 10px;
-            color: #ffd76a;
-        }
     </style>
 </head>
 <body>
@@ -272,7 +258,7 @@
     <canvas id="game"></canvas>
     <canvas id="minimap" width="150" height="150"></canvas>
     <div id="pan-hint">🗺️ Tap minimap to jump · 2-finger drag to pan</div>
-    <div id="selection-info">🏛️ Tap the Hub to start training!</div>
+    <div id="selection-info">🎮 Use the tabs below to build, command &amp; train</div>
     <div id="wave-banner"></div>
     <div id="ui-panel">
         <div class="stat">🏛️ <span id="hub-hp">300</span></div>
@@ -281,8 +267,14 @@
         <div class="stat">💀 <span id="kills">0</span></div>
         <div class="stat">⏱️ <span id="next-wave">18</span>s</div>
     </div>
-    <div id="cmd-card"></div>
-    <div id="build-menu"></div>
+    <div id="control-dock">
+        <div id="options-panel"></div>
+        <div id="tab-bar">
+            <button id="tab-build" class="tab-btn">🔨 Build</button>
+            <button id="tab-tactics" class="tab-btn">🛡️ Tactics</button>
+            <button id="tab-units" class="tab-btn">⚔️ Units</button>
+        </div>
+    </div>
     <div id="ad-banner">AD SPACE — replace with your ad network code</div>
 
     <script>
@@ -297,8 +289,6 @@
             TILE_HUB = 4;
         const CHUNK = 4;
         const WALL_MAX_LEN = 4;
-        const BUILDER_LIFETIME = 45; // seconds
-        const MAX_BUILDERS = 3;
         const MAX_UNITS = 24;
         const HEAL_RADIUS = 6; // tiles for triage
 
@@ -309,8 +299,7 @@
             canvas: null,
             ctx: null,
             minimapCtx: null,
-            cmdCard: null,
-            buildMenu: null,
+            optionsPanel: null,
             waveBanner: null,
             width: 0,
             height: 0,
@@ -335,26 +324,24 @@
             isBuildMode: false,
             buildType: null,
             wallPreview: null,
+            wallOrientation: 'horizontal',
+            wallAnchor: null,
             maxUnits: MAX_UNITS,
             unitCount: 0,
-            builderCount: 0,
             gameOver: false,
-            waveAnnounced: false,
-            waveBannerTimer: 0,
+            activeTab: null,
             totalUnitsTrained: 0,
-            builderSpawnQueue: 0,
         };
 
-        // ========== UNIT DEFINITIONS (slow AoE-like speeds) ==========
+        // ========== UNIT DEFINITIONS ==========
+        // Sword: short, punchy reach. Spear: longer reach than sword. Archer: longest reach, fires arrows.
         const UNIT_TYPES = {
-            sword: { name: 'Sword', hp: 80, attack: 10, range: 12, speed: 5.5, atkSpeed: 1.1, trainTime: 12,
+            sword: { name: 'Sword', hp: 80, attack: 10, range: 7, speed: 5.5, atkSpeed: 1.1, trainTime: 12,
                 color: '#8b6f3a', icon: '⚔️' },
             spear: { name: 'Spear', hp: 60, attack: 8, range: 10, speed: 7.0, atkSpeed: 0.9, trainTime: 9,
                 color: '#6a5a3a', icon: '🔱' },
             archer: { name: 'Archer', hp: 40, attack: 14, range: 18, speed: 4.5, atkSpeed: 1.4, trainTime: 14,
                 color: '#4a7c2e', icon: '🏹' },
-            builder: { name: 'Builder', hp: 50, attack: 3, range: 6, speed: 4.0, atkSpeed: 1.5, trainTime: 3,
-                color: '#7a7a7a', icon: '🔨', isBuilder: true },
         };
 
         // ========== BUILDING DEFINITIONS ==========
@@ -478,36 +465,110 @@
             ctx.fill();
         }
 
-        // ========== MAP GENERATION (more dense & interesting) ==========
+        // Simple arrow projectile: a shaft, a triangular head, and small fletching.
+        function drawArrow(ctx, x, y, angle, tint) {
+            ctx.save();
+            ctx.translate(x, y);
+            ctx.rotate(angle);
+            ctx.strokeStyle = tint;
+            ctx.lineWidth = 1.5;
+            ctx.beginPath();
+            ctx.moveTo(-6, 0);
+            ctx.lineTo(4, 0);
+            ctx.stroke();
+            ctx.fillStyle = tint;
+            ctx.beginPath();
+            ctx.moveTo(6, 0);
+            ctx.lineTo(2, -2.5);
+            ctx.lineTo(2, 2.5);
+            ctx.closePath();
+            ctx.fill();
+            ctx.strokeStyle = 'rgba(200,50,50,0.8)';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(-6, 0);
+            ctx.lineTo(-9, -2);
+            ctx.moveTo(-6, 0);
+            ctx.lineTo(-9, 2);
+            ctx.stroke();
+            ctx.restore();
+        }
+
+        // Melee hit effects: a sword slash arc, a spear thrust line, or a generic ring (fallback).
+        function drawEffect(ctx, e, cam) {
+            const t = Math.max(0, e.timer / e.maxTimer);
+            if (e.weapon === 'sword') {
+                const px = e.fromX * TILE - cam.x;
+                const py = e.fromY * TILE - cam.y;
+                const angle = Math.atan2(e.y - e.fromY, e.x - e.fromX);
+                const col = e.owner === 1 ? `rgba(224,120,120,${t})` : `rgba(224,224,238,${t})`;
+                ctx.save();
+                ctx.translate(px, py);
+                ctx.rotate(angle);
+                ctx.strokeStyle = col;
+                ctx.lineWidth = 2.5;
+                ctx.beginPath();
+                ctx.arc(10, 0, 9, -0.7, 0.7);
+                ctx.stroke();
+                ctx.restore();
+                return;
+            }
+            if (e.weapon === 'spear') {
+                const px = e.fromX * TILE - cam.x;
+                const py = e.fromY * TILE - cam.y;
+                const angle = Math.atan2(e.y - e.fromY, e.x - e.fromX);
+                const reachPx = Math.hypot((e.x - e.fromX) * TILE, (e.y - e.fromY) * TILE);
+                const len = Math.min(reachPx, 18) * t + 6;
+                const colBase = e.owner === 1 ? '224,150,150' : '205,195,175';
+                ctx.save();
+                ctx.translate(px, py);
+                ctx.rotate(angle);
+                ctx.strokeStyle = `rgba(${colBase},${t})`;
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.moveTo(0, 0);
+                ctx.lineTo(len, 0);
+                ctx.stroke();
+                ctx.fillStyle = `rgba(${colBase},${t})`;
+                ctx.beginPath();
+                ctx.moveTo(len, 0);
+                ctx.lineTo(len - 5, -2.5);
+                ctx.lineTo(len - 5, 2.5);
+                ctx.closePath();
+                ctx.fill();
+                ctx.restore();
+                return;
+            }
+            const px = e.x * TILE - cam.x;
+            const py = e.y * TILE - cam.y;
+            ctx.strokeStyle = hexToRgba(e.color || '#ffffff', t * 0.85);
+            ctx.lineWidth = 2.5;
+            ctx.beginPath();
+            ctx.arc(px, py, 8 * (1 - t) + 3, 0, Math.PI * 2);
+            ctx.stroke();
+        }
+
+        // ========== MAP GENERATION ==========
         function generateMap() {
             map = [];
             for (let y = 0; y < MAP_H; y++) {
                 let row = [];
                 for (let x = 0; x < MAP_W; x++) {
                     let tile = TILE_GRASS;
-                    // Left lake
                     if (x < 7 && y > 10 && y < 36) tile = TILE_WATER;
-                    // Right forest
                     if (x > 37 && y > 4 && y < 42) tile = TILE_TREE;
-                    // Top forest band
                     if (y < 4 && x > 6 && x < 40) tile = TILE_TREE;
-                    // Bottom water/river
                     if (y > 42 && x > 8 && x < 36) tile = TILE_WATER;
-                    // Scattered trees (more density)
                     if (Math.random() < 0.075 && (x > 8 && x < 36 && y > 8 && y < 36)) tile = TILE_TREE;
-                    // Small water pond center-right
                     if (x > 30 && x < 35 && y > 18 && y < 23) tile = TILE_WATER;
-                    // Paths
                     if (y === 24 && x > 8 && x < 40) tile = TILE_PATH;
                     if (x === 24 && y > 5 && y < 42) tile = TILE_PATH;
-                    // Small clearing paths
                     if (y === 12 && x > 28 && x < 34) tile = TILE_PATH;
                     if (x === 32 && y > 20 && y < 30) tile = TILE_PATH;
                     row.push(tile);
                 }
                 map.push(row);
             }
-            // Hub at center
             const hx = Math.floor(MAP_W / 2) - 1;
             const hy = Math.floor(MAP_H / 2) - 1;
             for (let dy = 0; dy < 3; dy++)
@@ -528,9 +589,6 @@
         }
 
         function moveWithCollision(unit, stepX, stepY) {
-            const nx = unit.x + stepX;
-            const ny = unit.y + stepY;
-            // Sub-step check to prevent tunneling
             const steps = Math.max(1, Math.ceil(Math.max(Math.abs(stepX), Math.abs(stepY)) / 0.4));
             const subStepX = stepX / steps;
             const subStepY = stepY / steps;
@@ -542,34 +600,22 @@
                 if (!tileBlocked(Math.floor(testX), Math.floor(testY))) {
                     currentX = testX;
                     currentY = testY;
+                } else if (!tileBlocked(Math.floor(testX), Math.floor(currentY))) {
+                    currentX = testX;
+                } else if (!tileBlocked(Math.floor(currentX), Math.floor(testY))) {
+                    currentY = testY;
                 } else {
-                    // Try sliding along X axis
-                    if (!tileBlocked(Math.floor(testX), Math.floor(currentY))) {
-                        currentX = testX;
-                    }
-                    // Try sliding along Y axis
-                    else if (!tileBlocked(Math.floor(currentX), Math.floor(testY))) {
-                        currentY = testY;
-                    }
-                    // If blocked on both axes, try perpendicular with small offset
-                    else {
-                        // Try going around - check perpendicular directions
-                        if (!tileBlocked(Math.floor(currentX + 0.5), Math.floor(currentY))) {
-                            currentX += subStepX * 0.5;
-                        } else if (!tileBlocked(Math.floor(currentX), Math.floor(currentY + 0.5))) {
-                            currentY += subStepY * 0.5;
-                        }
+                    if (!tileBlocked(Math.floor(currentX + 0.5), Math.floor(currentY))) {
+                        currentX += subStepX * 0.5;
+                    } else if (!tileBlocked(Math.floor(currentX), Math.floor(currentY + 0.5))) {
+                        currentY += subStepY * 0.5;
                     }
                 }
             }
+            const moved = Math.abs(currentX - unit.x) > 0.001 || Math.abs(currentY - unit.y) > 0.001;
             unit.x = currentX;
             unit.y = currentY;
-            // If stuck (barely moved), mark as blocked to trigger wall-attack
-            if (Math.abs(currentX - unit.x) < 0.05 && Math.abs(currentY - unit.y) < 0.05) {
-                unit.stuckCounter = (unit.stuckCounter || 0) + 1;
-            } else {
-                unit.stuckCounter = 0;
-            }
+            unit.stuckCounter = moved ? 0 : (unit.stuckCounter || 0) + 1;
         }
 
         // ========== SPATIAL HASH ==========
@@ -618,178 +664,123 @@
                 this.selected = false;
                 this.targetUnit = null;
                 this.targetBuilding = null;
-                this.buildMode = false;
-                this.buildType = null;
-                this.repairTarget = null;
                 this.stuckCounter = 0;
-                this.builderTimer = this.def.isBuilder ? BUILDER_LIFETIME : 0;
-                this.lastPosX = x;
-                this.lastPosY = y;
-                this.pathTarget = null;
             }
 
             update(dt) {
                 if (this.atkCooldown > 0) this.atkCooldown -= dt;
-                if (this.builderTimer > 0) {
-                    this.builderTimer -= dt;
-                    if (this.builderTimer <= 0) {
-                        this.hp = 0; // Builder expires
-                        return;
-                    }
+
+                const dx0 = this.targetX - this.x;
+                const dy0 = this.targetY - this.y;
+                const dist0 = Math.sqrt(dx0 * dx0 + dy0 * dy0);
+                if (dist0 > 0.5) {
+                    moveWithCollision(this, (dx0 / dist0) * this.speed * dt, (dy0 / dist0) * this.speed * dt);
                 }
 
-                if (!this.buildMode) {
-                    // Track movement progress for stuck detection
-                    const prevX = this.x;
-                    const prevY = this.y;
-
-                    const dx = this.targetX - this.x;
-                    const dy = this.targetY - this.y;
-                    const dist = Math.sqrt(dx * dx + dy * dy);
-                    if (dist > 0.5) {
-                        moveWithCollision(this, (dx / dist) * this.speed * dt, (dy / dist) * this.speed * dt);
+                // If stuck on a building, enemies try to attack it
+                if (this.stuckCounter > 15 && this.owner === 1) {
+                    let nearestB = null;
+                    let nbd = 3;
+                    for (const b of game.buildings) {
+                        if (b.owner !== this.owner && b.hp > 0) {
+                            const bx = b.x + b.size / 2;
+                            const by = b.y + b.size / 2;
+                            const d = Math.sqrt((bx - this.x) ** 2 + (by - this.y) ** 2);
+                            if (d < nbd) { nbd = d; nearestB = b; }
+                        }
                     }
+                    if (nearestB) {
+                        this.targetBuilding = nearestB;
+                        this.targetUnit = null;
+                        this.targetX = nearestB.x + nearestB.size / 2;
+                        this.targetY = nearestB.y + nearestB.size / 2;
+                    }
+                    this.stuckCounter = 0;
+                }
 
-                    // If stuck on a building, try to attack it
-                    if (this.stuckCounter > 15 && this.owner === 1) {
-                        // Enemy stuck - look for nearby enemy buildings to attack
-                        let nearestB = null;
-                        let nbd = 3;
+                // Gentle separation so units don't stack on the same spot
+                const closeBy = nearbyUnits(this.x, this.y, 1.2);
+                let sepX = 0, sepY = 0;
+                const minDist = 0.7;
+                for (const other of closeBy) {
+                    if (other === this || other.hp <= 0) continue;
+                    const ddx = this.x - other.x;
+                    const ddy = this.y - other.y;
+                    const d2 = ddx * ddx + ddy * ddy;
+                    if (d2 > 0.0001 && d2 < minDist * minDist) {
+                        const d = Math.sqrt(d2);
+                        sepX += (ddx / d) * (minDist - d);
+                        sepY += (ddy / d) * (minDist - d);
+                    }
+                }
+                if (sepX !== 0 || sepY !== 0) {
+                    moveWithCollision(this, sepX * dt * 3, sepY * dt * 3);
+                }
+
+                // Combat targeting
+                let target = null, isBuilding = false;
+                if (this.targetUnit && this.targetUnit.hp > 0) {
+                    target = this.targetUnit;
+                } else if (this.targetBuilding && this.targetBuilding.hp > 0) {
+                    target = this.targetBuilding;
+                    isBuilding = true;
+                } else {
+                    this.targetUnit = null;
+                    this.targetBuilding = null;
+                    let nearest = null, nd = Infinity;
+                    for (const u of nearbyUnits(this.x, this.y, this.range)) {
+                        if (u.owner !== this.owner && u.hp > 0) {
+                            const d = Math.sqrt((u.x - this.x) ** 2 + (u.y - this.y) ** 2);
+                            if (d < this.range && d < nd) { nd = d; nearest = u; }
+                        }
+                    }
+                    if (nearest) {
+                        target = nearest;
+                    } else {
+                        let nearestB = null, nbd2 = Infinity;
                         for (const b of game.buildings) {
                             if (b.owner !== this.owner && b.hp > 0) {
                                 const bx = b.x + b.size / 2;
                                 const by = b.y + b.size / 2;
                                 const d = Math.sqrt((bx - this.x) ** 2 + (by - this.y) ** 2);
-                                if (d < nbd) { nbd = d;
-                                    nearestB = b; }
+                                if (d < this.range && d < nbd2) { nbd2 = d; nearestB = b; }
                             }
                         }
-                        if (nearestB) {
-                            this.targetBuilding = nearestB;
-                            this.targetUnit = null;
-                            this.targetX = nearestB.x + nearestB.size / 2;
-                            this.targetY = nearestB.y + nearestB.size / 2;
-                        }
-                        this.stuckCounter = 0;
-                    }
-
-                    // Gentle separation
-                    const closeBy = nearbyUnits(this.x, this.y, 1.2);
-                    let sepX = 0,
-                        sepY = 0;
-                    const minDist = 0.7;
-                    for (const other of closeBy) {
-                        if (other === this || other.hp <= 0) continue;
-                        const ddx = this.x - other.x;
-                        const ddy = this.y - other.y;
-                        const d2 = ddx * ddx + ddy * ddy;
-                        if (d2 > 0.0001 && d2 < minDist * minDist) {
-                            const d = Math.sqrt(d2);
-                            sepX += (ddx / d) * (minDist - d);
-                            sepY += (ddy / d) * (minDist - d);
-                        }
-                    }
-                    if (sepX !== 0 || sepY !== 0) {
-                        moveWithCollision(this, sepX * dt * 3, sepY * dt * 3);
-                    }
-
-                    // Combat targeting
-                    let target = null,
-                        isBuilding = false;
-                    if (this.targetUnit && this.targetUnit.hp > 0) {
-                        target = this.targetUnit;
-                        isBuilding = false;
-                    } else if (this.targetBuilding && this.targetBuilding.hp > 0) {
-                        target = this.targetBuilding;
-                        isBuilding = true;
-                    } else {
-                        this.targetUnit = null;
-                        this.targetBuilding = null;
-                        // Find nearest enemy unit
-                        let nearest = null,
-                            nd = Infinity;
-                        for (const u of nearbyUnits(this.x, this.y, this.range)) {
-                            if (u.owner !== this.owner && u.hp > 0) {
-                                const d = Math.sqrt((u.x - this.x) ** 2 + (u.y - this.y) ** 2);
-                                if (d < this.range && d < nd) { nd = d;
-                                    nearest = u; }
-                            }
-                        }
-                        if (nearest) {
-                            target = nearest;
-                            isBuilding = false;
-                        } else {
-                            // Find nearest enemy building
-                            let nearestB = null,
-                                nbd = Infinity;
-                            for (const b of game.buildings) {
-                                if (b.owner !== this.owner && b.hp > 0) {
-                                    const bx = b.x + b.size / 2;
-                                    const by = b.y + b.size / 2;
-                                    const d = Math.sqrt((bx - this.x) ** 2 + (by - this.y) ** 2);
-                                    if (d < this.range && d < nbd) { nbd = d;
-                                        nearestB = b; }
-                                }
-                            }
-                            if (nearestB) { target = nearestB;
-                                isBuilding = true; }
-                        }
-                    }
-                    if (target) {
-                        const tx = isBuilding ? target.x + target.size / 2 : target.x;
-                        const ty = isBuilding ? target.y + target.size / 2 : target.y;
-                        const d = Math.sqrt((tx - this.x) ** 2 + (ty - this.y) ** 2);
-                        if (isBuilding) this.targetBuilding = target;
-                        else this.targetUnit = target;
-                        if (d < this.range + 1 && this.atkCooldown <= 0) {
-                            if (this.type === 'archer') {
-                                game.projectiles.push({ x: this.x, y: this.y, target: target, speed: 100, dmg: this
-                                        .attack, fromUnit: this });
-                            } else {
-                                target.hp -= this.attack;
-                                game.effects.push({ x: tx, y: ty, timer: 0.15, maxTimer: 0.15, color: '#ff0' });
-                            }
-                            this.atkCooldown = this.def.atkSpeed;
-                        } else if (d > this.range) {
-                            this.targetX = tx;
-                            this.targetY = ty;
-                        }
+                        if (nearestB) { target = nearestB; isBuilding = true; }
                     }
                 }
-
-                // Builder auto-repair logic
-                if (this.type === 'builder' && this.owner === 0 && !this.buildMode) {
-                    if (!this.repairTarget || this.repairTarget.hp <= 0 || this.repairTarget.hp >= this.repairTarget
-                        .maxHp) {
-                        let best = null,
-                            bd = Infinity;
-                        for (const b of game.buildings) {
-                            if (b.owner === 0 && b.hp < b.maxHp && b.hp > 0) {
-                                const bx = b.x + b.size / 2;
-                                const by = b.y + b.size / 2;
-                                const d = Math.sqrt((bx - this.x) ** 2 + (by - this.y) ** 2);
-                                if (d < 15 && d < bd) { bd = d;
-                                    best = b; }
-                            }
-                        }
-                        this.repairTarget = best;
-                    }
-                    if (this.repairTarget && this.repairTarget.hp > 0) {
-                        const bx = this.repairTarget.x + this.repairTarget.size / 2;
-                        const by = this.repairTarget.y + this.repairTarget.size / 2;
-                        const dist2 = Math.sqrt((bx - this.x) ** 2 + (by - this.y) ** 2);
-                        if (dist2 < 4) {
-                            this.repairTarget.hp += 12 * dt;
-                            if (this.repairTarget.hp > this.repairTarget.maxHp) this.repairTarget.hp = this
-                                .repairTarget.maxHp;
-                            // Repair effect
-                            if (Math.random() < 0.15) {
-                                game.effects.push({ x: bx, y: by, timer: 0.2, maxTimer: 0.2, color: '#4af' });
-                            }
+                if (target) {
+                    const tx = isBuilding ? target.x + target.size / 2 : target.x;
+                    const ty = isBuilding ? target.y + target.size / 2 : target.y;
+                    const d = Math.sqrt((tx - this.x) ** 2 + (ty - this.y) ** 2);
+                    if (isBuilding) this.targetBuilding = target;
+                    else this.targetUnit = target;
+                    if (d < this.range + 1 && this.atkCooldown <= 0) {
+                        if (this.type === 'archer') {
+                            game.projectiles.push({
+                                x: this.x, y: this.y, target: target, speed: 90, dmg: this.attack,
+                                kind: 'arrow', tint: this.owner === 0 ? '#e8d9b0' : '#d97a7a'
+                            });
+                        } else if (this.type === 'sword') {
+                            target.hp -= this.attack;
+                            game.effects.push({
+                                x: tx, y: ty, fromX: this.x, fromY: this.y, timer: 0.18, maxTimer: 0.18,
+                                weapon: 'sword', owner: this.owner
+                            });
+                        } else if (this.type === 'spear') {
+                            target.hp -= this.attack;
+                            game.effects.push({
+                                x: tx, y: ty, fromX: this.x, fromY: this.y, timer: 0.18, maxTimer: 0.18,
+                                weapon: 'spear', owner: this.owner
+                            });
                         } else {
-                            this.targetX = bx;
-                            this.targetY = by;
+                            target.hp -= this.attack;
+                            game.effects.push({ x: tx, y: ty, timer: 0.15, maxTimer: 0.15, color: '#ff0' });
                         }
+                        this.atkCooldown = this.def.atkSpeed;
+                    } else if (d > this.range) {
+                        this.targetX = tx;
+                        this.targetY = ty;
                     }
                 }
             }
@@ -799,7 +790,6 @@
                 const py = this.y * TILE - cam.y;
                 if (px < -30 || py < -30 || px > game.width + 30 || py > game.height + 30) return;
 
-                // Shadow
                 ctx.fillStyle = 'rgba(0,0,0,0.3)';
                 ctx.beginPath();
                 ctx.ellipse(px, py + 5, 6, 2.3, 0, 0, Math.PI * 2);
@@ -817,31 +807,18 @@
                 ctx.lineWidth = this.selected ? 2.5 : 1;
                 ctx.stroke();
 
-                // Type icon
                 ctx.fillStyle = 'rgba(255,255,255,0.9)';
                 ctx.font = '8px monospace';
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
-                const icon = this.def.icon || '●';
-                ctx.fillText(icon, px, py);
+                ctx.fillText(this.def.icon || '●', px, py);
 
-                // HP bar
                 ctx.fillStyle = 'rgba(0,0,0,0.5)';
                 ctx.fillRect(px - 7, py - 12, 14, 3);
                 const pct = this.hp / this.maxHp;
                 ctx.fillStyle = pct > 0.5 ? '#4caf50' : (pct > 0.25 ? '#ffb300' : '#e53935');
                 ctx.fillRect(px - 6, py - 11.5, 12 * pct, 2);
 
-                // Builder timer bar
-                if (this.def.isBuilder && this.owner === 0) {
-                    const timerPct = this.builderTimer / BUILDER_LIFETIME;
-                    ctx.fillStyle = 'rgba(0,0,0,0.4)';
-                    ctx.fillRect(px - 7, py - 15, 14, 2);
-                    ctx.fillStyle = timerPct > 0.3 ? '#ffd76a' : '#e53935';
-                    ctx.fillRect(px - 6, py - 14.5, 12 * timerPct, 1.5);
-                }
-
-                // Stuck indicator
                 if (this.stuckCounter > 10 && this.owner === 1) {
                     ctx.fillStyle = 'rgba(255,0,0,0.7)';
                     ctx.font = '10px monospace';
@@ -868,16 +845,12 @@
             update(dt) {
                 if (this.cooldown > 0) this.cooldown -= dt;
 
-                // Tower attack
                 if (this.type === 'tower' && this.cooldown <= 0 && this.hp > 0) {
-                    let target = null,
-                        td = Infinity;
+                    let target = null, td = Infinity;
                     for (const u of nearbyUnits(this.x + this.size / 2, this.y + this.size / 2, 7)) {
                         if (u.owner !== this.owner && u.hp > 0) {
-                            const d = Math.sqrt((u.x - this.x - this.size / 2) ** 2 + (u.y - this.y - this
-                                .size / 2) ** 2);
-                            if (d < 7 && d < td) { td = d;
-                                target = u; }
+                            const d = Math.sqrt((u.x - this.x - this.size / 2) ** 2 + (u.y - this.y - this.size / 2) ** 2);
+                            if (d < 7 && d < td) { td = d; target = u; }
                         }
                     }
                     if (target) {
@@ -885,58 +858,44 @@
                             x: this.x + this.size / 2,
                             y: this.y + this.size / 2,
                             target: target,
-                            speed: 110,
+                            speed: 130,
                             dmg: 12,
-                            fromBuilding: this
+                            kind: 'arrow',
+                            tint: '#c9a8ff'
                         });
-                        this.cooldown = 0.9;
-                        game.effects.push({ x: this.x + this.size / 2, y: this.y + this.size / 2, timer: 0.1,
-                            maxTimer: 0.1, color: '#a8f' });
+                        this.cooldown = 0.8;
+                        game.effects.push({ x: this.x + this.size / 2, y: this.y + this.size / 2, timer: 0.1, maxTimer: 0.1, color: '#a8f' });
                     }
                 }
 
-                // Triage healing + pulse rings
                 if (this.type === 'triage' && this.hp > 0) {
-                    let healed = false;
                     for (const u of nearbyUnits(this.x + this.size / 2, this.y + this.size / 2, HEAL_RADIUS)) {
                         if (u.owner === this.owner && u.hp < u.maxHp && u.hp > 0) {
-                            const d = Math.sqrt((u.x - this.x - this.size / 2) ** 2 + (u.y - this.y - this
-                                .size / 2) ** 2);
+                            const d = Math.sqrt((u.x - this.x - this.size / 2) ** 2 + (u.y - this.y - this.size / 2) ** 2);
                             if (d < HEAL_RADIUS) {
                                 u.hp += 5 * dt;
                                 if (u.hp > u.maxHp) u.hp = u.maxHp;
-                                healed = true;
                             }
                         }
                     }
-                    // Pulse ring timer
                     this.pulseTimer += dt;
                     if (this.pulseTimer >= 2.5) {
                         this.pulseTimer = 0;
                         game.pulseRings.push({
-                            x: this.x + this.size / 2,
-                            y: this.y + this.size / 2,
-                            radius: 2,
-                            maxRadius: HEAL_RADIUS,
-                            timer: 1.2,
-                            maxTimer: 1.2,
+                            x: this.x + this.size / 2, y: this.y + this.size / 2,
+                            radius: 2, maxRadius: HEAL_RADIUS, timer: 1.2, maxTimer: 1.2,
                             color: 'rgba(74,200,120,'
                         });
                     }
                 }
 
-                // Hub pulse ring
                 if (this.isHub && this.hp > 0) {
                     this.pulseTimer += dt;
                     if (this.pulseTimer >= 3.5) {
                         this.pulseTimer = 0;
                         game.pulseRings.push({
-                            x: this.x + this.size / 2,
-                            y: this.y + this.size / 2,
-                            radius: 2,
-                            maxRadius: 8,
-                            timer: 1.5,
-                            maxTimer: 1.5,
+                            x: this.x + this.size / 2, y: this.y + this.size / 2,
+                            radius: 2, maxRadius: 8, timer: 1.5, maxTimer: 1.5,
                             color: 'rgba(255,215,106,'
                         });
                     }
@@ -949,7 +908,6 @@
                 const s = this.size * TILE;
                 if (px < -80 || py < -80 || px > game.width + 80 || py > game.height + 80) return;
 
-                // Shadow
                 ctx.fillStyle = 'rgba(0,0,0,0.3)';
                 ctx.fillRect(px + 3, py + 3, s, s);
 
@@ -960,7 +918,6 @@
                 ctx.fillStyle = g;
                 ctx.fillRect(px, py, s, s);
 
-                // Bevel
                 ctx.strokeStyle = 'rgba(255,255,255,0.35)';
                 ctx.lineWidth = 1.5;
                 ctx.beginPath();
@@ -979,13 +936,11 @@
                 ctx.lineWidth = 1;
                 ctx.strokeRect(px, py, s, s);
 
-                // Icon
                 ctx.font = Math.max(12, s * 0.35) + 'px monospace';
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
                 ctx.fillText(this.def.icon || '?', px + s / 2, py + s / 2);
 
-                // HP bar
                 if (this.hp < this.maxHp) {
                     ctx.fillStyle = 'rgba(0,0,0,0.5)';
                     ctx.fillRect(px, py - 5, s, 3);
@@ -994,7 +949,6 @@
                     ctx.fillRect(px, py - 4.5, s * pct, 2);
                 }
 
-                // Hub highlight ring
                 if (this.isHub && this.owner === 0) {
                     const isSelected = game.selected.includes(this);
                     ctx.strokeStyle = isSelected ? 'rgba(255,215,0,0.8)' : 'rgba(255,215,106,0.3)';
@@ -1011,8 +965,7 @@
             game.canvas = document.getElementById('game');
             game.ctx = game.canvas.getContext('2d');
             game.minimapCtx = document.getElementById('minimap').getContext('2d');
-            game.cmdCard = document.getElementById('cmd-card');
-            game.buildMenu = document.getElementById('build-menu');
+            game.optionsPanel = document.getElementById('options-panel');
             game.waveBanner = document.getElementById('wave-banner');
 
             buildTileTextures();
@@ -1020,13 +973,11 @@
             resizeCanvas();
             generateMap();
 
-            // Place hub
             const hx = Math.floor(MAP_W / 2) - 1;
             const hy = Math.floor(MAP_H / 2) - 1;
             game.hub = new Building('hub', hx, hy, 0);
             game.buildings.push(game.hub);
 
-            // Starter units
             const startUnits = [
                 { x: hx + 5, y: hy + 1, type: 'sword' },
                 { x: hx + 4, y: hy + 2, type: 'sword' },
@@ -1040,12 +991,12 @@
             }
             game.unitCount = game.units.length;
 
-            // Camera
             game.camera.x = hx * TILE - game.width / 2;
             game.camera.y = hy * TILE - game.height / 2;
             clampCamera();
 
             setupEvents();
+            setupTabBar();
             attachGlobalListeners();
             requestAnimationFrame(loop);
         }
@@ -1097,8 +1048,7 @@
                 if (e.touches.length === 2) {
                     game.panning = true;
                     game.mouse.down = false;
-                    const t1 = e.touches[0],
-                        t2 = e.touches[1];
+                    const t1 = e.touches[0], t2 = e.touches[1];
                     game.panStart = {
                         x: (t1.clientX + t2.clientX) / 2,
                         y: (t1.clientY + t2.clientY) / 2,
@@ -1114,8 +1064,7 @@
             c.addEventListener('touchmove', e => {
                 e.preventDefault();
                 if (game.panning && e.touches.length === 2) {
-                    const t1 = e.touches[0],
-                        t2 = e.touches[1];
+                    const t1 = e.touches[0], t2 = e.touches[1];
                     const midX = (t1.clientX + t2.clientX) / 2;
                     const midY = (t1.clientY + t2.clientY) / 2;
                     game.camera.x = game.panStart.camX - (midX - game.panStart.x);
@@ -1137,7 +1086,6 @@
             c.addEventListener('mouseup', e => endInput());
             c.addEventListener('contextmenu', e => e.preventDefault());
 
-            // Minimap
             const minimap = document.getElementById('minimap');
             const jumpCameraTo = (clientX, clientY) => {
                 const rect = minimap.getBoundingClientRect();
@@ -1179,27 +1127,17 @@
             if (!game.mouse.down) return;
             game.mouse.down = false;
 
-            if (game.isBuildMode && game.buildType === 'wall') {
-                const startTileX = Math.floor((game.mouse.startX + game.camera.x) / TILE);
-                const startTileY = Math.floor((game.mouse.startY + game.camera.y) / TILE);
-                const endTileX = Math.floor((game.mouse.curX + game.camera.x) / TILE);
-                const endTileY = Math.floor((game.mouse.curY + game.camera.y) / TILE);
-                setWallPreview(startTileX, startTileY, endTileX, endTileY);
-                return;
-            }
-
             const dx = game.mouse.curX - game.mouse.startX;
             const dy = game.mouse.curY - game.mouse.startY;
             const dist = Math.sqrt(dx * dx + dy * dy);
             if (dist < 10) {
                 handleTap(game.mouse.curX, game.mouse.curY);
-            } else {
+            } else if (!game.isBuildMode) {
                 const minX = Math.min(game.mouse.startX, game.mouse.curX) + game.camera.x;
                 const maxX = Math.max(game.mouse.startX, game.mouse.curX) + game.camera.x;
                 const minY = Math.min(game.mouse.startY, game.mouse.curY) + game.camera.y;
                 const maxY = Math.max(game.mouse.startY, game.mouse.curY) + game.camera.y;
-                game.selected = game.units.filter(u => u.owner === 0 && u.x * TILE >= minX && u.x * TILE <= maxX && u
-                    .y * TILE >= minY && u.y * TILE <= maxY);
+                game.selected = game.units.filter(u => u.owner === 0 && u.x * TILE >= minX && u.x * TILE <= maxX && u.y * TILE >= minY && u.y * TILE <= maxY);
                 updateSelectionUI();
             }
         }
@@ -1208,25 +1146,24 @@
             const wx = (sx + game.camera.x) / TILE;
             const wy = (sy + game.camera.y) / TILE;
 
-            // Build mode for non-wall
-            if (game.isBuildMode && game.buildType && game.buildType !== 'wall') {
-                const builder = game.selected.find(u => u instanceof Unit && u.type === 'builder' && u.owner === 0);
-                if (builder) {
-                    const bx = Math.floor(wx);
-                    const by = Math.floor(wy);
-                    if (isBuildable(bx, by, game.buildType)) {
-                        game.buildings.push(new Building(game.buildType, bx, by, 0));
-                        game.effects.push({ x: bx + 0.5, y: by + 0.5, timer: 0.3, maxTimer: 0.3, color: '#4af' });
-                    }
-                    game.isBuildMode = false;
-                    game.buildType = null;
-                    updateBuildMenu();
-                    updateSelectionUI();
-                    return;
-                }
+            if (game.isBuildMode && game.buildType === 'wall') {
+                setWallPreview(Math.floor(wx), Math.floor(wy));
+                return;
             }
 
-            // Find what was clicked
+            if (game.isBuildMode && game.buildType) {
+                const bx = Math.floor(wx);
+                const by = Math.floor(wy);
+                if (isBuildable(bx, by, game.buildType)) {
+                    game.buildings.push(new Building(game.buildType, bx, by, 0));
+                    game.effects.push({ x: bx + 0.5, y: by + 0.5, timer: 0.3, maxTimer: 0.3, color: '#4af' });
+                    finishBuild();
+                } else {
+                    document.getElementById('selection-info').textContent = '⚠️ Cannot build there — try another spot';
+                }
+                return;
+            }
+
             let found = null;
             for (const u of game.units) {
                 if (u.hp <= 0) continue;
@@ -1247,7 +1184,7 @@
                 game.selected = [found];
                 updateSelectionUI();
             } else if (found && found.owner === 1) {
-                const selUnits = game.selected.filter(u => u instanceof Unit && u.owner === 0 && u.type !== 'builder');
+                const selUnits = game.selected.filter(u => u instanceof Unit && u.owner === 0);
                 for (const u of selUnits) {
                     if (found instanceof Unit) {
                         u.targetUnit = found;
@@ -1268,7 +1205,6 @@
                     u.targetY = wy;
                     u.targetUnit = null;
                     u.targetBuilding = null;
-                    u.repairTarget = null;
                 }
             }
         }
@@ -1284,230 +1220,323 @@
             return true;
         }
 
-        // ========== WALL PREVIEW ==========
-        function setWallPreview(sx, sy, ex, ey) {
-            const dxT = ex - sx,
-                dyT = ey - sy;
-            let tiles = [];
-            if (Math.abs(dxT) >= Math.abs(dyT)) {
-                const dir = dxT >= 0 ? 1 : -1;
-                const len = Math.min(WALL_MAX_LEN, Math.max(1, Math.abs(dxT) + 1));
-                for (let i = 0; i < len; i++) tiles.push({ x: sx + i * dir, y: sy });
-            } else {
-                const dir = dyT >= 0 ? 1 : -1;
-                const len = Math.min(WALL_MAX_LEN, Math.max(1, Math.abs(dyT) + 1));
-                for (let i = 0; i < len; i++) tiles.push({ x: sx, y: sy + i * dir });
+        // ========== WALL PLACEMENT (tap to preview, toggle orientation, place) ==========
+        function setWallPreview(tileX, tileY) {
+            const tiles = [];
+            for (let i = 0; i < WALL_MAX_LEN; i++) {
+                if (game.wallOrientation === 'horizontal') tiles.push({ x: tileX + i, y: tileY });
+                else tiles.push({ x: tileX, y: tileY + i });
             }
+            tiles.forEach(t => { t.valid = isBuildable(t.x, t.y, 'wall'); });
             game.wallPreview = tiles;
-            showWallConfirm();
+            game.wallAnchor = { x: tileX, y: tileY };
+            document.getElementById('selection-info').textContent = tiles.every(t => t.valid)
+                ? '✅ Clear — tap Place to build'
+                : '⚠️ Red tiles are blocked — tap elsewhere or rotate';
         }
 
-        function showWallConfirm() {
-            const card = game.cmdCard;
-            card.style.display = 'flex';
-            card.innerHTML = '';
-            const confirmBtn = document.createElement('button');
-            confirmBtn.textContent = '✅ Confirm Wall';
-            confirmBtn.onclick = placeWallPreview;
-            const cancelBtn = document.createElement('button');
-            cancelBtn.textContent = '❌ Cancel';
-            cancelBtn.onclick = () => {
-                game.wallPreview = null;
-                game.isBuildMode = false;
-                game.buildType = null;
-                card.style.display = 'none';
-                updateBuildMenu();
-                updateSelectionUI();
-            };
-            card.appendChild(confirmBtn);
-            card.appendChild(cancelBtn);
-            document.getElementById('selection-info').textContent = 'Drag to place wall — Confirm or Cancel';
+        function toggleWallOrientation() {
+            game.wallOrientation = game.wallOrientation === 'horizontal' ? 'vertical' : 'horizontal';
+            if (game.wallAnchor) setWallPreview(game.wallAnchor.x, game.wallAnchor.y);
+            renderOptionsPanel();
         }
 
         function placeWallPreview() {
-            if (!game.wallPreview) return;
-            const allOk = game.wallPreview.every(t => isBuildable(t.x, t.y, 'wall'));
-            if (allOk) {
-                for (const t of game.wallPreview) {
-                    game.buildings.push(new Building('wall', t.x, t.y, 0));
-                    game.effects.push({ x: t.x + 0.5, y: t.y + 0.5, timer: 0.2, maxTimer: 0.2, color: '#ccc' });
-                }
-            } else {
-                alert('⚠️ Cannot place wall there — blocked tile in the path.');
+            if (!game.wallPreview || !game.wallPreview.every(t => t.valid)) {
+                document.getElementById('selection-info').textContent = '⚠️ Blocked — move the preview to a clear area';
+                return;
             }
-            game.wallPreview = null;
-            game.isBuildMode = false;
-            game.buildType = null;
-            game.cmdCard.style.display = 'none';
-            updateBuildMenu();
-            updateSelectionUI();
+            for (const t of game.wallPreview) {
+                game.buildings.push(new Building('wall', t.x, t.y, 0));
+                game.effects.push({ x: t.x + 0.5, y: t.y + 0.5, timer: 0.2, maxTimer: 0.2, color: '#ccc' });
+            }
+            finishBuild();
         }
 
-        // ========== UI ==========
+        function cancelBuildMode() {
+            game.isBuildMode = false;
+            game.buildType = null;
+            game.wallPreview = null;
+            game.wallAnchor = null;
+            document.getElementById('selection-info').textContent = '🎮 Use the tabs below to build, command & train';
+            renderOptionsPanel();
+        }
+
+        function finishBuild() {
+            game.isBuildMode = false;
+            game.buildType = null;
+            game.wallPreview = null;
+            game.wallAnchor = null;
+            game.activeTab = null;
+            document.getElementById('selection-info').textContent = '🎮 Use the tabs below to build, command & train';
+            updateTabHighlights();
+            renderOptionsPanel();
+        }
+
+        // ========== SELECTION / TAB UI ==========
         function updateSelectionUI() {
             const sel = game.selected;
             const info = document.getElementById('selection-info');
-            game.buildMenu.style.display = 'none';
-
             if (sel.length === 0) {
-                info.textContent = '🏛️ Tap the Hub to start training!';
-                game.cmdCard.style.display = 'none';
+                info.textContent = '🎮 Use the tabs below to build, command & train';
                 return;
             }
-            if (sel.length === 1 && sel[0] instanceof Unit && sel[0].type === 'builder' && sel[0].owner === 0) {
-                info.textContent = '🔨 Builder — select building to place';
-                showBuildMenu();
-                game.cmdCard.style.display = 'none';
-                return;
-            }
-            if (sel.length === 1 && sel[0] instanceof Building && sel[0].type === 'hub' && sel[0].owner === 0) {
-                info.textContent = '🏛️ Community Hub — train units & summon builders';
-                showHubMenu();
-                return;
-            }
-            if (sel.length === 1 && sel[0] instanceof Building && sel[0].owner === 0) {
-                info.textContent = sel[0].def.icon + ' ' + sel[0].def.name + ' — HP: ' + Math.ceil(sel[0].hp) + '/' + sel[
-                    0].maxHp;
-                game.cmdCard.style.display = 'none';
+            if (sel.length === 1 && sel[0] instanceof Building) {
+                info.textContent = sel[0].def.icon + ' ' + sel[0].def.name + ' — HP: ' + Math.ceil(sel[0].hp) + '/' + sel[0].maxHp;
                 return;
             }
             if (sel.length > 0 && sel[0] instanceof Unit) {
-                info.textContent = '👥 ' + sel.length + ' unit(s) selected';
-                game.cmdCard.style.display = 'none';
-                showUnitCommands();
+                info.textContent = '👥 ' + sel.length + ' unit(s) selected — tap ground to move, enemy to attack';
                 return;
             }
             info.textContent = 'Selection';
-            game.cmdCard.style.display = 'none';
         }
 
-        function showUnitCommands() {
-            const card = game.cmdCard;
-            card.style.display = 'flex';
-            card.innerHTML = '';
-            const btn = document.createElement('button');
-            btn.textContent = '✋ Stop';
-            btn.onclick = () => {
-                game.selected.forEach(u => {
-                    if (u instanceof Unit) {
-                        u.targetX = u.x;
-                        u.targetY = u.y;
-                        u.targetUnit = null;
-                        u.targetBuilding = null;
-                        u.repairTarget = null;
-                    }
-                });
-            };
-            card.appendChild(btn);
+        function setupTabBar() {
+            document.getElementById('tab-build').onclick = () => selectTab('build');
+            document.getElementById('tab-tactics').onclick = () => selectTab('tactics');
+            document.getElementById('tab-units').onclick = () => selectTab('units');
         }
 
-        function showHubMenu() {
-            const card = game.cmdCard;
-            card.style.display = 'flex';
-            card.innerHTML = '';
-            const types = ['sword', 'spear', 'archer'];
-            types.forEach(t => {
-                const btn = document.createElement('button');
-                const def = UNIT_TYPES[t];
-                btn.textContent = def.icon + ' ' + def.name + ' (' + def.trainTime + 's)';
-                btn.onclick = () => {
-                    if (game.unitCount >= game.maxUnits) {
-                        alert('⚠️ Unit limit reached!');
-                        return;
-                    }
-                    game.queue.push(t);
-                    game.queueTimer = game.queueTimer || 0;
-                    updateHubUI();
-                };
-                card.appendChild(btn);
+        function selectTab(tab) {
+            if (game.activeTab === tab) {
+                game.activeTab = null;
+                if (game.isBuildMode) cancelBuildMode();
+            } else {
+                game.activeTab = tab;
+                if (tab !== 'build' && game.isBuildMode) cancelBuildMode();
+            }
+            updateTabHighlights();
+            renderOptionsPanel();
+        }
+
+        function updateTabHighlights() {
+            ['build', 'tactics', 'units'].forEach(t => {
+                document.getElementById('tab-' + t).classList.toggle('active-tab', game.activeTab === t);
             });
-            const builderBtn = document.createElement('button');
-            const builderCount = game.units.filter(u => u.type === 'builder' && u.owner === 0 && u.hp > 0).length;
-            builderBtn.textContent = '🔨 Summon Builder (' + builderCount + '/' + MAX_BUILDERS + ')';
-            builderBtn.onclick = () => {
-                if (builderCount >= MAX_BUILDERS) {
-                    alert('⚠️ Max builders active!');
-                    return;
-                }
-                if (game.unitCount >= game.maxUnits) {
-                    alert('⚠️ Unit limit reached!');
-                    return;
-                }
-                spawnBuilder();
-            };
-            card.appendChild(builderBtn);
         }
 
-        function spawnBuilder() {
-            const hx = game.hub.x + game.hub.size + 1;
-            const hy = game.hub.y + Math.floor(game.hub.size / 2);
-            const builder = new Unit('builder', hx, hy, 0);
-            builder.builderTimer = BUILDER_LIFETIME;
-            game.units.push(builder);
-            game.unitCount = game.units.length;
-            game.builderCount = game.units.filter(u => u.type === 'builder' && u.owner === 0 && u.hp > 0).length;
-            game.effects.push({ x: hx, y: hy, timer: 0.4, maxTimer: 0.4, color: '#ffd76a' });
-            updateHubUI();
-            updateSelectionUI();
+        function renderOptionsPanel() {
+            const panel = game.optionsPanel;
+            panel.innerHTML = '';
+            if (!game.activeTab) { panel.classList.remove('show'); return; }
+            panel.classList.add('show');
+            if (game.activeTab === 'build') renderBuildOptions(panel);
+            else if (game.activeTab === 'tactics') renderTacticsOptions(panel);
+            else if (game.activeTab === 'units') renderUnitOptions(panel);
         }
 
-        function showBuildMenu() {
-            updateBuildMenu();
-            game.buildMenu.style.display = 'flex';
-        }
+        function renderBuildOptions(panel) {
+            if (game.isBuildMode && game.buildType === 'wall') {
+                const info = document.createElement('div');
+                info.style.cssText = 'width:100%;text-align:center;color:#e8d9b0;font-size:12px;margin-bottom:2px;';
+                info.textContent = 'Tap the map to preview the wall';
+                panel.appendChild(info);
 
-        function updateBuildMenu() {
-            const menu = game.buildMenu;
-            menu.innerHTML = '';
+                const toggleBtn = document.createElement('button');
+                toggleBtn.textContent = game.wallOrientation === 'horizontal' ? '↔ Horizontal (tap to rotate)' : '↕ Vertical (tap to rotate)';
+                toggleBtn.onclick = toggleWallOrientation;
+                panel.appendChild(toggleBtn);
+
+                const placeBtn = document.createElement('button');
+                placeBtn.textContent = '✅ Place';
+                placeBtn.onclick = placeWallPreview;
+                panel.appendChild(placeBtn);
+
+                const cancelBtn = document.createElement('button');
+                cancelBtn.textContent = '❌ Cancel';
+                cancelBtn.onclick = cancelBuildMode;
+                panel.appendChild(cancelBtn);
+                return;
+            }
+
             const types = ['wall', 'tower', 'triage'];
             types.forEach(t => {
                 const btn = document.createElement('button');
-                btn.textContent = t === 'wall' ? '▬ Wall (drag)' : BUILDING_TYPES[t].icon + ' ' + BUILDING_TYPES[
-                    t].name;
-                if (game.isBuildMode && game.buildType === t) {
-                    btn.classList.add('active-build');
-                }
+                btn.textContent = t === 'wall' ? '▬ Wall' : BUILDING_TYPES[t].icon + ' ' + BUILDING_TYPES[t].name;
                 btn.onclick = () => {
                     game.isBuildMode = true;
                     game.buildType = t;
-                    updateBuildMenu();
                     if (t === 'wall') {
-                        document.getElementById('selection-info').textContent =
-                            '🎯 Drag up to 4 tiles to size the wall';
+                        game.wallPreview = null;
+                        game.wallAnchor = null;
+                        document.getElementById('selection-info').textContent = '🎯 Tap the map to place a wall';
                     } else {
-                        document.getElementById('selection-info').textContent =
-                            '🎯 Tap a location to place ' + BUILDING_TYPES[t].name;
+                        document.getElementById('selection-info').textContent = '🎯 Tap a location to place ' + BUILDING_TYPES[t].name;
                     }
+                    renderOptionsPanel();
                 };
-                menu.appendChild(btn);
+                panel.appendChild(btn);
             });
-            const cancelBtn = document.createElement('button');
-            cancelBtn.textContent = '✖ Cancel';
-            cancelBtn.onclick = () => {
-                game.isBuildMode = false;
-                game.buildType = null;
-                updateBuildMenu();
-                updateSelectionUI();
-            };
-            menu.appendChild(cancelBtn);
+        }
+
+        function renderTacticsOptions(panel) {
+            const defs = [
+                { key: 'withdraw', label: '↩ Withdraw' },
+                { key: 'open', label: '▢ Open Wall' },
+                { key: 'closed', label: '▣ Closed Wall' },
+                { key: 'staggered', label: '▦ Staggered Wall' },
+                { key: 'hold', label: '✋ Hold Position' },
+            ];
+            defs.forEach(d => {
+                const btn = document.createElement('button');
+                btn.textContent = d.label;
+                btn.onclick = () => applyTactic(d.key);
+                panel.appendChild(btn);
+            });
+        }
+
+        function renderUnitOptions(panel) {
+            const types = ['sword', 'spear', 'archer'];
+            types.forEach(t => {
+                const def = UNIT_TYPES[t];
+                const btn = document.createElement('button');
+                btn.textContent = def.icon + ' ' + def.name + ' (' + def.trainTime + 's)';
+                btn.onclick = () => {
+                    if (game.unitCount + game.queue.length >= game.maxUnits) {
+                        document.getElementById('selection-info').textContent = '⚠️ Unit limit reached!';
+                        return;
+                    }
+                    game.queue.push(t);
+                    updateHubUI();
+                };
+                panel.appendChild(btn);
+            });
+            const info = document.createElement('div');
+            info.id = 'queue-info';
+            info.style.cssText = 'width:100%;text-align:center;color:#e8d9b0;font-size:12px;margin-top:4px;';
+            panel.appendChild(info);
+            updateHubUI();
         }
 
         function updateHubUI() {
-            const info = document.getElementById('selection-info');
-            let q = '🏛️ Hub — Queue: ';
-            if (game.queue.length === 0) q += 'empty';
-            else q += game.queue.map(t => UNIT_TYPES[t].icon).join(' ');
-            const builders = game.units.filter(u => u.type === 'builder' && u.owner === 0 && u.hp > 0).length;
-            q += ' | Builders: ' + builders + '/' + MAX_BUILDERS;
-            info.textContent = q;
+            const q = document.getElementById('queue-info');
+            if (!q) return;
+            q.textContent = 'Queue: ' + (game.queue.length === 0 ? 'empty' : game.queue.map(t => UNIT_TYPES[t].icon).join(' '));
         }
 
-        function updateStats() {
-            document.getElementById('hub-hp').textContent = Math.ceil(game.hub.hp);
-            document.getElementById('unit-count').textContent = game.unitCount + '/' + game.maxUnits;
-            document.getElementById('wave').textContent = game.waveNumber;
-            document.getElementById('kills').textContent = game.kills;
-            document.getElementById('next-wave').textContent = Math.max(0, Math.ceil(game.waveTimer));
+        // ========== TACTICS / FORMATIONS ==========
+        function applyTactic(kind) {
+            const units = game.units.filter(u => u.owner === 0 && u.hp > 0);
+            if (units.length === 0) return;
+
+            if (kind === 'hold') {
+                units.forEach(u => {
+                    u.targetX = u.x;
+                    u.targetY = u.y;
+                    u.targetUnit = null;
+                    u.targetBuilding = null;
+                });
+                document.getElementById('selection-info').textContent = '✋ All units holding position';
+                return;
+            }
+
+            const hub = game.hub;
+            const cx = hub.x + hub.size / 2;
+            const cy = hub.y + hub.size / 2;
+            let positions, label;
+            if (kind === 'withdraw') {
+                positions = getWithdrawPositions(cx, cy, units.length);
+                label = '↩ Units withdrawing to the Hub';
+            } else {
+                positions = getBoxPositions(cx, cy, hub.size, kind);
+                label = kind === 'open' ? '▢ Forming an open wall'
+                    : kind === 'staggered' ? '▦ Forming a staggered wall'
+                    : '▣ Forming a closed wall';
+            }
+            assignPositions(units, positions);
+            document.getElementById('selection-info').textContent = label;
+        }
+
+        function getWithdrawPositions(cx, cy, count) {
+            const positions = [];
+            for (let i = 0; i < count; i++) {
+                const angle = (i / count) * Math.PI * 2;
+                const ring = 2 + (i % 3); // layer units in rings so they don't all aim for one spot
+                let x = cx + Math.cos(angle) * ring;
+                let y = cy + Math.sin(angle) * ring;
+                if (tileBlocked(Math.floor(x), Math.floor(y))) { x = cx; y = cy; }
+                positions.push({ x, y });
+            }
+            return positions;
+        }
+
+        function squareRingSides(cx, cy, half) {
+            const sides = { top: [], right: [], bottom: [], left: [] };
+            for (let x = -half; x <= half; x++) sides.top.push({ x: cx + x, y: cy - half });
+            for (let y = -half + 1; y <= half; y++) sides.right.push({ x: cx + half, y: cy + y });
+            for (let x = half - 1; x >= -half; x--) sides.bottom.push({ x: cx + x, y: cy + half });
+            for (let y = half - 1; y >= -half + 1; y--) sides.left.push({ x: cx - half, y: cy + y });
+            return sides;
+        }
+
+        function sidesToArray(sides) {
+            return [...sides.top, ...sides.right, ...sides.bottom, ...sides.left];
+        }
+
+        function openGates(sides) {
+            const gateSize = 3;
+            const out = {};
+            for (const key of Object.keys(sides)) {
+                const arr = sides[key];
+                const mid = Math.floor(arr.length / 2);
+                const start = Math.max(0, mid - Math.floor(gateSize / 2));
+                out[key] = arr.filter((_, i) => i < start || i >= start + gateSize);
+            }
+            return sidesToArray(out);
+        }
+
+        function staggerSides(sides) {
+            const out = [];
+            for (const key of Object.keys(sides)) {
+                const arr = sides[key];
+                arr.forEach((p, i) => {
+                    if (i % 2 === 1) return; // thin the line so there are natural gaps
+                    const stepOut = Math.floor(i / 2) % 2 === 0;
+                    const off = stepOut ? 1 : -1;
+                    let np = { x: p.x, y: p.y };
+                    if (key === 'top') np.y -= off;
+                    else if (key === 'bottom') np.y += off;
+                    else if (key === 'left') np.x -= off;
+                    else if (key === 'right') np.x += off;
+                    out.push(np);
+                });
+            }
+            return out;
+        }
+
+        function getBoxPositions(cx, cy, hubSize, kind) {
+            const gapFromHub = 5; // tiles of clearance between the hub and the wall
+            const half = Math.round(hubSize / 2 + gapFromHub);
+            const sides = squareRingSides(Math.round(cx), Math.round(cy), half);
+            let positions;
+            if (kind === 'open') positions = openGates(sides);
+            else if (kind === 'staggered') positions = staggerSides(sides);
+            else positions = sidesToArray(sides);
+            return positions.filter(p => !tileBlocked(Math.floor(p.x), Math.floor(p.y)));
+        }
+
+        function assignPositions(units, positions) {
+            if (positions.length === 0) return;
+            const avail = positions.slice();
+            for (const u of units) {
+                let p;
+                if (avail.length > 0) {
+                    let bestIdx = 0, bestD = Infinity;
+                    for (let i = 0; i < avail.length; i++) {
+                        const d = (avail[i].x - u.x) ** 2 + (avail[i].y - u.y) ** 2;
+                        if (d < bestD) { bestD = d; bestIdx = i; }
+                    }
+                    p = avail.splice(bestIdx, 1)[0];
+                } else {
+                    const src = positions[Math.floor(Math.random() * positions.length)];
+                    p = { x: src.x + (Math.random() - 0.5), y: src.y + (Math.random() - 0.5) };
+                }
+                u.targetX = p.x;
+                u.targetY = p.y;
+                u.targetUnit = null;
+                u.targetBuilding = null;
+            }
         }
 
         // ========== TRAINING ==========
@@ -1545,7 +1574,6 @@
                 ];
                 const waveSize = 3 + Math.floor(game.waveNumber * 0.7);
                 const availableTypes = ['sword', 'spear', 'archer'];
-                // Higher waves get tougher enemies
                 for (let i = 0; i < waveSize; i++) {
                     const entrance = entrances[Math.floor(Math.random() * entrances.length)];
                     const type = availableTypes[Math.floor(Math.random() * availableTypes.length)];
@@ -1553,7 +1581,6 @@
                     e.targetX = game.hub.x + game.hub.size / 2;
                     e.targetY = game.hub.y + game.hub.size / 2;
                     e.targetBuilding = game.hub;
-                    // Scale enemy HP with waves
                     e.hp = e.maxHp = Math.round(e.def.hp * (1 + game.waveNumber * 0.05));
                     game.units.push(e);
                 }
@@ -1570,7 +1597,7 @@
             const banner = game.waveBanner;
             banner.textContent = '🌊 WAVE ' + (game.waveNumber - 1);
             banner.classList.remove('show');
-            void banner.offsetWidth; // Reflow to restart animation
+            void banner.offsetWidth;
             banner.classList.add('show');
             setTimeout(() => banner.classList.remove('show'), 1500);
         }
@@ -1583,36 +1610,25 @@
                     game.projectiles.splice(i, 1);
                     continue;
                 }
-                const tx = p.target.x !== undefined ? p.target.x : p.target.x + p.target.size / 2;
-                const ty = p.target.y !== undefined ? p.target.y : p.target.y + p.target.size / 2;
+                let tx, ty;
                 if (p.target instanceof Building) {
-                    const b = p.target;
-                    const bx = b.x + b.size / 2;
-                    const by = b.y + b.size / 2;
-                    const dx = bx - p.x;
-                    const dy = by - p.y;
-                    const dist = Math.sqrt(dx * dx + dy * dy);
-                    if (dist < 0.6) {
-                        p.target.hp -= (p.dmg || 10);
-                        game.effects.push({ x: bx, y: by, timer: 0.15, maxTimer: 0.15, color: '#ff8' });
-                        game.projectiles.splice(i, 1);
-                    } else {
-                        p.x += (dx / dist) * p.speed * dt;
-                        p.y += (dy / dist) * p.speed * dt;
-                    }
+                    tx = p.target.x + p.target.size / 2;
+                    ty = p.target.y + p.target.size / 2;
                 } else {
-                    const dx = p.target.x - p.x;
-                    const dy = p.target.y - p.y;
-                    const dist = Math.sqrt(dx * dx + dy * dy);
-                    if (dist < 0.6) {
-                        p.target.hp -= (p.dmg || 10);
-                        game.effects.push({ x: p.target.x, y: p.target.y, timer: 0.15, maxTimer: 0.15,
-                            color: '#ff8' });
-                        game.projectiles.splice(i, 1);
-                    } else {
-                        p.x += (dx / dist) * p.speed * dt;
-                        p.y += (dy / dist) * p.speed * dt;
-                    }
+                    tx = p.target.x;
+                    ty = p.target.y;
+                }
+                const dx = tx - p.x;
+                const dy = ty - p.y;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+                p.angle = Math.atan2(dy, dx);
+                if (dist < 0.6) {
+                    p.target.hp -= (p.dmg || 10);
+                    game.effects.push({ x: tx, y: ty, timer: 0.15, maxTimer: 0.15, color: '#ff8' });
+                    game.projectiles.splice(i, 1);
+                } else {
+                    p.x += (dx / dist) * p.speed * dt;
+                    p.y += (dy / dist) * p.speed * dt;
                 }
             }
         }
@@ -1644,7 +1660,6 @@
                 }
                 game.units = game.units.filter(u => u.hp > 0);
                 game.unitCount = game.units.length;
-                game.builderCount = game.units.filter(u => u.type === 'builder' && u.owner === 0 && u.hp > 0).length;
 
                 for (const b of game.buildings) b.update(dt);
                 game.buildings = game.buildings.filter(b => b.hp > 0 || b === game.hub);
@@ -1670,7 +1685,6 @@
             ctx.fillStyle = '#0a0a0a';
             ctx.fillRect(0, 0, game.width, game.height);
 
-            // Draw map
             for (let y = 0; y < MAP_H; y++) {
                 for (let x = 0; x < MAP_W; x++) {
                     const px = x * TILE - game.camera.x;
@@ -1686,20 +1700,18 @@
                 }
             }
 
-            // Wall preview
             if (game.wallPreview) {
                 for (const wt of game.wallPreview) {
                     const px = wt.x * TILE - game.camera.x;
                     const py = wt.y * TILE - game.camera.y;
-                    ctx.fillStyle = 'rgba(255,215,0,0.3)';
+                    ctx.fillStyle = wt.valid ? 'rgba(80,220,120,0.4)' : 'rgba(220,80,80,0.45)';
                     ctx.fillRect(px, py, TILE, TILE);
-                    ctx.strokeStyle = '#ffd700';
+                    ctx.strokeStyle = wt.valid ? '#5adf82' : '#e05a5a';
                     ctx.lineWidth = 2;
                     ctx.strokeRect(px + 0.5, py + 0.5, TILE - 1, TILE - 1);
                 }
             }
 
-            // Pulse rings (under buildings)
             for (const ring of game.pulseRings) {
                 const px = ring.x * TILE - game.camera.x;
                 const py = ring.y * TILE - game.camera.y;
@@ -1717,40 +1729,18 @@
                 ctx.fill();
             }
 
-            // Buildings
             for (const b of game.buildings) b.draw(ctx, game.camera);
-
-            // Units
             for (const u of game.units) u.draw(ctx, game.camera);
 
-            // Projectiles
             for (const p of game.projectiles) {
                 const px = p.x * TILE - game.camera.x;
                 const py = p.y * TILE - game.camera.y;
-                ctx.fillStyle = '#ff0';
-                ctx.beginPath();
-                ctx.arc(px, py, 3, 0, Math.PI * 2);
-                ctx.fill();
-                ctx.fillStyle = 'rgba(255,255,255,0.7)';
-                ctx.beginPath();
-                ctx.arc(px - 0.5, py - 0.5, 1.5, 0, Math.PI * 2);
-                ctx.fill();
+                drawArrow(ctx, px, py, p.angle || 0, p.tint || '#e8d9b0');
             }
 
-            // Hit effects
-            for (const e of game.effects) {
-                const px = e.x * TILE - game.camera.x;
-                const py = e.y * TILE - game.camera.y;
-                const t = Math.max(0, e.timer / e.maxTimer);
-                ctx.strokeStyle = (e.color || '#fff') + (t * 0.8) + ')';
-                ctx.lineWidth = 2.5;
-                ctx.beginPath();
-                ctx.arc(px, py, 8 * (1 - t) + 3, 0, Math.PI * 2);
-                ctx.stroke();
-            }
+            for (const e of game.effects) drawEffect(ctx, e, game.camera);
 
-            // Selection box
-            if (game.mouse.down && Math.abs(game.mouse.curX - game.mouse.startX) > 5) {
+            if (game.mouse.down && Math.abs(game.mouse.curX - game.mouse.startX) > 5 && !game.isBuildMode) {
                 const minX = Math.min(game.mouse.startX, game.mouse.curX);
                 const minY = Math.min(game.mouse.startY, game.mouse.curY);
                 const w = Math.abs(game.mouse.curX - game.mouse.startX);
@@ -1808,16 +1798,23 @@
         function gameOver(win) {
             setTimeout(() => {
                 alert(win ? '🎉 Victory! Waves survived: ' + game.waveNumber :
-                    '💀 Game Over — You lost! Waves survived: ' + game.waveNumber + '\nKills: ' + game
-                    .kills);
+                    '💀 Game Over — You lost! Waves survived: ' + game.waveNumber + '\nKills: ' + game.kills);
                 location.reload();
             }, 100);
         }
 
         // ========== ADS ==========
         function showInterstitialAd() {
-            // Replace with your ad network code
             console.log('📢 Interstitial ad shown (wave ' + game.waveNumber + ')');
+        }
+
+        // ========== STATS ==========
+        function updateStats() {
+            document.getElementById('hub-hp').textContent = Math.ceil(game.hub.hp);
+            document.getElementById('unit-count').textContent = game.unitCount + '/' + game.maxUnits;
+            document.getElementById('wave').textContent = game.waveNumber;
+            document.getElementById('kills').textContent = game.kills;
+            document.getElementById('next-wave').textContent = Math.max(0, Math.ceil(game.waveTimer));
         }
 
         // ========== START ==========

@@ -63,44 +63,42 @@
             left: 0;
             z-index: 1;
         }
-        #ui-panel {
+        /* ===== Compact stats row (was 52px, now 34px) ===== */
+        #stats-row {
             position: fixed;
             left: 0;
-            bottom: 40px;
             right: 0;
-            height: 52px;
+            bottom: 40px;
+            height: 34px;
             background: linear-gradient(180deg, #2d2618, #1a140d);
             display: flex;
             align-items: center;
             justify-content: center;
-            padding: 4px 8px;
-            gap: 6px;
+            gap: 5px;
+            padding: 2px 6px;
             z-index: 90;
-            border-top: 2px solid #5a4a2e;
-            box-shadow: 0 -2px 12px rgba(0, 0, 0, 0.6);
+            border-top: 1px solid #5a4a2e;
             overflow-x: auto;
             overflow-y: hidden;
         }
         .stat {
-            padding: 4px 12px;
+            padding: 2px 9px;
             background: linear-gradient(180deg, #3d3428, #241d12);
             border: 1px solid #5a4a2e;
-            border-radius: 20px;
+            border-radius: 14px;
             color: #e8d9b0;
-            font-size: 13px;
+            font-size: 11px;
             white-space: nowrap;
             font-weight: 500;
             flex-shrink: 0;
             display: flex;
             align-items: center;
-            gap: 4px;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
-            transition: all 0.15s ease;
+            gap: 3px;
         }
         .stat span {
             color: #ffd76a;
             font-weight: bold;
-            font-size: 14px;
+            font-size: 12px;
         }
         #minimap {
             position: fixed;
@@ -147,34 +145,60 @@
             backdrop-filter: blur(4px);
             letter-spacing: 0.4px;
         }
-        /* ===== Bottom control dock: options panel + persistent tab bar ===== */
-        #control-dock {
+        /* ===== Tab bar (was ~50px floating over the canvas & not accounted for — now 40px and properly reserved) ===== */
+        #tab-bar {
             position: fixed;
             left: 0;
             right: 0;
-            bottom: 92px;
-            z-index: 100;
+            bottom: 74px;
+            height: 40px;
             display: flex;
-            flex-direction: column;
+            background: linear-gradient(180deg, #2d2618, #1a140d);
+            border-top: 2px solid #5a4a2e;
+            z-index: 100;
         }
+        .tab-btn {
+            flex: 1;
+            padding: 0 4px;
+            background: linear-gradient(180deg, #3d3428, #241d12);
+            border: none;
+            border-right: 1px solid #5a4a2e;
+            color: #cbb98a;
+            font-size: 12px;
+            font-weight: 700;
+            letter-spacing: 0.3px;
+        }
+        .tab-btn:last-child {
+            border-right: none;
+        }
+        .tab-btn.active-tab {
+            background: linear-gradient(180deg, #6b5a3a, #4a3d28);
+            color: #ffd76a;
+        }
+        /* ===== Options panel: floats ABOVE the tab bar only while a tab is open ===== */
         #options-panel {
             display: none;
+            position: fixed;
+            left: 0;
+            right: 0;
+            bottom: 114px;
             background: linear-gradient(180deg, #3d3428, #1a140d);
             border: 2px solid #5a4a2e;
             border-bottom: none;
-            padding: 8px;
-            gap: 6px;
+            padding: 6px;
+            gap: 5px;
             flex-wrap: wrap;
             justify-content: center;
-            max-height: 34vh;
+            max-height: 30vh;
             overflow-y: auto;
+            z-index: 100;
             box-shadow: 0 -2px 12px rgba(0, 0, 0, 0.5);
         }
         #options-panel.show {
             display: flex;
         }
         #options-panel button {
-            padding: 10px 14px;
+            padding: 8px 12px;
             background: linear-gradient(180deg, #5a4a2e, #3d3428);
             border: 1px solid #7a6548;
             border-radius: 8px;
@@ -191,28 +215,14 @@
             background: linear-gradient(180deg, #3d3428, #5a4a2e);
             transform: scale(0.96);
         }
-        #tab-bar {
-            display: flex;
-            background: linear-gradient(180deg, #2d2618, #1a140d);
-            border-top: 2px solid #5a4a2e;
+        #options-panel button.active-build {
+            background: linear-gradient(180deg, #7a6548, #5a4a2e);
+            border-color: #ffd76a;
+            box-shadow: 0 0 10px rgba(255, 215, 106, 0.4);
         }
-        .tab-btn {
-            flex: 1;
-            padding: 12px 4px;
-            background: linear-gradient(180deg, #3d3428, #241d12);
-            border: none;
-            border-right: 1px solid #5a4a2e;
-            color: #cbb98a;
-            font-size: 13px;
-            font-weight: 700;
-            letter-spacing: 0.3px;
-        }
-        .tab-btn:last-child {
-            border-right: none;
-        }
-        .tab-btn.active-tab {
-            background: linear-gradient(180deg, #6b5a3a, #4a3d28);
-            color: #ffd76a;
+        #options-panel button:disabled {
+            opacity: 0.45;
+            cursor: not-allowed;
         }
         #wave-banner {
             position: fixed;
@@ -260,20 +270,18 @@
     <div id="pan-hint">🗺️ Tap minimap to jump · 2-finger drag to pan</div>
     <div id="selection-info">🎮 Use the tabs below to build, command &amp; train</div>
     <div id="wave-banner"></div>
-    <div id="ui-panel">
+    <div id="stats-row">
         <div class="stat">🏛️ <span id="hub-hp">300</span></div>
         <div class="stat">👥 <span id="unit-count">0/24</span></div>
         <div class="stat">🌊 <span id="wave">1</span></div>
         <div class="stat">💀 <span id="kills">0</span></div>
         <div class="stat">⏱️ <span id="next-wave">18</span>s</div>
     </div>
-    <div id="control-dock">
-        <div id="options-panel"></div>
-        <div id="tab-bar">
-            <button id="tab-build" class="tab-btn">🔨 Build</button>
-            <button id="tab-tactics" class="tab-btn">🛡️ Tactics</button>
-            <button id="tab-units" class="tab-btn">⚔️ Units</button>
-        </div>
+    <div id="options-panel"></div>
+    <div id="tab-bar">
+        <button id="tab-build" class="tab-btn">🔨 Build</button>
+        <button id="tab-tactics" class="tab-btn">🛡️ Tactics</button>
+        <button id="tab-units" class="tab-btn">⚔️ Units</button>
     </div>
     <div id="ad-banner">AD SPACE — replace with your ad network code</div>
 
@@ -291,6 +299,9 @@
         const WALL_MAX_LEN = 4;
         const MAX_UNITS = 24;
         const HEAL_RADIUS = 6; // tiles for triage
+        const BUILD_LIMITS = { wall: 100, tower: 25, triage: 8 };
+        const HUB_REGEN_DELAY = 4;   // seconds of no damage before the hub starts self-repairing
+        const HUB_REGEN_RATE = 5;    // hp per second once repairing
 
         // ========== GAME STATE ==========
         let map = [];
@@ -318,7 +329,7 @@
             queue: [],
             queueTimer: 0,
             waveNumber: 1,
-            waveTimer: 15,
+            waveTimer: 45,
             kills: 0,
             lastTime: 0,
             isBuildMode: false,
@@ -330,17 +341,19 @@
             unitCount: 0,
             gameOver: false,
             activeTab: null,
+            targetMode: 'closest', // 'closest' | 'strongest'
             totalUnitsTrained: 0,
         };
 
         // ========== UNIT DEFINITIONS ==========
-        // Sword: short, punchy reach. Spear: longer reach than sword. Archer: longest reach, fires arrows.
+        // Sword: short reach. Spear: longer reach than sword. Archer: longest reach, fires arrows.
+        // Speeds are intentionally modest so the pace stays readable.
         const UNIT_TYPES = {
-            sword: { name: 'Sword', hp: 80, attack: 10, range: 7, speed: 5.5, atkSpeed: 1.1, trainTime: 12,
+            sword: { name: 'Sword', hp: 80, attack: 10, range: 7, speed: 3.2, atkSpeed: 1.1, trainTime: 12,
                 color: '#8b6f3a', icon: '⚔️' },
-            spear: { name: 'Spear', hp: 60, attack: 8, range: 10, speed: 7.0, atkSpeed: 0.9, trainTime: 9,
+            spear: { name: 'Spear', hp: 60, attack: 8, range: 10, speed: 4.2, atkSpeed: 0.9, trainTime: 9,
                 color: '#6a5a3a', icon: '🔱' },
-            archer: { name: 'Archer', hp: 40, attack: 14, range: 18, speed: 4.5, atkSpeed: 1.4, trainTime: 14,
+            archer: { name: 'Archer', hp: 40, attack: 14, range: 18, speed: 2.8, atkSpeed: 1.4, trainTime: 14,
                 color: '#4a7c2e', icon: '🏹' },
         };
 
@@ -577,6 +590,7 @@
         }
 
         // ========== COLLISION ==========
+        // Trees still physically block movement — only *building placement* is allowed on them (see isBuildable).
         function tileBlocked(tx, ty) {
             if (tx < 0 || ty < 0 || tx >= MAP_W || ty >= MAP_H) return true;
             const t = map[ty][tx];
@@ -643,6 +657,22 @@
                 }
             }
             return result;
+        }
+
+        // Chooses an enemy target from a candidate list, honoring the player's chosen targeting mode.
+        function pickEnemyTarget(candidates, x, y, range, mode) {
+            let best = null;
+            let bestScore = mode === 'strongest' ? -Infinity : Infinity;
+            for (const u of candidates) {
+                const d = Math.sqrt((u.x - x) ** 2 + (u.y - y) ** 2);
+                if (d >= range) continue;
+                if (mode === 'strongest') {
+                    if (u.hp > bestScore) { bestScore = u.hp; best = u; }
+                } else {
+                    if (d < bestScore) { bestScore = d; best = u; }
+                }
+            }
+            return best;
         }
 
         // ========== CLASSES ==========
@@ -727,13 +757,9 @@
                 } else {
                     this.targetUnit = null;
                     this.targetBuilding = null;
-                    let nearest = null, nd = Infinity;
-                    for (const u of nearbyUnits(this.x, this.y, this.range)) {
-                        if (u.owner !== this.owner && u.hp > 0) {
-                            const d = Math.sqrt((u.x - this.x) ** 2 + (u.y - this.y) ** 2);
-                            if (d < this.range && d < nd) { nd = d; nearest = u; }
-                        }
-                    }
+                    const mode = this.owner === 0 ? game.targetMode : 'closest';
+                    const candidates = nearbyUnits(this.x, this.y, this.range).filter(u => u.owner !== this.owner && u.hp > 0);
+                    const nearest = pickEnemyTarget(candidates, this.x, this.y, this.range, mode);
                     if (nearest) {
                         target = nearest;
                     } else {
@@ -758,7 +784,7 @@
                     if (d < this.range + 1 && this.atkCooldown <= 0) {
                         if (this.type === 'archer') {
                             game.projectiles.push({
-                                x: this.x, y: this.y, target: target, speed: 90, dmg: this.attack,
+                                x: this.x, y: this.y, target: target, speed: 40, dmg: this.attack,
                                 kind: 'arrow', tint: this.owner === 0 ? '#e8d9b0' : '#d97a7a'
                             });
                         } else if (this.type === 'sword') {
@@ -840,25 +866,24 @@
                 this.cooldown = 0;
                 this.pulseTimer = Math.random() * 2;
                 this.isHub = type === 'hub';
+                this.lastHp = this.hp;
+                this.regenCooldown = 0;
             }
 
             update(dt) {
                 if (this.cooldown > 0) this.cooldown -= dt;
 
                 if (this.type === 'tower' && this.cooldown <= 0 && this.hp > 0) {
-                    let target = null, td = Infinity;
-                    for (const u of nearbyUnits(this.x + this.size / 2, this.y + this.size / 2, 7)) {
-                        if (u.owner !== this.owner && u.hp > 0) {
-                            const d = Math.sqrt((u.x - this.x - this.size / 2) ** 2 + (u.y - this.y - this.size / 2) ** 2);
-                            if (d < 7 && d < td) { td = d; target = u; }
-                        }
-                    }
+                    const mode = this.owner === 0 ? game.targetMode : 'closest';
+                    const candidates = nearbyUnits(this.x + this.size / 2, this.y + this.size / 2, 7)
+                        .filter(u => u.owner !== this.owner && u.hp > 0);
+                    const target = pickEnemyTarget(candidates, this.x + this.size / 2, this.y + this.size / 2, 7, mode);
                     if (target) {
                         game.projectiles.push({
                             x: this.x + this.size / 2,
                             y: this.y + this.size / 2,
                             target: target,
-                            speed: 130,
+                            speed: 55,
                             dmg: 12,
                             kind: 'arrow',
                             tint: '#c9a8ff'
@@ -899,6 +924,16 @@
                             color: 'rgba(255,215,106,'
                         });
                     }
+                    // Self-repair once the hub hasn't taken damage for a few seconds
+                    if (this.hp < this.lastHp) {
+                        this.regenCooldown = HUB_REGEN_DELAY;
+                    } else {
+                        this.regenCooldown = Math.max(0, this.regenCooldown - dt);
+                        if (this.regenCooldown <= 0 && this.hp < this.maxHp) {
+                            this.hp = Math.min(this.maxHp, this.hp + HUB_REGEN_RATE * dt);
+                        }
+                    }
+                    this.lastHp = this.hp;
                 }
             }
 
@@ -1003,8 +1038,14 @@
 
         function resizeCanvas() {
             const dpr = window.devicePixelRatio || 1;
+            // Measure the real on-screen chrome instead of hard-coding pixel values, so the
+            // canvas always fills exactly what's left (this is what fixes the "tiny game area" bug —
+            // previously the tab bar covered part of the canvas without being subtracted here).
+            const adH = document.getElementById('ad-banner').offsetHeight;
+            const statsH = document.getElementById('stats-row').offsetHeight;
+            const tabH = document.getElementById('tab-bar').offsetHeight;
             game.width = window.innerWidth;
-            game.height = window.innerHeight - 40 - 52;
+            game.height = window.innerHeight - adH - statsH - tabH;
 
             const canvas = game.canvas;
             canvas.width = Math.round(game.width * dpr);
@@ -1142,6 +1183,10 @@
             }
         }
 
+        function buildCountOf(type) {
+            return game.buildings.filter(b => b.type === type && b.owner === 0 && b.hp > 0).length;
+        }
+
         function handleTap(sx, sy) {
             const wx = (sx + game.camera.x) / TILE;
             const wy = (sy + game.camera.y) / TILE;
@@ -1152,12 +1197,20 @@
             }
 
             if (game.isBuildMode && game.buildType) {
+                const type = game.buildType;
                 const bx = Math.floor(wx);
                 const by = Math.floor(wy);
-                if (isBuildable(bx, by, game.buildType)) {
-                    game.buildings.push(new Building(game.buildType, bx, by, 0));
+                if (buildCountOf(type) >= BUILD_LIMITS[type]) {
+                    document.getElementById('selection-info').textContent = '⚠️ Max ' + BUILDING_TYPES[type].name + ' reached (' + BUILD_LIMITS[type] + ')';
+                    return;
+                }
+                if (isBuildable(bx, by, type)) {
+                    game.buildings.push(new Building(type, bx, by, 0));
                     game.effects.push({ x: bx + 0.5, y: by + 0.5, timer: 0.3, maxTimer: 0.3, color: '#4af' });
-                    finishBuild();
+                    // Stay in build mode so the player can keep placing without reselecting.
+                    document.getElementById('selection-info').textContent = '🎯 Tap to place another ' + BUILDING_TYPES[type].name +
+                        ' (' + buildCountOf(type) + '/' + BUILD_LIMITS[type] + ')';
+                    renderOptionsPanel();
                 } else {
                     document.getElementById('selection-info').textContent = '⚠️ Cannot build there — try another spot';
                 }
@@ -1209,10 +1262,12 @@
             }
         }
 
+        // Trees may now be built on top of (they no longer block placement — only water and the Hub do).
+        // They still block plain movement everywhere else (see tileBlocked).
         function isBuildable(x, y, type) {
             if (x < 0 || y < 0 || x >= MAP_W || y >= MAP_H) return false;
             const tile = map[y][x];
-            if (tile === TILE_WATER || tile === TILE_TREE || tile === TILE_HUB) return false;
+            if (tile === TILE_WATER || tile === TILE_HUB) return false;
             for (const b of game.buildings) {
                 if (b.hp <= 0) continue;
                 if (x >= b.x - 0.5 && x < b.x + b.size + 0.5 && y >= b.y - 0.5 && y < b.y + b.size + 0.5) return false;
@@ -1220,7 +1275,7 @@
             return true;
         }
 
-        // ========== WALL PLACEMENT (tap to preview, toggle orientation, place) ==========
+        // ========== WALL PLACEMENT (tap to preview, pick orientation, place) ==========
         function setWallPreview(tileX, tileY) {
             const tiles = [];
             for (let i = 0; i < WALL_MAX_LEN; i++) {
@@ -1232,11 +1287,11 @@
             game.wallAnchor = { x: tileX, y: tileY };
             document.getElementById('selection-info').textContent = tiles.every(t => t.valid)
                 ? '✅ Clear — tap Place to build'
-                : '⚠️ Red tiles are blocked — tap elsewhere or rotate';
+                : '⚠️ Red tiles are blocked — tap elsewhere';
         }
 
-        function toggleWallOrientation() {
-            game.wallOrientation = game.wallOrientation === 'horizontal' ? 'vertical' : 'horizontal';
+        function setWallOrientation(dir) {
+            game.wallOrientation = dir;
             if (game.wallAnchor) setWallPreview(game.wallAnchor.x, game.wallAnchor.y);
             renderOptionsPanel();
         }
@@ -1246,11 +1301,18 @@
                 document.getElementById('selection-info').textContent = '⚠️ Blocked — move the preview to a clear area';
                 return;
             }
+            if (buildCountOf('wall') + game.wallPreview.length > BUILD_LIMITS.wall) {
+                document.getElementById('selection-info').textContent = '⚠️ Max walls reached (' + BUILD_LIMITS.wall + ')';
+                return;
+            }
             for (const t of game.wallPreview) {
                 game.buildings.push(new Building('wall', t.x, t.y, 0));
                 game.effects.push({ x: t.x + 0.5, y: t.y + 0.5, timer: 0.2, maxTimer: 0.2, color: '#ccc' });
             }
-            finishBuild();
+            game.wallPreview = null;
+            game.wallAnchor = null;
+            document.getElementById('selection-info').textContent = '🎯 Tap the map to place another wall (' + buildCountOf('wall') + '/' + BUILD_LIMITS.wall + ')';
+            renderOptionsPanel();
         }
 
         function cancelBuildMode() {
@@ -1259,17 +1321,6 @@
             game.wallPreview = null;
             game.wallAnchor = null;
             document.getElementById('selection-info').textContent = '🎮 Use the tabs below to build, command & train';
-            renderOptionsPanel();
-        }
-
-        function finishBuild() {
-            game.isBuildMode = false;
-            game.buildType = null;
-            game.wallPreview = null;
-            game.wallAnchor = null;
-            game.activeTab = null;
-            document.getElementById('selection-info').textContent = '🎮 Use the tabs below to build, command & train';
-            updateTabHighlights();
             renderOptionsPanel();
         }
 
@@ -1326,34 +1377,58 @@
             else if (game.activeTab === 'units') renderUnitOptions(panel);
         }
 
+        function addInfoLine(panel, text) {
+            const info = document.createElement('div');
+            info.style.cssText = 'width:100%;text-align:center;color:#e8d9b0;font-size:11px;margin-bottom:2px;';
+            info.textContent = text;
+            panel.appendChild(info);
+        }
+
         function renderBuildOptions(panel) {
             if (game.isBuildMode && game.buildType === 'wall') {
-                const info = document.createElement('div');
-                info.style.cssText = 'width:100%;text-align:center;color:#e8d9b0;font-size:12px;margin-bottom:2px;';
-                info.textContent = 'Tap the map to preview the wall';
-                panel.appendChild(info);
+                addInfoLine(panel, 'Tap the map to preview — Walls: ' + buildCountOf('wall') + '/' + BUILD_LIMITS.wall);
 
-                const toggleBtn = document.createElement('button');
-                toggleBtn.textContent = game.wallOrientation === 'horizontal' ? '↔ Horizontal (tap to rotate)' : '↕ Vertical (tap to rotate)';
-                toggleBtn.onclick = toggleWallOrientation;
-                panel.appendChild(toggleBtn);
+                const hBtn = document.createElement('button');
+                hBtn.textContent = '↔ Horizontal';
+                if (game.wallOrientation === 'horizontal') hBtn.classList.add('active-build');
+                hBtn.onclick = () => setWallOrientation('horizontal');
+                panel.appendChild(hBtn);
+
+                const vBtn = document.createElement('button');
+                vBtn.textContent = '↕ Vertical';
+                if (game.wallOrientation === 'vertical') vBtn.classList.add('active-build');
+                vBtn.onclick = () => setWallOrientation('vertical');
+                panel.appendChild(vBtn);
 
                 const placeBtn = document.createElement('button');
                 placeBtn.textContent = '✅ Place';
                 placeBtn.onclick = placeWallPreview;
                 panel.appendChild(placeBtn);
 
-                const cancelBtn = document.createElement('button');
-                cancelBtn.textContent = '❌ Cancel';
-                cancelBtn.onclick = cancelBuildMode;
-                panel.appendChild(cancelBtn);
+                const stopBtn = document.createElement('button');
+                stopBtn.textContent = '❌ Stop Placing';
+                stopBtn.onclick = cancelBuildMode;
+                panel.appendChild(stopBtn);
+                return;
+            }
+
+            if (game.isBuildMode && game.buildType) {
+                const type = game.buildType;
+                addInfoLine(panel, 'Tap the map to place ' + BUILDING_TYPES[type].name + ' (' + buildCountOf(type) + '/' + BUILD_LIMITS[type] + ')');
+                const stopBtn = document.createElement('button');
+                stopBtn.textContent = '❌ Stop Placing';
+                stopBtn.onclick = cancelBuildMode;
+                panel.appendChild(stopBtn);
                 return;
             }
 
             const types = ['wall', 'tower', 'triage'];
             types.forEach(t => {
                 const btn = document.createElement('button');
-                btn.textContent = t === 'wall' ? '▬ Wall' : BUILDING_TYPES[t].icon + ' ' + BUILDING_TYPES[t].name;
+                const count = buildCountOf(t);
+                const limit = BUILD_LIMITS[t];
+                btn.textContent = (t === 'wall' ? '▬ Wall' : BUILDING_TYPES[t].icon + ' ' + BUILDING_TYPES[t].name) + ' (' + count + '/' + limit + ')';
+                if (count >= limit) btn.disabled = true;
                 btn.onclick = () => {
                     game.isBuildMode = true;
                     game.buildType = t;
@@ -1373,8 +1448,8 @@
         function renderTacticsOptions(panel) {
             const defs = [
                 { key: 'withdraw', label: '↩ Withdraw' },
-                { key: 'open', label: '▢ Open Wall' },
                 { key: 'closed', label: '▣ Closed Wall' },
+                { key: 'open', label: '▢ Open Wall' },
                 { key: 'staggered', label: '▦ Staggered Wall' },
                 { key: 'hold', label: '✋ Hold Position' },
             ];
@@ -1384,6 +1459,14 @@
                 btn.onclick = () => applyTactic(d.key);
                 panel.appendChild(btn);
             });
+            const targetBtn = document.createElement('button');
+            targetBtn.textContent = game.targetMode === 'strongest' ? '💪 Target: Strongest' : '🎯 Target: Closest';
+            targetBtn.onclick = () => {
+                game.targetMode = game.targetMode === 'strongest' ? 'closest' : 'strongest';
+                document.getElementById('selection-info').textContent = 'Targeting mode: ' + game.targetMode;
+                renderOptionsPanel();
+            };
+            panel.appendChild(targetBtn);
         }
 
         function renderUnitOptions(panel) {
@@ -1404,7 +1487,7 @@
             });
             const info = document.createElement('div');
             info.id = 'queue-info';
-            info.style.cssText = 'width:100%;text-align:center;color:#e8d9b0;font-size:12px;margin-top:4px;';
+            info.style.cssText = 'width:100%;text-align:center;color:#e8d9b0;font-size:11px;margin-top:2px;';
             panel.appendChild(info);
             updateHubUI();
         }
@@ -1435,14 +1518,23 @@
             const cx = hub.x + hub.size / 2;
             const cy = hub.y + hub.size / 2;
             let positions, label;
+
             if (kind === 'withdraw') {
                 positions = getWithdrawPositions(cx, cy, units.length);
                 label = '↩ Units withdrawing to the Hub';
-            } else {
-                positions = getBoxPositions(cx, cy, hub.size, kind);
-                label = kind === 'open' ? '▢ Forming an open wall'
-                    : kind === 'staggered' ? '▦ Forming a staggered wall'
-                    : '▣ Forming a closed wall';
+            } else if (kind === 'closed') {
+                // Split units into four roughly-equal groups guarding N / S / E / W, close to the hub.
+                positions = getClosedWallPositions(cx, cy, hub.size, units.length);
+                label = '▣ Splitting into North/South/East/West groups';
+            } else if (kind === 'open') {
+                // A wide box around the hub with a clear gap, to keep units out of easy ranged fire.
+                positions = getRingPositions(cx, cy, hub.size, 6);
+                label = '▢ Forming a wide box around the Hub';
+            } else if (kind === 'staggered') {
+                const half = Math.round(hub.size / 2 + 6);
+                const sides = squareRingSides(Math.round(cx), Math.round(cy), half);
+                positions = staggerSides(sides).filter(p => !tileBlocked(Math.floor(p.x), Math.floor(p.y)));
+                label = '▦ Forming a staggered box around the Hub';
             }
             assignPositions(units, positions);
             document.getElementById('selection-info').textContent = label;
@@ -1461,6 +1553,34 @@
             return positions;
         }
 
+        // Four tight clusters directly guarding each cardinal side of the hub.
+        function getClosedWallPositions(cx, cy, hubSize, count) {
+            const gap = 3;
+            const half = Math.round(hubSize / 2) + gap;
+            const perSide = Math.ceil(count / 4);
+            const sidesOrder = ['top', 'right', 'bottom', 'left'];
+            const positions = [];
+            sidesOrder.forEach(side => {
+                for (let i = 0; i < perSide; i++) {
+                    const offset = i - (perSide - 1) / 2;
+                    let x, y;
+                    if (side === 'top') { x = cx + offset; y = cy - half; }
+                    else if (side === 'bottom') { x = cx + offset; y = cy + half; }
+                    else if (side === 'left') { x = cx - half; y = cy + offset; }
+                    else { x = cx + half; y = cy + offset; }
+                    positions.push({ x, y });
+                }
+            });
+            return positions.filter(p => !tileBlocked(Math.floor(p.x), Math.floor(p.y)));
+        }
+
+        // A full box ring at a given tile-gap from the hub edge (used by "open" and as the base for "staggered").
+        function getRingPositions(cx, cy, hubSize, gap) {
+            const half = Math.round(hubSize / 2 + gap);
+            const sides = squareRingSides(Math.round(cx), Math.round(cy), half);
+            return sidesToArray(sides).filter(p => !tileBlocked(Math.floor(p.x), Math.floor(p.y)));
+        }
+
         function squareRingSides(cx, cy, half) {
             const sides = { top: [], right: [], bottom: [], left: [] };
             for (let x = -half; x <= half; x++) sides.top.push({ x: cx + x, y: cy - half });
@@ -1474,24 +1594,12 @@
             return [...sides.top, ...sides.right, ...sides.bottom, ...sides.left];
         }
 
-        function openGates(sides) {
-            const gateSize = 3;
-            const out = {};
-            for (const key of Object.keys(sides)) {
-                const arr = sides[key];
-                const mid = Math.floor(arr.length / 2);
-                const start = Math.max(0, mid - Math.floor(gateSize / 2));
-                out[key] = arr.filter((_, i) => i < start || i >= start + gateSize);
-            }
-            return sidesToArray(out);
-        }
-
+        // Same ring as "open" but every other unit steps in/out to zig-zag around it.
         function staggerSides(sides) {
             const out = [];
             for (const key of Object.keys(sides)) {
                 const arr = sides[key];
                 arr.forEach((p, i) => {
-                    if (i % 2 === 1) return; // thin the line so there are natural gaps
                     const stepOut = Math.floor(i / 2) % 2 === 0;
                     const off = stepOut ? 1 : -1;
                     let np = { x: p.x, y: p.y };
@@ -1503,17 +1611,6 @@
                 });
             }
             return out;
-        }
-
-        function getBoxPositions(cx, cy, hubSize, kind) {
-            const gapFromHub = 5; // tiles of clearance between the hub and the wall
-            const half = Math.round(hubSize / 2 + gapFromHub);
-            const sides = squareRingSides(Math.round(cx), Math.round(cy), half);
-            let positions;
-            if (kind === 'open') positions = openGates(sides);
-            else if (kind === 'staggered') positions = staggerSides(sides);
-            else positions = sidesToArray(sides);
-            return positions.filter(p => !tileBlocked(Math.floor(p.x), Math.floor(p.y)));
         }
 
         function assignPositions(units, positions) {
@@ -1561,6 +1658,7 @@
         }
 
         // ========== WAVES ==========
+        // Longer gaps between waves (and a slower difficulty ramp) so there's real time to build defences.
         function updateWaves(dt) {
             game.waveTimer -= dt;
             if (game.waveTimer <= 0 && !game.gameOver) {
@@ -1585,7 +1683,7 @@
                     game.units.push(e);
                 }
                 game.waveNumber++;
-                game.waveTimer = Math.max(10, 22 - game.waveNumber * 0.5);
+                game.waveTimer = Math.max(30, 50 - game.waveNumber * 0.4);
                 announceWave();
                 if (game.waveNumber % 5 === 0) {
                     showInterstitialAd();

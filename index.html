@@ -183,33 +183,37 @@
             color: #ffd76a;
         }
         /* ===== Options flyout: appears beside the rail only while a tab is open ===== */
+        /* Options flyout now docks under the minimap/stats block on the right, instead of next
+           to the left rail — keeps the whole left-center map area clear. Its exact "top" is set
+           in JS (positionOptionsPanel) to sit just under the stats panel. */
         #options-panel {
             display: none;
             position: fixed;
-            left: 64px;
-            top: 0;
+            right: 10px;
+            top: 290px;
             bottom: 40px;
-            width: 188px;
+            width: 150px;
             background: linear-gradient(180deg, #3d3428, #1a140d);
-            border-right: 2px solid #5a4a2e;
-            padding: 8px 6px;
-            gap: 6px;
+            border: 1px solid #5a4a2e;
+            border-radius: 8px;
+            padding: 7px;
+            gap: 5px;
             flex-direction: column;
             overflow-y: auto;
             z-index: 99;
-            box-shadow: 4px 0 14px rgba(0, 0, 0, 0.5);
+            box-shadow: 0 2px 12px rgba(0, 0, 0, 0.5);
         }
         #options-panel.show {
             display: flex;
         }
         #options-panel button {
-            padding: 9px 10px;
+            padding: 7px 8px;
             background: linear-gradient(180deg, #5a4a2e, #3d3428);
             border: 1px solid #7a6548;
-            border-radius: 8px;
+            border-radius: 7px;
             color: #f0e4c0;
             text-shadow: 0 1px 1px rgba(0, 0, 0, 0.5);
-            font-size: 12px;
+            font-size: 11px;
             cursor: pointer;
             font-weight: 600;
             letter-spacing: 0.2px;
@@ -356,13 +360,15 @@
 
         // ========== UNIT DEFINITIONS ==========
         // Sword: short reach. Spear: longer reach than sword. Archer: longest reach, fires arrows.
+        // Palette nudged toward muted khaki/olive/rust tones — a small step toward the
+        // "survivalist" look while the sprite question below gets sorted out.
         const UNIT_TYPES = {
             sword: { name: 'Sword', hp: 80, attack: 10, range: 7, speed: 3.2, atkSpeed: 1.1, trainTime: 12,
-                color: '#8b6f3a', icon: '⚔️' },
+                color: '#7a5c34', icon: '⚔️' },
             spear: { name: 'Spear', hp: 60, attack: 8, range: 10, speed: 4.2, atkSpeed: 0.9, trainTime: 9,
-                color: '#6a5a3a', icon: '🔱' },
+                color: '#5c4d30', icon: '🔱' },
             archer: { name: 'Archer', hp: 40, attack: 14, range: 18, speed: 2.8, atkSpeed: 1.4, trainTime: 14,
-                color: '#4a7c2e', icon: '🏹' },
+                color: '#5a6a3a', icon: '🏹' },
         };
 
         // ========== BUILDING DEFINITIONS ==========
@@ -983,7 +989,17 @@
                 ctx.ellipse(px, py + 5, 6, 2.3, 0, 0, Math.PI * 2);
                 ctx.fill();
 
-                const baseColor = this.owner === 0 ? this.def.color : '#a03030';
+                // Backpack — a small "survivalist" touch: everyone's carrying their gear on their back
+                const packColor = this.owner === 0 ? '#5a4530' : '#4a2222';
+                ctx.fillStyle = packColor;
+                ctx.beginPath();
+                ctx.ellipse(px + 4, py + 1, 3.2, 4.2, 0, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.strokeStyle = 'rgba(0,0,0,0.45)';
+                ctx.lineWidth = 0.5;
+                ctx.stroke();
+
+                const baseColor = this.owner === 0 ? this.def.color : '#8a2a2a';
                 const grad = ctx.createRadialGradient(px - 2, py - 3, 1, px, py, 7);
                 grad.addColorStop(0, lighten(baseColor, 0.4));
                 grad.addColorStop(1, baseColor);
@@ -1215,7 +1231,16 @@
             setupEvents();
             setupTabBar();
             attachGlobalListeners();
+            positionOptionsPanel();
             requestAnimationFrame(loop);
+        }
+
+        // Docks the options flyout just under the stats panel (which sits under the minimap),
+        // so the two form one tidy stack on the right instead of the flyout overlapping the map.
+        function positionOptionsPanel() {
+            const statsPanel = document.getElementById('stats-panel');
+            const rect = statsPanel.getBoundingClientRect();
+            game.optionsPanel.style.top = (rect.bottom + 10) + 'px';
         }
 
         function resizeCanvas() {
@@ -1234,6 +1259,7 @@
             canvas.style.height = game.height + 'px';
             game.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
             clampCamera();
+            if (game.optionsPanel) positionOptionsPanel();
         }
 
         function handleOrientationChange() { setTimeout(resizeCanvas, 300); }

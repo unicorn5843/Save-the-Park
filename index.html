@@ -5,217 +5,104 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Park Defense</title>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        html,
-        body {
-            width: 100%;
-            height: 100%;
-            overflow: hidden;
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html, body {
+            width: 100%; height: 100%; overflow: hidden;
             background: #0a0a0a;
             font-family: 'Segoe UI', 'Roboto', monospace, sans-serif;
-            touch-action: none;
-            position: fixed;
-            overscroll-behavior: none;
+            touch-action: none; position: fixed; overscroll-behavior: none;
             -webkit-tap-highlight-color: transparent;
-            -webkit-user-select: none;
-            user-select: none;
+            -webkit-user-select: none; user-select: none;
         }
         #ad-banner {
-            width: 100%;
-            height: 40px;
+            width: 100%; height: 40px;
             background: linear-gradient(180deg, #1a1a1a, #0d0d0d);
-            color: #999;
-            text-align: center;
-            line-height: 40px;
-            font-size: 12px;
-            position: fixed;
-            bottom: 0;
-            left: 0;
-            z-index: 100;
-            border-top: 1px solid #333;
-            letter-spacing: 0.5px;
+            color: #999; text-align: center; line-height: 40px; font-size: 12px;
+            position: fixed; bottom: 0; left: 0; z-index: 100;
+            border-top: 1px solid #333; letter-spacing: 0.5px;
         }
         #rotate-overlay {
-            display: none;
-            position: fixed;
-            inset: 0;
-            background: #000;
-            color: #fff;
-            text-align: center;
-            padding-top: 40%;
-            font-size: 24px;
-            z-index: 999;
+            display: none; position: fixed; inset: 0; background: #000; color: #fff;
+            text-align: center; padding-top: 40%; font-size: 24px; z-index: 999;
             font-family: 'Segoe UI', sans-serif;
         }
-        @media (orientation: portrait) {
-            #rotate-overlay {
-                display: block;
-            }
-        }
-        canvas#game {
-            display: block;
+        @media (orientation: portrait) { #rotate-overlay { display: block; } }
+        canvas#game { display: block; position: fixed; top: 0; left: 0; z-index: 1; }
+
+        /* ===== LEFT DOCK: tab rail + options panel, both on the left so the right-hand
+           side of the map stays completely clear for placing buildings. ===== */
+        #left-dock {
             position: fixed;
-            top: 0;
-            left: 0;
-            z-index: 1;
-        }
-        /* ===== Right-hand dock: minimap, stats and the build/tactics/units panel all live
-           in one full-height column now, so the panel can use all the leftover vertical
-           space instead of scrolling in a short flyout. ===== */
-        #right-dock {
-            position: fixed;
-            top: 6px;
-            right: 3px;
-            bottom: 48px;
-            width: 232px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 4px;
-            z-index: 95;
-            pointer-events: none;
-        }
-        #right-dock > * {
-            pointer-events: auto;
-        }
-        #minimap {
-            display: block;
-            margin: 0 auto;
-            flex: 0 0 auto;
-            background: #15120a;
-            border: 2px solid #5a4a2e;
-            border-radius: 7px;
-            touch-action: none;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
-            cursor: crosshair;
-        }
-        /* ===== Stats now live in a tight strip directly under the minimap ===== */
-        #stats-panel {
-            width: 136px;
-            flex: 0 0 auto;
-            display: flex;
-            flex-wrap: wrap;
-            gap: 3px;
-            background: rgba(20, 15, 8, 0.75);
-            border: 1px solid #5a4a2e;
-            border-radius: 7px;
-            padding: 4px;
-            backdrop-filter: blur(4px);
-        }
-        .stat {
-            flex: 1 1 42%;
-            padding: 1.5px 4px;
-            background: linear-gradient(180deg, #3d3428, #241d12);
-            border: 1px solid #5a4a2e;
-            border-radius: 8px;
-            color: #e8d9b0;
-            font-size: 9px;
-            white-space: nowrap;
-            font-weight: 500;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 2px;
-        }
-        .stat span {
-            color: #ffd76a;
-            font-weight: bold;
-            font-size: 10px;
-        }
-        #selection-info:empty {
-            display: none;
-        }
-        #selection-info {
-            position: fixed;
-            top: 10px;
-            left: 54px;
-            color: #f0e4c0;
-            background: rgba(20, 15, 8, 0.85);
-            border: 1px solid #5a4a2e;
-            padding: 8px 14px;
-            border-radius: 8px;
-            font-size: 13px;
-            z-index: 95;
-            max-width: 45%;
-            backdrop-filter: blur(6px);
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
-            font-weight: 500;
-            letter-spacing: 0.3px;
-        }
-        /* ===== Left-hand vertical control rail (replaces the old horizontal bottom bars) ===== */
-        #side-tabs {
-            position: fixed;
-            left: 0;
-            top: 0;
-            bottom: 40px;
-            width: 44px;
+            left: 0; top: 0; bottom: 40px;
+            width: 112px;
             display: flex;
             flex-direction: column;
             background: linear-gradient(90deg, #2d2618, #1a140d);
             border-right: 2px solid #5a4a2e;
             z-index: 100;
         }
+        #side-tabs { flex: 0 0 auto; display: flex; flex-direction: column; }
         .side-tab-btn {
-            flex: 1;
+            height: 54px;
             background: linear-gradient(180deg, #3d3428, #241d12);
             border: none;
             border-bottom: 1px solid #5a4a2e;
             color: #cbb98a;
-            font-size: 7px;
+            font-size: 10px;
             font-weight: 700;
-            letter-spacing: 0.05px;
+            letter-spacing: 0.4px;
             display: flex;
-            flex-direction: column;
+            flex-direction: row;
             align-items: center;
-            justify-content: center;
-            gap: 2px;
+            justify-content: flex-start;
+            gap: 7px;
+            padding: 0 8px;
+            cursor: pointer;
+            text-align: left;
         }
         .side-tab-btn .icon {
-            font-size: 13px;
+            font-size: 19px;
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex: 0 0 auto;
         }
-        .side-tab-btn:last-child {
-            border-bottom: none;
-        }
+        .side-tab-btn .icon img { width: 22px; height: 22px; display: block; image-rendering: pixelated; }
+        .side-tab-btn:last-child { border-bottom: none; }
         .side-tab-btn.active-tab {
             background: linear-gradient(180deg, #6b5a3a, #4a3d28);
             color: #ffd76a;
         }
-        /* ===== Options panel: now fills whatever vertical space is left in the right-hand
-           dock (below the minimap and stats), laid out as a 2-column grid so it can hold every
-           button at once — no more scrolling to reach "Place" or "Staggered Wall". ===== */
+
         #options-panel {
             display: none;
             flex: 1 1 auto;
-            align-self: stretch;
-            width: 100%;
             min-height: 0;
-            background: linear-gradient(180deg, #3d3428, #1a140d);
-            border: 1px solid #5a4a2e;
-            border-radius: 8px;
-            padding: 5px;
-            gap: 4px;
+            width: 100%;
+            padding: 6px;
+            gap: 5px;
             overflow-y: auto;
-            box-shadow: 0 2px 12px rgba(0, 0, 0, 0.5);
+            background: linear-gradient(180deg, #241d12, #14100a);
+            border-top: 1px solid #5a4a2e;
         }
         #options-panel.show {
             display: grid;
-            grid-template-columns: repeat(2, 1fr);
+            grid-template-columns: 1fr;
             grid-auto-rows: min-content;
             align-content: start;
         }
         #options-panel button {
-            padding: 6px 4px;
+            width: 100%;
+            padding: 9px 4px;
             background: linear-gradient(180deg, #5a4a2e, #3d3428);
             border: 1px solid #7a6548;
             border-radius: 6px;
             color: #f0e4c0;
             text-shadow: 0 1px 1px rgba(0, 0, 0, 0.5);
-            font-size: 9.5px;
-            line-height: 1.2;
+            font-size: 10px;
+            line-height: 1.25;
             cursor: pointer;
             font-weight: 600;
             letter-spacing: 0.1px;
@@ -231,25 +118,161 @@
             border-color: #ffd76a;
             box-shadow: 0 0 10px rgba(255, 215, 106, 0.4);
         }
-        #options-panel button:disabled {
-            opacity: 0.45;
-            cursor: not-allowed;
+        #options-panel button:disabled { opacity: 0.45; cursor: not-allowed; }
+        .btn-icon {
+            width: 15px; height: 15px;
+            vertical-align: -3px;
+            margin-right: 3px;
+            image-rendering: pixelated;
         }
-        /* Full-screen game-over overlay — replaces the old alert()+reload, which is a blocking
-           browser dialog that looks out of place and can be silently suppressed by some mobile
-           browsers when triggered from inside an animation-frame callback. */
-        #gameover-overlay {
-            display: none;
+
+        /* ===== RIGHT DOCK: minimap + wave stats only, floating top-right ===== */
+        #right-dock {
             position: fixed;
-            inset: 0;
-            background: rgba(10, 8, 4, 0.88);
-            z-index: 998;
+            top: 6px; right: 4px;
+            width: 140px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+            z-index: 95;
+            pointer-events: none;
+        }
+        #right-dock > * { pointer-events: auto; }
+        #minimap {
+            display: block; margin: 0 auto; flex: 0 0 auto;
+            background: #15120a;
+            border: 2px solid #5a4a2e;
+            border-radius: 7px;
+            touch-action: none;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+            cursor: crosshair;
+        }
+        #stats-panel {
+            width: 100%;
+            flex: 0 0 auto;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 3px;
+            background: rgba(20, 15, 8, 0.75);
+            border: 1px solid #5a4a2e;
+            border-radius: 7px;
+            padding: 4px;
+            backdrop-filter: blur(4px);
+        }
+        .stat {
+            flex: 1 1 40%;
+            padding: 2px 4px;
+            background: linear-gradient(180deg, #3d3428, #241d12);
+            border: 1px solid #5a4a2e;
+            border-radius: 8px;
+            color: #e8d9b0;
+            font-size: 9px;
+            white-space: nowrap;
+            font-weight: 500;
+            display: flex;
             align-items: center;
             justify-content: center;
+            gap: 2px;
         }
-        #gameover-overlay.show {
+        .stat span { color: #ffd76a; font-weight: bold; font-size: 10px; }
+
+        /* ===== TOP-LEFT HUD: player health stats, replacing the old tactic hints ===== */
+        #hud-topleft {
+            position: fixed;
+            top: 8px;
+            left: 120px;
+            z-index: 96;
             display: flex;
+            flex-direction: column;
+            gap: 4px;
+            max-width: 300px;
+            pointer-events: none;
         }
+        #status-panel {
+            background: rgba(20, 15, 8, 0.8);
+            border: 1px solid #5a4a2e;
+            border-radius: 7px;
+            padding: 5px 7px;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            backdrop-filter: blur(5px);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+        }
+        .stat-line { display: flex; align-items: center; gap: 5px; }
+        .stat-icon { font-size: 11px; width: 15px; text-align: center; flex: 0 0 auto; }
+        .stat-track {
+            flex: 1 1 auto;
+            height: 9px;
+            min-width: 92px;
+            background: #17110a;
+            border: 1px solid #4a3d28;
+            border-radius: 5px;
+            overflow: hidden;
+        }
+        .stat-fill {
+            height: 100%;
+            width: 100%;
+            background: linear-gradient(180deg, #86cf72, #4a9a3a);
+            transition: width 0.2s linear, background 0.2s linear;
+        }
+        .stat-fill.troops { background: linear-gradient(180deg, #74b0e4, #3a6aa0); }
+        .stat-fill.low { background: linear-gradient(180deg, #e8b24e, #b06a20); }
+        .stat-fill.crit { background: linear-gradient(180deg, #e86858, #a02020); }
+        .stat-num {
+            font-size: 9px;
+            color: #ffd76a;
+            font-weight: 700;
+            min-width: 50px;
+            text-align: right;
+            font-variant-numeric: tabular-nums;
+            flex: 0 0 auto;
+        }
+        #selection-info:empty { display: none; }
+        #selection-info {
+            color: #f0e4c0;
+            background: rgba(20, 15, 8, 0.8);
+            border: 1px solid #5a4a2e;
+            padding: 5px 10px;
+            border-radius: 7px;
+            font-size: 11px;
+            backdrop-filter: blur(5px);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+            font-weight: 500;
+            letter-spacing: 0.2px;
+        }
+
+        /* ===== Bottom-centre toast for tactic confirmations ===== */
+        #toast {
+            position: fixed;
+            bottom: 54px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(20, 15, 8, 0.88);
+            border: 1px solid #5a4a2e;
+            color: #f0e4c0;
+            padding: 7px 16px;
+            border-radius: 18px;
+            font-size: 12px;
+            font-weight: 600;
+            letter-spacing: 0.3px;
+            opacity: 0;
+            transition: opacity 0.25s ease;
+            pointer-events: none;
+            z-index: 97;
+            max-width: 72vw;
+            text-align: center;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
+        }
+        #toast.show { opacity: 1; }
+
+        #gameover-overlay {
+            display: none; position: fixed; inset: 0;
+            background: rgba(10, 8, 4, 0.88); z-index: 998;
+            align-items: center; justify-content: center;
+        }
+        #gameover-overlay.show { display: flex; }
         #gameover-panel {
             background: linear-gradient(180deg, #3d3428, #241f18);
             border: 2px solid #7a6548;
@@ -260,92 +283,78 @@
             max-width: 80vw;
         }
         #gameover-title {
-            font-size: 26px;
-            font-weight: bold;
-            color: #ffd76a;
-            text-shadow: 0 2px 6px rgba(0, 0, 0, 0.6);
-            margin-bottom: 10px;
+            font-size: 26px; font-weight: bold; color: #ffd76a;
+            text-shadow: 0 2px 6px rgba(0, 0, 0, 0.6); margin-bottom: 10px;
         }
-        #gameover-stats {
-            font-size: 15px;
-            color: #f0e4c0;
-            margin-bottom: 18px;
-            line-height: 1.6;
-        }
+        #gameover-stats { font-size: 15px; color: #f0e4c0; margin-bottom: 18px; line-height: 1.6; }
         #gameover-restart {
             padding: 10px 22px;
             background: linear-gradient(180deg, #5a4a2e, #3d3428);
             border: 1px solid #ffd76a;
             border-radius: 8px;
             color: #f0e4c0;
-            font-size: 15px;
-            font-weight: 700;
-            cursor: pointer;
+            font-size: 15px; font-weight: 700; cursor: pointer;
             box-shadow: 0 0 10px rgba(255, 215, 106, 0.4);
         }
-        #gameover-restart:active {
-            transform: scale(0.97);
-        }
+        #gameover-restart:active { transform: scale(0.97); }
+
         #wave-banner {
-            position: fixed;
-            top: 50%;
-            left: 50%;
+            position: fixed; top: 50%; left: 50%;
             transform: translate(-50%, -50%);
-            color: #fff;
-            font-size: 28px;
-            font-weight: bold;
+            color: #fff; font-size: 28px; font-weight: bold;
             text-shadow: 0 0 20px rgba(255, 0, 0, 0.8), 0 2px 8px rgba(0, 0, 0, 0.8);
-            z-index: 95;
-            pointer-events: none;
-            opacity: 0;
-            transition: opacity 0.5s ease;
-            letter-spacing: 2px;
+            z-index: 95; pointer-events: none; opacity: 0;
+            transition: opacity 0.5s ease; letter-spacing: 2px;
         }
-        #wave-banner.show {
-            opacity: 1;
-            animation: wavePulse 1.5s ease-out forwards;
-        }
+        #wave-banner.show { opacity: 1; animation: wavePulse 1.5s ease-out forwards; }
         @keyframes wavePulse {
-            0% {
-                opacity: 0;
-                transform: translate(-50%, -50%) scale(0.7);
-            }
-            30% {
-                opacity: 1;
-                transform: translate(-50%, -50%) scale(1.1);
-            }
-            70% {
-                opacity: 1;
-                transform: translate(-50%, -50%) scale(1);
-            }
-            100% {
-                opacity: 0;
-                transform: translate(-50%, -50%) scale(1.2);
-            }
+            0% { opacity: 0; transform: translate(-50%, -50%) scale(0.7); }
+            30% { opacity: 1; transform: translate(-50%, -50%) scale(1.1); }
+            70% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+            100% { opacity: 0; transform: translate(-50%, -50%) scale(1.2); }
         }
     </style>
 </head>
 <body>
     <div id="rotate-overlay">📱 Please rotate your device to landscape!</div>
     <canvas id="game"></canvas>
+
+    <div id="left-dock">
+        <div id="side-tabs">
+            <button id="tab-build" class="side-tab-btn"><span class="icon">🔨</span><span class="label">Build</span></button>
+            <button id="tab-tactics" class="side-tab-btn"><span class="icon">🛡️</span><span class="label">Tactics</span></button>
+            <button id="tab-units" class="side-tab-btn"><span class="icon">⚔️</span><span class="label">Units</span></button>
+        </div>
+        <div id="options-panel"></div>
+    </div>
+
     <div id="right-dock">
         <canvas id="minimap" width="100" height="100"></canvas>
         <div id="stats-panel">
-            <div class="stat">🏛️ <span id="hub-hp">750</span></div>
-            <div class="stat">👥 <span id="unit-count">0/50</span></div>
             <div class="stat">🌊 <span id="wave">1</span></div>
             <div class="stat">💀 <span id="kills">0</span></div>
             <div class="stat">⏱️ <span id="next-wave">38</span>s</div>
         </div>
-        <div id="options-panel"></div>
     </div>
-    <div id="selection-info"></div>
+
+    <div id="hud-topleft">
+        <div id="status-panel">
+            <div class="stat-line">
+                <span class="stat-icon">🏛️</span>
+                <div class="stat-track"><div class="stat-fill" id="hub-hp-fill"></div></div>
+                <span class="stat-num" id="hub-hp-num">750/750</span>
+            </div>
+            <div class="stat-line">
+                <span class="stat-icon">👥</span>
+                <div class="stat-track"><div class="stat-fill troops" id="troop-fill"></div></div>
+                <span class="stat-num" id="troop-num">0/50</span>
+            </div>
+        </div>
+        <div id="selection-info"></div>
+    </div>
+
     <div id="wave-banner"></div>
-    <div id="side-tabs">
-        <button id="tab-build" class="side-tab-btn"><span class="icon">🔨</span><span>Build</span></button>
-        <button id="tab-tactics" class="side-tab-btn"><span class="icon">🛡️</span><span>Tactics</span></button>
-        <button id="tab-units" class="side-tab-btn"><span class="icon">⚔️</span><span>Units</span></button>
-    </div>
+    <div id="toast"></div>
     <div id="ad-banner">AD SPACE — replace with your ad network code</div>
     <div id="gameover-overlay">
         <div id="gameover-panel">
@@ -357,12 +366,6 @@
 
     <script>
         // ========== CONSTANTS ==========
-        // MAP_W/MAP_H are sized to the device's own screen — computeMapSize() (called from
-        // init(), right after the viewport is first measured) rounds UP to the next whole tile
-        // past the actual viewport size, so the baked terrain canvas is always at least as big
-        // as the screen in both directions. The camera then sits locked at (0,0) for the whole
-        // game — there's nothing to pan to, the whole battlefield is on screen from the first
-        // frame, and there is never a sliver of unrendered black at any edge.
         let MAP_W = 80, MAP_H = 48;
         const TILE = 16;
         const MIN_PLAY_W = 24, MIN_PLAY_H = 14;
@@ -379,37 +382,25 @@
         const CHUNK = 4;
         const WALL_MAX_LEN = 8;
         const TRENCH_MAX_LEN = 10;
-        // How many tiles of mountain sit along the west edge (and the top-left/bottom-left
-        // corners) — the player's base is pinned here, foothills at its back, so there's
-        // nowhere to retreat to. WATER_BAND_TOP/BOTTOM are the depths of the lake strips along
-        // the rest of the top and bottom edges (top kept thinner, so there's more grass to
-        // maneuver on) — raiders (and the player) can't flank around the north or south, so
-        // between the mountains and the water, the player reads as backed into a corner.
-        // TREELINE_DEPTH is a dense strip of forest along the east edge that raiders emerge
-        // from, so every wave looks like it's marching in from somewhere off-map instead of
-        // popping into existence in open ground.
         const MOUNTAIN_DEPTH = 5;
         const WATER_BAND_TOP = 2;
         const WATER_BAND_BOTTOM = 3;
         const TREELINE_DEPTH = 6;
         const MAX_UNITS = 50;
-        const HEAL_RADIUS = 6; // tiles for triage
-        const BUILD_LIMITS = { wall: 220, trench: 40, tower: 25, triage: 8 };
-        // Wall and Trench are both placed the same way — drag out a straight run, up to a
-        // type-specific max length. This map is what generalizes all the old wall-only
-        // placement code to work for either type.
+        const HEAL_RADIUS = 6;
+        // Trench cap dropped to 10 — enough to channel the raiders, not enough to seal the
+        // map off completely.
+        const BUILD_LIMITS = { wall: 220, trench: 10, tower: 25, triage: 8 };
         const LINE_BUILD = {
             wall: { maxLen: WALL_MAX_LEN },
             trench: { maxLen: TRENCH_MAX_LEN },
         };
         function isLineBuildType(t) { return !!LINE_BUILD[t]; }
-        const HUB_REGEN_DELAY = 3;   // seconds of no damage before the hub starts self-repairing
-        const HUB_REGEN_RATE = 7;    // hp per second once repairing
-        const STRUCTURE_REGEN_DELAY = 6;  // towers/walls need a longer calm period than the hub
-        const STRUCTURE_REGEN_RATE = 4;   // and repair a bit slower too
-        const SIDEBAR_W = 44;        // width of the left control rail (kept in sync with #side-tabs in the CSS)
-        // The minimap is sized to fit inside this box while keeping the map's real proportions —
-        // important now that the map itself is wider than it is tall — rather than a fixed square.
+        const HUB_REGEN_DELAY = 3;
+        const HUB_REGEN_RATE = 7;
+        const STRUCTURE_REGEN_DELAY = 6;
+        const STRUCTURE_REGEN_RATE = 4;
+        const SIDEBAR_W = 112; // kept in sync with #left-dock's width in the CSS
         const MINIMAP_MAX_W = 104, MINIMAP_MAX_H = 70;
         let MINIMAP_SCALE = Math.min(MINIMAP_MAX_W / MAP_W, MINIMAP_MAX_H / MAP_H);
         let MINIMAP_W = Math.round(MAP_W * MINIMAP_SCALE);
@@ -422,6 +413,7 @@
 
         // ========== GAME STATE ==========
         let map = [];
+        let toastTimer = null;
         let game = {
             canvas: null,
             ctx: null,
@@ -445,13 +437,13 @@
             selected: [],
             camera: { x: 0, y: 0 },
             mouse: { down: false, startX: 0, startY: 0, curX: 0, curY: 0 },
-            dragMode: null,       // 'select' — set whenever a one-finger drag starts on the map
-            wallDragStart: null,  // tile the current wall-drawing drag started from
+            dragMode: null,
+            wallDragStart: null,
             queue: [],
             queueTimer: 0,
             waveNumber: 1,
-            waveTimer: 45, // first wave gets a longer grace period so there's time to build initial defences; every wave after this uses the faster schedule in updateWaves()
-            lastWaveTactic: null, // which raider tactic the previous wave used, so we can avoid repeating it back-to-back
+            waveTimer: 45,
+            lastWaveTactic: null,
             kills: 0,
             lastTime: 0,
             isBuildMode: false,
@@ -463,49 +455,39 @@
             unitCount: 0,
             gameOver: false,
             activeTab: null,
-            targetMode: 'closest', // 'closest' | 'strongest'
-            lastTactic: null,      // kind of the last tactic applied — new recruits rejoin it
-            lastMoveTarget: null,  // world {x,y} of the last plain move order — new recruits walk there
-            autoReinforce: false,  // when on, the queue automatically tops itself back up
+            targetMode: 'closest',
+            lastTactic: null,
+            lastMoveTarget: null,
+            autoReinforce: false,
             lastTrainedType: 'sword',
             totalUnitsTrained: 0,
         };
 
         // ========== UNIT DEFINITIONS ==========
-        // The internal keys (sword/spear/archer) are legacy names from an early prototype and
-        // no longer describe what these units actually are — the displayed `name` below is the
-        // real identity. Four roles:
-        //   Shotgun (sword)  — close range, hits hard per shot. Front-line brawler.
-        //   Rifle   (spear)  — mid range, rapid fire, modest per-hit damage. Sustained pressure.
-        //   Sniper  (archer) — long range, hits hardest per shot but fires slowly. Backline.
-        //   Dog     (dog)    — fastest unit by far, melee-only: has to run right up to an enemy
-        //                      and bite at touching distance, but bites rapidly once there.
-        // atkSpeed is the cooldown in seconds BETWEEN attacks — lower number = faster/more rapid.
         const UNIT_TYPES = {
             sword: { name: 'Shotgun', hp: 85, attack: 22, range: 6, speed: 3.2, atkSpeed: 1.3, trainTime: 4.5,
-                color: '#7a5c34', icon: '💥' },
+                color: '#7a5c34', icon: '💥', iconAsset: 'icon_shotgun' },
             spear: { name: 'Rifle', hp: 55, attack: 7, range: 11, speed: 4.2, atkSpeed: 0.45, trainTime: 3.5,
-                color: '#5c4d30', icon: '🔫' },
+                color: '#5c4d30', icon: '🔫', iconAsset: 'icon_rifle' },
             archer: { name: 'Sniper', hp: 35, attack: 27, range: 24, speed: 2.6, atkSpeed: 2.1, trainTime: 6,
-                color: '#5a6a3a', icon: '🎯' },
+                color: '#5a6a3a', icon: '🎯', iconAsset: 'icon_sniper' },
             dog: { name: 'Dog', hp: 45, attack: 6, range: 1.4, speed: 7.6, atkSpeed: 0.35, trainTime: 5,
-                color: '#7a5230', icon: '🐕' },
+                color: '#7a5230', icon: '🐕', iconAsset: 'icon_dog' },
         };
 
         // ========== BUILDING DEFINITIONS ==========
         const BUILDING_TYPES = {
-            hub: { name: 'Community Hub', hp: 750, size: 3, color: '#c4a35a', icon: '🏛️' },
-            wall: { name: 'Wall', hp: 260, size: 1, color: '#8a8a8a', icon: '▬' },
-            trench: { name: 'Trench', hp: 99999, size: 1, color: '#3a2f20', icon: '⛏️' },
-            tower: { name: 'Watchtower', hp: 220, size: 1, color: '#6b4a8a', icon: '🗼' },
-            triage: { name: 'Triage Hut', hp: 100, size: 2, color: '#4a8ab0', icon: '⛑️' },
+            hub: { name: 'Community Hub', hp: 750, size: 3, color: '#c4a35a', icon: '🏛️', iconAsset: null },
+            wall: { name: 'Wall', hp: 260, size: 1, color: '#8a8a8a', icon: '▬', iconAsset: 'menu_build' },
+            trench: { name: 'Trench', hp: 99999, size: 1, color: '#3a2f20', icon: '⛏️', iconAsset: 'menu_build' },
+            tower: { name: 'Watchtower', hp: 220, size: 1, color: '#6b4a8a', icon: '🗼', iconAsset: 'menu_build' },
+            triage: { name: 'Triage Hut', hp: 100, size: 2, color: '#4a8ab0', icon: '⛑️', iconAsset: 'menu_build' },
         };
 
-        // ========== UNIT SPRITE ASSETS ==========
-        // Real pixel-art PNGs, one per animation frame, living in an "assets" folder right next
-        // to index.html. If a file is ever missing (404) the game notices and quietly falls back
-        // to the procedural figure (drawHumanFigure/drawDogFigure) for that unit instead of
-        // crashing or showing a blank — see Unit.draw().
+        // ========== ASSET PATHS ==========
+        // Unit sprites are unchanged. Building tiles, menu icons and unit-type icons are new
+        // SVG files (see the accompanying assets/ folder listing) — the game loads them the
+        // same way, and any file that's missing just falls back to the procedural drawing.
         const ASSET_PATHS = {
             tile_grass: 'assets/tile_grass.png',
             tile_path: 'assets/tile_path.png',
@@ -513,7 +495,25 @@
             tile_tree0: 'assets/tile_tree0.png', tile_tree1: 'assets/tile_tree1.png',
             tile_tree2: 'assets/tile_tree2.png', tile_tree3: 'assets/tile_tree3.png',
             tile_bush0: 'assets/tile_bush0.png', tile_bush1: 'assets/tile_bush1.png',
-            wall_h: 'assets/wall_h.png', wall_v: 'assets/wall_v.png',
+
+            // --- buildings (SVG, reference-sheet style) ---
+            wall_h: 'assets/wall_h.svg',
+            wall_v: 'assets/wall_v.svg',
+            building_trench: 'assets/building_trench.svg',
+            building_tower: 'assets/building_tower.svg',
+            building_triage: 'assets/building_triage.svg',
+            building_hub: 'assets/building_hub.svg',
+
+            // --- left-menu tab icons ---
+            menu_build: 'assets/menu_build.svg',
+            menu_tactics: 'assets/menu_tactics.svg',
+            menu_units: 'assets/menu_units.svg',
+
+            // --- unit-type buttons ---
+            icon_shotgun: 'assets/icon_shotgun.svg',
+            icon_rifle: 'assets/icon_rifle.svg',
+            icon_sniper: 'assets/icon_sniper.svg',
+            icon_dog: 'assets/icon_dog.svg',
 
             unit_bat_idle0: 'assets/unit_bat_idle0.png',
             unit_bat_walk0: 'assets/unit_bat_walk0.png', unit_bat_walk1: 'assets/unit_bat_walk1.png',
@@ -553,9 +553,6 @@
         };
         const assets = {};
 
-        // Which frames (idle / walk / attack) each unit type + owner uses. A null attack array
-        // (Sniper, and Dog — that pack has no dedicated bite frames) just means that type relies
-        // on its procedural lunge/muzzle-flash instead of a dedicated swing frame.
         const UNIT_SPRITES = {
             sword: {
                 player: { idle: ['unit_bat_idle0'], walk: ['unit_bat_walk0', 'unit_bat_walk1', 'unit_bat_walk2', 'unit_bat_walk3'], attack: ['unit_bat_attack0', 'unit_bat_attack1', 'unit_bat_attack2', 'unit_bat_attack3'] },
@@ -571,7 +568,7 @@
             },
             dog: {
                 player: { idle: ['unit_dog_idle0'], walk: ['unit_dog_walk0', 'unit_dog_walk1', 'unit_dog_walk2', 'unit_dog_walk3'], attack: null },
-                enemy: null, // raiders never bring dogs
+                enemy: null,
             },
         };
         function getUnitSpriteKeys(unit) {
@@ -596,6 +593,19 @@
             });
         }
 
+        // ========== TOAST ==========
+        // Tactic confirmations used to be dumped into the top-left info line. They now surface
+        // as a short-lived bottom-centre toast so the top-left corner is reserved for the
+        // player's own health stats.
+        function showToast(msg) {
+            const t = document.getElementById('toast');
+            if (!t) return;
+            t.textContent = msg;
+            t.classList.add('show');
+            clearTimeout(toastTimer);
+            toastTimer = setTimeout(() => t.classList.remove('show'), 1900);
+        }
+
         // ========== COLOR HELPERS ==========
         function lighten(hex, amt) {
             const num = parseInt(hex.slice(1), 16);
@@ -613,14 +623,7 @@
             return `rgba(${r},${g},${b},${alpha})`;
         }
 
-        // ========== TILE TEXTURES ==========
         // ========== TERRAIN TILE PAINTING ==========
-        // Every terrain tile is painted directly, with a little variation seeded on its own
-        // tile position (seedFromXY — the same trick the trees already use), instead of
-        // stamping one pre-baked bitmap over and over. A repeated bitmap with any shading
-        // baked into it tiles into obvious stripes across a big open field; painting each
-        // cell on the spot means neighbouring tiles never look identical, so the ground reads
-        // as a natural, mottled surface instead of a grid of repeated tiles.
         function paintGrass(t, px, py, tx, ty) {
             const s = seedFromXY(tx, ty);
             if (assets.tile_grass) {
@@ -638,25 +641,18 @@
                 t.fillRect(fx, fy, 1.6, 1.6);
             }
             if (s > 0.92) {
-                t.fillStyle = 'rgba(226,216,142,0.55)'; // a rare pale wildflower fleck
+                t.fillStyle = 'rgba(226,216,142,0.55)';
                 t.fillRect(px + ((s * 311) % TILE), py + ((s * 197) % TILE), 1.4, 1.4);
             } else if (s < 0.08) {
-                t.fillStyle = 'rgba(120,112,96,0.4)'; // an occasional bare pebble
+                t.fillStyle = 'rgba(120,112,96,0.4)';
                 t.fillRect(px + ((s * 401) % TILE), py + ((s * 283) % TILE), 2, 2);
             }
         }
 
         function paintWater(t, px, py, tx, ty) {
-            // Shading is driven by distance-to-shore (not per-tile noise), so it reads as real
-            // depth — lighter and foamy right at the grass line, darker out toward the map edge.
             const distTop = ty - (WATER_BAND_TOP - 1);
             const distBottom = (MAP_H - WATER_BAND_BOTTOM) - ty;
             const shoreDist = Math.min(Math.abs(distTop), Math.abs(distBottom));
-            // The real water tile has a grassy shore edge baked into its bottom border, so it
-            // only gets used on the single row actually touching grass — tiling it everywhere
-            // would put tufts of shore grass in the middle of open water. That row gets flipped
-            // vertically when the shore is on its north side (the bottom band), so the tufts
-            // always land against the grass they're bordering, not the map edge.
             if (assets.tile_water && shoreDist < 0.6) {
                 const flip = distBottom < distTop;
                 t.save();
@@ -715,8 +711,6 @@
             g.addColorStop(1, baseBot);
             t.fillStyle = g;
             t.fillRect(px, py, TILE, TILE);
-            // Two or three facet variants (picked by seed) so the whole mountain range doesn't
-            // read as one diamond shape copy-pasted across every tile.
             const variant = Math.floor(s * 3) % 3;
             t.fillStyle = 'rgba(255,255,255,0.12)';
             t.beginPath();
@@ -734,7 +728,7 @@
             t.moveTo(px + 5, py + 3); t.lineTo(px + 9, py + 8); t.lineTo(px + 7, py + 15); t.lineTo(px + 3, py + 15); t.lineTo(px + 3, py + 9);
             t.closePath();
             t.fill();
-            if (s > 0.85) { // an occasional patch of moss/scrub clinging to the rock
+            if (s > 0.85) {
                 t.fillStyle = 'rgba(90,110,60,0.5)';
                 t.fillRect(px + ((s * 233) % 10) + 2, py + 11, 3, 2);
             }
@@ -762,11 +756,6 @@
             else paintGrass(t, px, py, tx, ty);
         }
 
-        // Terrain never changes after generateMap() runs (trees are decorative and never
-        // removed), so instead of redrawing every tile every single frame — thousands of calls
-        // at a typical phone resolution — we paint it all ONCE onto an offscreen canvas the
-        // size of the whole map, right after generateMap(), and every frame just blits the
-        // visible slice of that. See render() below for the blit.
         function buildTerrainCanvas() {
             const c = document.createElement('canvas');
             c.width = MAP_W * TILE;
@@ -787,19 +776,11 @@
             return c;
         }
 
-        // Picks one of the loaded tree/bush variants for a given tile so a loose scatter of
-        // trees doesn't look like the same sprite stamped over and over. Deterministic on
-        // tile position, so it stays the same tree every frame instead of flickering.
         function seedFromXY(x, y) {
             const v = Math.sin(x * 127.1 + y * 311.7) * 43758.5453;
             return v - Math.floor(v);
         }
 
-        // Every tree is drawn with flat, hard-edged blocks of color (no soft radial gradients)
-        // so it reads as the same crisp pixel-art style as the barricades/watchtower/hub below,
-        // instead of the old soft circular blob. Three deterministic variants (seeded on tile
-        // position, so it never flickers) keep a loose scatter from looking copy-pasted. This is
-        // the fallback used only if the real tree/bush images below haven't loaded.
         function drawTreeProcedural(ctx, px, py, tx, ty) {
             const seed = seedFromXY(tx || 0, ty || 0);
             const variant = Math.floor(seed * 3) % 3;
@@ -811,20 +792,17 @@
             if (flip) ctx.scale(-1, 1);
             ctx.scale(scale, scale);
 
-            // ground shadow
             ctx.fillStyle = 'rgba(0,0,0,0.22)';
             ctx.beginPath();
             ctx.ellipse(0, -1, 7, 2.4, 0, 0, Math.PI * 2);
             ctx.fill();
 
-            // trunk (shared by all variants)
             ctx.fillStyle = '#3a2e1e';
             ctx.fillRect(-1.6, -9, 3.2, 8);
             ctx.fillStyle = 'rgba(0,0,0,0.3)';
             ctx.fillRect(0.4, -9, 1.2, 8);
 
             if (variant === 0) {
-                // bushy scrub — three flat overlapping olive clumps, no gradient
                 const cols = ['#345c1d', '#3f6b23', '#4a7a2a'];
                 [[-4, -12, 5.5], [3, -13, 5], [0, -16.5, 6]].forEach(([ox, oy, r], i) => {
                     ctx.fillStyle = cols[i];
@@ -833,7 +811,6 @@
                     ctx.fill();
                 });
             } else if (variant === 1) {
-                // tall pine — stacked flat triangular tiers, lightest at the top like a rim light
                 const cols = ['#2e4d22', '#3a5c28', '#4a6f34'];
                 for (let i = 0; i < 3; i++) {
                     const w = 7 - i * 1.6;
@@ -847,7 +824,6 @@
                     ctx.fill();
                 }
             } else {
-                // twin-canopy leafy tree — two flat overlapping ellipses, blocky highlight corner
                 ctx.fillStyle = '#3f6b23';
                 ctx.beginPath();
                 ctx.ellipse(-3, -14, 5.5, 4.6, 0, 0, Math.PI * 2);
@@ -862,9 +838,6 @@
             ctx.restore();
         }
 
-        // Picks one of the real tree/bush images (seeded on tile position so it never flickers
-        // between frames) and anchors it at the tile's base. Falls back to the procedural tree
-        // above if none of those images loaded.
         const TREE_IMAGE_KEYS = ['tile_tree0', 'tile_tree1', 'tile_tree2', 'tile_tree3', 'tile_bush0', 'tile_bush1'];
         function drawTree(ctx, px, py, tx, ty) {
             const loaded = TREE_IMAGE_KEYS.filter(k => assets[k]);
@@ -890,8 +863,6 @@
             ctx.restore();
         }
 
-        // A fast tracer round — fading streak with a bright core, used by the Armed unit and the
-        // watchtowers. Distinct from the old wooden arrow so ranged attacks read as gunfire.
         function drawBullet(ctx, x, y, angle, tint) {
             ctx.save();
             ctx.translate(x, y);
@@ -912,19 +883,16 @@
             ctx.restore();
         }
 
-        // A more "medieval" arrow: wooden shaft, steel diamond head, V-shaped fletching.
         function drawArrow(ctx, x, y, angle, tint) {
             ctx.save();
             ctx.translate(x, y);
             ctx.rotate(angle);
-            // wooden shaft
             ctx.strokeStyle = '#8a6a3a';
             ctx.lineWidth = 1.6;
             ctx.beginPath();
             ctx.moveTo(-8, 0);
             ctx.lineTo(5, 0);
             ctx.stroke();
-            // steel arrowhead
             ctx.fillStyle = '#c8c8d2';
             ctx.beginPath();
             ctx.moveTo(9, 0);
@@ -936,7 +904,6 @@
             ctx.strokeStyle = 'rgba(0,0,0,0.4)';
             ctx.lineWidth = 0.5;
             ctx.stroke();
-            // fletching (two visible feather vanes)
             ctx.fillStyle = tint;
             ctx.beginPath();
             ctx.moveTo(-8, 0);
@@ -953,7 +920,6 @@
             ctx.restore();
         }
 
-        // Melee hit effects: a bright sword slash arc, a spear thrust-and-hold, or a generic ring (fallback).
         function drawEffect(ctx, e, cam) {
             const t = Math.max(0, e.timer / e.maxTimer);
             if (e.weapon === 'sword') {
@@ -982,7 +948,7 @@
                 const py = e.fromY * TILE - cam.y;
                 const angle = Math.atan2(e.y - e.fromY, e.x - e.fromX);
                 const reachPx = Math.hypot((e.x - e.fromX) * TILE, (e.y - e.fromY) * TILE);
-                const thrust = Math.min(1, (1 - t) * 2.4 + 0.35); // quick out, then hold near full extension
+                const thrust = Math.min(1, (1 - t) * 2.4 + 0.35);
                 const len = Math.min(reachPx, 22) * thrust + 8;
                 const colBase = e.owner === 1 ? '235,160,160' : '225,215,190';
                 ctx.save();
@@ -1013,20 +979,9 @@
             ctx.stroke();
         }
 
-        // ========== THEMED BUILDING RENDERING ==========
-        // Every player structure is drawn procedurally (no extra image files needed) to look
-        // like something a survivalist camp would actually build: sandbags, scrap timber,
-        // canvas tarps and barbed wire instead of flat colored blocks with an emoji on top.
-        // seedFromXY (defined above, near drawTree) gives each one a touch of per-tile variety.
-
-        // A single 1x1 barricade segment. Three scrap-built looks, picked deterministically per
-        // tile so neighbouring segments still read as one continuous barrier but a long run
-        // doesn't look copy-pasted — sandbags+wire, wood planking with a leaning tire, and
-        // corrugated tin sheeting, echoing the mixed fencing (wood/tin/tyres/chain-link) from
-        // the reference sheet without copying any of it directly.
-        // A single 1x1 barricade segment. Uses the real wall image for the run's orientation
-        // when it's loaded; otherwise falls back to one of three scrap-built procedural looks,
-        // picked deterministically per tile so a long run doesn't look copy-pasted.
+        // ========== THEMED BUILDING RENDERING (procedural fallbacks) ==========
+        // These only run when the matching SVG hasn't loaded. They're kept so the game is fully
+        // playable on a bare install.
         function drawBarricade(ctx, px, py, s, tx, ty, orientation) {
             const img = assets[orientation === 'v' ? 'wall_v' : 'wall_h'];
             if (img) {
@@ -1043,7 +998,6 @@
             ctx.fillRect(px, py + s - 3, s, 3);
 
             if (style === 0) {
-                // sandbags + barbed wire
                 const bagCols = ['#a4915f', '#8f7c4e', '#b39a63'];
                 const rows = [py + s * 0.42, py + s * 0.8];
                 rows.forEach((ry, ri) => {
@@ -1075,7 +1029,6 @@
                     ctx.stroke();
                 }
             } else if (style === 1) {
-                // weathered wood planking, with a spare tire leaned against it
                 const plankCols = ['#6b5230', '#7a5f3a', '#5c4526'];
                 const n = 4;
                 for (let i = 0; i < n; i++) {
@@ -1101,7 +1054,6 @@
                     ctx.stroke();
                 }
             } else {
-                // corrugated tin sheeting bolted to two posts
                 ctx.fillStyle = '#2c2a26';
                 ctx.fillRect(px + 1, py, 2, s);
                 ctx.fillRect(px + s - 3, py, 2, s);
@@ -1125,9 +1077,6 @@
             }
         }
 
-        // A dug-in ditch, seen from above — sunken earth with a couple of plank reinforcements
-        // laid across it. Visually the opposite of a barricade (which sits ON the ground): this
-        // one is recessed INTO it, so it reads as something you fall/walk into, not over.
         function drawTrench(ctx, px, py, s, tx, ty) {
             const seed = seedFromXY(tx, ty);
             ctx.fillStyle = '#5a4a32';
@@ -1147,15 +1096,11 @@
             ctx.stroke();
         }
 
-        // A wooden lookout post seen from above — cross-braced scaffold platform, X-braced
-        // corner posts, a ladder up one side and a scrap-metal radio dish on the mast instead
-        // of a flag, plus a spare tire leaned at the base for that scavenged-timber feel.
         function drawWatchtower(ctx, px, py, s, tx, ty) {
             const seed = seedFromXY(tx, ty);
             ctx.fillStyle = 'rgba(0,0,0,0.3)';
             ctx.fillRect(px + 2, py + 2, s, s);
 
-            // weathered decking, planks running one way
             const g = ctx.createLinearGradient(px, py, px, py + s);
             g.addColorStop(0, '#7a6242');
             g.addColorStop(1, '#584730');
@@ -1170,7 +1115,6 @@
                 ctx.stroke();
             }
 
-            // diagonal timber X-bracing across the deck, like a scaffold seen from above
             ctx.strokeStyle = 'rgba(30,22,12,0.55)';
             ctx.lineWidth = 1;
             ctx.beginPath();
@@ -1180,13 +1124,11 @@
             ctx.lineTo(px + s * 0.08, py + s * 0.92);
             ctx.stroke();
 
-            // four corner support posts
             ctx.fillStyle = '#2c2213';
             const cs = s * 0.16;
             [[px + 1, py + 1], [px + s - 1 - cs, py + 1], [px + 1, py + s - 1 - cs], [px + s - 1 - cs, py + s - 1 - cs]]
                 .forEach(([cx, cy]) => ctx.fillRect(cx, cy, cs, cs));
 
-            // ladder rungs up the near side
             ctx.strokeStyle = '#1c150c';
             ctx.lineWidth = 0.7;
             for (let i = 0; i < 3; i++) {
@@ -1197,7 +1139,6 @@
                 ctx.stroke();
             }
 
-            // a spare tire leaned against the base, off to one side
             if (seed > 0.35) {
                 ctx.strokeStyle = '#1c1a18';
                 ctx.lineWidth = 1.8;
@@ -1206,7 +1147,6 @@
                 ctx.stroke();
             }
 
-            // raised mast with a small scrap-metal radio dish on top (no flag/banner)
             ctx.fillStyle = '#9c895a';
             ctx.beginPath();
             ctx.ellipse(px + s / 2, py + s - 2, s * 0.32, s * 0.12, 0, 0, Math.PI * 2);
@@ -1230,10 +1170,6 @@
             ctx.restore();
         }
 
-        // A canvas medical tent — ridged tarp roof with a white cross badge, sandbags lining
-        // the base, a dark doorway flap and a barrel prop. Roof tone and prop placement vary
-        // per-tile so a row of several huts doesn't look copy-pasted (matching the "main hut"
-        // vs "plain hut" pairing in the reference sheet).
         function drawTriageHut(ctx, px, py, s, tx, ty) {
             const seed = seedFromXY(tx, ty);
             const olive = seed > 0.5;
@@ -1246,7 +1182,6 @@
             ctx.fillStyle = g;
             ctx.fillRect(px, py + s * 0.32, s, s * 0.68);
 
-            // ridged canvas roof
             ctx.fillStyle = olive ? '#9aa878' : '#a4966c';
             ctx.beginPath();
             ctx.moveTo(px - 2, py + s * 0.34);
@@ -1257,7 +1192,6 @@
             ctx.strokeStyle = 'rgba(0,0,0,0.25)';
             ctx.lineWidth = 0.8;
             ctx.stroke();
-            // ridge fold lines either side of the centre pole
             ctx.beginPath();
             ctx.moveTo(px + s / 2, py - s * 0.12);
             ctx.lineTo(px + s / 2, py + s * 0.34);
@@ -1267,18 +1201,15 @@
             ctx.lineTo(px + s * 0.7, py + s * 0.34);
             ctx.stroke();
 
-            // white cross badge
             ctx.fillStyle = '#e8e4d0';
             ctx.fillRect(px + s * 0.38, py + s * 0.42, s * 0.24, s * 0.24);
             ctx.fillStyle = '#b73a3a';
             ctx.fillRect(px + s * 0.46, py + s * 0.44, s * 0.08, s * 0.2);
             ctx.fillRect(px + s * 0.40, py + s * 0.50, s * 0.2, s * 0.08);
 
-            // dark doorway flap at the base, centred under the badge
             ctx.fillStyle = 'rgba(20,16,10,0.65)';
             ctx.fillRect(px + s * 0.42, py + s * 0.78, s * 0.16, s * 0.2);
 
-            // a barrel prop off to one side
             if (seed > 0.3) {
                 ctx.fillStyle = '#5a4a30';
                 ctx.beginPath();
@@ -1286,7 +1217,6 @@
                 ctx.fill();
             }
 
-            // sandbags lining the base
             ctx.fillStyle = '#a4915f';
             for (let i = 0; i < 4; i++) {
                 const bx = px + (i + 0.5) * (s / 4);
@@ -1296,17 +1226,10 @@
             }
         }
 
-        // The Community Hub — the player's main structure. A fortified timber-and-scrap
-        // compound: sandbag perimeter, corrugated roof, a second lean-to tent peeking from one
-        // side, oil drums and a firepit ember out front, and a radio mast with a scrap dish
-        // (no flag) so it's instantly recognizable at a glance on the minimap and map.
         function drawCommunityHub(ctx, px, py, s, tx, ty) {
             ctx.fillStyle = 'rgba(0,0,0,0.35)';
             ctx.fillRect(px + 4, py + 4, s, s);
 
-            // a smaller blue-tarp lean-to peeking out from the back-left corner of the compound,
-            // like a second scavenged structure crammed in beside the main tent (reference sheet's
-            // main camp is a cluster of several structures, not one single building)
             ctx.fillStyle = '#3f5468';
             ctx.beginPath();
             ctx.moveTo(px - s * 0.22, py + s * 0.28);
@@ -1356,7 +1279,6 @@
             ctx.fillStyle = '#3a2e1e';
             ctx.fillRect(px + s * 0.4, py + s * 0.62, s * 0.2, s * 0.38);
 
-            // a small firepit ember glowing just outside the door
             const emberGlow = ctx.createRadialGradient(
                 px + s * 0.5, py + s * 1.08, 0,
                 px + s * 0.5, py + s * 1.08, s * 0.09
@@ -1392,8 +1314,6 @@
             ctx.arc(px + s * 0.78, py - s * 0.3, 1.4, 0, Math.PI * 2);
             ctx.fill();
 
-            // Peaked gable roof — the houses reference's roofline, reworked as weathered,
-            // patched sheet-metal instead of clean tile so it still reads as salvaged.
             const roofH = s * 0.36;
             const roofTopY = py - roofH;
             const rg = ctx.createLinearGradient(px, roofTopY, px, py);
@@ -1409,7 +1329,6 @@
             ctx.strokeStyle = 'rgba(0,0,0,0.4)';
             ctx.lineWidth = 1;
             ctx.stroke();
-            // patched sheet-metal seams
             ctx.strokeStyle = 'rgba(0,0,0,0.22)';
             ctx.lineWidth = 0.7;
             for (let i = 1; i < 5; i++) {
@@ -1419,7 +1338,6 @@
                 ctx.lineTo(px - s * 0.08 + t * s * 1.16, py);
                 ctx.stroke();
             }
-            // rusty patch squares, off-centre and mismatched, selling the "scavenged" feel
             ctx.fillStyle = 'rgba(140,80,50,0.5)';
             ctx.fillRect(px + s * 0.32, py - roofH * 0.42, s * 0.16, s * 0.14);
             ctx.fillStyle = 'rgba(90,100,70,0.45)';
@@ -1427,15 +1345,9 @@
         }
 
         // ========== MAP GENERATION ==========
-        // The Hub always sits near the WEST edge, backed against the mountains — there's
-        // nowhere to retreat to, so the only way out is through the raiders. Shared by
-        // generateMap() and init() so the map layout and the Hub's actual position never drift
-        // apart.
         function getHubOrigin() {
-            return {
-                x: MOUNTAIN_DEPTH + 2,
-                y: Math.floor(MAP_H / 2) - 1,
-            };
+            // +3 (not +2) so the Community Hub sits fully clear of the 112px left control rail.
+            return { x: MOUNTAIN_DEPTH + 3, y: Math.floor(MAP_H / 2) - 1 };
         }
 
         function generateMap() {
@@ -1445,39 +1357,23 @@
             const hy = origin.y;
             const hubCol = hx + 1;
             const hubRow = hy + 1;
-            // Where the dense east treeline begins — raiders spawn in gaps within it (see
-            // spawnPointEast) so every wave looks like it's marching out of the woods rather
-            // than popping into existence in open ground.
             const treelineStartX = MAP_W - TREELINE_DEPTH;
 
             for (let y = 0; y < MAP_H; y++) {
                 let row = [];
                 for (let x = 0; x < MAP_W; x++) {
                     let tile = TILE_GRASS;
-                    // North & south water — raiders (and the player) can't flank around the top
-                    // or bottom edges, so every wave has to funnel straight down the middle.
                     if (y < WATER_BAND_TOP || y >= MAP_H - WATER_BAND_BOTTOM) tile = TILE_WATER;
-                    // Foothills of the mountains along the west edge — impassable, and covering
-                    // the full height of the map, so the top-left and bottom-left corners are
-                    // mountain too (overwriting the water bands there): the player reads as
-                    // backed into a corner, mountains at their back, water hemming both flanks.
                     if (x < MOUNTAIN_DEPTH) tile = TILE_MOUNTAIN;
                     row.push(tile);
                 }
                 map.push(row);
             }
 
-            // The one road in: a single east-west trail from the Hub all the way to the far
-            // edge, so it's visually obvious where raiders are marching from — it cuts straight
-            // through the treeline below rather than stopping short of it.
             for (let x = MOUNTAIN_DEPTH; x < MAP_W - 1; x++) {
                 if (map[hubRow][x] === TILE_GRASS) map[hubRow][x] = TILE_PATH;
             }
 
-            // A handful of worn dirt patches — a supply drop worn bare, a trampled clearing —
-            // scattered across the open ground so the terrain reads as a lived-in camp rather
-            // than an unbroken sheet of grass with a single road cut through it. Placed before
-            // the loose trees below so trees never get planted in the middle of a clearing.
             const patchCount = 4 + Math.floor(Math.random() * 3);
             for (let p = 0; p < patchCount; p++) {
                 const pcx = MOUNTAIN_DEPTH + 4 + Math.floor(Math.random() * Math.max(1, treelineStartX - MOUNTAIN_DEPTH - 8));
@@ -1495,17 +1391,12 @@
                 }
             }
 
-            // Dense treeline along the east edge — a "spare" strip of forest raiders emerge
-            // from. Left as TILE_GRASS wherever the dice miss gives it natural gaps/clearings
-            // (and the road above is never touched, since it's no longer TILE_GRASS by now).
             for (let y = WATER_BAND_TOP; y < MAP_H - WATER_BAND_BOTTOM; y++) {
                 for (let x = treelineStartX; x < MAP_W; x++) {
                     if (map[y][x] === TILE_GRASS && Math.random() < 0.8) map[y][x] = TILE_TREE;
                 }
             }
 
-            // Loose, individually-scattered trees on the open ground between the Hub and the
-            // treeline. Kept clear of the mountains, the water bands, and the Hub's own footprint.
             for (let y = WATER_BAND_TOP + 1; y < MAP_H - WATER_BAND_BOTTOM - 1; y++) {
                 for (let x = MOUNTAIN_DEPTH + 1; x < treelineStartX - 1; x++) {
                     if (map[y][x] !== TILE_GRASS) continue;
@@ -1521,12 +1412,6 @@
         }
 
         // ========== COLLISION ==========
-        // Trees still physically block movement — only *building placement* is allowed on them (see isBuildable).
-        // Rebuilds both the movement/pathfinding grid and the wall line-of-sight set together.
-        // Called immediately whenever a building is placed or destroyed (not just on the once-a-
-        // second timer in the main loop) — tileBlocked() below now reads straight from
-        // blockedGrid, so if this weren't kept fresh, units would walk straight through a wall
-        // for up to a second after it went up.
         function rebuildBlockedGrids() {
             game.blockedGrid = buildBlockedGrid();
             game.wallTiles = buildWallTileSet();
@@ -1534,13 +1419,10 @@
 
         function tileBlocked(tx, ty) {
             if (tx < 0 || ty < 0 || tx >= MAP_W || ty >= MAP_H) return true;
-            // blockedGrid already combines terrain (water/tree/mountain) and every building into
-            // one lookup table, kept fresh by rebuildBlockedGrids() — reading it here is a single
-            // array lookup instead of re-scanning every building on every call. This used to run
-            // up to 4x per unit per frame and got slower the more walls a player had built.
             if (game.blockedGrid) return game.blockedGrid[ty][tx] === 1;
             const t = map[ty][tx];
-            if (t === TILE_WATER || t === TILE_TREE || t === TILE_MOUNTAIN) return true;
+            // Trees no longer block movement — see buildBlockedGrid() below.
+            if (t === TILE_WATER || t === TILE_MOUNTAIN) return true;
             for (const b of game.buildings) {
                 if (b.hp <= 0) continue;
                 if (tx >= b.x && tx < b.x + b.size && ty >= b.y && ty < b.y + b.size) return true;
@@ -1579,15 +1461,16 @@
         }
 
         // ========== PATHFINDING ==========
-        // A simple breadth-first search over the tile grid. Cheap enough to call whenever a
-        // unit gets a new destination, and re-checked occasionally in case new walls appeared.
         function buildBlockedGrid() {
             const grid = [];
             for (let y = 0; y < MAP_H; y++) {
                 const row = new Uint8Array(MAP_W);
                 for (let x = 0; x < MAP_W; x++) {
                     const t = map[y][x];
-                    row[x] = (t === TILE_WATER || t === TILE_TREE || t === TILE_MOUNTAIN) ? 1 : 0;
+                    // Only water and mountains are hard terrain now. Trees are decorative and
+                    // walk-through — raiders were repeatedly getting wedged inside the dense
+                    // east treeline when their pathfinding goal landed on a tree tile.
+                    row[x] = (t === TILE_WATER || t === TILE_MOUNTAIN) ? 1 : 0;
                 }
                 grid.push(row);
             }
@@ -1604,11 +1487,6 @@
         }
 
         // ========== WALL LINE-OF-SIGHT ==========
-        // Walls now stop enemy ranged fire dead — a raider can't shoot a defender standing on
-        // the far side of one. Players can still fire straight through their own walls, though
-        // (see the `this.owner === 0 ||` checks around every use of lineBlockedByWall below).
-        // A separate tile set (rather than reusing blockedGrid) because only WALLS block sight —
-        // towers, the Hub, and the new indestructible Trench all block movement but not shots.
         function buildWallTileSet() {
             const set = new Set();
             for (const b of game.buildings) {
@@ -1680,14 +1558,14 @@
                     const nx = cx + ddx, ny = cy + ddy;
                     if (nx < 0 || ny < 0 || nx >= MAP_W || ny >= MAP_H) continue;
                     if (grid[ny][nx] === 1) continue;
-                    if (ddx !== 0 && ddy !== 0 && (grid[cy][nx] === 1 || grid[ny][cx] === 1)) continue; // no cutting corners
+                    if (ddx !== 0 && ddy !== 0 && (grid[cy][nx] === 1 || grid[ny][cx] === 1)) continue;
                     const ni = idx(nx, ny);
                     if (visited[ni]) continue;
                     visited[ni] = 1;
                     parent[ni] = cur;
                     queue.push(ni);
                 }
-                if (queue.length > 5000) break; // safety cap
+                if (queue.length > 5000) break;
             }
             if (!found) return null;
             const path = [];
@@ -1701,9 +1579,6 @@
             return path;
         }
 
-        // Point a unit toward a destination, following a pathfound route around obstacles rather
-        // than a straight line. Re-paths only when the destination moves significantly, the current
-        // path runs out, or the unit has been stuck for a while — not every frame.
         function steerTowards(unit, gx, gy, dt) {
             const goalShifted = !unit.moveGoal || Math.hypot(unit.moveGoal.x - gx, unit.moveGoal.y - gy) > 1.5;
             unit.repathTimer = (unit.repathTimer || 0) - dt;
@@ -1732,13 +1607,12 @@
             }
         }
 
-        // Issue a long-distance move order (manual command, formation slot, or wave spawn target).
         function issueMoveOrder(unit, gx, gy) {
             unit.targetUnit = null;
             unit.targetBuilding = null;
             unit.moveGoal = { x: gx, y: gy };
             unit.path = null;
-            unit.repathTimer = 0; // forces an immediate path calculation on the next update
+            unit.repathTimer = 0;
             unit.holding = false;
         }
 
@@ -1763,16 +1637,12 @@
                 for (let dy = -chunkRadius; dy <= chunkRadius; dy++) {
                     const key = (cx + dx) + ',' + (cy + dy);
                     const bucket = game.unitGrid[key];
-                    // Push straight into the result array instead of `result.concat(bucket)` —
-                    // concat allocates a whole new array every single call, and this runs for
-                    // every unit's targeting AND separation check, every frame.
                     if (bucket) for (const u of bucket) result.push(u);
                 }
             }
             return result;
         }
 
-        // Chooses an enemy target from a candidate list, honoring the player's chosen targeting mode.
         function pickEnemyTarget(candidates, x, y, range, mode) {
             let best = null;
             let bestScore = mode === 'strongest' ? -Infinity : Infinity;
@@ -1788,12 +1658,7 @@
             return best;
         }
 
-        // ========== UNIT FIGURES (procedural, articulated) ==========
-        // Every unit — human or dog — is a small canvas-drawn figure with separate limb
-        // segments that swing on a genuine walk cycle, rather than a static icon sliding across
-        // the ground. Everything here is drawn as if facing +x (east); Unit.draw() flips the
-        // whole thing with ctx.scale(-1,1) to face it left instead of needing a second mirrored
-        // drawing. Origin (0,0) is the unit's feet — same anchor the ground shadow uses.
+        // ========== UNIT FIGURES (procedural) ==========
         const UNIT_PALETTE = {
             sword: { player: { cloth: '#6b5a34', dark: '#443a22', skin: '#c69a72' }, enemy: { cloth: '#7a2a22', dark: '#451915', skin: '#9a6a52' } },
             spear: { player: { cloth: '#5c4d30', dark: '#3a301d', skin: '#c69a72' }, enemy: { cloth: '#7a2020', dark: '#451414', skin: '#9a6a52' } },
@@ -1805,49 +1670,41 @@
             const pal = (UNIT_PALETTE[u.type] || UNIT_PALETTE.sword)[u.owner === 0 ? 'player' : 'enemy'];
             const walking = u.isMoving;
             const attacking = u.attackFlash > 0;
-            // Faster units cycle their legs a little quicker, so a Rifle striding past doesn't
-            // look like it's dragging its feet next to a sprinting Dog.
             const swingHz = walking ? 6 + u.speed * 0.45 : 1.4;
             const phase = u.animTimer * swingHz;
-            const amp = walking ? 1 : 0.15; // a faint idle sway when standing still
+            const amp = walking ? 1 : 0.15;
             const legSwing = Math.sin(phase) * amp;
-            const armSwing = -legSwing; // opposite-phase arms — a natural walking gait
+            const armSwing = -legSwing;
 
-            const H = 21; // overall figure height in px, tuned to sit comfortably on one tile
+            const H = 21;
             const hipY = -H * 0.42, shoulderY = -H * 0.78, headY = -H * 0.95, headR = H * 0.15;
             const legReach = H * 0.34, armReach = H * 0.26;
-            const lean = walking ? 1.2 : 0; // a slight forward lean while on the move
+            const lean = walking ? 1.2 : 0;
 
             ctx.lineCap = 'round';
 
-            // Back leg & arm are drawn first so the front pair overlaps them — a cheap trick
-            // that reads as depth without any real 3D.
             ctx.strokeStyle = pal.dark;
             ctx.lineWidth = 2.4;
             ctx.beginPath(); ctx.moveTo(0, hipY); ctx.lineTo(-legSwing * legReach * 0.6, 0); ctx.stroke();
             ctx.beginPath(); ctx.moveTo(0, shoulderY); ctx.lineTo(-armSwing * armReach * 0.6, shoulderY + armReach * 0.9); ctx.stroke();
 
-            // torso
             ctx.strokeStyle = pal.cloth;
             ctx.lineWidth = 4.2;
             ctx.beginPath(); ctx.moveTo(0, hipY); ctx.lineTo(lean, shoulderY); ctx.stroke();
 
-            // front leg
             ctx.strokeStyle = pal.dark;
             ctx.lineWidth = 2.6;
             ctx.beginPath(); ctx.moveTo(0, hipY); ctx.lineTo(legSwing * legReach, 0); ctx.stroke();
 
-            // head + simple cap/hood
             ctx.fillStyle = pal.skin;
             ctx.beginPath(); ctx.arc(lean, headY, headR, 0, Math.PI * 2); ctx.fill();
             ctx.fillStyle = pal.dark;
             ctx.beginPath(); ctx.arc(lean, headY - headR * 0.3, headR * 1.05, Math.PI, 0); ctx.fill();
 
-            // front arm + weapon — swaps to a fixed attack pose while attackFlash is active
             let armX = armSwing * armReach, armY = shoulderY + armReach * 0.9;
             let weaponAngle = 0.35;
             if (attacking) {
-                const p = 1 - u.attackFlash / 0.22; // 0 → 1 across the swing
+                const p = 1 - u.attackFlash / 0.22;
                 if (u.type === 'archer') { armX = armReach * 0.9; armY = shoulderY + armReach * 0.4; weaponAngle = 0.05; }
                 else if (u.type === 'spear') { armX = armReach * (0.6 + p * 0.8); armY = shoulderY + armReach * 0.55; weaponAngle = 0; }
                 else { armX = armReach * (1 - p) * 0.5 + armReach * 0.4; armY = shoulderY + armReach * (0.9 - p * 0.5); weaponAngle = -0.5 + p * 1.1; }
@@ -1856,14 +1713,13 @@
             ctx.lineWidth = 2.8;
             ctx.beginPath(); ctx.moveTo(lean, shoulderY); ctx.lineTo(armX, armY); ctx.stroke();
 
-            // weapon silhouette, held at the front hand
             ctx.save();
             ctx.translate(armX, armY);
             ctx.rotate(weaponAngle);
             if (u.type === 'archer') {
                 ctx.strokeStyle = '#2a2620'; ctx.lineWidth = 1.6;
                 ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(H * 0.62, -1); ctx.stroke();
-                ctx.fillStyle = '#3a3630'; ctx.fillRect(H * 0.1, -2.6, 3, 2.4); // scope
+                ctx.fillStyle = '#3a3630'; ctx.fillRect(H * 0.1, -2.6, 3, 2.4);
             } else if (u.type === 'spear') {
                 ctx.strokeStyle = '#332c22'; ctx.lineWidth = 2;
                 ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(H * 0.5, 0); ctx.stroke();
@@ -1878,7 +1734,6 @@
             }
             ctx.restore();
 
-            // a small pack on the back for player units — survivalist flavour, absent on raiders
             if (u.owner === 0) {
                 ctx.fillStyle = pal.dark;
                 ctx.fillRect(-3.5, shoulderY + 1, 2.6, H * 0.24);
@@ -1896,19 +1751,15 @@
             ctx.lineCap = 'round';
             ctx.strokeStyle = pal.dark;
             ctx.lineWidth = 2;
-            // A trot gait — diagonal leg pairs (front-left+back-right, front-right+back-left)
-            // swing together, the way a real quadruped actually moves.
             ctx.beginPath(); ctx.moveTo(-bodyLen * 0.35, bodyY); ctx.lineTo(-bodyLen * 0.35 + swing * 2.5, 0); ctx.stroke();
             ctx.beginPath(); ctx.moveTo(bodyLen * 0.35, bodyY); ctx.lineTo(bodyLen * 0.35 - swing * 2.5, 0); ctx.stroke();
             ctx.beginPath(); ctx.moveTo(-bodyLen * 0.35, bodyY); ctx.lineTo(-bodyLen * 0.35 - swing * 2.5, 0); ctx.stroke();
             ctx.beginPath(); ctx.moveTo(bodyLen * 0.35, bodyY); ctx.lineTo(bodyLen * 0.35 + swing * 2.5, 0); ctx.stroke();
 
-            // body
             ctx.strokeStyle = pal.cloth;
             ctx.lineWidth = 5;
             ctx.beginPath(); ctx.moveTo(-bodyLen * 0.4, bodyY); ctx.lineTo(bodyLen * 0.45, bodyY - 1); ctx.stroke();
 
-            // head + snout + ear
             const biting = u.attackFlash > 0;
             const jaw = biting ? (1 - u.attackFlash / 0.22) * 4 : 0;
             ctx.fillStyle = pal.cloth;
@@ -1926,7 +1777,6 @@
             ctx.fillStyle = pal.dark;
             ctx.beginPath(); ctx.moveTo(bodyLen * 0.42, bodyY - 5.5); ctx.lineTo(bodyLen * 0.36, bodyY - 8); ctx.lineTo(bodyLen * 0.5, bodyY - 6); ctx.closePath(); ctx.fill();
 
-            // tail, wagging a bit faster than the legs stride
             const wag = Math.sin(u.animTimer * (walking ? 12 : 5)) * 0.5;
             ctx.strokeStyle = pal.dark;
             ctx.lineWidth = 2;
@@ -1948,8 +1798,6 @@
                 this.maxHp = this.def.hp;
                 this.attack = this.def.attack;
                 if (owner === 0) {
-                    // The player's own troops are a bit tougher and hit a bit harder than an
-                    // identically-typed raider, so an even-numbers fight tilts toward the defenders.
                     this.maxHp = Math.round(this.def.hp * 1.2);
                     this.hp = this.maxHp;
                     this.attack = Math.round(this.def.attack * 1.15);
@@ -1967,14 +1815,14 @@
                 this.moveGoal = null;
                 this.repathTimer = 0;
                 this.isMoving = false;
-                this.holding = false; // true only while under an explicit Hold Position order
+                this.holding = false;
                 this.facingLeft = false;
-                this.animTimer = Math.random() * 10; // desync walk-cycle timing between units
-                this.attackFlash = 0;   // seconds remaining in the current attack-swing/recoil animation
+                this.animTimer = Math.random() * 10;
+                this.attackFlash = 0;
                 this.attackDirX = 1;
                 this.attackDirY = 0;
-                this.hitFlash = 0;      // seconds remaining of the "just got hit" white flash
-                this.waveTactic = null; // 'hub' | 'units' | 'walls' — set on enemy spawn, drives their steering above
+                this.hitFlash = 0;
+                this.waveTactic = null;
                 this.tacticTimer = 0;
             }
 
@@ -1984,12 +1832,6 @@
                 if (this.attackFlash > 0) this.attackFlash = Math.max(0, this.attackFlash - dt);
                 if (this.hitFlash > 0) this.hitFlash = Math.max(0, this.hitFlash - dt);
 
-                // ---- Wave-tactic steering: raiders no longer just beeline for the Hub. Depending
-                // on the wave, they might hunt down player units wherever they are, or make
-                // straight for the walls instead. Re-checked every ~1.5s rather than every frame —
-                // scanning every unit/building that often isn't free, and the goal rarely needs
-                // updating more often than that anyway. Only runs while nothing is currently locked
-                // in combat, so an engaged raider finishes that fight before resuming the hunt.
                 if (this.owner === 1 && this.waveTactic && this.waveTactic !== 'hub' && !this.targetUnit && !this.targetBuilding) {
                     this.tacticTimer = (this.tacticTimer || 0) - dt;
                     if (this.tacticTimer <= 0) {
@@ -2024,8 +1866,6 @@
                     }
                 }
 
-                // ---- Decide target and steer (this sets targetX/targetY for the move step below) ----
-                // Walls block enemy shots (but never the player's own) — see lineBlockedByWall.
                 let target = null, isBuilding = false;
                 if (this.targetUnit && this.targetUnit.hp > 0 &&
                     (this.owner === 0 || !lineBlockedByWall(this.x, this.y, this.targetUnit.x, this.targetUnit.y))) {
@@ -2048,8 +1888,6 @@
                     } else {
                         let nearestB = null, nbd2 = Infinity;
                         for (const b of game.buildings) {
-                            // Trenches can't be destroyed, so they're never a valid attack target —
-                            // raiders that get stopped by one just stay stopped by it.
                             if (b.owner !== this.owner && b.hp > 0 && b.type !== 'trench') {
                                 const bx = b.x + b.size / 2;
                                 const by = b.y + b.size / 2;
@@ -2060,12 +1898,6 @@
                         }
                         if (nearestB) { target = nearestB; isBuilding = true; }
                         else if (this.owner === 0 && !this.holding && !this.moveGoal && (this.type === 'dog' || !game.lastTactic)) {
-                            // Nothing in easy reach — actively hunt for the closest enemy
-                            // anywhere on the field instead of just standing still. Dogs always
-                            // do this and can spot a target anywhere on the map (they're meant
-                            // to prowl the whole battlefield and pick targets off one after
-                            // another); other units only do it within a limited radius, and only
-                            // while no formation/tactic is currently holding them in place.
                             const seekRadius = this.type === 'dog' ? Infinity : 22;
                             let seekTarget = null, sd = Infinity;
                             for (const e of game.units) {
@@ -2123,7 +1955,6 @@
                     steerTowards(this, this.moveGoal.x, this.moveGoal.y, dt);
                 }
 
-                // ---- Move toward targetX/targetY (set above) ----
                 const dx0 = this.targetX - this.x;
                 const dy0 = this.targetY - this.y;
                 const dist0 = Math.sqrt(dx0 * dx0 + dy0 * dy0);
@@ -2133,7 +1964,6 @@
                     if (Math.abs(dx0) > 0.05) this.facingLeft = dx0 < 0;
                 }
 
-                // If stuck on a building, enemies try to attack it
                 if (this.stuckCounter > 15 && this.owner === 1) {
                     let nearestB = null;
                     let nbd = 3;
@@ -2154,11 +1984,6 @@
                     this.stuckCounter = 0;
                 }
 
-                // Solid-body separation — treats every unit (allied or enemy) as a small solid
-                // disc that can't overlap another one. Applied as an immediate positional
-                // correction each frame (not scaled by dt) rather than a slow spring-force
-                // drift, so two units meeting head-on push apart the same frame they touch
-                // instead of visibly passing through one another first.
                 const minDist = 0.75;
                 const closeBy = nearbyUnits(this.x, this.y, minDist + 0.3);
                 let sepX = 0, sepY = 0;
@@ -2172,7 +1997,6 @@
                         sepX += (ddx / d) * (minDist - d);
                         sepY += (ddy / d) * (minDist - d);
                     } else if (d2 <= 0.0001) {
-                        // exactly stacked (rare) — deterministic tiny nudge so they don't stay glued
                         sepX += (seedFromXY(this.x, this.y) - 0.5) * 0.05;
                         sepY += (seedFromXY(this.y, this.x) - 0.5) * 0.05;
                     }
@@ -2187,16 +2011,12 @@
                 const py0 = this.y * TILE - cam.y;
                 if (px0 < -30 || py0 < -30 || px0 > game.width + 30 || py0 > game.height + 30) return;
 
-                // Walking bob (bigger while actually moving, a faint idle sway otherwise), plus a
-                // short attack impulse: melee units step into their swing and back out, ranged
-                // units kick back off the recoil. The ground shadow (below) stays put — only the
-                // character itself bobs/lunges above it — so it reads as motion, not drifting.
                 const bobAmp = this.isMoving ? 1.6 : 0.5;
                 const bobSpeed = this.isMoving ? 9 : 2.2;
                 const bob = Math.sin(this.animTimer * bobSpeed) * bobAmp;
                 let lungeX = 0, lungeY = 0;
                 if (this.attackFlash > 0) {
-                    const k = this.attackFlash / 0.22; // 1 → 0 across the animation
+                    const k = this.attackFlash / 0.22;
                     const mag = Math.sin((1 - k) * Math.PI) * (this.type === 'archer' ? -1.6 : 2.6);
                     lungeX = this.attackDirX * mag;
                     lungeY = this.attackDirY * mag;
@@ -2205,8 +2025,6 @@
                 const py = py0 + lungeY - bob;
                 const footY = py + 7;
 
-                // Enemies get a red disc under their feet instead of tinting the figure itself —
-                // reads clearly as "hostile" at a glance without needing to touch the palette.
                 if (this.owner === 1) {
                     ctx.fillStyle = 'rgba(200,30,30,0.45)';
                     ctx.beginPath();
@@ -2218,10 +2036,6 @@
                 ctx.ellipse(px0, py0 + 7, this.type === 'dog' ? 9 : 7, this.type === 'dog' ? 2.8 : 2.3, 0, 0, Math.PI * 2);
                 ctx.fill();
 
-                // Every unit prefers a real sprite frame (billboard, anchored at its feet,
-                // flipped to face the way it's walking) once that image has loaded; until then
-                // — or if a file is ever missing — it falls back to the procedural articulated
-                // figure, which is always available and never leaves a unit invisible.
                 const sprites = getUnitSpriteKeys(this);
                 const idleKey = sprites && sprites.idle && sprites.idle[0];
                 const idleImg = idleKey && assets[idleKey];
@@ -2230,7 +2044,7 @@
                 if (idleImg) {
                     let frameKey = idleKey;
                     if (this.attackFlash > 0 && sprites.attack && sprites.attack.length) {
-                        const progress = 1 - this.attackFlash / 0.22; // 0 → 1 across the swing
+                        const progress = 1 - this.attackFlash / 0.22;
                         const idx = Math.min(sprites.attack.length - 1, Math.floor(progress * sprites.attack.length));
                         frameKey = sprites.attack[idx];
                     } else if (this.isMoving && sprites.walk && sprites.walk.length) {
@@ -2249,10 +2063,6 @@
                     hitFlashY = footY - h * 0.5;
                     hitFlashR = h * 0.32;
                 } else {
-                    // Every unit is a small articulated figure — separate leg and arm limbs
-                    // that genuinely swing on a walk cycle — drawn facing +x; flipping the
-                    // whole thing with scale(-1,1) turns it around to face left instead of
-                    // needing a mirrored second drawing.
                     ctx.save();
                     ctx.translate(px, footY);
                     if (this.facingLeft) ctx.scale(-1, 1);
@@ -2264,8 +2074,6 @@
                     hitFlashR = this.type === 'dog' ? 5 : 7;
                 }
 
-                // A quick white glow over the torso on a hit — cheap, and reads just as clearly
-                // as a full sprite-tint flash would.
                 if (this.hitFlash > 0) {
                     ctx.fillStyle = `rgba(255,255,255,${(this.hitFlash / 0.18) * 0.55})`;
                     ctx.beginPath();
@@ -2286,13 +2094,6 @@
                 const pct = this.hp / this.maxHp;
                 ctx.fillStyle = pct > 0.5 ? '#4caf50' : (pct > 0.25 ? '#ffb300' : '#e53935');
                 ctx.fillRect(px - 6, barTopY + 0.5, 12 * pct, 2);
-
-                if (this.stuckCounter > 10 && this.owner === 1) {
-                    ctx.fillStyle = 'rgba(255,0,0,0.7)';
-                    ctx.font = '10px monospace';
-                    ctx.textAlign = 'center';
-                    ctx.fillText('!', px, barTopY - 4);
-                }
             }
         }
 
@@ -2311,7 +2112,7 @@
                 this.isHub = type === 'hub';
                 this.lastHp = this.hp;
                 this.regenCooldown = 0;
-                this.wallOrientation = 'h'; // only meaningful for type==='wall'; set properly at placement
+                this.wallOrientation = 'h';
             }
 
             update(dt) {
@@ -2369,8 +2170,7 @@
                         });
                     }
                 }
-                // Self-repair once the structure hasn't taken damage for a few seconds — the
-                // hub repairs faster than towers/walls do, so defences still feel worth rebuilding.
+
                 if ((this.isHub || this.type === 'tower' || this.type === 'wall') && this.hp > 0) {
                     const delay = this.isHub ? HUB_REGEN_DELAY : STRUCTURE_REGEN_DELAY;
                     const rate = this.isHub ? HUB_REGEN_RATE : STRUCTURE_REGEN_RATE;
@@ -2393,8 +2193,6 @@
                 if (px < -80 || py < -80 || px > game.width + 80 || py > game.height + 80) return;
 
                 if (this.owner !== 0) {
-                    // Reserved for any future non-player structure — falls back to a plain
-                    // tinted block so nothing ever renders invisible.
                     ctx.fillStyle = 'rgba(0,0,0,0.3)';
                     ctx.fillRect(px + 3, py + 3, s, s);
                     const g = ctx.createLinearGradient(px, py, px, py + s);
@@ -2406,15 +2204,24 @@
                     ctx.lineWidth = 1;
                     ctx.strokeRect(px, py, s, s);
                 } else if (this.type === 'wall') {
+                    // drawBarricade already checks for wall_h/wall_v itself.
                     drawBarricade(ctx, px, py, s, this.x, this.y, this.wallOrientation);
                 } else if (this.type === 'trench') {
-                    drawTrench(ctx, px, py, s, this.x, this.y);
+                    const img = assets.building_trench;
+                    if (img) ctx.drawImage(img, px, py, s, s);
+                    else drawTrench(ctx, px, py, s, this.x, this.y);
                 } else if (this.type === 'tower') {
-                    drawWatchtower(ctx, px, py, s, this.x, this.y);
+                    const img = assets.building_tower;
+                    if (img) ctx.drawImage(img, px, py, s, s);
+                    else drawWatchtower(ctx, px, py, s, this.x, this.y);
                 } else if (this.type === 'triage') {
-                    drawTriageHut(ctx, px, py, s, this.x, this.y);
+                    const img = assets.building_triage;
+                    if (img) ctx.drawImage(img, px, py, s, s);
+                    else drawTriageHut(ctx, px, py, s, this.x, this.y);
                 } else if (this.type === 'hub') {
-                    drawCommunityHub(ctx, px, py, s, this.x, this.y);
+                    const img = assets.building_hub;
+                    if (img) ctx.drawImage(img, px, py, s, s);
+                    else drawCommunityHub(ctx, px, py, s, this.x, this.y);
                 }
 
                 if (this.hp < this.maxHp) {
@@ -2436,23 +2243,47 @@
             }
         }
 
+        // ========== MENU / BUTTON ICON HELPERS ==========
+        // Swaps an emoji for the matching SVG icon as soon as that icon has loaded. Any icon
+        // that's missing just leaves the emoji in place, so nothing ever renders blank.
+        function iconHTML(assetKey, fallback) {
+            const img = assetKey && assets[assetKey];
+            if (!img) return fallback;
+            return '<img class="btn-icon" src="' + ASSET_PATHS[assetKey] + '" alt="">';
+        }
+
+        function applyMenuIcons() {
+            const pairs = [
+                ['tab-build', 'menu_build'],
+                ['tab-tactics', 'menu_tactics'],
+                ['tab-units', 'menu_units'],
+            ];
+            for (const [btnId, key] of pairs) {
+                const img = assets[key];
+                if (!img) continue;
+                const iconEl = document.querySelector('#' + btnId + ' .icon');
+                if (!iconEl) continue;
+                iconEl.textContent = '';
+                const el = document.createElement('img');
+                el.src = ASSET_PATHS[key];
+                el.alt = '';
+                iconEl.appendChild(el);
+            }
+        }
+
         // ========== INIT ==========
         function init() {
             game.canvas = document.getElementById('game');
             game.ctx = game.canvas.getContext('2d');
-            game.ctx.imageSmoothingEnabled = false; // crisp pixel-art scaling, not blurry
+            game.ctx.imageSmoothingEnabled = false;
             game.minimapCtx = document.getElementById('minimap').getContext('2d');
             game.optionsPanel = document.getElementById('options-panel');
             game.waveBanner = document.getElementById('wave-banner');
 
-            // Fire off the sprite/tile image loads in the background. The game is playable
-            // immediately on the procedural look; once these settle (a handful of small PNGs,
-            // so normally well under a second even on mobile data), whichever ones loaded
-            // successfully seamlessly take over — units pick them up on their next draw call,
-            // and the terrain gets baked one more time so real tile/tree/wall art replaces the
-            // procedural fill in place.
             loadAssets(() => {
                 if (map && map.length) game.terrainCanvas = buildTerrainCanvas();
+                applyMenuIcons();
+                renderOptionsPanel();
             });
             resizeCanvas();
             computeMapSize();
@@ -2481,23 +2312,18 @@
             }
             game.unitCount = playerUnitCount();
 
-            // The play area is sized to exactly fill the visible screen (see computeMapSize),
-            // and the camera stays locked at the origin for the entire game — there is nothing
-            // to pan to, since the terrain canvas is always at least as big as the viewport.
             game.camera.x = 0;
             game.camera.y = 0;
 
             setupEvents();
             setupTabBar();
             attachGlobalListeners();
+            updateStats();
             requestAnimationFrame(loop);
         }
 
         function resizeCanvas() {
             const dpr = window.devicePixelRatio || 1;
-            // The side rail, minimap and stats are all floating overlays (like the minimap already was),
-            // so the canvas only needs to make room for the ad banner — this is what gives back all the
-            // screen space that used to be hidden behind the old bottom bars.
             const adH = document.getElementById('ad-banner').offsetHeight;
             game.width = window.innerWidth;
             game.height = window.innerHeight - adH;
@@ -2508,7 +2334,7 @@
             canvas.style.width = game.width + 'px';
             canvas.style.height = game.height + 'px';
             game.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-            game.ctx.imageSmoothingEnabled = false; // resizing the canvas resets this, so re-apply every time
+            game.ctx.imageSmoothingEnabled = false;
             clampCamera();
         }
 
@@ -2576,10 +2402,6 @@
             }
             game.wallDragStart = null;
             if (game.isBuildMode) { game.dragMode = null; return; }
-
-            // With the whole map always on screen there's nothing to pan to, so any one-finger
-            // drag on the map is a box-select — the old "only select if you start on your own
-            // unit, otherwise pan" heuristic existed solely to leave room for panning.
             game.dragMode = 'select';
         }
 
@@ -2610,8 +2432,6 @@
                 const movedTiles = Math.max(Math.abs(dx), Math.abs(dy)) / TILE;
                 game.wallDragStart = null;
                 if (movedTiles < 0.6) {
-                    // Barely moved — treat it as a tap-to-anchor instead, so the orientation
-                    // buttons + Place button still work for precise, no-drag placement.
                     setWallPreview(Math.floor((game.mouse.curX + game.camera.x) / TILE), Math.floor((game.mouse.curY + game.camera.y) / TILE));
                 } else if (game.wallPreview && game.wallPreview.every(t => t.valid)) {
                     placeWallPreview();
@@ -2644,9 +2464,6 @@
             return game.buildings.filter(b => b.type === type && b.owner === 0 && b.hp > 0).length;
         }
 
-        // The 50-unit cap (and the "X/50" readout) is meant to be about the player's own army —
-        // raiders shouldn't eat into it. game.units holds both sides, so this counts owner === 0
-        // only; every cap check and the HUD readout both go through this now.
         function playerUnitCount() {
             let n = 0;
             for (const u of game.units) if (u.owner === 0 && u.hp > 0) n++;
@@ -2724,23 +2541,12 @@
                     game.lastTactic = null;
                     game.lastMoveTarget = { x: wx, y: wy };
                 } else if (game.selected.length > 0) {
-                    // Nothing to move (e.g. a building was selected) — tapping empty ground
-                    // deselects it instead of leaving its info panel stuck on screen forever.
                     game.selected = [];
                     updateSelectionUI();
                 }
             }
         }
 
-        // Trees may now be built on top of (they no longer block placement — only water and the Hub do).
-        // They still block plain movement everywhere else (see tileBlocked).
-        //
-        // This now checks the FULL footprint of the building being placed (previously it only
-        // ever checked a single tile, even for 2x2/3x3 buildings) and only blocks on a genuine
-        // overlap with another structure — no extra buffer tile around existing buildings. That
-        // buffer was the bug that made barricades refuse to go down in what looked like empty
-        // squares right next to a wall or tower; it's gone now, so barricades can be placed
-        // edge-to-edge anywhere that isn't water, the Hub, or another building's own tile(s).
         function isBuildable(x, y, type) {
             const size = (BUILDING_TYPES[type] && BUILDING_TYPES[type].size) || 1;
             for (let dy = 0; dy < size; dy++) {
@@ -2758,12 +2564,6 @@
             return true;
         }
 
-        // ========== LINE-BUILD PLACEMENT (tap to preview, pick orientation, place — or drag to
-        // draw) — shared by Wall and Trench, the two types you draw out as a straight run rather
-        // than tapping down one at a time. ==========
-        // Builds a straight line of tiles from (startX,startY) toward (curX,curY), locked to
-        // whichever axis the drag moved further along, clamped to that type's max length. Used
-        // by the drag-to-draw gesture in moveInput/endInput below.
         function computeWallDragTiles(startX, startY, curX, curY, type) {
             const maxLen = LINE_BUILD[type].maxLen;
             const dx = curX - startX, dy = curY - startY;
@@ -2891,7 +2691,7 @@
 
         function addInfoLine(panel, text) {
             const info = document.createElement('div');
-            info.style.cssText = 'grid-column:1/-1;width:100%;text-align:center;color:#e8d9b0;font-size:11px;margin-bottom:2px;';
+            info.style.cssText = 'grid-column:1/-1;width:100%;text-align:center;color:#e8d9b0;font-size:10px;margin-bottom:2px;line-height:1.35;';
             info.textContent = text;
             panel.appendChild(info);
         }
@@ -2941,7 +2741,7 @@
                 const btn = document.createElement('button');
                 const count = buildCountOf(t);
                 const limit = BUILD_LIMITS[t];
-                btn.textContent = BUILDING_TYPES[t].icon + ' ' + BUILDING_TYPES[t].name + ' (' + count + '/' + limit + ')';
+                btn.innerHTML = BUILDING_TYPES[t].icon + ' ' + BUILDING_TYPES[t].name + '<br>(' + count + '/' + limit + ')';
                 if (count >= limit) btn.disabled = true;
                 btn.onclick = () => {
                     game.isBuildMode = true;
@@ -2982,7 +2782,7 @@
             targetBtn.textContent = game.targetMode === 'strongest' ? '💪 Target: Strongest' : '🎯 Target: Closest';
             targetBtn.onclick = () => {
                 game.targetMode = game.targetMode === 'strongest' ? 'closest' : 'strongest';
-                document.getElementById('selection-info').textContent = 'Targeting mode: ' + game.targetMode;
+                showToast('Targeting mode: ' + game.targetMode);
                 renderOptionsPanel();
             };
             panel.appendChild(targetBtn);
@@ -2993,10 +2793,10 @@
             types.forEach(t => {
                 const def = UNIT_TYPES[t];
                 const btn = document.createElement('button');
-                btn.textContent = def.icon + ' ' + def.name + ' (' + def.trainTime + 's)';
+                btn.innerHTML = iconHTML(def.iconAsset, def.icon) + ' ' + def.name + '<br>(' + def.trainTime + 's)';
                 btn.onclick = () => {
                     if (game.unitCount + game.queue.length >= game.maxUnits) {
-                        document.getElementById('selection-info').textContent = '⚠️ Unit limit reached!';
+                        showToast('⚠️ Unit limit reached!');
                         return;
                     }
                     game.queue.push(t);
@@ -3015,7 +2815,7 @@
             panel.appendChild(autoBtn);
             const info = document.createElement('div');
             info.id = 'queue-info';
-            info.style.cssText = 'grid-column:1/-1;width:100%;text-align:center;color:#e8d9b0;font-size:11px;margin-top:2px;';
+            info.style.cssText = 'grid-column:1/-1;width:100%;text-align:center;color:#e8d9b0;font-size:10px;margin-top:2px;line-height:1.35;word-break:break-word;';
             panel.appendChild(info);
             updateHubUI();
         }
@@ -3049,7 +2849,7 @@
                     u.targetBuilding = null;
                     u.holding = true;
                 });
-                document.getElementById('selection-info').textContent = '✋ All units holding position';
+                showToast('✋ All units holding position');
                 return;
             }
 
@@ -3058,8 +2858,6 @@
             const cy = hub.y + hub.size / 2;
 
             if (kind === 'focus') {
-                // Every unit switches to attacking whichever enemy is closest to the Hub — the
-                // most urgent threat — instead of each fighting whatever's nearest to itself.
                 let target = null, bestD = Infinity;
                 for (const e of game.units) {
                     if (e.owner === 1 && e.hp > 0) {
@@ -3068,22 +2866,20 @@
                     }
                 }
                 if (!target) {
-                    document.getElementById('selection-info').textContent = '🎯 No enemies in sight to focus on';
+                    showToast('🎯 No enemies in sight to focus on');
                     return;
                 }
                 units.forEach(u => {
                     u.targetUnit = target;
                     u.targetBuilding = null;
                 });
-                document.getElementById('selection-info').textContent = '🎯 Focusing fire on the closest threat';
+                showToast('🎯 Focusing fire on the closest threat');
                 return;
             }
 
             if (kind === 'withdraw') {
-                // Dogs pull back with everyone else here — withdrawing is a defensive huddle,
-                // not a formation to stand guard outside of.
                 assignPositions(units, getWithdrawPositions(cx, cy, units.length));
-                document.getElementById('selection-info').textContent = '↩ Units withdrawing to the Hub';
+                showToast('↩ Units withdrawing to the Hub');
                 return;
             }
             const dogs = units.filter(u => u.type === 'dog');
@@ -3094,14 +2890,10 @@
                 const rowGap = (kind === 'closed' || kind === 'staggered') ? 3 : 4;
                 let frontX;
                 if (kind === 'closed' || kind === 'staggered') {
-                    // Wall / Staggered Wall: a tight firing line just outside the Hub — offset
-                    // enough that even the back (Sniper) row clears the Hub's own footprint.
                     frontX = hub.x + hub.size + 1 + rowGap * 2;
                 } else if (kind === 'defence') {
-                    // Defence: holds the middle of the map instead of falling all the way back.
                     frontX = Math.round((play.start + play.end) / 2);
                 } else {
-                    // Offensive: pushes the whole line forward, close to the raiders' own edge.
                     frontX = Math.max(Math.round((play.start + play.end) / 2) + 4, play.end - 6);
                 }
                 if (rest.length > 0) {
@@ -3114,25 +2906,22 @@
                     defence: '🛡️ Defensive line holding the middle of the map',
                     offensive: '⚔️ Offensive line pushed forward toward the raiders',
                 };
-                document.getElementById('selection-info').textContent = labels[kind];
+                showToast(labels[kind]);
                 return;
             }
             if (kind === 'open') {
                 if (rest.length > 0) assignPositions(rest, getRingPositions(cx, cy, hub.size, 6));
                 placeDogsOutside(dogs, cx, cy, Math.round(hub.size / 2) + 9);
-                document.getElementById('selection-info').textContent = '▢ Wide box formed — dogs prowling the outside';
+                showToast('▢ Wide box formed — dogs prowling the outside');
                 return;
             }
             if (kind === 'circle') {
                 if (rest.length > 0) assignCircleFormation(rest, cx, cy, hub.size);
                 placeDogsOutside(dogs, cx, cy, Math.round(hub.size / 2) + 8);
-                document.getElementById('selection-info').textContent = '⭕ Ring formed — Shotgun & Rifle outside, Sniper within, dogs prowling further out';
+                showToast('⭕ Ring formed — Shotgun & Rifle outside, Sniper within');
             }
         }
 
-        // Ring Formation: swords and spears take the outer ring (facing outward, first to meet
-        // anything closing in), archers take a tighter inner ring between them and the Hub so
-        // they keep firing over/through the line without being the first thing an enemy reaches.
         function assignCircleFormation(units, cx, cy, hubSize) {
             const melee = units.filter(u => u.type === 'sword' || u.type === 'spear');
             const archers = units.filter(u => u.type === 'archer');
@@ -3142,16 +2931,11 @@
             assignPositions(archers, getCirclePositions(cx, cy, innerRadius, archers.length));
         }
 
-        // Dogs are fast and have wide vision, so every shaped formation keeps them on their own
-        // ring beyond everyone else — prowling the outside, first to spot and pick off anything
-        // approaching, rather than held in the line with the melee/ranged units.
         function placeDogsOutside(dogs, cx, cy, radius) {
             if (dogs.length === 0) return;
             assignPositions(dogs, getCirclePositions(cx, cy, radius, dogs.length));
         }
 
-        // Evenly spaced points on a true circle (not a square box) around the hub, nudged
-        // outward along the same angle if a spot lands on water/a building.
         function getCirclePositions(cx, cy, radius, count) {
             if (count <= 0) return [];
             const positions = [];
@@ -3176,7 +2960,7 @@
             const positions = [];
             for (let i = 0; i < count; i++) {
                 const angle = (i / count) * Math.PI * 2;
-                const ring = 2 + (i % 3); // layer units in rings so they don't all aim for one spot
+                const ring = 2 + (i % 3);
                 let x = cx + Math.cos(angle) * ring;
                 let y = cy + Math.sin(angle) * ring;
                 if (tileBlocked(Math.floor(x), Math.floor(y))) { x = cx; y = cy; }
@@ -3185,12 +2969,6 @@
             return positions;
         }
 
-        // East-facing firing lines: since raiders only ever approach from the east now, every
-        // "wall"-style tactic lines the army up in up to three rows facing that direction —
-        // Shotgun (short range) closest to the enemy, Rifle behind it, Sniper (longest range,
-        // hits hardest but fires slowest) safely at the back. rowGap is the east-west distance between rows;
-        // unitGap is the spacing between units within a row; stagger adds a short zig-zag
-        // offset to each unit instead of a dead-straight line.
         function buildEastFacingLine(units, frontX, cy, opts) {
             opts = opts || {};
             const rowGap = opts.rowGap || 4;
@@ -3207,11 +2985,11 @@
             for (let i = 0; i < units.length; i++) {
                 const offset = i - (units.length - 1) / 2;
                 let px = x;
-                if (stagger) px += (i % 2 === 0) ? 0.9 : -0.9; // short zig-zag toward/away from the enemy
+                if (stagger) px += (i % 2 === 0) ? 0.9 : -0.9;
                 let py = cy + offset * gap;
                 let tries = 0;
                 while (tileBlocked(Math.floor(px), Math.floor(py)) && tries < 6) {
-                    px -= 1; // step back toward the Hub if the spot is blocked (water/mountain/building)
+                    px -= 1;
                     tries++;
                 }
                 positions.push({ x: px, y: py });
@@ -3219,9 +2997,6 @@
             assignPositions(units, positions);
         }
 
-        // Dogs are fast scouts, so the east-facing lines send them further east than the whole
-        // formation — ahead of even the frontmost row, first to meet anything closing in — rather
-        // than surrounding the army the way they do in the 360° formations below.
         function placeDogsAheadEast(dogs, x, cy) {
             if (dogs.length === 0) return;
             const positions = [];
@@ -3232,14 +3007,10 @@
             assignPositions(dogs, positions);
         }
 
-        // The horizontal span of open, buildable map — from the near edge of the mountains to
-        // the near edge of the east treeline — used to place the Defence and Offensive lines
-        // relative to the battlefield rather than the Hub.
         function getPlayAreaXRange() {
             return { start: MOUNTAIN_DEPTH, end: MAP_W - TREELINE_DEPTH };
         }
 
-        // A full box ring at a given tile-gap from the hub edge (used by "open" and as the base for "staggered").
         function getRingPositions(cx, cy, hubSize, gap) {
             const half = Math.round(hubSize / 2 + gap);
             const sides = squareRingSides(Math.round(cx), Math.round(cy), half);
@@ -3257,25 +3028,6 @@
 
         function sidesToArray(sides) {
             return [...sides.top, ...sides.right, ...sides.bottom, ...sides.left];
-        }
-
-        // Same ring as "open" but every unit steps in/out to zig-zag around it.
-        function staggerSides(sides) {
-            const out = [];
-            for (const key of Object.keys(sides)) {
-                const arr = sides[key];
-                arr.forEach((p, i) => {
-                    const stepOut = Math.floor(i / 2) % 2 === 0;
-                    const off = stepOut ? 1 : -1;
-                    let np = { x: p.x, y: p.y };
-                    if (key === 'top') np.y -= off;
-                    else if (key === 'bottom') np.y += off;
-                    else if (key === 'left') np.x -= off;
-                    else if (key === 'right') np.x += off;
-                    out.push(np);
-                });
-            }
-            return out;
         }
 
         function assignPositions(units, positions) {
@@ -3313,9 +3065,6 @@
                     game.unitCount = playerUnitCount();
                     game.totalUnitsTrained++;
                     game.effects.push({ x: hx, y: hy, timer: 0.3, maxTimer: 0.3, color: '#ffd76a' });
-                    // Join whatever the army was last told to do, instead of just standing by
-                    // the Hub — re-running the last tactic folds the recruit straight into the
-                    // current formation alongside everyone else.
                     if (game.lastTactic) {
                         applyTactic(game.lastTactic);
                     } else if (game.lastMoveTarget) {
@@ -3333,15 +3082,6 @@
         }
 
         // ========== WAVES ==========
-        // Raiders only push in from the east — the map is sized to exactly fill a landscape
-        // screen with no off-screen area at all, so waves spawn in the natural clearings within
-        // the dense treeline along the east edge instead of popping in from off-map. West is
-        // mountains, north & south are water, so east is the only way in.
-        //
-        // Every wave picks one tactic, so waves feel meaningfully different from each other:
-        //   'hub'   — march straight for the Community Hub (the classic approach).
-        //   'units' — ignore the Hub and hunt down whichever player unit is nearest, wherever it is.
-        //   'walls' — make straight for the nearest wall and try to break through it.
         const WAVE_TACTIC_INFO = {
             hub: { label: 'Storming the Hub' },
             units: { label: 'Hunting your troops' },
@@ -3358,10 +3098,6 @@
             return choice;
         }
 
-        // A random clearing within the east treeline — clear of the north/south water bands so
-        // raiders always spawn on dry ground, and clear of the trees themselves so they never
-        // spawn stuck. Falls back to the open ground just west of the treeline if every spot it
-        // tries near the edge happens to be blocked.
         function spawnPointEast() {
             const marginTop = WATER_BAND_TOP + 1;
             const marginBottom = WATER_BAND_BOTTOM + 1;
@@ -3373,9 +3109,6 @@
             return open || { x: Math.max(MOUNTAIN_DEPTH + 1, MAP_W - TREELINE_DEPTH - 1), y };
         }
 
-        // Works out where a freshly-spawned raider should head first, based on the wave's tactic.
-        // (Unit.update() re-checks this every second or so afterward for 'units'/'walls' waves, in
-        // case the situation on the ground changes — this is just its starting orders.)
         function initialGoalForTactic(tactic, fromX, fromY) {
             if (tactic === 'units') {
                 let best = null, bd = Infinity;
@@ -3400,8 +3133,6 @@
             return { x: game.hub.x + game.hub.size / 2, y: game.hub.y + game.hub.size / 2 };
         }
 
-        // Shorter gaps between waves and noticeably bigger waves, so there's a steady, visible
-        // stream of raiders rather than a trickle every 30-50 seconds.
         function updateWaves(dt) {
             game.waveTimer -= dt;
             if (game.waveTimer <= 0 && !game.gameOver) {
@@ -3422,9 +3153,7 @@
                 game.waveNumber++;
                 game.waveTimer = Math.max(14, 26 - game.waveNumber * 0.3);
                 announceWave(tactic);
-                if (game.waveNumber % 5 === 0) {
-                    showInterstitialAd();
-                }
+                if (game.waveNumber % 5 === 0) showInterstitialAd();
             }
         }
 
@@ -3507,7 +3236,7 @@
                 for (const b of game.buildings) b.update(dt);
                 const buildingsBefore = game.buildings.length;
                 game.buildings = game.buildings.filter(b => b.hp > 0 || b === game.hub);
-                if (game.buildings.length !== buildingsBefore) rebuildBlockedGrids(); // something was destroyed this frame — don't wait up to a second for the grid to catch up
+                if (game.buildings.length !== buildingsBefore) rebuildBlockedGrids();
                 if (game.hub.hp <= 0) {
                     game.gameOver = true;
                     gameOver(false);
@@ -3531,18 +3260,12 @@
             ctx.fillRect(0, 0, game.width, game.height);
 
             if (game.terrainCanvas) {
-                // Fast path: blit the visible slice of the pre-rendered map instead of looping
-                // every tile. Camera is always >= 0 in both axes by construction (see
-                // computeMapSize/attachGlobalListeners), so this is a plain clamp, not a general
-                // scroll-in-any-direction case.
                 const camX = Math.max(0, Math.min(game.camera.x, game.terrainCanvas.width - 1));
                 const camY = Math.max(0, Math.min(game.camera.y, game.terrainCanvas.height - 1));
                 const sw = Math.min(game.width, game.terrainCanvas.width - camX);
                 const sh = Math.min(game.height, game.terrainCanvas.height - camY);
                 if (sw > 0 && sh > 0) ctx.drawImage(game.terrainCanvas, camX, camY, sw, sh, 0, 0, sw, sh);
             } else {
-                // Defensive fallback only — buildTerrainCanvas() now runs synchronously in
-                // init() before the game loop ever starts, so this path shouldn't normally run.
                 for (let y = 0; y < MAP_H; y++) {
                     for (let x = 0; x < MAP_W; x++) {
                         const px = x * TILE - game.camera.x;
@@ -3617,8 +3340,6 @@
             drawMinimap();
         }
 
-        // Same idea as buildTerrainCanvas() above, but for the minimap — it never changes either,
-        // so it's baked once instead of redrawn (one fillRect per map tile) every frame.
         function buildMinimapTerrainCanvas() {
             const c = document.createElement('canvas');
             c.width = MAP_W * MINIMAP_SCALE;
@@ -3650,19 +3371,17 @@
             if (game.minimapTerrainCanvas) {
                 mctx.drawImage(game.minimapTerrainCanvas, 0, 0);
             } else {
-                // Fallback for the one frame or two before init() finishes building it.
+                const colors = {
+                    [TILE_GRASS]: '#3d6b2e',
+                    [TILE_WATER]: '#3a6a8a',
+                    [TILE_TREE]: '#4a5a38',
+                    [TILE_PATH]: '#a8894f',
+                    [TILE_HUB]: '#c4a35a',
+                    [TILE_MOUNTAIN]: '#6b6355'
+                };
                 for (let y = 0; y < MAP_H; y++) {
                     for (let x = 0; x < MAP_W; x++) {
-                        const tile = map[y][x];
-                        const colors = {
-                            [TILE_GRASS]: '#3d6b2e',
-                            [TILE_WATER]: '#3a6a8a',
-                            [TILE_TREE]: '#4a5a38',
-                            [TILE_PATH]: '#a8894f',
-                            [TILE_HUB]: '#c4a35a',
-                            [TILE_MOUNTAIN]: '#6b6355'
-                        };
-                        mctx.fillStyle = colors[tile] || '#333';
+                        mctx.fillStyle = colors[map[y][x]] || '#333';
                         mctx.fillRect(x * scale, y * scale, scale + 0.5, scale + 0.5);
                     }
                 }
@@ -3680,13 +3399,6 @@
         }
 
         // ========== GAME OVER ==========
-        // A styled in-page overlay instead of alert()+location.reload() — alert() is a blocking
-        // browser dialog, looks completely out of place next to the rest of the UI, and on some
-        // mobile browsers can be silently suppressed when fired from inside an animation-frame
-        // callback (exactly where this was being called from), which would make the game look
-        // like it had just frozen instead of ended. The Restart button still does a full page
-        // reload — that's the simplest way to guarantee a completely clean game state, and reload
-        // itself was never the problem.
         function gameOver(win) {
             const overlay = document.getElementById('gameover-overlay');
             document.getElementById('gameover-title').textContent = win ? '🎉 Victory!' : '💀 Game Over';
@@ -3702,38 +3414,38 @@
         }
 
         // ========== STATS ==========
+        // The top-left HUD now carries the player's own health stats (hub condition + troop
+        // count as bars); the right-hand strip keeps the wave/kill/timer readout.
         function updateStats() {
-            document.getElementById('hub-hp').textContent = Math.ceil(game.hub.hp);
-            document.getElementById('unit-count').textContent = game.unitCount + '/' + game.maxUnits;
+            const hubFill = document.getElementById('hub-hp-fill');
+            const hubNum = document.getElementById('hub-hp-num');
+            if (hubFill && game.hub) {
+                const pct = Math.max(0, Math.min(1, game.hub.hp / game.hub.maxHp));
+                hubFill.style.width = (pct * 100) + '%';
+                hubFill.className = 'stat-fill' + (pct <= 0.25 ? ' crit' : pct <= 0.5 ? ' low' : '');
+                hubNum.textContent = Math.ceil(game.hub.hp) + '/' + game.hub.maxHp;
+            }
+            const troopFill = document.getElementById('troop-fill');
+            const troopNum = document.getElementById('troop-num');
+            if (troopFill) {
+                const pct = Math.max(0, Math.min(1, game.unitCount / game.maxUnits));
+                troopFill.style.width = (pct * 100) + '%';
+                troopNum.textContent = game.unitCount + '/' + game.maxUnits;
+            }
             document.getElementById('wave').textContent = Math.max(1, game.waveNumber - 1);
             document.getElementById('kills').textContent = game.kills;
             document.getElementById('next-wave').textContent = Math.max(0, Math.ceil(game.waveTimer));
         }
 
         // ========== START ==========
-        // The map is generated once and sized to exactly fill whatever the screen measures
-        // at that moment (see computeMapSize) — by design there's no camera panning, so
-        // there's nothing to fall back on if that first measurement is wrong. On some mobile
-        // browsers, window.innerWidth/innerHeight can briefly still report the OLD portrait
-        // numbers for a frame or two right after the page has visually rotated to landscape —
-        // if init() ran on that stale reading, the whole map got baked portrait-shaped and
-        // just sat stranded in the corner of the real, wider landscape canvas (a big black
-        // dead zone filling the rest of the screen). So instead of booting unconditionally on
-        // load, wait for a confirmed landscape reading before generating anything.
         function isLandscapeReady() {
             return window.innerWidth > window.innerHeight;
         }
         function bootWhenReady() {
-            if (!isLandscapeReady()) return; // still portrait — rotate-overlay is showing; try again next resize/orientation event
+            if (!isLandscapeReady()) return;
             window.removeEventListener('resize', bootWhenReady);
             window.removeEventListener('orientationchange', bootWhenReady);
             init();
-            // Belt-and-braces: some browsers finish collapsing/expanding the address bar a
-            // few hundred ms after load, which can nudge window.innerHeight after we already
-            // measured it. If that leaves the baked map genuinely mismatched from the real
-            // screen, and nothing has actually happened yet (still just the starting hub and
-            // units), rebuild the battlefield once to the settled size rather than leaving a
-            // gap. This never fires once the player has actually started playing.
             setTimeout(() => {
                 const wMismatch = Math.abs(MAP_W * TILE - window.innerWidth) > TILE * 2;
                 const hMismatch = Math.abs(MAP_H * TILE - (window.innerHeight - document.getElementById('ad-banner').offsetHeight)) > TILE * 2;
@@ -3743,9 +3455,6 @@
                 resizeCanvas();
             }, 400);
         }
-        // Re-measures the screen and regenerates the map/terrain/minimap to fit it, keeping
-        // the hub and starting units where they belong on the new layout. Only ever called
-        // from the settle-check above, before real play has begun.
         function rebuildWorldForScreenSize() {
             resizeCanvas();
             computeMapSize();

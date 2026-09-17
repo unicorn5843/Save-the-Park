@@ -1,0 +1,1552 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Cordon</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html, body {
+            width: 100%; height: 100%; overflow: hidden;
+            background: #0a0c10;
+            font-family: 'Segoe UI', 'Roboto', monospace, sans-serif;
+            touch-action: none; position: fixed; overscroll-behavior: none;
+            -webkit-tap-highlight-color: transparent;
+            -webkit-user-select: none; user-select: none;
+        }
+        #ad-banner {
+            width: 100%; height: 40px;
+            background: linear-gradient(180deg, #14171c, #0a0c10);
+            color: #8a919c; text-align: center; line-height: 40px; font-size: 12px;
+            position: fixed; bottom: 0; left: 0; z-index: 100;
+            border-top: 1px solid #2a3340; letter-spacing: 0.5px;
+        }
+        #rotate-overlay {
+            display: none; position: fixed; inset: 0; background: #000; color: #fff;
+            text-align: center; padding-top: 40%; font-size: 24px; z-index: 999;
+            font-family: 'Segoe UI', sans-serif;
+        }
+        @media (orientation: portrait) { #rotate-overlay { display: block; } }
+        canvas#game { display: block; position: fixed; top: 0; left: 0; z-index: 1; }
+
+        /* ===== LEFT DOCK ===== */
+        #left-dock {
+            position: fixed;
+            left: 0; top: 0; bottom: 40px;
+            width: 128px;
+            display: flex;
+            flex-direction: column;
+            background: linear-gradient(90deg, #1a2030, #10141d);
+            border-right: 2px solid #2e3a4f;
+            z-index: 100;
+        }
+        #tab-list { display: flex; flex-direction: column; }
+        #tab-list.hidden { display: none; }
+        .side-tab-btn {
+            height: 58px;
+            background: linear-gradient(180deg, #212a3a, #161c27);
+            border: none;
+            border-bottom: 1px solid #2e3a4f;
+            color: #9fb0c7;
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            justify-content: flex-start;
+            gap: 8px;
+            padding: 0 10px;
+            cursor: pointer;
+            text-align: left;
+        }
+        .side-tab-btn .icon {
+            font-size: 20px;
+            width: 26px; height: 26px;
+            display: flex; align-items: center; justify-content: center;
+            flex: 0 0 auto;
+        }
+        .side-tab-btn:last-child { border-bottom: none; }
+        .side-tab-btn.active-tab {
+            background: linear-gradient(180deg, #ffcc33, #cc9922);
+            color: #1a1508;
+        }
+        #panel-view { display: none; flex: 1 1 auto; min-height: 0; flex-direction: column; }
+        #panel-view.show { display: flex; }
+        #panel-header {
+            display: flex; align-items: center; gap: 6px;
+            padding: 6px 8px;
+            background: linear-gradient(180deg, #2e3a4f, #1a2030);
+            border-bottom: 1px solid #2e3a4f;
+            flex: 0 0 auto;
+        }
+        #panel-back {
+            background: linear-gradient(180deg, #212a3a, #161c27);
+            border: 1px solid #47597a;
+            border-radius: 5px;
+            color: #e8edf5;
+            font-size: 15px;
+            font-weight: 700;
+            width: 28px; height: 28px;
+            cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+            flex: 0 0 auto;
+        }
+        #panel-back:active { transform: scale(0.95); }
+        #panel-title {
+            font-size: 11px; font-weight: 700; color: #ffcc33;
+            letter-spacing: 0.6px; text-transform: uppercase;
+        }
+        #options-panel {
+            display: none;
+            flex: 1 1 auto;
+            min-height: 0;
+            width: 100%;
+            padding: 6px;
+            gap: 5px;
+            overflow-y: auto;
+            background: linear-gradient(180deg, #161c27, #0d1017);
+        }
+        #options-panel.show {
+            display: grid;
+            grid-template-columns: 1fr;
+            grid-auto-rows: min-content;
+            align-content: start;
+        }
+        #options-panel button {
+            width: 100%;
+            padding: 9px 5px;
+            background: linear-gradient(180deg, #2e3a4f, #212a3a);
+            border: 1px solid #47597a;
+            border-radius: 6px;
+            color: #e8edf5;
+            text-shadow: 0 1px 1px rgba(0, 0, 0, 0.5);
+            font-size: 10.5px;
+            line-height: 1.3;
+            cursor: pointer;
+            font-weight: 600;
+            letter-spacing: 0.1px;
+            text-align: center;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);
+        }
+        #options-panel button:active {
+            background: linear-gradient(180deg, #212a3a, #2e3a4f);
+            transform: scale(0.97);
+        }
+        #options-panel button.active-choice {
+            background: linear-gradient(180deg, #ffcc33, #cc9922);
+            border-color: #ffe27a;
+            color: #1a1508;
+            box-shadow: 0 0 10px rgba(255, 204, 51, 0.4);
+        }
+        #options-panel button:disabled { opacity: 0.4; cursor: not-allowed; }
+        #options-panel .info-line {
+            font-size: 9.5px; color: #7a8698; text-align: center; padding: 4px 2px 8px;
+            line-height: 1.35;
+        }
+
+        /* ===== RIGHT DOCK ===== */
+        #right-dock {
+            position: fixed;
+            top: 6px; right: 4px;
+            width: 138px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+            z-index: 95;
+            pointer-events: none;
+        }
+        #right-dock > * { pointer-events: auto; }
+        #minimap {
+            display: block; margin: 0 auto; flex: 0 0 auto;
+            background: #0d1017;
+            border: 2px solid #2e3a4f;
+            border-radius: 7px;
+            touch-action: none;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+            cursor: crosshair;
+        }
+        #stats-panel {
+            width: 100%;
+            flex: 0 0 auto;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 3px;
+            background: rgba(13, 16, 23, 0.75);
+            border: 1px solid #2e3a4f;
+            border-radius: 7px;
+            padding: 4px;
+            backdrop-filter: blur(4px);
+        }
+        .stat {
+            flex: 1 1 40%;
+            padding: 2px 4px;
+            background: linear-gradient(180deg, #212a3a, #161c27);
+            border: 1px solid #2e3a4f;
+            border-radius: 8px;
+            color: #cdd6e2;
+            font-size: 9px;
+            white-space: nowrap;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 2px;
+        }
+        .stat span { color: #ffcc33; font-weight: bold; font-size: 10px; }
+
+        /* ===== TOP-LEFT HUD ===== */
+        #hud-topleft {
+            position: fixed;
+            top: 8px;
+            left: 136px;
+            z-index: 96;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            max-width: 320px;
+            pointer-events: none;
+        }
+        #status-panel {
+            background: rgba(13, 16, 23, 0.82);
+            border: 1px solid #2e3a4f;
+            border-radius: 7px;
+            padding: 5px 7px;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            backdrop-filter: blur(5px);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+        }
+        .stat-line { display: flex; align-items: center; gap: 5px; }
+        .stat-icon { font-size: 11px; width: 15px; text-align: center; flex: 0 0 auto; }
+        .stat-track {
+            flex: 1 1 auto;
+            height: 9px;
+            min-width: 100px;
+            background: #0d1017;
+            border: 1px solid #2e3a4f;
+            border-radius: 5px;
+            overflow: hidden;
+        }
+        .stat-fill {
+            height: 100%; width: 100%;
+            background: linear-gradient(180deg, #6cc4ff, #2a7fc9);
+            transition: width 0.2s linear, background 0.2s linear;
+        }
+        .stat-fill.morale { background: linear-gradient(180deg, #ff8a5c, #c9452a); }
+        .stat-fill.troops { background: linear-gradient(180deg, #86cf72, #4a9a3a); }
+        .stat-fill.low { background: linear-gradient(180deg, #e8b24e, #b06a20); }
+        .stat-fill.crit { background: linear-gradient(180deg, #e86858, #a02020); }
+        .stat-num {
+            font-size: 9px; color: #ffcc33; font-weight: 700;
+            min-width: 54px; text-align: right;
+            font-variant-numeric: tabular-nums;
+            flex: 0 0 auto;
+        }
+        #selection-info:empty { display: none; }
+        #selection-info {
+            color: #e8edf5;
+            background: rgba(13, 16, 23, 0.82);
+            border: 1px solid #2e3a4f;
+            padding: 5px 10px;
+            border-radius: 7px;
+            font-size: 11px;
+            backdrop-filter: blur(5px);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+            font-weight: 500;
+            letter-spacing: 0.2px;
+        }
+
+        /* ===== TOP-CENTER TRAINING BAR ===== */
+        #top-bar {
+            position: fixed;
+            top: 8px; left: 50%; transform: translateX(-50%);
+            z-index: 96;
+            display: flex;
+            gap: 6px;
+            background: rgba(13, 16, 23, 0.82);
+            border: 1px solid #2e3a4f;
+            border-radius: 9px;
+            padding: 5px;
+            backdrop-filter: blur(5px);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+        }
+        .train-btn {
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            gap: 1px;
+            width: 92px; height: 44px;
+            background: linear-gradient(180deg, #2e3a4f, #212a3a);
+            border: 1px solid #47597a;
+            border-radius: 7px;
+            color: #e8edf5;
+            font-size: 9.5px; font-weight: 700;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+        }
+        .train-btn:active { transform: scale(0.97); }
+        .train-btn:disabled { opacity: 0.42; cursor: not-allowed; }
+        .train-btn .tlabel { z-index: 2; }
+        .train-btn .tsub { z-index: 2; font-size: 8.5px; color: #9fb0c7; font-weight: 500; }
+        .train-btn .tprog {
+            position: absolute; left: 0; bottom: 0; height: 3px;
+            background: #ffcc33; width: 0%; z-index: 2;
+        }
+
+        #toast {
+            position: fixed;
+            bottom: 54px; left: 50%;
+            transform: translateX(-50%);
+            background: rgba(13, 16, 23, 0.9);
+            border: 1px solid #2e3a4f;
+            color: #e8edf5;
+            padding: 7px 16px;
+            border-radius: 18px;
+            font-size: 12px;
+            font-weight: 600;
+            letter-spacing: 0.3px;
+            opacity: 0;
+            transition: opacity 0.25s ease;
+            pointer-events: none;
+            z-index: 97;
+            max-width: 72vw;
+            text-align: center;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
+        }
+        #toast.show { opacity: 1; }
+
+        #gameover-overlay {
+            display: none; position: fixed; inset: 0;
+            background: rgba(6, 7, 10, 0.9); z-index: 998;
+            align-items: center; justify-content: center;
+        }
+        #gameover-overlay.show { display: flex; }
+        #gameover-panel {
+            background: linear-gradient(180deg, #212a3a, #161c27);
+            border: 2px solid #47597a;
+            border-radius: 12px;
+            padding: 28px 32px;
+            text-align: center;
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.6);
+            max-width: 80vw;
+        }
+        #gameover-title {
+            font-size: 26px; font-weight: bold; color: #ffcc33;
+            text-shadow: 0 2px 6px rgba(0, 0, 0, 0.6); margin-bottom: 10px;
+        }
+        #gameover-stats { font-size: 15px; color: #e8edf5; margin-bottom: 18px; line-height: 1.6; }
+        #gameover-restart {
+            padding: 10px 22px;
+            background: linear-gradient(180deg, #ffcc33, #cc9922);
+            border: 1px solid #ffe27a;
+            border-radius: 8px;
+            color: #1a1508;
+            font-size: 15px; font-weight: 700; cursor: pointer;
+            box-shadow: 0 0 10px rgba(255, 204, 51, 0.4);
+        }
+        #gameover-restart:active { transform: scale(0.97); }
+
+        #wave-banner {
+            position: fixed; top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            color: #fff; font-size: 28px; font-weight: bold;
+            text-shadow: 0 0 20px rgba(255, 180, 40, 0.8), 0 2px 8px rgba(0, 0, 0, 0.8);
+            z-index: 95; pointer-events: none; opacity: 0;
+            transition: opacity 0.5s ease; letter-spacing: 2px;
+            text-align: center;
+        }
+        #wave-banner.show { opacity: 1; animation: wavePulse 1.5s ease-out forwards; }
+        @keyframes wavePulse {
+            0% { opacity: 0; transform: translate(-50%, -50%) scale(0.7); }
+            30% { opacity: 1; transform: translate(-50%, -50%) scale(1.1); }
+            70% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+            100% { opacity: 0; transform: translate(-50%, -50%) scale(1.2); }
+        }
+    </style>
+</head>
+<body>
+    <div id="rotate-overlay">📱 Please rotate your device to landscape!</div>
+    <canvas id="game"></canvas>
+
+    <div id="left-dock">
+        <div id="tab-list">
+            <button id="tab-tactics" class="side-tab-btn"><span class="icon">🛡️</span><span class="label">Tactics</span></button>
+            <button id="tab-commands" class="side-tab-btn"><span class="icon">🧭</span><span class="label">Commands</span></button>
+        </div>
+        <div id="panel-view">
+            <div id="panel-header">
+                <button id="panel-back">←</button>
+                <span id="panel-title"></span>
+            </div>
+            <div id="options-panel"></div>
+        </div>
+    </div>
+
+    <div id="top-bar">
+        <button id="train-syndicate" class="train-btn">
+            <div class="tprog" id="train-syndicate-prog"></div>
+            <span class="tlabel">🚓 Syndicate</span>
+            <span class="tsub" id="train-syndicate-sub">0/2</span>
+        </button>
+        <button id="train-arrest" class="train-btn" disabled>
+            <span class="tlabel">🚨 Arrest Team</span>
+            <span class="tsub">soon</span>
+        </button>
+    </div>
+
+    <div id="right-dock">
+        <canvas id="minimap" width="100" height="100"></canvas>
+        <div id="stats-panel">
+            <div class="stat">🌊 <span id="wave">1</span></div>
+            <div class="stat">🚫 <span id="routed">0</span></div>
+        </div>
+    </div>
+
+    <div id="hud-topleft">
+        <div id="status-panel">
+            <div class="stat-line">
+                <span class="stat-icon">🏢</span>
+                <div class="stat-track"><div class="stat-fill" id="base-hp-fill"></div></div>
+                <span class="stat-num" id="base-hp-num">500/500</span>
+            </div>
+            <div class="stat-line">
+                <span class="stat-icon">👮</span>
+                <div class="stat-track"><div class="stat-fill troops" id="troop-fill"></div></div>
+                <span class="stat-num" id="troop-num">0/30</span>
+            </div>
+            <div class="stat-line">
+                <span class="stat-icon">📢</span>
+                <div class="stat-track"><div class="stat-fill morale" id="morale-fill"></div></div>
+                <span class="stat-num" id="morale-num">100%</span>
+            </div>
+        </div>
+        <div id="selection-info"></div>
+    </div>
+
+    <div id="wave-banner"></div>
+    <div id="toast"></div>
+    <div id="ad-banner">AD SPACE — replace with your ad network code</div>
+    <div id="gameover-overlay">
+        <div id="gameover-panel">
+            <div id="gameover-title"></div>
+            <div id="gameover-stats"></div>
+            <button id="gameover-restart">🔄 Play Again</button>
+        </div>
+    </div>
+
+    <script>
+        // =====================================================================
+        // CORDON — a riot-control tactics game
+        // Player commands a "syndicate" of riot officers (shield + baton) who
+        // hold a city street against waves of raiders coming from the east.
+        // =====================================================================
+
+        // ========== CONSTANTS ==========
+        let MAP_W = 80, MAP_H = 48;
+        const TILE = 16;
+        const MIN_PLAY_W = 30, MIN_PLAY_H = 18;
+        function computeMapSize() {
+            MAP_W = Math.max(MIN_PLAY_W, Math.ceil(game.width / TILE) + 1);
+            MAP_H = Math.max(MIN_PLAY_H, Math.ceil(game.height / TILE) + 1);
+        }
+        const TILE_ROAD = 0, TILE_SIDEWALK = 1, TILE_BLOCK = 2, TILE_BASE = 3;
+        const SIDEBAR_W = 128;
+        const MINIMAP_MAX_W = 108, MINIMAP_MAX_H = 72;
+        let MINIMAP_SCALE = 1, MINIMAP_W = 100, MINIMAP_H = 70;
+        function computeMinimapSize() {
+            MINIMAP_SCALE = Math.min(MINIMAP_MAX_W / MAP_W, MINIMAP_MAX_H / MAP_H);
+            MINIMAP_W = Math.round(MAP_W * MINIMAP_SCALE);
+            MINIMAP_H = Math.round(MAP_H * MINIMAP_SCALE);
+        }
+
+        // Road geometry (in tiles). ROAD_W is how many tiles wide the street is —
+        // wide enough for a row of 5 officers standing shoulder to shoulder.
+        const ROAD_W = 6;
+        const BASE_MARGIN = 3;   // distance from the west edge to the base
+        const BOTTOM_MARGIN = 6; // distance from the south edge to the bottom street
+        const TOP_MARGIN = 6;    // distance from the north edge to the top street
+
+        // Formation
+        const ROW_SPACING = 1.15;   // tiles between the 3 rows (front to back)
+        const COL_SPACING = 1.05;   // tiles between officers across a row
+        const COLS_PER_ROW = 5;
+        const ROWS_PER_SYNDICATE = 3;
+        const OFFICERS_PER_SYNDICATE = COLS_PER_ROW * ROWS_PER_SYNDICATE; // 15
+        const MAX_SYNDICATES = 2;
+
+        const MAX_UNITS = OFFICERS_PER_SYNDICATE * MAX_SYNDICATES;
+        const BASE_MAX_HP = 500;
+
+        // ========== GAME STATE ==========
+        let map = [];
+        let toastTimer = null;
+        let game = {
+            canvas: null, ctx: null, minimapCtx: null, optionsPanel: null, waveBanner: null,
+            width: 0, height: 0,
+            officers: [], raiders: [], effects: [],
+            terrainCanvas: null, minimapTerrainCanvas: null,
+            camera: { x: 0, y: 0 },
+            mouse: { down: false, startX: 0, startY: 0, curX: 0, curY: 0, moved: false },
+            lastTime: 0,
+            gameOver: false, activeTab: null,
+
+            tactic: 'ready',            // rest | ready | closedwall | batonsfree | disperse
+            commandS: 0,                 // rail position (tiles) the front line holds
+            baseHp: BASE_MAX_HP,
+
+            syndicatesDeployed: 1,
+            syndicateQueue: 0,           // syndicates currently training (0 or 1)
+            syndicateTimer: 0,
+            SYNDICATE_TRAIN_TIME: 24,
+
+            waveNumber: 1,
+            waveState: 'intermission',   // intermission | active
+            waveTimer: 10,
+            waveMoralePct: 100,
+            waveTotalHp: 0,
+            waveSpawnQueue: [],
+            waveSpawnTimer: 0,
+            routed: 0,
+            attackerCounts: new Map(),
+        };
+
+        // ========== PATH / RAIL SYSTEM ==========
+        // The street is a single lane down the middle of the road that runs:
+        //   base(west) --east--> midpoint --north--> top --east--> map edge (raider spawn)
+        // Every officer and raider is positioned as a point on this rail (a
+        // distance "s" from the base) plus a sideways ("lateral") offset.
+        let PATH_WAYPOINTS = [];
+        let PATH_SEGLEN = [];
+        let PATH_TOTAL = 0;
+        let ROAD_Y_BOTTOM = 0, ROAD_Y_TOP = 0, ROAD_X_MID = 0;
+
+        function computePath() {
+            ROAD_Y_BOTTOM = MAP_H - BOTTOM_MARGIN;
+            ROAD_Y_TOP = TOP_MARGIN;
+            ROAD_X_MID = Math.floor(MAP_W / 2);
+            const baseX = BASE_MARGIN;
+            const edgeX = MAP_W - 2;
+            PATH_WAYPOINTS = [
+                { x: baseX, y: ROAD_Y_BOTTOM },
+                { x: ROAD_X_MID, y: ROAD_Y_BOTTOM },
+                { x: ROAD_X_MID, y: ROAD_Y_TOP },
+                { x: edgeX, y: ROAD_Y_TOP },
+            ];
+            PATH_SEGLEN = [];
+            PATH_TOTAL = 0;
+            for (let i = 0; i < PATH_WAYPOINTS.length - 1; i++) {
+                const a = PATH_WAYPOINTS[i], b = PATH_WAYPOINTS[i + 1];
+                const len = Math.abs(b.x - a.x) + Math.abs(b.y - a.y);
+                PATH_SEGLEN.push(len);
+                PATH_TOTAL += len;
+            }
+        }
+        // Sample the centerline at rail position s -> {x,y,dx,dy} (tile space)
+        function pathSample(s) {
+            s = Math.max(0, Math.min(PATH_TOTAL, s));
+            let acc = 0;
+            for (let i = 0; i < PATH_SEGLEN.length; i++) {
+                const segLen = PATH_SEGLEN[i];
+                const isLast = i === PATH_SEGLEN.length - 1;
+                if (s <= acc + segLen || isLast) {
+                    const a = PATH_WAYPOINTS[i], b = PATH_WAYPOINTS[i + 1];
+                    const t = segLen > 0 ? Math.max(0, Math.min(1, (s - acc) / segLen)) : 0;
+                    return {
+                        x: a.x + (b.x - a.x) * t,
+                        y: a.y + (b.y - a.y) * t,
+                        dx: Math.sign(b.x - a.x),
+                        dy: Math.sign(b.y - a.y),
+                        seg: i,
+                    };
+                }
+                acc += segLen;
+            }
+            const last = PATH_WAYPOINTS[PATH_WAYPOINTS.length - 1];
+            return { x: last.x, y: last.y, dx: 1, dy: 0, seg: PATH_SEGLEN.length - 1 };
+        }
+        function pathPerp(dx, dy) { return { x: -dy, y: dx }; }
+        // World (tile-space) position for a formation slot: s0 is the commanded
+        // rail position, rowBack is how many rows behind the front (0,1,2..),
+        // lateral is the sideways slot (negative/positive tile offset).
+        function slotTilePos(s0, rowBack, lateral) {
+            const s = Math.max(0, s0 - rowBack * ROW_SPACING);
+            const samp = pathSample(s);
+            const perp = pathPerp(samp.dx, samp.dy);
+            return {
+                x: samp.x + perp.x * lateral,
+                y: samp.y + perp.y * lateral,
+                dx: samp.dx, dy: samp.dy,
+            };
+        }
+        function tileToPx(tx, ty) { return { x: tx * TILE, y: ty * TILE }; }
+
+        // ========== MAP / SCENERY ==========
+        const BUILDING_KEYS = [
+            'shop_salon','shop_grooming','shop_florist','shop_cafe','shop_cafe2','shop_icecream',
+            'shop_wine','shop_clinic','shop_bicycle','shop_music','shop_diner','shop_barber',
+            'shop_barber2','shop_bookstore','shop_bakery','shop_bakery2','shop_electronics',
+            'shop_brewery','shop_pizza','shop_tailor','shop_hardware','shop_pharmacy','shop_chocolate',
+        ];
+        const ASSET_PATHS = {};
+        BUILDING_KEYS.forEach(k => { ASSET_PATHS[k] = 'assets/map/buildings/' + k + '.png'; });
+        const assets = {};
+        function loadAssets(onDone) {
+            const keys = Object.keys(ASSET_PATHS);
+            let remaining = keys.length;
+            if (remaining === 0) { onDone(); return; }
+            const settle = () => { remaining--; if (remaining <= 0 && onDone) onDone(); };
+            keys.forEach(key => {
+                const img = new Image();
+                img.onload = () => { assets[key] = img; settle(); };
+                img.onerror = () => { assets[key] = null; settle(); };
+                img.src = ASSET_PATHS[key];
+            });
+        }
+
+        let sceneryBuildings = []; // {tx, ty, key, w, h} for decoration only (no collision)
+        function seedFromXY(x, y) {
+            const n = Math.sin(x * 127.1 + y * 311.7) * 43758.5453;
+            return n - Math.floor(n);
+        }
+        function tileIsRoad(tx, ty) {
+            // Bottom straight
+            if (ty >= ROAD_Y_BOTTOM - ROAD_W / 2 && ty <= ROAD_Y_BOTTOM + ROAD_W / 2 && tx <= ROAD_X_MID + ROAD_W / 2) return true;
+            // Top straight
+            if (ty >= ROAD_Y_TOP - ROAD_W / 2 && ty <= ROAD_Y_TOP + ROAD_W / 2 && tx >= ROAD_X_MID - ROAD_W / 2) return true;
+            // Vertical connector
+            if (tx >= ROAD_X_MID - ROAD_W / 2 && tx <= ROAD_X_MID + ROAD_W / 2 && ty >= ROAD_Y_TOP - ROAD_W / 2 && ty <= ROAD_Y_BOTTOM + ROAD_W / 2) return true;
+            return false;
+        }
+        function tileIsSidewalk(tx, ty) {
+            const pad = 1.5;
+            if (tileIsRoad(tx, ty)) return false;
+            if (ty >= ROAD_Y_BOTTOM - ROAD_W / 2 - pad && ty <= ROAD_Y_BOTTOM + ROAD_W / 2 + pad && tx <= ROAD_X_MID + ROAD_W / 2 + pad) return true;
+            if (ty >= ROAD_Y_TOP - ROAD_W / 2 - pad && ty <= ROAD_Y_TOP + ROAD_W / 2 + pad && tx >= ROAD_X_MID - ROAD_W / 2 - pad) return true;
+            if (tx >= ROAD_X_MID - ROAD_W / 2 - pad && tx <= ROAD_X_MID + ROAD_W / 2 + pad && ty >= ROAD_Y_TOP - ROAD_W / 2 - pad && ty <= ROAD_Y_BOTTOM + ROAD_W / 2 + pad) return true;
+            return false;
+        }
+        function generateMap() {
+            computePath();
+            map = [];
+            for (let y = 0; y < MAP_H; y++) {
+                const row = new Uint8Array(MAP_W);
+                for (let x = 0; x < MAP_W; x++) {
+                    let t = TILE_BLOCK;
+                    if (tileIsRoad(x, y)) t = TILE_ROAD;
+                    else if (tileIsSidewalk(x, y)) t = TILE_SIDEWALK;
+                    row[x] = t;
+                }
+                map.push(row);
+            }
+            // Mark the base footprint near the west end of the bottom street
+            const baseX = BASE_MARGIN - 2, baseY = Math.round(ROAD_Y_BOTTOM);
+            for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 1; dx++) {
+                const tx = baseX + dx, ty = baseY + dy;
+                if (tx >= 0 && ty >= 0 && tx < MAP_W && ty < MAP_H) map[ty][tx] = TILE_BASE;
+            }
+            // Scatter scenery buildings along both sides of the street
+            sceneryBuildings = [];
+            let bi = 0;
+            const placeRow = (fromS, toS, sign) => {
+                for (let s = fromS; s < toS; s += 3.6 + seedFromXY(s, sign) * 1.4) {
+                    const samp = pathSample(s);
+                    const perp = pathPerp(samp.dx, samp.dy);
+                    const lateral = sign * (ROAD_W / 2 + 2.6 + seedFromXY(s, sign * 3) * 1.2);
+                    const tx = samp.x + perp.x * lateral;
+                    const ty = samp.y + perp.y * lateral;
+                    if (tx < 1 || ty < 1 || tx > MAP_W - 2 || ty > MAP_H - 2) continue;
+                    const key = BUILDING_KEYS[bi % BUILDING_KEYS.length]; bi++;
+                    sceneryBuildings.push({ tx, ty, key });
+                }
+            };
+            placeRow(6, PATH_TOTAL - 2, -1);
+            placeRow(6, PATH_TOTAL - 2, 1);
+        }
+
+        // ========== TERRAIN PAINTING ==========
+        function paintRoad(t, px, py, tx, ty) {
+            const s = seedFromXY(tx, ty);
+            const bases = ['#34383f', '#383c43', '#2f3339'];
+            t.fillStyle = bases[Math.floor(s * bases.length) % bases.length];
+            t.fillRect(px, py, TILE, TILE);
+            if (s > 0.9) { t.fillStyle = 'rgba(255,255,255,0.05)'; t.fillRect(px + 2, py + 2, 3, 3); }
+        }
+        function paintSidewalk(t, px, py, tx, ty) {
+            const s = seedFromXY(tx, ty);
+            t.fillStyle = s > 0.5 ? '#5a5f68' : '#565b63';
+            t.fillRect(px, py, TILE, TILE);
+            t.strokeStyle = 'rgba(0,0,0,0.15)'; t.lineWidth = 1;
+            t.strokeRect(px + 0.5, py + 0.5, TILE - 1, TILE - 1);
+        }
+        function paintBlock(t, px, py, tx, ty) {
+            const s = seedFromXY(tx, ty);
+            const bases = ['#232833', '#262b36', '#1f242e'];
+            t.fillStyle = bases[Math.floor(s * bases.length) % bases.length];
+            t.fillRect(px, py, TILE, TILE);
+        }
+        function paintBase(t, px, py) {
+            const g = t.createLinearGradient(px, py, px, py + TILE);
+            g.addColorStop(0, '#3a4a68'); g.addColorStop(1, '#28344a');
+            t.fillStyle = g; t.fillRect(px, py, TILE, TILE);
+            t.fillStyle = 'rgba(255,204,51,0.18)'; t.fillRect(px + 2, py + 2, TILE - 4, 2);
+        }
+        function paintTerrainTile(t, px, py, tile, tx, ty) {
+            if (tile === TILE_ROAD) paintRoad(t, px, py, tx, ty);
+            else if (tile === TILE_SIDEWALK) paintSidewalk(t, px, py, tx, ty);
+            else if (tile === TILE_BASE) paintBase(t, px, py);
+            else paintBlock(t, px, py, tx, ty);
+        }
+        function drawLaneMarkings(t) {
+            // Dashed centerline down the middle of the street, following the rail
+            t.strokeStyle = 'rgba(255,204,51,0.5)';
+            t.lineWidth = 1.6;
+            t.setLineDash([6, 7]);
+            t.beginPath();
+            for (let i = 0; i < PATH_WAYPOINTS.length; i++) {
+                const p = PATH_WAYPOINTS[i];
+                const px = p.x * TILE, py = p.y * TILE;
+                if (i === 0) t.moveTo(px, py); else t.lineTo(px, py);
+            }
+            t.stroke();
+            t.setLineDash([]);
+        }
+        function buildTerrainCanvas() {
+            const c = document.createElement('canvas');
+            c.width = MAP_W * TILE; c.height = MAP_H * TILE;
+            const t = c.getContext('2d');
+            t.fillStyle = '#1c2028'; t.fillRect(0, 0, c.width, c.height);
+            for (let y = 0; y < MAP_H; y++) {
+                for (let x = 0; x < MAP_W; x++) {
+                    paintTerrainTile(t, x * TILE, y * TILE, map[y][x], x, y);
+                }
+            }
+            drawLaneMarkings(t);
+            // Scenery buildings (drawn once into the static layer — purely decorative)
+            sceneryBuildings.forEach(b => {
+                const img = assets[b.key];
+                if (!img) return;
+                const targetH = TILE * 3.4;
+                const scale = targetH / img.height;
+                const w = img.width * scale, h = img.height * scale;
+                const px = b.tx * TILE - w / 2, py = b.ty * TILE - h * 0.86;
+                t.drawImage(img, px, py, w, h);
+            });
+            game.terrainCanvas = c;
+        }
+        function buildMinimapTerrainCanvas() {
+            const c = document.createElement('canvas');
+            c.width = MINIMAP_W; c.height = MINIMAP_H;
+            const t = c.getContext('2d');
+            t.fillStyle = '#1c2028'; t.fillRect(0, 0, MINIMAP_W, MINIMAP_H);
+            for (let y = 0; y < MAP_H; y++) for (let x = 0; x < MAP_W; x++) {
+                const tile = map[y][x];
+                t.fillStyle = tile === TILE_ROAD ? '#3a3f47' : tile === TILE_BASE ? '#3a4a68' : tile === TILE_SIDEWALK ? '#4a4f57' : '#20242c';
+                t.fillRect(x * MINIMAP_SCALE, y * MINIMAP_SCALE, Math.ceil(MINIMAP_SCALE), Math.ceil(MINIMAP_SCALE));
+            }
+            game.minimapTerrainCanvas = c;
+        }
+
+        // ========== OFFICER (player unit) ==========
+        const OFFICER = {
+            hp: 120, meleeDamage: 15, meleeRange: 1.35, atkCooldown: 0.85,
+            walkSpeed: 2.5, sprintSpeed: 5.2, lungeRange: 2.1, restRegen: 7,
+        };
+        const OFFICER_PALETTE = { cloth: '#232f45', dark: '#141b29', visor: '#8fd6ff', shield: '#c7d3e0', shieldEdge: '#7c8aa0' };
+
+        let officerIdSeq = 1;
+        class Officer {
+            constructor(x, y) {
+                this.id = officerIdSeq++;
+                this.x = x; this.y = y; // px
+                this.hp = OFFICER.hp; this.maxHp = OFFICER.hp;
+                this.dir = { x: 1, y: 0 };
+                this.animTimer = Math.random() * 10;
+                this.isMoving = false;
+                this.attackFlash = 0;
+                this.atkTimer = Math.random() * OFFICER.atkCooldown;
+                this.row = 0; this.col = 0; // formation slot indices
+                this.slotX = x; this.slotY = y; // target formation position (px)
+                this.lungeTarget = null; // a raider being struck this moment
+                this.dashTimer = 0;
+                this.alive = true;
+                this.shieldUp = true;
+            }
+            update(dt) {
+                if (!this.alive) return;
+                this.animTimer += dt;
+                if (this.attackFlash > 0) this.attackFlash = Math.max(0, this.attackFlash - dt);
+                this.atkTimer = Math.max(0, this.atkTimer - dt);
+
+                const tactic = game.tactic;
+                this.shieldUp = tactic !== 'rest';
+
+                // Rest tactic: regenerate HP
+                if (tactic === 'rest' && this.hp < this.maxHp) {
+                    this.hp = Math.min(this.maxHp, this.hp + OFFICER.restRegen * dt);
+                }
+
+                // Find a raider within striking distance (used by several tactics)
+                let target = null, bestD = Infinity;
+                const engageRange = tactic === 'batonsfree' ? OFFICER.lungeRange : OFFICER.meleeRange;
+                for (const r of game.raiders) {
+                    if (!r.alive) continue;
+                    const d = Math.hypot(r.x - this.slotX, r.y - this.slotY);
+                    if (d < engageRange * TILE && d < bestD) { bestD = d; target = r; }
+                }
+
+                let moveX = this.slotX, moveY = this.slotY;
+                if (tactic === 'disperse' && target && bestD < OFFICER.meleeRange * TILE * 1.4 && this.dashTimer <= 0) {
+                    // short sprint toward the raider, then return
+                    moveX = target.x; moveY = target.y;
+                } else if (target && bestD < engageRange * TILE) {
+                    // stay in formation, just swing
+                    moveX = this.slotX; moveY = this.slotY;
+                }
+
+                const dxp = moveX - this.x, dyp = moveY - this.y;
+                const dist = Math.hypot(dxp, dyp);
+                const speed = (tactic === 'disperse' && target) ? OFFICER.sprintSpeed : OFFICER.walkSpeed;
+                this.isMoving = dist > 1.5;
+                if (dist > 1) {
+                    const step = Math.min(dist, speed * TILE * dt);
+                    this.x += (dxp / dist) * step;
+                    this.y += (dyp / dist) * step;
+                    this.dir = { x: dxp / dist, y: dyp / dist };
+                } else if (target) {
+                    this.dir = { x: (target.x - this.x) / (bestD || 1), y: (target.y - this.y) / (bestD || 1) };
+                } else {
+                    this.dir = { x: this.slotDir ? this.slotDir.x : this.dir.x, y: this.slotDir ? this.slotDir.y : this.dir.y };
+                }
+
+                // Attack
+                if (target && bestD < engageRange * TILE && this.atkTimer <= 0) {
+                    this.atkTimer = OFFICER.atkCooldown;
+                    this.attackFlash = 0.22;
+                    dealDamageToRaider(target, OFFICER.meleeDamage);
+                }
+            }
+            draw(ctx) {
+                if (!this.alive) return;
+                const sx = this.x - game.camera.x, sy = this.y - game.camera.y;
+                if (sx < -30 || sy < -30 || sx > game.width + 30 || sy > game.height + 30) return;
+                ctx.save();
+                ctx.translate(sx, sy);
+                const angle = Math.atan2(this.dir.y, this.dir.x);
+                ctx.rotate(angle);
+                drawOfficerFigure(ctx, this);
+                ctx.restore();
+                drawHpBar(ctx, sx, sy - 24, this.hp, this.maxHp, '#6cc4ff');
+            }
+        }
+
+        function drawOfficerFigure(ctx, u) {
+            const pal = OFFICER_PALETTE;
+            const walking = u.isMoving;
+            const swingHz = walking ? 7 : 1.2;
+            const phase = u.animTimer * swingHz;
+            const amp = walking ? 1 : 0.12;
+            const legSwing = Math.sin(phase) * amp;
+            const H = 20;
+            const hipY = 0, shoulderY = 0;
+            const legReach = H * 0.34, armReach = H * 0.22;
+            ctx.lineCap = 'round';
+            // legs (drawn along local -x .. so figure "faces" +x after rotation)
+            ctx.strokeStyle = pal.dark; ctx.lineWidth = 2.6;
+            ctx.beginPath(); ctx.moveTo(-1, -2); ctx.lineTo(-1 - legSwing * legReach * 0.6, legReach); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(-1, -2); ctx.lineTo(-1 + legSwing * legReach, legReach); ctx.stroke();
+            // torso
+            ctx.strokeStyle = pal.cloth; ctx.lineWidth = 5;
+            ctx.beginPath(); ctx.moveTo(-1, -2); ctx.lineTo(-1, -H * 0.62); ctx.stroke();
+            // helmet + visor (head faces forward/+x)
+            ctx.fillStyle = pal.dark;
+            ctx.beginPath(); ctx.arc(0, -H * 0.72, H * 0.19, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = pal.visor;
+            ctx.fillRect(H * 0.01, -H * 0.76, H * 0.16, H * 0.09);
+            // shield arm (held forward, toward facing direction)
+            const attacking = u.attackFlash > 0;
+            const batonSwing = attacking ? (1 - u.attackFlash / 0.22) : 0;
+            const shieldLift = u.shieldUp ? 1 : 0.35;
+            ctx.save();
+            ctx.translate(H * 0.16, -H * 0.34 * shieldLift);
+            ctx.fillStyle = pal.shield;
+            ctx.strokeStyle = pal.shieldEdge; ctx.lineWidth = 1.2;
+            ctx.beginPath();
+            ctx.roundRect ? ctx.roundRect(-2, -H * 0.34, 5, H * 0.62, 2) : ctx.rect(-2, -H * 0.34, 5, H * 0.62);
+            ctx.fill(); ctx.stroke();
+            ctx.restore();
+            // baton arm (swings when attacking)
+            ctx.save();
+            ctx.translate(H * 0.02, -H * 0.4);
+            ctx.rotate(-0.6 + batonSwing * 1.3);
+            ctx.strokeStyle = pal.dark; ctx.lineWidth = 2;
+            ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(H * 0.34, 0); ctx.stroke();
+            if (attacking) {
+                ctx.fillStyle = `rgba(255,235,160,${u.attackFlash / 0.22})`;
+                ctx.beginPath(); ctx.arc(H * 0.34, 0, 2, 0, Math.PI * 2); ctx.fill();
+            }
+            ctx.restore();
+        }
+
+        function drawHpBar(ctx, sx, sy, hp, maxHp, color) {
+            if (hp >= maxHp) return;
+            const w = 20;
+            ctx.fillStyle = 'rgba(0,0,0,0.5)'; ctx.fillRect(sx - w / 2, sy, w, 3);
+            ctx.fillStyle = color; ctx.fillRect(sx - w / 2, sy, w * Math.max(0, hp / maxHp), 3);
+        }
+
+        // ========== RAIDER (enemy unit) ==========
+        const RAIDER_TYPES = {
+            standard: { name: 'Raider', hp: 38, damage: 7, meleeRange: 1.2, atkCooldown: 1.0, speed: 1.7, weight: 75, color: '#8a4a34', dark: '#4a2418' },
+            bruiser: { name: 'Bruiser', hp: 92, damage: 15, meleeRange: 1.35, atkCooldown: 1.15, speed: 1.45, weight: 25, color: '#7a2c2c', dark: '#3f1616' },
+        };
+        const MAX_ATTACKERS_PER_OFFICER = 2;
+        let raiderIdSeq = 1;
+        class Raider {
+            constructor(kind) {
+                this.id = raiderIdSeq++;
+                this.kind = kind;
+                const def = RAIDER_TYPES[kind];
+                this.def = def;
+                this.hp = def.hp; this.maxHp = def.hp;
+                this.s = PATH_TOTAL - 0.5;
+                this.lateral = (seedFromXY(this.id, 7) - 0.5) * (ROAD_W - 1.6);
+                const p = slotTilePos(this.s, 0, this.lateral);
+                this.x = p.x * TILE; this.y = p.y * TILE;
+                this.dir = { x: -1, y: 0 };
+                this.animTimer = Math.random() * 10;
+                this.isMoving = true;
+                this.attackFlash = 0;
+                this.atkTimer = Math.random() * def.atkCooldown;
+                this.alive = true;
+                this.engaged = false;
+                this.surgeTimer = 1 + Math.random() * 3;
+            }
+            update(dt) {
+                if (!this.alive) return;
+                this.animTimer += dt;
+                if (this.attackFlash > 0) this.attackFlash = Math.max(0, this.attackFlash - dt);
+                this.atkTimer = Math.max(0, this.atkTimer - dt);
+
+                // Find an officer to engage. Prefer the nearest one that isn't
+                // already being piled on by other raiders, so the mob spreads
+                // out across the line instead of ganging up on one officer.
+                const engageRange = this.def.meleeRange * TILE;
+                let target = null, bestD = Infinity, fallbackTarget = null, fallbackD = Infinity;
+                for (const o of game.officers) {
+                    if (!o.alive) continue;
+                    const d = Math.hypot(o.x - this.x, o.y - this.y);
+                    if (d < fallbackD) { fallbackD = d; fallbackTarget = o; }
+                    const count = game.attackerCounts.get(o.id) || 0;
+                    if (count >= MAX_ATTACKERS_PER_OFFICER) continue;
+                    if (d < bestD) { bestD = d; target = o; }
+                }
+                if (!target) { target = fallbackTarget; bestD = fallbackD; }
+
+                this.engaged = !!(target && bestD < engageRange + TILE * 0.4);
+                if (this.engaged) {
+                    game.attackerCounts.set(target.id, (game.attackerCounts.get(target.id) || 0) + 1);
+                }
+
+                // A closed shield wall physically blocks the street at commandS
+                let blockS = -Infinity;
+                if (game.tactic === 'closedwall' && game.officers.some(o => o.alive)) blockS = game.commandS + 0.35;
+
+                if (!this.engaged) {
+                    let speed = this.def.speed;
+                    if (this.kind === 'bruiser') {
+                        this.surgeTimer -= dt;
+                        if (this.surgeTimer <= 0) { speed *= 1.8; if (this.surgeTimer < -0.6) this.surgeTimer = 2 + Math.random() * 3; }
+                    }
+                    let targetS = this.s - speed * dt;
+                    if (targetS < blockS) targetS = Math.max(targetS, blockS);
+                    this.s = targetS;
+                    const p = slotTilePos(this.s, 0, this.lateral);
+                    const nx = p.x * TILE, ny = p.y * TILE;
+                    const dx = nx - this.x, dy = ny - this.y;
+                    const d = Math.hypot(dx, dy);
+                    this.isMoving = d > 0.5;
+                    if (d > 0.1) { this.dir = { x: dx / d, y: dy / d }; }
+                    this.x = nx; this.y = ny;
+                } else {
+                    this.isMoving = false;
+                    const dx = target.x - this.x, dy = target.y - this.y;
+                    const d = Math.hypot(dx, dy) || 1;
+                    this.dir = { x: dx / d, y: dy / d };
+                    if (this.atkTimer <= 0) {
+                        this.atkTimer = this.def.atkCooldown;
+                        this.attackFlash = 0.22;
+                        dealDamageToOfficer(target, this.def.damage);
+                    }
+                }
+
+                // Breach: reached the base
+                if (this.s <= 1.5) {
+                    game.baseHp = Math.max(0, game.baseHp - this.def.damage * 0.6 * dt * 4);
+                }
+            }
+            draw(ctx) {
+                if (!this.alive) return;
+                const sx = this.x - game.camera.x, sy = this.y - game.camera.y;
+                if (sx < -30 || sy < -30 || sx > game.width + 30 || sy > game.height + 30) return;
+                ctx.save();
+                ctx.translate(sx, sy);
+                const angle = Math.atan2(this.dir.y, this.dir.x);
+                ctx.rotate(angle);
+                drawRaiderFigure(ctx, this);
+                ctx.restore();
+                drawHpBar(ctx, sx, sy - 22, this.hp, this.maxHp, '#ff8a5c');
+            }
+        }
+        function drawRaiderFigure(ctx, u) {
+            const def = u.def;
+            const walking = u.isMoving;
+            const phase = u.animTimer * (walking ? 7 : 1.2);
+            const amp = walking ? 1 : 0.12;
+            const legSwing = Math.sin(phase) * amp;
+            const H = 19;
+            const legReach = H * 0.34;
+            ctx.lineCap = 'round';
+            ctx.strokeStyle = def.dark; ctx.lineWidth = 2.4;
+            ctx.beginPath(); ctx.moveTo(-1, -2); ctx.lineTo(-1 - legSwing * legReach * 0.6, legReach); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(-1, -2); ctx.lineTo(-1 + legSwing * legReach, legReach); ctx.stroke();
+            ctx.strokeStyle = def.color; ctx.lineWidth = 4.4;
+            ctx.beginPath(); ctx.moveTo(-1, -2); ctx.lineTo(-1, -H * 0.6); ctx.stroke();
+            ctx.fillStyle = '#caa27a';
+            ctx.beginPath(); ctx.arc(0, -H * 0.72, H * 0.17, 0, Math.PI * 2); ctx.fill();
+            const attacking = u.attackFlash > 0;
+            const swing = attacking ? (1 - u.attackFlash / 0.22) : 0;
+            ctx.save();
+            ctx.translate(H * 0.02, -H * 0.4);
+            ctx.rotate(-0.4 + swing * 1.4);
+            if (u.kind === 'bruiser') {
+                ctx.strokeStyle = '#4a3322'; ctx.lineWidth = 2.2;
+                ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(H * 0.4, 0); ctx.stroke();
+            } else {
+                ctx.strokeStyle = def.dark; ctx.lineWidth = 2;
+                ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(H * 0.22, 0); ctx.stroke();
+            }
+            if (attacking) {
+                ctx.fillStyle = `rgba(255,180,140,${u.attackFlash / 0.22})`;
+                ctx.beginPath(); ctx.arc(H * 0.3, 0, 2, 0, Math.PI * 2); ctx.fill();
+            }
+            ctx.restore();
+        }
+
+        // ========== COMBAT / MORALE ==========
+        function dealDamageToRaider(r, dmg) {
+            r.hp -= dmg;
+            spawnHitEffect(r.x, r.y);
+            if (game.waveTotalHp > 0) {
+                game.waveMoralePct = Math.max(0, game.waveMoralePct - (dmg / game.waveTotalHp) * 100);
+            }
+            if (r.hp <= 0 && r.alive) {
+                r.alive = false;
+                game.routed++;
+            }
+        }
+        function dealDamageToOfficer(o, dmg) {
+            const mult = o.shieldUp ? 0.5 : 1.15;
+            o.hp -= dmg * mult;
+            spawnHitEffect(o.x, o.y);
+            if (o.hp <= 0 && o.alive) {
+                o.alive = false;
+            }
+        }
+        function spawnHitEffect(x, y) {
+            game.effects.push({ x, y, t: 0, life: 0.25 });
+        }
+        function updateEffects(dt) {
+            for (let i = game.effects.length - 1; i >= 0; i--) {
+                const e = game.effects[i];
+                e.t += dt;
+                if (e.t >= e.life) game.effects.splice(i, 1);
+            }
+        }
+        function drawEffects(ctx) {
+            for (const e of game.effects) {
+                const sx = e.x - game.camera.x, sy = e.y - game.camera.y;
+                const p = 1 - e.t / e.life;
+                ctx.fillStyle = `rgba(255,220,120,${p * 0.8})`;
+                ctx.beginPath(); ctx.arc(sx, sy, 3 + (1 - p) * 5, 0, Math.PI * 2); ctx.fill();
+            }
+        }
+
+        // ========== FORMATION ==========
+        function frontS() { return Math.max(2, Math.min(PATH_TOTAL - 2, game.commandS)); }
+        function assignFormation() {
+            const alive = game.officers.filter(o => o.alive);
+            const s0 = frontS();
+            if (game.tactic === 'rest') {
+                // Pulled back near base, open/loose spacing, arranged 3x5
+                const restS = 6;
+                let i = 0;
+                for (let row = 0; row < ROWS_PER_SYNDICATE; row++) {
+                    for (let col = 0; col < COLS_PER_ROW; col++) {
+                        if (i >= alive.length) break;
+                        const lateral = (col - 2) * (COL_SPACING * 1.7);
+                        const p = slotTilePos(restS, row * ROW_SPACING * 1.6, lateral);
+                        const o = alive[i++];
+                        o.slotX = p.x * TILE; o.slotY = p.y * TILE; o.slotDir = { x: p.dx, y: p.dy };
+                    }
+                }
+                for (; i < alive.length; i++) {
+                    const p = slotTilePos(restS - 2, 0, (i - 15) * COL_SPACING);
+                    alive[i].slotX = p.x * TILE; alive[i].slotY = p.y * TILE;
+                }
+                return;
+            }
+            if (game.tactic === 'closedwall') {
+                // Every available officer packs shoulder-to-shoulder into as few
+                // rows as it takes to span the road, right at the command line.
+                const perRow = Math.max(1, Math.floor(ROAD_W / COL_SPACING) - 1);
+                let i = 0;
+                for (let row = 0; i < alive.length; row++) {
+                    const countThisRow = Math.min(perRow, alive.length - i);
+                    const startOffset = -(countThisRow - 1) / 2;
+                    for (let c = 0; c < countThisRow; c++) {
+                        const lateral = (startOffset + c) * COL_SPACING;
+                        const p = slotTilePos(s0, row * ROW_SPACING * 0.7, lateral);
+                        const o = alive[i++];
+                        o.slotX = p.x * TILE; o.slotY = p.y * TILE; o.slotDir = { x: p.dx, y: p.dy };
+                    }
+                }
+                return;
+            }
+            // ready / batonsfree / disperse: standard 3x5 with reserves stacked behind
+            let i = 0;
+            for (let row = 0; row < ROWS_PER_SYNDICATE; row++) {
+                for (let col = 0; col < COLS_PER_ROW; col++) {
+                    if (i >= alive.length) break;
+                    const lateral = (col - 2) * COL_SPACING;
+                    const p = slotTilePos(s0, row * ROW_SPACING, lateral);
+                    const o = alive[i++];
+                    o.slotX = p.x * TILE; o.slotY = p.y * TILE; o.slotDir = { x: p.dx, y: p.dy };
+                }
+            }
+            let reserveRow = ROWS_PER_SYNDICATE;
+            while (i < alive.length) {
+                for (let col = 0; col < COLS_PER_ROW && i < alive.length; col++) {
+                    const lateral = (col - 2) * COL_SPACING;
+                    const p = slotTilePos(s0, reserveRow * ROW_SPACING, lateral);
+                    const o = alive[i++];
+                    o.slotX = p.x * TILE; o.slotY = p.y * TILE; o.slotDir = { x: p.dx, y: p.dy };
+                }
+                reserveRow++;
+            }
+        }
+
+        // ========== TACTICS ==========
+        function applyTactic(kind) {
+            game.tactic = kind;
+            assignFormation();
+            updateSelectionUI();
+            renderOptionsPanel();
+        }
+        function currentHeadingLabel() {
+            const samp = pathSample(frontS());
+            if (samp.dx === 1) return { label: 'East', arrow: '→' };
+            if (samp.dx === -1) return { label: 'West', arrow: '←' };
+            if (samp.dy === -1) return { label: 'North', arrow: '↑' };
+            return { label: 'South', arrow: '↓' };
+        }
+        const ADVANCE_STEP = 3;
+        function commandAdvance() {
+            game.commandS = Math.min(PATH_TOTAL - 3, game.commandS + ADVANCE_STEP);
+            assignFormation();
+            updateSelectionUI();
+        }
+        function commandWithdraw() {
+            game.commandS = Math.max(2, game.commandS - ADVANCE_STEP * 1.4);
+            assignFormation();
+            updateSelectionUI();
+        }
+
+        // ========== TRAINING ==========
+        function updateTraining(dt) {
+            if (game.syndicateQueue > 0) {
+                game.syndicateTimer += dt;
+                if (game.syndicateTimer >= game.SYNDICATE_TRAIN_TIME) {
+                    game.syndicateTimer = 0;
+                    game.syndicateQueue--;
+                    game.syndicatesDeployed++;
+                    spawnSyndicate();
+                    showToast('A fresh syndicate has arrived at the base!');
+                }
+            }
+            const btn = document.getElementById('train-syndicate');
+            const sub = document.getElementById('train-syndicate-sub');
+            const prog = document.getElementById('train-syndicate-prog');
+            const atCap = game.syndicatesDeployed + game.syndicateQueue >= MAX_SYNDICATES;
+            btn.disabled = atCap;
+            sub.textContent = (game.syndicatesDeployed + game.syndicateQueue) + '/' + MAX_SYNDICATES + (game.syndicateQueue ? ' training…' : '');
+            prog.style.width = game.syndicateQueue ? Math.round(100 * game.syndicateTimer / game.SYNDICATE_TRAIN_TIME) + '%' : '0%';
+        }
+        function spawnSyndicate() {
+            const basePos = slotTilePos(4, 0, 0);
+            for (let i = 0; i < OFFICERS_PER_SYNDICATE; i++) {
+                const o = new Officer(basePos.x * TILE + (Math.random() - 0.5) * 10, basePos.y * TILE + (Math.random() - 0.5) * 10);
+                game.officers.push(o);
+            }
+            assignFormation();
+        }
+        function trainSyndicate() {
+            if (game.syndicatesDeployed + game.syndicateQueue >= MAX_SYNDICATES) return;
+            game.syndicateQueue++;
+            game.syndicateTimer = 0;
+            showToast('Training a new syndicate…');
+        }
+
+        // ========== WAVES ==========
+        function startWave() {
+            game.waveState = 'active';
+            game.waveMoralePct = 100;
+            game.routed = 0;
+            const raiderCount = 9 + game.waveNumber * 3;
+            game.waveSpawnQueue = [];
+            let totalHp = 0;
+            for (let i = 0; i < raiderCount; i++) {
+                const isBruiser = Math.random() < 0.25;
+                const kind = isBruiser ? 'bruiser' : 'standard';
+                game.waveSpawnQueue.push(kind);
+                totalHp += RAIDER_TYPES[kind].hp;
+            }
+            game.waveTotalHp = totalHp;
+            game.waveSpawnTimer = 0;
+            announceWave();
+        }
+        function updateWaves(dt) {
+            if (game.waveState === 'intermission') {
+                game.waveTimer -= dt;
+                if (game.waveTimer <= 0) startWave();
+                return;
+            }
+            // trickle-spawn remaining raiders
+            game.waveSpawnTimer -= dt;
+            if (game.waveSpawnQueue.length > 0 && game.waveSpawnTimer <= 0) {
+                const kind = game.waveSpawnQueue.shift();
+                game.raiders.push(new Raider(kind));
+                game.waveSpawnTimer = 0.9 + Math.random() * 1.1;
+            }
+            const anyLeft = game.raiders.some(r => r.alive) || game.waveSpawnQueue.length > 0;
+            const moraleBroken = game.waveMoralePct <= 0;
+            if (moraleBroken && anyLeft) {
+                // remaining raiders break and flee
+                game.waveSpawnQueue = [];
+                for (const r of game.raiders) {
+                    if (r.alive) { r.alive = false; game.routed++; }
+                }
+            }
+            if (!anyLeft || (moraleBroken)) {
+                game.raiders = game.raiders.filter(r => r.alive);
+                game.waveState = 'intermission';
+                game.waveNumber++;
+                game.waveTimer = 22;
+                showToast('Wave cleared — raiders dispersed!');
+            }
+            if (game.baseHp <= 0 && !game.gameOver) {
+                endGame(false);
+            }
+        }
+        function announceWave() {
+            const el = document.getElementById('wave-banner');
+            el.textContent = 'WAVE ' + game.waveNumber;
+            el.classList.remove('show'); void el.offsetWidth; el.classList.add('show');
+        }
+
+        // ========== INPUT ==========
+        function showToast(msg) {
+            const t = document.getElementById('toast');
+            if (!t) return;
+            t.textContent = msg;
+            t.classList.add('show');
+            clearTimeout(toastTimer);
+            toastTimer = setTimeout(() => t.classList.remove('show'), 2100);
+        }
+        function setupEvents() {
+            const c = game.canvas;
+            c.addEventListener('touchstart', e => { const t = e.touches[0]; startInput(t.clientX, t.clientY); }, { passive: true });
+            c.addEventListener('touchmove', e => { const t = e.touches[0]; moveInput(t.clientX, t.clientY); }, { passive: true });
+            c.addEventListener('touchend', endInput, { passive: true });
+            c.addEventListener('mousedown', e => startInput(e.clientX, e.clientY));
+            c.addEventListener('mousemove', e => { if (game.mouse.down) moveInput(e.clientX, e.clientY); });
+            window.addEventListener('mouseup', endInput);
+            const mm = document.getElementById('minimap');
+            mm.addEventListener('touchstart', e => { const t = e.touches[0]; jumpCameraFromMinimap(t.clientX, t.clientY); }, { passive: true });
+            mm.addEventListener('mousedown', e => jumpCameraFromMinimap(e.clientX, e.clientY));
+        }
+        function startInput(x, y) {
+            game.mouse.down = true; game.mouse.moved = false;
+            game.mouse.startX = x; game.mouse.startY = y; game.mouse.curX = x; game.mouse.curY = y;
+        }
+        function moveInput(x, y) {
+            if (!game.mouse.down) return;
+            const dx = x - game.mouse.curX, dy = y - game.mouse.curY;
+            if (Math.abs(x - game.mouse.startX) > 4 || Math.abs(y - game.mouse.startY) > 4) game.mouse.moved = true;
+            game.camera.x -= dx; game.camera.y -= dy;
+            clampCamera();
+            game.mouse.curX = x; game.mouse.curY = y;
+        }
+        function endInput() { game.mouse.down = false; }
+        function jumpCameraFromMinimap(x, y) {
+            const rect = document.getElementById('minimap').getBoundingClientRect();
+            const mx = (x - rect.left) / MINIMAP_SCALE, my = (y - rect.top) / MINIMAP_SCALE;
+            game.camera.x = mx * TILE - game.width / 2;
+            game.camera.y = my * TILE - game.height / 2;
+            clampCamera();
+        }
+        function clampCamera() {
+            const maxX = Math.max(0, MAP_W * TILE - game.width);
+            const maxY = Math.max(0, MAP_H * TILE - game.height);
+            game.camera.x = Math.max(0, Math.min(maxX, game.camera.x));
+            game.camera.y = Math.max(0, Math.min(maxY, game.camera.y));
+        }
+
+        // ========== LEFT PANEL UI ==========
+        function setupTabBar() {
+            document.getElementById('tab-tactics').addEventListener('click', () => openTab('tactics'));
+            document.getElementById('tab-commands').addEventListener('click', () => openTab('commands'));
+            document.getElementById('panel-back').addEventListener('click', closeTab);
+        }
+        function openTab(tab) {
+            game.activeTab = tab;
+            document.getElementById('tab-list').classList.add('hidden');
+            document.getElementById('panel-view').classList.add('show');
+            document.getElementById('panel-title').textContent = tab === 'tactics' ? 'Tactics' : 'Commands';
+            renderOptionsPanel();
+        }
+        function closeTab() {
+            game.activeTab = null;
+            document.getElementById('tab-list').classList.remove('hidden');
+            document.getElementById('panel-view').classList.remove('show');
+        }
+        function renderOptionsPanel() {
+            const panel = document.getElementById('options-panel');
+            panel.innerHTML = '';
+            panel.classList.add('show');
+            if (game.activeTab === 'tactics') renderTacticsOptions(panel);
+            else if (game.activeTab === 'commands') renderCommandsOptions(panel);
+        }
+        function addInfoLine(panel, text) {
+            const d = document.createElement('div');
+            d.className = 'info-line'; d.textContent = text;
+            panel.appendChild(d);
+        }
+        const TACTIC_DEFS = [
+            { key: 'rest', label: '😌 Rest', desc: 'Shields down, open formation. HP regenerates but officers are exposed.' },
+            { key: 'ready', label: '🛡️ Ready', desc: 'Shields up, standard 3x5 line. Holds the command line.' },
+            { key: 'closedwall', label: '🧱 Closed Wall', desc: 'Officers pack shoulder-to-shoulder to seal the street.' },
+            { key: 'batonsfree', label: '🏏 Batons Free', desc: 'Officers strike any raider that gets in range.' },
+            { key: 'disperse', label: '💨 Disperse', desc: 'Officers sprint out to hit raiders who get too close.' },
+        ];
+        function renderTacticsOptions(panel) {
+            TACTIC_DEFS.forEach(t => {
+                const b = document.createElement('button');
+                b.textContent = t.label;
+                if (game.tactic === t.key) b.classList.add('active-choice');
+                b.addEventListener('click', () => applyTactic(t.key));
+                panel.appendChild(b);
+            });
+            const kb = document.createElement('button');
+            kb.textContent = '🐕 K9 Unit';
+            kb.disabled = true;
+            kb.addEventListener('click', () => showToast('K9 tactic — coming in the next update!'));
+            panel.appendChild(kb);
+            const found = TACTIC_DEFS.find(t => t.key === game.tactic);
+            if (found) addInfoLine(panel, found.desc);
+        }
+        function renderCommandsOptions(panel) {
+            const h = currentHeadingLabel();
+            const adv = document.createElement('button');
+            adv.textContent = 'Advance ' + h.arrow + ' ' + h.label;
+            adv.addEventListener('click', () => { commandAdvance(); renderOptionsPanel(); });
+            panel.appendChild(adv);
+            const withdraw = document.createElement('button');
+            const oppArrow = { '→': '←', '←': '→', '↑': '↓', '↓': '↑' }[h.arrow];
+            const oppLabel = { East: 'West', West: 'East', North: 'South', South: 'North' }[h.label];
+            withdraw.textContent = 'Withdraw ' + oppArrow + ' ' + oppLabel + ' (quick)';
+            withdraw.addEventListener('click', () => { commandWithdraw(); renderOptionsPanel(); });
+            panel.appendChild(withdraw);
+            addInfoLine(panel, 'The line always faces the raiders and wheels to follow the street as it turns.');
+        }
+        function updateSelectionUI() {
+            document.getElementById('selection-info').textContent = '';
+        }
+
+        // ========== HUD ==========
+        function updateStats() {
+            document.getElementById('wave').textContent = game.waveNumber;
+            document.getElementById('routed').textContent = game.routed;
+
+            const baseFill = document.getElementById('base-hp-fill');
+            const basePct = game.baseHp / BASE_MAX_HP;
+            baseFill.style.width = Math.round(basePct * 100) + '%';
+            baseFill.className = 'stat-fill' + (basePct < 0.3 ? ' crit' : basePct < 0.6 ? ' low' : '');
+            document.getElementById('base-hp-num').textContent = Math.ceil(game.baseHp) + '/' + BASE_MAX_HP;
+
+            const aliveOfficers = game.officers.filter(o => o.alive).length;
+            const cap = MAX_SYNDICATES * OFFICERS_PER_SYNDICATE;
+            document.getElementById('troop-fill').style.width = Math.round(100 * aliveOfficers / cap) + '%';
+            document.getElementById('troop-num').textContent = aliveOfficers + '/' + cap;
+
+            const moraleFill = document.getElementById('morale-fill');
+            moraleFill.style.width = Math.round(game.waveMoralePct) + '%';
+            document.getElementById('morale-num').textContent = Math.round(game.waveMoralePct) + '%';
+
+            if (game.activeTab === 'commands' && document.getElementById('panel-view').classList.contains('show')) {
+                renderOptionsPanel();
+            }
+        }
+
+        // ========== RENDER ==========
+        function render() {
+            const ctx = game.ctx;
+            ctx.clearRect(0, 0, game.width, game.height);
+            if (game.terrainCanvas) {
+                ctx.drawImage(game.terrainCanvas, game.camera.x, game.camera.y, game.width, game.height, 0, 0, game.width, game.height);
+            }
+            const all = [];
+            game.officers.forEach(o => { if (o.alive) all.push(o); });
+            game.raiders.forEach(r => { if (r.alive) all.push(r); });
+            all.sort((a, b) => a.y - b.y);
+            all.forEach(u => u.draw(ctx));
+            drawEffects(ctx);
+        }
+        function drawMinimap() {
+            const mm = document.getElementById('minimap');
+            if (mm.width !== MINIMAP_W || mm.height !== MINIMAP_H) { mm.width = MINIMAP_W; mm.height = MINIMAP_H; }
+            const ctx = game.minimapCtx;
+            ctx.clearRect(0, 0, MINIMAP_W, MINIMAP_H);
+            if (game.minimapTerrainCanvas) ctx.drawImage(game.minimapTerrainCanvas, 0, 0);
+            game.officers.forEach(o => {
+                if (!o.alive) return;
+                ctx.fillStyle = '#6cc4ff';
+                ctx.fillRect((o.x / TILE) * MINIMAP_SCALE, (o.y / TILE) * MINIMAP_SCALE, 2, 2);
+            });
+            game.raiders.forEach(r => {
+                if (!r.alive) return;
+                ctx.fillStyle = '#ff8a5c';
+                ctx.fillRect((r.x / TILE) * MINIMAP_SCALE, (r.y / TILE) * MINIMAP_SCALE, 2, 2);
+            });
+            ctx.strokeStyle = 'rgba(255,204,51,0.8)'; ctx.lineWidth = 1;
+            ctx.strokeRect(game.camera.x / TILE * MINIMAP_SCALE, game.camera.y / TILE * MINIMAP_SCALE,
+                game.width / TILE * MINIMAP_SCALE, game.height / TILE * MINIMAP_SCALE);
+        }
+
+        // ========== GAME OVER ==========
+        function endGame(win) {
+            game.gameOver = true;
+            const overlay = document.getElementById('gameover-overlay');
+            document.getElementById('gameover-title').textContent = win ? '🏆 Order Restored' : '💥 Line Broken';
+            document.getElementById('gameover-stats').textContent = 'Waves held: ' + (game.waveNumber - 1) + '  •  Raiders routed: ' + game.routed;
+            overlay.classList.add('show');
+        }
+        function restartGame() {
+            document.getElementById('gameover-overlay').classList.remove('show');
+            initGameState();
+            generateMap();
+            buildTerrainCanvas();
+            buildMinimapTerrainCanvas();
+            spawnSyndicate();
+        }
+
+        // ========== MAIN LOOP ==========
+        function loop(t) {
+            const dt = Math.min(0.05, (t - (game.lastTime || t)) / 1000);
+            game.lastTime = t;
+            if (!game.gameOver) {
+                updateTraining(dt);
+                updateWaves(dt);
+                assignFormation();
+                game.attackerCounts.clear();
+                game.officers.forEach(o => o.update(dt));
+                game.raiders.forEach(r => r.update(dt));
+                updateEffects(dt);
+                updateStats();
+            }
+            render();
+            drawMinimap();
+            requestAnimationFrame(loop);
+        }
+
+        // ========== INIT ==========
+        function initGameState() {
+            game.officers = []; game.raiders = []; game.effects = [];
+            game.tactic = 'ready';
+            game.commandS = 8;
+            game.baseHp = BASE_MAX_HP;
+            game.syndicatesDeployed = 0;
+            game.syndicateQueue = 0;
+            game.syndicateTimer = 0;
+            game.waveNumber = 1;
+            game.waveState = 'intermission';
+            game.waveTimer = 10;
+            game.waveMoralePct = 100;
+            game.waveTotalHp = 0;
+            game.waveSpawnQueue = [];
+            game.routed = 0;
+            game.gameOver = false;
+            game.attackerCounts.clear();
+        }
+        function resizeCanvas() {
+            const c = game.canvas;
+            game.width = window.innerWidth;
+            game.height = window.innerHeight - document.getElementById('ad-banner').offsetHeight;
+            const dpr = window.devicePixelRatio || 1;
+            c.width = game.width * dpr; c.height = game.height * dpr;
+            c.style.width = game.width + 'px'; c.style.height = game.height + 'px';
+            game.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+            clampCamera();
+        }
+        function setupMinimapDPR() {
+            const mm = document.getElementById('minimap');
+            game.minimapCtx = mm.getContext('2d');
+        }
+        function handleOrientationChange() { setTimeout(rebuildWorldForScreenSize, 300); }
+        function rebuildWorldForScreenSize() {
+            resizeCanvas();
+            computeMapSize();
+            computeMinimapSize();
+            generateMap();
+            buildTerrainCanvas();
+            buildMinimapTerrainCanvas();
+            assignFormation();
+        }
+        function isLandscapeReady() { return window.innerWidth > window.innerHeight; }
+        function init() {
+            game.canvas = document.getElementById('game');
+            game.ctx = game.canvas.getContext('2d');
+            setupMinimapDPR();
+            setupEvents();
+            setupTabBar();
+            document.getElementById('train-syndicate').addEventListener('click', trainSyndicate);
+            document.getElementById('train-arrest').addEventListener('click', () => showToast('Arrest teams — coming in the next update!'));
+            document.getElementById('gameover-restart').addEventListener('click', restartGame);
+            window.addEventListener('resize', () => setTimeout(rebuildWorldForScreenSize, 50));
+            window.addEventListener('orientationchange', handleOrientationChange);
+
+            initGameState();
+            resizeCanvas();
+            computeMapSize();
+            computeMinimapSize();
+            loadAssets(() => {
+                generateMap();
+                buildTerrainCanvas();
+                buildMinimapTerrainCanvas();
+                spawnSyndicate();
+                requestAnimationFrame(loop);
+            });
+        }
+        function bootWhenReady() {
+            if (isLandscapeReady()) init();
+            else {
+                const check = setInterval(() => {
+                    if (isLandscapeReady()) { clearInterval(check); init(); }
+                }, 300);
+            }
+        }
+        bootWhenReady();
+    </script>
+</body>
+</html>

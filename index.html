@@ -1079,10 +1079,12 @@
             const alive = game.officers.filter(o => o.alive);
             const s0 = frontS();
             if (game.tactic === 'rest') {
-                // Pulled back near base, open/loose spacing, arranged 3x5
-                const restS = 6;
+                // Pulled back near base, open/loose spacing, arranged in rows of 5
+                // (any officers beyond the first 15 wrap into further rows behind,
+                // rather than stringing out sideways).
+                const restS = 10;
                 let i = 0;
-                for (let row = 0; row < ROWS_PER_SYNDICATE; row++) {
+                for (let row = 0; i < alive.length; row++) {
                     for (let col = 0; col < COLS_PER_ROW; col++) {
                         if (i >= alive.length) break;
                         const lateral = (col - 2) * (COL_SPACING * 1.7);
@@ -1090,10 +1092,6 @@
                         const o = alive[i++];
                         o.slotX = p.x * TILE; o.slotY = p.y * TILE; o.slotDir = { x: p.dx, y: p.dy };
                     }
-                }
-                for (; i < alive.length; i++) {
-                    const p = slotTilePos(restS - 2, 0, (i - 15) * COL_SPACING);
-                    alive[i].slotX = p.x * TILE; alive[i].slotY = p.y * TILE;
                 }
                 return;
             }
@@ -1476,7 +1474,7 @@
             game.tactic = 'ready';
             game.commandS = 8;
             game.baseHp = BASE_MAX_HP;
-            game.syndicatesDeployed = 0;
+            game.syndicatesDeployed = 1; // player always starts with 1 syndicate already on the street
             game.syndicateQueue = 0;
             game.syndicateTimer = 0;
             game.waveNumber = 1;

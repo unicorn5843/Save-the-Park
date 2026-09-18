@@ -373,7 +373,7 @@
     <div id="left-dock">
         <div id="tab-list">
             <button id="tab-tactics" class="side-tab-btn"><span class="icon">🛡️</span><span class="label">Tactics</span></button>
-            <button id="tab-commands" class="side-tab-btn"><span class="icon">🧭</span><span class="label">Commands</span></button>
+            <button id="tab-commands" class="side-tab-btn"><span class="icon">🧭</span><span class="label">Movement</span></button>
         </div>
         <div id="panel-view">
             <div id="panel-header">
@@ -492,9 +492,10 @@
             lastTime: 0,
             gameOver: false, activeTab: null,
 
-            tactic: 'ready',            // rest | ready | closedwall | batonsfree | disperse
-            commandS: 0,                 // rail position (tiles) the front line holds
             baseHp: BASE_MAX_HP,
+
+            syndicates: [],              // per-syndicate state: {tactic, commandS}
+            selectedSyndicate: 0,        // which syndicate the panels currently command
 
             syndicatesDeployed: 1,
             syndicateQueue: 0,           // syndicates currently training (0 or 1)
@@ -757,29 +758,31 @@
 
         let officerIdSeq = 1;
         class Officer {
-            constructor(x, y) {
+            constructor(s, lateral, syndicateIndex) {
                 this.id = officerIdSeq++;
-                this.x = x; this.y = y; // px
+                this.syndicateIndex = syndicateIndex || 0;
+                this.s = s; this.lateral = lateral; // current rail position (tiles)
+                const p = slotTilePos(this.s, 0, this.lateral);
+                this.x = p.x * TILE; this.y = p.y * TILE; // px, always derived from s/lateral
                 this.hp = OFFICER.hp; this.maxHp = OFFICER.hp;
-                this.dir = { x: 1, y: 0 };
+                this.dir = { x: p.dx, y: p.dy };
                 this.animTimer = Math.random() * 10;
                 this.isMoving = false;
                 this.attackFlash = 0;
                 this.atkTimer = Math.random() * OFFICER.atkCooldown;
-                this.row = 0; this.col = 0; // formation slot indices
-                this.slotX = x; this.slotY = y; // target formation position (px)
-                this.lungeTarget = null; // a raider being struck this moment
-                this.dashTimer = 0;
+                this.targetS = s; this.targetLateral = lateral; // formation slot to walk to
+                this.dashing = false; this.dashReturnS = s; this.dashReturnLateral = lateral;
                 this.alive = true;
                 this.shieldUp = true;
             }
+            mySyndicate() { return game.syndicates[this.syndicateIndex] || game.syndicates[0]; }
             update(dt) {
                 if (!this.alive) return;
                 this.animTimer += dt;
                 if (this.attackFlash > 0) this.attackFlash = Math.max(0, this.attackFlash - dt);
                 this.atkTimer = Math.max(0, this.atkTimer - dt);
 
-                const tactic = game.tactic;
+                const tactic = this.mySyndicate().tactic;
                 this.shieldUp = tactic !== 'rest';
 
                 // Rest tactic: regenerate HP
@@ -792,33 +795,61 @@
                 const engageRange = tactic === 'batonsfree' ? OFFICER.lungeRange : OFFICER.meleeRange;
                 for (const r of game.raiders) {
                     if (!r.alive) continue;
-                    const d = Math.hypot(r.x - this.slotX, r.y - this.slotY);
+                    const d = Math.hypot(r.x - this.x, r.y - this.y);
                     if (d < engageRange * TILE && d < bestD) { bestD = d; target = r; }
                 }
 
-                let moveX = this.slotX, moveY = this.slotY;
-                if (tactic === 'disperse' && target && bestD < OFFICER.meleeRange * TILE * 1.4 && this.dashTimer <= 0) {
-                    // short sprint toward the raider, then return
-                    moveX = target.x; moveY = target.y;
-                } else if (target && bestD < engageRange * TILE) {
-                    // stay in formation, just swing
-                    moveX = this.slotX; moveY = this.slotY;
+                // Disperse: a short sprint out of formation to hit a raider that got
+                // too close, then walk back. This is the one case where an officer
+                // briefly leaves the road/rail — it's a short, local dash, not a
+                // long walk, so it doesn't read as "cutting across the map".
+                if (tactic === 'disperse' && target && bestD < OFFICER.meleeRange * TILE * 1.4 && !this.dashing) {
+                    this.dashing = true;
+                    this.dashReturnS = this.s; this.dashReturnLateral = this.lateral;
+                }
+                if (this.dashing && (!target || bestD > OFFICER.meleeRange * TILE * 2.2)) {
+                    this.dashing = false;
                 }
 
-                const dxp = moveX - this.x, dyp = moveY - this.y;
-                const dist = Math.hypot(dxp, dyp);
-                const speed = (tactic === 'disperse' && target) ? OFFICER.sprintSpeed : OFFICER.walkSpeed;
-                this.isMoving = dist > 1.5;
-                if (dist > 1) {
-                    const step = Math.min(dist, speed * TILE * dt);
-                    this.x += (dxp / dist) * step;
-                    this.y += (dyp / dist) * step;
-                    this.dir = { x: dxp / dist, y: dyp / dist };
-                } else if (target) {
-                    this.dir = { x: (target.x - this.x) / (bestD || 1), y: (target.y - this.y) / (bestD || 1) };
-                } else {
-                    this.dir = { x: this.slotDir ? this.slotDir.x : this.dir.x, y: this.slotDir ? this.slotDir.y : this.dir.y };
+                if (this.dashing && target) {
+                    const dxp = target.x - this.x, dyp = target.y - this.y;
+                    const dist = Math.hypot(dxp, dyp);
+                    this.isMoving = dist > 1.5;
+                    if (dist > 1) {
+                        const step = Math.min(dist, OFFICER.sprintSpeed * TILE * dt);
+                        this.x += (dxp / dist) * step; this.y += (dyp / dist) * step;
+                        this.dir = { x: dxp / dist, y: dyp / dist };
+                    }
+                    if (target && bestD < engageRange * TILE && this.atkTimer <= 0) {
+                        this.atkTimer = OFFICER.atkCooldown;
+                        this.attackFlash = 0.22;
+                        dealDamageToRaider(target, OFFICER.meleeDamage);
+                    }
+                    return;
                 }
+
+                // Normal formation movement: walk ALONG the road (the rail), never
+                // in a straight line across open ground/buildings.
+                const dS = this.targetS - this.s, dLat = this.targetLateral - this.lateral;
+                const dist = Math.hypot(dS, dLat);
+                this.isMoving = dist > 0.08;
+                if (dist > 0.03) {
+                    const step = Math.min(dist, OFFICER.walkSpeed * dt);
+                    this.s += (dS / dist) * step;
+                    this.lateral += (dLat / dist) * step;
+                }
+                const p = slotTilePos(this.s, 0, this.lateral);
+                const nx = p.x * TILE, ny = p.y * TILE;
+                if (target && bestD < engageRange * TILE) {
+                    this.dir = { x: (target.x - this.x) / (bestD || 1), y: (target.y - this.y) / (bestD || 1) };
+                } else if (this.isMoving) {
+                    const mdx = nx - this.x, mdy = ny - this.y;
+                    const md = Math.hypot(mdx, mdy);
+                    if (md > 0.05) this.dir = { x: mdx / md, y: mdy / md };
+                } else {
+                    this.dir = { x: p.dx, y: p.dy };
+                }
+                this.x = nx; this.y = ny;
 
                 // Attack
                 if (target && bestD < engageRange * TILE && this.atkTimer <= 0) {
@@ -833,8 +864,7 @@
                 if (sx < -30 || sy < -30 || sx > game.width + 30 || sy > game.height + 30) return;
                 ctx.save();
                 ctx.translate(sx, sy);
-                const angle = Math.atan2(this.dir.y, this.dir.x);
-                ctx.rotate(angle);
+                if (this.dir.x < -0.05) ctx.scale(-1, 1);
                 drawOfficerFigure(ctx, this);
                 ctx.restore();
                 drawHpBar(ctx, sx, sy - 24, this.hp, this.maxHp, '#6cc4ff');
@@ -949,9 +979,9 @@
                     game.attackerCounts.set(target.id, (game.attackerCounts.get(target.id) || 0) + 1);
                 }
 
-                // A closed shield wall physically blocks the street at commandS
-                let blockS = -Infinity;
-                if (game.tactic === 'closedwall' && game.officers.some(o => o.alive)) blockS = game.commandS + 0.35;
+                // Any syndicate holding a closed shield wall physically blocks the
+                // street at its command line.
+                const blockS = activeWallS();
 
                 if (!this.engaged) {
                     let speed = this.def.speed;
@@ -992,8 +1022,7 @@
                 if (sx < -30 || sy < -30 || sx > game.width + 30 || sy > game.height + 30) return;
                 ctx.save();
                 ctx.translate(sx, sy);
-                const angle = Math.atan2(this.dir.y, this.dir.x);
-                ctx.rotate(angle);
+                if (this.dir.x < -0.05) ctx.scale(-1, 1);
                 drawRaiderFigure(ctx, this);
                 ctx.restore();
                 drawHpBar(ctx, sx, sy - 22, this.hp, this.maxHp, '#ff8a5c');
@@ -1074,40 +1103,77 @@
         }
 
         // ========== FORMATION ==========
-        function frontS() { return Math.max(2, Math.min(PATH_TOTAL - 2, game.commandS)); }
+        // Each syndicate holds its own spot on the road and its own tactic, so
+        // (for example) syndicate 1 can rest near the base while syndicate 2
+        // holds a wall further up the street.
+        function frontS(idx) {
+            const sy = game.syndicates[idx];
+            const cs = sy ? sy.commandS : 8;
+            return Math.max(2, Math.min(PATH_TOTAL - 2, cs));
+        }
+        function activeWallS() {
+            let best = -Infinity;
+            for (let idx = 0; idx < game.syndicates.length; idx++) {
+                const sy = game.syndicates[idx];
+                if (!sy || sy.tactic !== 'closedwall') continue;
+                if (!game.officers.some(o => o.alive && o.syndicateIndex === idx)) continue;
+                best = Math.max(best, frontS(idx) + 0.35);
+            }
+            return best;
+        }
         function assignFormation() {
-            const alive = game.officers.filter(o => o.alive);
-            const s0 = frontS();
-            if (game.tactic === 'rest') {
-                // Pulled back near base, open/loose spacing, arranged in rows of 5
-                // (any officers beyond the first 15 wrap into further rows behind,
-                // rather than stringing out sideways).
-                const restS = 10;
+            for (let idx = 0; idx < MAX_SYNDICATES; idx++) assignFormationForSyndicate(idx);
+        }
+        function assignFormationForSyndicate(idx) {
+            const alive = game.officers.filter(o => o.alive && o.syndicateIndex === idx);
+            if (alive.length === 0) return;
+            const sy = game.syndicates[idx];
+            if (!sy) return;
+            const s0 = frontS(idx);
+            const tactic = sy.tactic;
+            const setSlot = (o, sVal, lateral) => { o.targetS = Math.max(0.5, sVal); o.targetLateral = lateral; };
+
+            if (tactic === 'rest') {
+                // Resting in place (wherever the syndicate currently holds), back
+                // in rows of 5 with open, loose spacing — shields down (handled in
+                // Officer.update), so more exposed, but healing.
                 let i = 0;
                 for (let row = 0; i < alive.length; row++) {
                     for (let col = 0; col < COLS_PER_ROW; col++) {
                         if (i >= alive.length) break;
-                        const lateral = (col - 2) * (COL_SPACING * 1.7);
-                        const p = slotTilePos(restS, row * ROW_SPACING * 1.6, lateral);
-                        const o = alive[i++];
-                        o.slotX = p.x * TILE; o.slotY = p.y * TILE; o.slotDir = { x: p.dx, y: p.dy };
+                        const lateral = (col - 2) * (COL_SPACING * 1.3);
+                        setSlot(alive[i++], s0 - row * ROW_SPACING * 1.3, lateral);
                     }
                 }
                 return;
             }
-            if (game.tactic === 'closedwall') {
+            if (tactic === 'closedwall') {
                 // Every available officer packs shoulder-to-shoulder into as few
                 // rows as it takes to span the road, right at the command line.
-                const perRow = Math.max(1, Math.floor(ROAD_W / COL_SPACING) - 1);
+                const perRow = Math.max(1, Math.floor(ROAD_W / COL_SPACING));
                 let i = 0;
                 for (let row = 0; i < alive.length; row++) {
                     const countThisRow = Math.min(perRow, alive.length - i);
                     const startOffset = -(countThisRow - 1) / 2;
                     for (let c = 0; c < countThisRow; c++) {
                         const lateral = (startOffset + c) * COL_SPACING;
-                        const p = slotTilePos(s0, row * ROW_SPACING * 0.7, lateral);
-                        const o = alive[i++];
-                        o.slotX = p.x * TILE; o.slotY = p.y * TILE; o.slotDir = { x: p.dx, y: p.dy };
+                        setSlot(alive[i++], s0 - row * ROW_SPACING * 0.7, lateral);
+                    }
+                }
+                return;
+            }
+            if (tactic === 'stackleft' || tactic === 'stackright') {
+                // Everyone presses up against one side of the street (their own
+                // left or right, facing the raiders), leaving the other side of
+                // the road clear — a real riot-line flanking tactic.
+                const sign = tactic === 'stackleft' ? -1 : 1;
+                const edge = sign * (ROAD_W / 2 - 0.7);
+                const files = 2;
+                let i = 0;
+                for (let row = 0; i < alive.length; row++) {
+                    for (let f = 0; f < files && i < alive.length; f++) {
+                        const lateral = edge - sign * f * 0.75;
+                        setSlot(alive[i++], s0 - row * ROW_SPACING * 0.6, lateral);
                     }
                 }
                 return;
@@ -1118,45 +1184,48 @@
                 for (let col = 0; col < COLS_PER_ROW; col++) {
                     if (i >= alive.length) break;
                     const lateral = (col - 2) * COL_SPACING;
-                    const p = slotTilePos(s0, row * ROW_SPACING, lateral);
-                    const o = alive[i++];
-                    o.slotX = p.x * TILE; o.slotY = p.y * TILE; o.slotDir = { x: p.dx, y: p.dy };
+                    setSlot(alive[i++], s0 - row * ROW_SPACING, lateral);
                 }
             }
             let reserveRow = ROWS_PER_SYNDICATE;
             while (i < alive.length) {
                 for (let col = 0; col < COLS_PER_ROW && i < alive.length; col++) {
                     const lateral = (col - 2) * COL_SPACING;
-                    const p = slotTilePos(s0, reserveRow * ROW_SPACING, lateral);
-                    const o = alive[i++];
-                    o.slotX = p.x * TILE; o.slotY = p.y * TILE; o.slotDir = { x: p.dx, y: p.dy };
+                    setSlot(alive[i++], s0 - reserveRow * ROW_SPACING, lateral);
                 }
                 reserveRow++;
             }
         }
 
-        // ========== TACTICS ==========
+        // ========== TACTICS & MOVEMENT (per selected syndicate) ==========
+        function ensureSyndicateState(idx) {
+            if (!game.syndicates[idx]) game.syndicates[idx] = { tactic: 'ready', commandS: idx === 0 ? 8 : 4 };
+            return game.syndicates[idx];
+        }
         function applyTactic(kind) {
-            game.tactic = kind;
+            const idx = game.selectedSyndicate;
+            ensureSyndicateState(idx).tactic = kind;
             assignFormation();
             updateSelectionUI();
             renderOptionsPanel();
         }
         function currentHeadingLabel() {
-            const samp = pathSample(frontS());
+            const samp = pathSample(frontS(game.selectedSyndicate));
             if (samp.dx === 1) return { label: 'East', arrow: '→' };
             if (samp.dx === -1) return { label: 'West', arrow: '←' };
             if (samp.dy === -1) return { label: 'North', arrow: '↑' };
             return { label: 'South', arrow: '↓' };
         }
-        const ADVANCE_STEP = 3;
+        const ADVANCE_STEP = 2;
         function commandAdvance() {
-            game.commandS = Math.min(PATH_TOTAL - 3, game.commandS + ADVANCE_STEP);
+            const sy = ensureSyndicateState(game.selectedSyndicate);
+            sy.commandS = Math.min(PATH_TOTAL - 3, sy.commandS + ADVANCE_STEP);
             assignFormation();
             updateSelectionUI();
         }
         function commandWithdraw() {
-            game.commandS = Math.max(2, game.commandS - ADVANCE_STEP * 1.4);
+            const sy = ensureSyndicateState(game.selectedSyndicate);
+            sy.commandS = Math.max(2, sy.commandS - ADVANCE_STEP * 1.5);
             assignFormation();
             updateSelectionUI();
         }
@@ -1168,7 +1237,6 @@
                 if (game.syndicateTimer >= game.SYNDICATE_TRAIN_TIME) {
                     game.syndicateTimer = 0;
                     game.syndicateQueue--;
-                    game.syndicatesDeployed++;
                     spawnSyndicate();
                     showToast('A fresh syndicate has arrived at the base!');
                 }
@@ -1182,9 +1250,11 @@
             prog.style.width = game.syndicateQueue ? Math.round(100 * game.syndicateTimer / game.SYNDICATE_TRAIN_TIME) + '%' : '0%';
         }
         function spawnSyndicate() {
-            const basePos = slotTilePos(4, 0, 0);
+            const idx = game.syndicatesDeployed;
+            game.syndicatesDeployed++;
+            ensureSyndicateState(idx);
             for (let i = 0; i < OFFICERS_PER_SYNDICATE; i++) {
-                const o = new Officer(basePos.x * TILE + (Math.random() - 0.5) * 10, basePos.y * TILE + (Math.random() - 0.5) * 10);
+                const o = new Officer(4 + Math.random() * 0.8, (Math.random() - 0.5) * 2, idx);
                 game.officers.push(o);
             }
             assignFormation();
@@ -1311,7 +1381,7 @@
             game.activeTab = tab;
             document.getElementById('tab-list').classList.add('hidden');
             document.getElementById('panel-view').classList.add('show');
-            document.getElementById('panel-title').textContent = tab === 'tactics' ? 'Tactics' : 'Commands';
+            document.getElementById('panel-title').textContent = tab === 'tactics' ? 'Tactics' : 'Movement';
             renderOptionsPanel();
         }
         function closeTab() {
@@ -1323,26 +1393,46 @@
             const panel = document.getElementById('options-panel');
             panel.innerHTML = '';
             panel.classList.add('show');
+            renderSyndicateSelector(panel);
             if (game.activeTab === 'tactics') renderTacticsOptions(panel);
-            else if (game.activeTab === 'commands') renderCommandsOptions(panel);
+            else if (game.activeTab === 'commands') renderMovementOptions(panel);
         }
         function addInfoLine(panel, text) {
             const d = document.createElement('div');
             d.className = 'info-line'; d.textContent = text;
             panel.appendChild(d);
         }
+        function renderSyndicateSelector(panel) {
+            const row = document.createElement('div');
+            row.style.cssText = 'display:flex;gap:4px;margin-bottom:3px;';
+            for (let idx = 0; idx < MAX_SYNDICATES; idx++) {
+                const exists = idx < game.syndicatesDeployed;
+                const count = game.officers.filter(o => o.alive && o.syndicateIndex === idx).length;
+                const b = document.createElement('button');
+                b.style.cssText = 'width:auto;flex:1;font-size:9.5px;padding:7px 2px;';
+                b.textContent = 'Synd.' + (idx + 1) + (exists ? ' (' + count + ')' : ' —');
+                if (idx === game.selectedSyndicate) b.classList.add('active-choice');
+                if (!exists) b.disabled = true;
+                b.addEventListener('click', () => { game.selectedSyndicate = idx; renderOptionsPanel(); updateSelectionUI(); });
+                row.appendChild(b);
+            }
+            panel.appendChild(row);
+        }
         const TACTIC_DEFS = [
-            { key: 'rest', label: '😌 Rest', desc: 'Shields down, open formation. HP regenerates but officers are exposed.' },
+            { key: 'rest', label: '😌 Rest', desc: 'Shields down, resting in place in open rows of 5. HP regenerates, but officers take more damage if hit.' },
             { key: 'ready', label: '🛡️ Ready', desc: 'Shields up, standard 3x5 line. Holds the command line.' },
             { key: 'closedwall', label: '🧱 Closed Wall', desc: 'Officers pack shoulder-to-shoulder to seal the street.' },
             { key: 'batonsfree', label: '🏏 Batons Free', desc: 'Officers strike any raider that gets in range.' },
             { key: 'disperse', label: '💨 Disperse', desc: 'Officers sprint out to hit raiders who get too close.' },
+            { key: 'stackleft', label: '⬅️ Stack Left', desc: 'Everyone presses against the left-hand building line, clearing the right side of the road.' },
+            { key: 'stackright', label: '➡️ Stack Right', desc: 'Everyone presses against the right-hand building line, clearing the left side of the road.' },
         ];
         function renderTacticsOptions(panel) {
+            const sy = ensureSyndicateState(game.selectedSyndicate);
             TACTIC_DEFS.forEach(t => {
                 const b = document.createElement('button');
                 b.textContent = t.label;
-                if (game.tactic === t.key) b.classList.add('active-choice');
+                if (sy.tactic === t.key) b.classList.add('active-choice');
                 b.addEventListener('click', () => applyTactic(t.key));
                 panel.appendChild(b);
             });
@@ -1351,10 +1441,10 @@
             kb.disabled = true;
             kb.addEventListener('click', () => showToast('K9 tactic — coming in the next update!'));
             panel.appendChild(kb);
-            const found = TACTIC_DEFS.find(t => t.key === game.tactic);
+            const found = TACTIC_DEFS.find(t => t.key === sy.tactic);
             if (found) addInfoLine(panel, found.desc);
         }
-        function renderCommandsOptions(panel) {
+        function renderMovementOptions(panel) {
             const h = currentHeadingLabel();
             const adv = document.createElement('button');
             adv.textContent = 'Advance ' + h.arrow + ' ' + h.label;
@@ -1366,10 +1456,16 @@
             withdraw.textContent = 'Withdraw ' + oppArrow + ' ' + oppLabel + ' (quick)';
             withdraw.addEventListener('click', () => { commandWithdraw(); renderOptionsPanel(); });
             panel.appendChild(withdraw);
-            addInfoLine(panel, 'The line always faces the raiders and wheels to follow the street as it turns.');
+            addInfoLine(panel, 'Moves the selected syndicate up or down the street in steps. It always faces the raiders and wheels to follow the street as it turns.');
         }
         function updateSelectionUI() {
-            document.getElementById('selection-info').textContent = '';
+            const idx = game.selectedSyndicate;
+            const count = game.officers.filter(o => o.alive && o.syndicateIndex === idx).length;
+            const sy = game.syndicates[idx];
+            const el = document.getElementById('selection-info');
+            if (!sy || count === 0) { el.textContent = ''; return; }
+            const tacticLabel = (TACTIC_DEFS.find(t => t.key === sy.tactic) || {}).label || sy.tactic;
+            el.textContent = 'Syndicate ' + (idx + 1) + ' — ' + count + ' officers — ' + tacticLabel;
         }
 
         // ========== HUD ==========
@@ -1471,10 +1567,10 @@
         // ========== INIT ==========
         function initGameState() {
             game.officers = []; game.raiders = []; game.effects = [];
-            game.tactic = 'ready';
-            game.commandS = 8;
+            game.syndicates = [];
+            game.selectedSyndicate = 0;
             game.baseHp = BASE_MAX_HP;
-            game.syndicatesDeployed = 1; // player always starts with 1 syndicate already on the street
+            game.syndicatesDeployed = 0; // spawnSyndicate() below fills this in as syndicates are created
             game.syndicateQueue = 0;
             game.syndicateTimer = 0;
             game.waveNumber = 1;

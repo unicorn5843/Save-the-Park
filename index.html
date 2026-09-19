@@ -376,7 +376,7 @@
         const MAX_SYNDICATES = 2;
         const MAX_UNITS = OFFICERS_PER_SYNDICATE * MAX_SYNDICATES;
         const BASE_MAX_HP = 500;
-        const MOVE_SPEED = 2.0;
+        const MOVE_SPEED = 2.0; // Kept for legacy, but we use tile-snapping now
 
         // ========== GAME STATE ==========
         let map = [];
@@ -413,7 +413,7 @@
             attackerCounts: new Map(),
             totalRaidersInWave: 0,
             raidersDefeated: 0,
-            raiderGroupMorale: 100, // NEW: group morale
+            raiderGroupMorale: 100,
         };
 
         // ========== NODES ==========
@@ -642,6 +642,13 @@
             return t === TILE_ROAD || t === TILE_SIDEWALK || t === TILE_BASE;
         }
 
+        // Snap a float coordinate to the center of its current tile
+        function snapToTileCenter(x, y) {
+            const tx = Math.floor(x / TILE);
+            const ty = Math.floor(y / TILE);
+            return { x: tx * TILE + TILE / 2, y: ty * TILE + TILE / 2 };
+        }
+
         // ========== OFFICER ==========
         const OFFICER = {
             hp: 120, meleeDamage: 15, meleeRange: 1.35, atkCooldown: 0.85,
@@ -751,7 +758,6 @@
                     return;
                 }
 
-                // Movement with axis sliding to avoid walking through buildings
                 const dX = this.targetX - this.x, dY = this.targetY - this.y;
                 const dist = Math.hypot(dX, dY);
                 this.isMoving = dist > 2;
@@ -761,11 +767,9 @@
                     const mvy = (dY / dist) * step;
 
                     const currentValid = isValidPosition(this.x, this.y);
-                    // Try X axis
                     if (!currentValid || isValidPosition(this.x + mvx, this.y)) {
                         this.x += mvx;
                     }
-                    // Try Y axis
                     if (!currentValid || isValidPosition(this.x, this.y + mvy)) {
                         this.y += mvy;
                     }
@@ -895,7 +899,6 @@
                 if (this.attackFlash > 0) this.attackFlash = Math.max(0, this.attackFlash - dt);
                 this.atkTimer = Math.max(0, this.atkTimer - dt);
 
-                // Group morale - flee check
                 if (this.state === 'advancing' || this.state === 'fighting') {
                     this.fleeTimer -= dt;
                     if (this.fleeTimer <= 0) {
@@ -1052,7 +1055,6 @@
             if (game.waveTotalHp > 0) {
                 game.waveMoralePct = Math.max(0, game.waveMoralePct - (dmg / game.waveTotalHp) * 100);
             }
-            // Reduce group morale when raiders take damage
             game.raiderGroupMorale = Math.max(0, game.raiderGroupMorale - dmg * 0.05);
             if (r.hp <= 0 && r.alive) {
                 r.state = 'fleeing';
@@ -1104,10 +1106,16 @@
             const cy = sy.commandY;
             const tactic = sy.tactic;
 
-            // Facing direction (for box formation)
-            const fx = sy.facingX || 1;
-            const fy = sy.facingY || 0;
-            // Perpendicular (left of facing in screen coords when facing East is North = (0,-1))
+            // Snap facing to cardinal direction (horizontal/vertical)
+            let fx = sy.facingX || 1;
+            let fy = sy.facingY || 0;
+            if (Math.abs(fx) > Math.abs(fy)) {
+                fx = Math.sign(fx) || 1;
+                fy = 0;
+            } else {
+                fx = 0;
+                fy = Math.sign(fy) || 1;
+            }
             const px = fy;
             const py = -fx;
 
@@ -1116,7 +1124,7 @@
                 o.targetY = y;
             };
 
-            // Rest: open, wide spacing
+            // Rest: wide spacing for recovery
             if (tactic === 'rest') {
                 let i = 0;
                 let row = 0;
@@ -1133,20 +1141,16 @@
                 return;
             }
 
-            // Closed Wall: single line, extras behind centered
+            // Closed Wall: fill entire road width, backfill extras behind
             if (tactic === 'closedwall') {
-                const maxPerLine = Math.floor(ROAD_W / COL_SPACING);
+                const perRow = 6; // 6 units to match road width
+                const spacing = (ROAD_W / perRow) * TILE; // Evenly spread across road
                 let i = 0;
-                const frontCount = Math.min(maxPerLine, alive.length);
-                for (let c = 0; c < frontCount; c++) {
-                    const off = (c - (frontCount - 1) / 2) * COL_SPACING * TILE;
-                    setSlot(alive[i++], cx + px * off, cy + py * off);
-                }
-                let row = 1;
+                let row = 0;
                 while (i < alive.length) {
-                    const countThisRow = Math.min(maxPerLine, alive.length - i);
+                    const countThisRow = Math.min(perRow, alive.length - i);
                     for (let c = 0; c < countThisRow; c++) {
-                        const off = (c - (countThisRow - 1) / 2) * COL_SPACING * TILE;
+                        const off = (c - (countThisRow - 1) / 2) * spacing;
                         const back = row * ROW_SPACING * 0.7 * TILE;
                         setSlot(alive[i++], cx + px * off - fx * back, cy + py * off - fy * back);
                     }
@@ -1157,14 +1161,15 @@
 
             // Staggered Wall
             if (tactic === 'staggeredwall') {
-                const maxPerLine = Math.floor(ROAD_W / COL_SPACING);
+                const perRow = 6;
+                const spacing = (ROAD_W / perRow) * TILE;
                 let i = 0;
                 let row = 0;
                 while (i < alive.length) {
-                    const countThisRow = Math.min(maxPerLine, alive.length - i);
+                    const countThisRow = Math.min(perRow, alive.length - i);
                     for (let c = 0; c < countThisRow; c++) {
-                        const stagger = (row % 2 === 0) ? 0 : COL_SPACING * 0.5;
-                        const off = (c - (countThisRow - 1) / 2) * COL_SPACING * TILE + stagger * TILE;
+                        const stagger = (row % 2 === 0) ? 0 : spacing * 0.5;
+                        const off = (c - (countThisRow - 1) / 2) * spacing + stagger;
                         const back = row * ROW_SPACING * 0.8 * TILE;
                         setSlot(alive[i++], cx + px * off - fx * back, cy + py * off - fy * back);
                     }
@@ -1191,9 +1196,7 @@
                 return;
             }
 
-            // BOX: 3-sided box. Front row perpendicular to facing,
-            // two side rows extending backwards from the ends.
-            // Opening faces away from the direction of travel.
+            // BOX: 3-sided U-shape, snapped to horizontal/vertical
             if (tactic === 'box') {
                 const frontCount = Math.min(5, alive.length);
                 const remaining = alive.length - frontCount;
@@ -1206,18 +1209,18 @@
                     const off = (c - (frontCount - 1) / 2) * COL_SPACING * TILE;
                     setSlot(alive[i++], cx + px * off, cy + py * off);
                 }
-                // Left side (px side)
+                // Left side extends backwards
                 const leftEndX = cx + px * ((frontCount - 1) / 2) * COL_SPACING * TILE;
                 const leftEndY = cy + py * ((frontCount - 1) / 2) * COL_SPACING * TILE;
                 for (let r = 1; r <= leftCount; r++) {
-                    const back = r * ROW_SPACING * 1.0 * TILE;
+                    const back = r * ROW_SPACING * TILE;
                     setSlot(alive[i++], leftEndX - fx * back, leftEndY - fy * back);
                 }
-                // Right side
+                // Right side extends backwards
                 const rightEndX = cx - px * ((frontCount - 1) / 2) * COL_SPACING * TILE;
                 const rightEndY = cy - py * ((frontCount - 1) / 2) * COL_SPACING * TILE;
                 for (let r = 1; r <= rightCount; r++) {
-                    const back = r * ROW_SPACING * 1.0 * TILE;
+                    const back = r * ROW_SPACING * TILE;
                     setSlot(alive[i++], rightEndX - fx * back, rightEndY - fy * back);
                 }
                 return;
@@ -1270,19 +1273,21 @@
 
         function commandMove(dx, dy) {
             const sy = ensureSyndicateState(game.selectedSyndicate);
-            const nx = sy.commandX + dx * MOVE_SPEED * TILE;
-            const ny = sy.commandY + dy * MOVE_SPEED * TILE;
-
+            
+            // Move by exactly 1 tile in the given direction
+            const nx = sy.commandX + dx * TILE;
+            const ny = sy.commandY + dy * TILE;
+            
+            // Check if the new tile is valid
             if (isValidPosition(nx, ny)) {
-                sy.commandX = nx;
-                sy.commandY = ny;
-                if (Math.abs(dx) > Math.abs(dy)) {
-                    sy.facingX = Math.sign(dx);
-                    sy.facingY = 0;
-                } else if (Math.abs(dy) > 0) {
-                    sy.facingX = 0;
-                    sy.facingY = Math.sign(dy);
-                }
+                const snapped = snapToTileCenter(nx, ny);
+                sy.commandX = snapped.x;
+                sy.commandY = snapped.y;
+                
+                // Update facing direction (snapped to cardinal)
+                if (dx !== 0) { sy.facingX = dx; sy.facingY = 0; }
+                else if (dy !== 0) { sy.facingX = 0; sy.facingY = dy; }
+                
                 assignFormation();
                 updateSelectionUI();
             }
@@ -1291,8 +1296,8 @@
         function canMove(dx, dy) {
             const sy = game.syndicates[game.selectedSyndicate];
             if (!sy) return false;
-            const nx = sy.commandX + dx * MOVE_SPEED * TILE;
-            const ny = sy.commandY + dy * MOVE_SPEED * TILE;
+            const nx = sy.commandX + dx * TILE;
+            const ny = sy.commandY + dy * TILE;
             return isValidPosition(nx, ny);
         }
 
@@ -1322,7 +1327,6 @@
             const sy = ensureSyndicateState(idx);
 
             for (let i = 0; i < OFFICERS_PER_SYNDICATE; i++) {
-                // Spawn on a valid tile near command position
                 let spawnX = sy.commandX, spawnY = sy.commandY;
                 for (let tries = 0; tries < 20; tries++) {
                     const tx = sy.commandX + (Math.random() - 0.5) * 200;
@@ -1486,14 +1490,14 @@
         // ========== LEFT PANEL UI ==========
         const TACTIC_DEFS = [
             { key: 'rest', label: '😌 Rest', desc: 'Shields down, spaced out for recovery. HP regenerates, but officers take more damage if hit.' },
-            { key: 'reform', label: '🛡️ Reform', desc: 'Shields up, standard 3x5 block. Assembles on the command marker.' },
-            { key: 'closedwall', label: '🧱 Closed Wall', desc: 'Single line across the road. Extra units stack behind the centre.' },
-            { key: 'staggeredwall', label: '🧱 Staggered Wall', desc: 'Staggered line. Baton strikes enabled, but some raiders may slip through.' },
+            { key: 'reform', label: '🛡️ Reform', desc: 'Shields up, standard block. Assembles on the command marker.' },
+            { key: 'closedwall', label: '🧱 Closed Wall', desc: 'Fills the entire road width. Extra units backfill behind the front line.' },
+            { key: 'staggeredwall', label: '🧱 Staggered Wall', desc: 'Staggered line across the road. Baton strikes enabled, but some raiders may slip through.' },
             { key: 'batonsfree', label: '🏏 Batons Free', desc: 'Officers strike any raider that comes into range.' },
             { key: 'disperse', label: '💨 Disperse', desc: '10-second aggressive push. Officers deal triple damage and terrify raiders.' },
             { key: 'stackleft', label: '⬅️ Stack Left', desc: 'Press up against the left kerb, leaving the right half of the road clear.' },
             { key: 'stackright', label: '➡️ Stack Right', desc: 'Press up against the right kerb, leaving the left half of the road clear.' },
-            { key: 'box', label: '📦 Box', desc: 'Three-sided box. Front row faces direction of travel, sides extend back. Opening faces the rear.' },
+            { key: 'box', label: '📦 Box', desc: 'Three-sided box. Front row faces direction of travel, sides extend back. Rigid alignment.' },
         ];
         function renderOptionsPanel() {
             const panel = document.getElementById('options-panel');
@@ -1627,7 +1631,7 @@
                 ctx.beginPath();
                 ctx.arc(sx, sy_, 12, 0, Math.PI * 2);
                 ctx.stroke();
-                // Facing indicator
+                // Facing indicator (snapped)
                 const fx = sy.facingX || 1, fy = sy.facingY || 0;
                 ctx.beginPath();
                 ctx.moveTo(sx, sy_);
@@ -1686,7 +1690,6 @@
                 updateTraining(dt);
                 updateWaves(dt);
 
-                // Update disperse timers
                 game.syndicates.forEach(sy => {
                     if (sy && sy.disperseTimer > 0) {
                         sy.disperseTimer -= dt;

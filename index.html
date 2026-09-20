@@ -404,7 +404,7 @@
             mouse: { down: false, startX: 0, startY: 0, curX: 0, curY: 0, moved: false },
             lastTime: 0,
             gameOver: false,
-            testMode: true,     // waves are live
+            testMode: false,     // waves are live
 
             baseHp: BASE_MAX_HP,
             syndicates: [],
@@ -413,11 +413,11 @@
             syndicatesDeployed: 1,
             syndicateQueue: 0,
             syndicateTimer: 0,
-            SYNDICATE_TRAIN_TIME: 24,
+            SYNDICATE_TRAIN_TIME: 6, // Faster training for testing
 
             waveNumber: 1,
             waveState: 'intermission',
-            waveTimer: 10,
+            waveTimer: 3, // Spawn quickly
             waveMoralePct: 100,
             waveTotalHp: 0,
             waveSpawnQueue: [],
@@ -1373,26 +1373,26 @@
                 return;
             }
 
-            // BOX: 3-sided U-shape
+            // BOX: 3-sided U-shape, now full road width
             if (tactic === 'box') {
-                const frontCount = Math.min(5, alive.length);
+                const frontCount = Math.min(OFFICERS_PER_ROW, alive.length);
                 const remaining = alive.length - frontCount;
                 const leftCount = Math.ceil(remaining / 2);
                 const rightCount = remaining - leftCount;
 
                 let i = 0;
                 for (let c = 0; c < frontCount; c++) {
-                    const off = (c - (frontCount - 1) / 2) * COL_SPACING * TILE;
+                    const off = (c - (frontCount - 1) / 2) * TILE;
                     setSlot(alive[i++], cx + px * off, cy + py * off);
                 }
-                const leftEndX = cx + px * ((frontCount - 1) / 2) * COL_SPACING * TILE;
-                const leftEndY = cy + py * ((frontCount - 1) / 2) * COL_SPACING * TILE;
+                const leftEndX = cx + px * ((frontCount - 1) / 2) * TILE;
+                const leftEndY = cy + py * ((frontCount - 1) / 2) * TILE;
                 for (let r = 1; r <= leftCount; r++) {
                     const back = r * ROW_SPACING * TILE;
                     setSlot(alive[i++], leftEndX - fx * back, leftEndY - fy * back);
                 }
-                const rightEndX = cx - px * ((frontCount - 1) / 2) * COL_SPACING * TILE;
-                const rightEndY = cy - py * ((frontCount - 1) / 2) * COL_SPACING * TILE;
+                const rightEndX = cx - px * ((frontCount - 1) / 2) * TILE;
+                const rightEndY = cy - py * ((frontCount - 1) / 2) * TILE;
                 for (let r = 1; r <= rightCount; r++) {
                     const back = r * ROW_SPACING * TILE;
                     setSlot(alive[i++], rightEndX - fx * back, rightEndY - fy * back);
@@ -1511,6 +1511,7 @@
         }
 
         function spawnSyndicate() {
+            if (game.syndicatesDeployed >= MAX_SYNDICATES) return;
             const idx = game.syndicatesDeployed;
             game.syndicatesDeployed++;
             const sy = ensureSyndicateState(idx);
@@ -1567,7 +1568,7 @@
             ai.timer = 9;
             ai.holdTimer = 0;
 
-            const raiderCount = 9 + game.waveNumber * 3;
+            const raiderCount = 12 + game.waveNumber * 4; // slightly larger waves
             game.waveSpawnQueue = [];
             let totalHp = 0;
             for (let i = 0; i < raiderCount; i++) {
@@ -1601,7 +1602,7 @@
                     routeKey = 'north';
                 }
                 game.raiders.push(new Raider(kind, routeKey));
-                game.waveSpawnTimer = 0.9 + Math.random() * 1.1;
+                game.waveSpawnTimer = 0.6 + Math.random() * 0.6; // faster spawns
             }
 
             const anyLeft = game.raiders.some(r => r.alive && r.state !== 'fleeing') || game.waveSpawnQueue.length > 0;
@@ -1621,7 +1622,7 @@
                     game.raiders = [];
                     game.waveState = 'intermission';
                     game.waveNumber++;
-                    game.waveTimer = 22;
+                    game.waveTimer = 8; // shorter intermission for testing
                     showToast('Wave cleared — raiders dispersed!');
                 }
             }
@@ -2060,7 +2061,7 @@
             game.syndicateTimer = 0;
             game.waveNumber = 1;
             game.waveState = 'intermission';
-            game.waveTimer = 10;
+            game.waveTimer = 3; // Spawn first wave quickly for testing
             game.waveMoralePct = 100;
             game.waveTotalHp = 0;
             game.waveSpawnQueue = [];

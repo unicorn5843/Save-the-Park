@@ -391,6 +391,11 @@
         const MAX_UNITS = OFFICERS_PER_SYNDICATE * MAX_SYNDICATES;
         const BASE_MAX_HP = 500;
 
+        // Syndicate starting command points — kept far apart so their
+        // formations don't overlap / hide each other.
+        const SYNDICATE_START_X = [15, 32];      // tiles
+        const SYNDICATE_START_Y = [ROAD_Y_TOP, ROAD_Y_TOP];
+
         // ========== GAME STATE ==========
         let map = [];
         let toastTimer = null;
@@ -404,7 +409,7 @@
             mouse: { down: false, startX: 0, startY: 0, curX: 0, curY: 0, moved: false },
             lastTime: 0,
             gameOver: false,
-            testMode: false,     // waves are live
+            testMode: false,
 
             baseHp: BASE_MAX_HP,
             syndicates: [],
@@ -413,11 +418,11 @@
             syndicatesDeployed: 1,
             syndicateQueue: 0,
             syndicateTimer: 0,
-            SYNDICATE_TRAIN_TIME: 6, // Faster training for testing
+            SYNDICATE_TRAIN_TIME: 6,
 
             waveNumber: 1,
             waveState: 'intermission',
-            waveTimer: 3, // Spawn quickly
+            waveTimer: 3,
             waveMoralePct: 100,
             waveTotalHp: 0,
             waveSpawnQueue: [],
@@ -429,10 +434,9 @@
             raiderGroupMorale: 100,
             buildingsDestroyed: 0,
 
-            // ---- Raider AI brain ----
             raidAI: {
-                objective: 'base',     // 'base' | 'buildings' | 'hunt'
-                stance: 'push',        // 'push' | 'hold' | 'split'
+                objective: 'base',
+                stance: 'push',
                 timer: 8,
                 holdTimer: 0,
             },
@@ -451,7 +455,6 @@
         ];
         function getNode(id) { return ROAD_NODES.find(n => n.id === id); }
 
-        // Two attack corridors. Both converge on J1 -> J0 -> base.
         const RAIDER_ROUTES = {
             south: { nodes: ['J7', 'J6', 'J5', 'J1', 'J0'], hold: 'J5', label: 'South Road' },
             north: { nodes: ['J3', 'J2', 'J1', 'J0'],       hold: 'J2', label: 'North Road' },
@@ -759,8 +762,6 @@
                     this.hp = Math.min(this.maxHp, this.hp + OFFICER.restRegen * dt);
                 }
 
-                // Batons-free is a standing order, not a formation: it keeps
-                // whatever formation is currently set and just extends reach.
                 const batonsFree = !!sy.batonsFree;
                 const aggressive = batonsFree || tactic === 'staggeredwall';
                 const dispersing = sy.disperseTimer > 0;
@@ -969,7 +970,6 @@
                 if (this.attackFlash > 0) this.attackFlash = Math.max(0, this.attackFlash - dt);
                 this.atkTimer = Math.max(0, this.atkTimer - dt);
 
-                // ---- morale / rout check ----
                 if (this.state !== 'fleeing') {
                     this.fleeTimer -= dt;
                     if (this.fleeTimer <= 0) {
@@ -1001,7 +1001,6 @@
                     return;
                 }
 
-                // ---- pick an officer to brawl with ----
                 const engageRange = this.def.meleeRange * TILE;
                 let target = null, bestD = Infinity, fallbackTarget = null, fallbackD = Infinity;
                 for (const o of game.officers) {
@@ -1019,7 +1018,6 @@
                     game.attackerCounts.set(target.id, (game.attackerCounts.get(target.id) || 0) + 1);
                 }
 
-                // ---- getting swarmed makes them fight harder ----
                 let nearbyOfficers = 0;
                 for (const o of game.officers) {
                     if (o.alive && o.state === 'active' && Math.hypot(o.x - this.x, o.y - this.y) < TILE * 2.5) nearbyOfficers++;
@@ -1050,7 +1048,6 @@
                     return;
                 }
 
-                // ---- movement speed (bruisers get surge bursts) ----
                 let spd = this.def.speed;
                 if (this.kind === 'bruiser') {
                     this.surgeTimer -= dt;
@@ -1060,7 +1057,6 @@
                 const ai = game.raidAI;
                 const objective = ai.objective || 'base';
 
-                // ===== OBJECTIVE: HUNT — chase the officers down =====
                 if (objective === 'hunt') {
                     const o = this.nearestActiveOfficer();
                     if (o) {
@@ -1070,7 +1066,6 @@
                     }
                 }
 
-                // ===== OBJECTIVE: BUILDINGS — wreck the city =====
                 if (objective === 'buildings') {
                     if (!this.targetBuilding || !this.targetBuilding.alive) {
                         this.targetBuilding = pickRaidBuilding(this);
@@ -1096,8 +1091,6 @@
                     }
                 }
 
-                // ===== OBJECTIVE: BASE =====
-                // Holding back / baiting
                 if (ai.stance === 'hold') {
                     const holdNode = getNode(RAIDER_ROUTES[this.routeKey].hold);
                     const hx = holdNode.x * TILE + this.jitterX;
@@ -1113,10 +1106,8 @@
                     return;
                 }
 
-                // Straight down the road
                 const nodes = this.routeNodes();
                 if (this.pathIndex >= nodes.length) {
-                    // Reached the base — smash it and disperse.
                     game.baseHp = Math.max(0, game.baseHp - this.def.damage * 3);
                     spawnHitEffect(this.x, this.y);
                     this.alive = false;
@@ -1222,8 +1213,6 @@
                 game.baseHp = Math.max(0, game.baseHp - 15);
                 buildTerrainCanvas();
                 showToast('🏚️ A building has been wrecked!');
-            } else if (!b._warned && b.hp < b.maxHp * 0.5) {
-                b._warned = true;
             }
         }
 
@@ -1286,7 +1275,6 @@
             const cy = sy.commandY;
             const tactic = sy.tactic;
 
-            // Snap facing to cardinal direction
             let fx = sy.facingX || 1;
             let fy = sy.facingY || 0;
             if (Math.abs(fx) > Math.abs(fy)) {
@@ -1301,16 +1289,16 @@
 
             const setSlot = (o, x, y) => { o.targetX = x; o.targetY = y; };
 
-            // Rest: wide spacing for recovery
+            // Rest: compact 3x5 block, but with enough breathing room
             if (tactic === 'rest') {
+                const perRow = 5;
                 let i = 0;
                 let row = 0;
-                const perRow = 5;
                 while (i < alive.length) {
                     const countThisRow = Math.min(perRow, alive.length - i);
                     for (let c = 0; c < countThisRow; c++) {
-                        const off = (c - (countThisRow - 1) / 2) * COL_SPACING * 1.6 * TILE;
-                        const back = row * ROW_SPACING * 2.2 * TILE;
+                        const off = (c - (countThisRow - 1) / 2) * COL_SPACING * 1.4 * TILE;
+                        const back = row * ROW_SPACING * 1.6 * TILE;
                         setSlot(alive[i++], cx + px * off - fx * back, cy + py * off - fy * back);
                     }
                     row++;
@@ -1321,7 +1309,7 @@
             // Closed Wall: spans the FULL road width (7 tiles), extras backfill.
             if (tactic === 'closedwall') {
                 const perRow = OFFICERS_PER_ROW;
-                const spacing = TILE;             // one officer per road tile
+                const spacing = TILE;
                 let i = 0;
                 let row = 0;
                 while (i < alive.length) {
@@ -1336,7 +1324,7 @@
                 return;
             }
 
-            // Staggered Wall: full road width, alternate rows offset by half a tile.
+            // Staggered Wall
             if (tactic === 'staggeredwall') {
                 const perRow = OFFICERS_PER_ROW;
                 const spacing = TILE;
@@ -1373,7 +1361,7 @@
                 return;
             }
 
-            // BOX: 3-sided U-shape, now full road width
+            // BOX: 3-sided U-shape, full road width front
             if (tactic === 'box') {
                 const frontCount = Math.min(OFFICERS_PER_ROW, alive.length);
                 const remaining = alive.length - frontCount;
@@ -1400,7 +1388,7 @@
                 return;
             }
 
-            // Default: Reform (standard 3x5 block)
+            // Default: Reform (3x5 block)
             let i = 0;
             let row = 0;
             const perRow = 5;
@@ -1418,10 +1406,12 @@
         // ========== TACTICS & MOVEMENT ==========
         function ensureSyndicateState(idx) {
             if (!game.syndicates[idx]) {
+                const startX = (SYNDICATE_START_X[idx] !== undefined) ? SYNDICATE_START_X[idx] : (15 + idx * 17);
+                const startY = (SYNDICATE_START_Y[idx] !== undefined) ? SYNDICATE_START_Y[idx] : ROAD_Y_TOP;
                 game.syndicates[idx] = {
                     tactic: 'reform',
-                    commandX: idx === 0 ? 15 * TILE : 10 * TILE,
-                    commandY: ROAD_Y_TOP * TILE,
+                    commandX: startX * TILE,
+                    commandY: startY * TILE,
                     facingX: 1, facingY: 0,
                     disperseTimer: 0,
                     batonsFree: false,
@@ -1444,7 +1434,6 @@
             renderOptionsPanel();
         }
 
-        // Standing orders — these do NOT change the formation.
         function applyOrder(kind) {
             const idx = game.selectedSyndicate;
             const sy = ensureSyndicateState(idx);
@@ -1465,18 +1454,14 @@
 
         function commandMove(dx, dy) {
             const sy = ensureSyndicateState(game.selectedSyndicate);
-
             const nx = sy.commandX + dx * TILE;
             const ny = sy.commandY + dy * TILE;
-
             if (isValidPosition(nx, ny)) {
                 const snapped = snapToTileCenter(nx, ny);
                 sy.commandX = snapped.x;
                 sy.commandY = snapped.y;
-
                 if (dx !== 0) { sy.facingX = dx; sy.facingY = 0; }
                 else if (dy !== 0) { sy.facingX = 0; sy.facingY = dy; }
-
                 assignFormation();
                 updateSelectionUI();
             }
@@ -1516,18 +1501,38 @@
             game.syndicatesDeployed++;
             const sy = ensureSyndicateState(idx);
 
+            // Create EXACTLY OFFICERS_PER_SYNDICATE officers.
+            let created = 0;
             for (let i = 0; i < OFFICERS_PER_SYNDICATE; i++) {
+                // Try to find a valid random spawn near the command point.
                 let spawnX = sy.commandX, spawnY = sy.commandY;
-                for (let tries = 0; tries < 20; tries++) {
-                    const tx = sy.commandX + (Math.random() - 0.5) * 200;
-                    const ty = sy.commandY + (Math.random() - 0.5) * 200;
+                for (let tries = 0; tries < 30; tries++) {
+                    const tx = sy.commandX + (Math.random() - 0.5) * TILE * 6;
+                    const ty = sy.commandY + (Math.random() - 0.5) * TILE * 6;
                     if (isValidPosition(tx, ty)) { spawnX = tx; spawnY = ty; break; }
                 }
                 const o = new Officer(spawnX, spawnY, idx);
                 game.officers.push(o);
+                created++;
             }
+
+            // Safety: if somehow fewer were created, top up from command point.
+            while (created < OFFICERS_PER_SYNDICATE) {
+                const o = new Officer(sy.commandX, sy.commandY, idx);
+                game.officers.push(o);
+                created++;
+            }
+
             assignFormation();
             renderSyndicateTabs();
+
+            // Auto-select the newly deployed syndicate so the player sees it.
+            game.selectedSyndicate = idx;
+            renderSyndicateTabs();
+            renderOptionsPanel();
+            updateSelectionUI();
+            // Snap camera to the new syndicate so the units are visible.
+            game.cameraUserLock = 0;
         }
 
         function trainSyndicate() {
@@ -1556,7 +1561,6 @@
             game.raidersDefeated = 0;
             game.raiderGroupMorale = 100;
 
-            // --- pick the wave objective ---
             const ai = game.raidAI;
             const roll = Math.random();
             if (game.waveNumber <= 1) ai.objective = 'base';
@@ -1568,7 +1572,7 @@
             ai.timer = 9;
             ai.holdTimer = 0;
 
-            const raiderCount = 12 + game.waveNumber * 4; // slightly larger waves
+            const raiderCount = 12 + game.waveNumber * 4;
             game.waveSpawnQueue = [];
             let totalHp = 0;
             for (let i = 0; i < raiderCount; i++) {
@@ -1602,7 +1606,7 @@
                     routeKey = 'north';
                 }
                 game.raiders.push(new Raider(kind, routeKey));
-                game.waveSpawnTimer = 0.6 + Math.random() * 0.6; // faster spawns
+                game.waveSpawnTimer = 0.6 + Math.random() * 0.6;
             }
 
             const anyLeft = game.raiders.some(r => r.alive && r.state !== 'fleeing') || game.waveSpawnQueue.length > 0;
@@ -1622,7 +1626,7 @@
                     game.raiders = [];
                     game.waveState = 'intermission';
                     game.waveNumber++;
-                    game.waveTimer = 8; // shorter intermission for testing
+                    game.waveTimer = 8;
                     showToast('Wave cleared — raiders dispersed!');
                 }
             }
@@ -1631,9 +1635,6 @@
             }
         }
 
-        // ========== RAIDER AI BRAIN ==========
-        // Re-evaluates every several seconds and can switch between
-        // pushing, holding back to bait, and splitting down both roads.
         function updateRaidAI(dt) {
             const ai = game.raidAI;
             if (!ai || game.waveState !== 'active') return;
@@ -1654,14 +1655,12 @@
             const raiders = game.raiders.filter(r => r.alive && r.state !== 'fleeing');
             if (raiders.length < 3 || officers.length === 0) return;
 
-            // How bunched up are the player's officers?
             let ox = 0, oy = 0;
             officers.forEach(o => { ox += o.x; oy += o.y; });
             ox /= officers.length; oy /= officers.length;
             let spread = 0;
             officers.forEach(o => { spread = Math.max(spread, Math.hypot(o.x - ox, o.y - oy) / TILE); });
 
-            // Where is the raid, on average?
             let rx = 0, ry = 0;
             raiders.forEach(r => { rx += r.x; ry += r.y; });
             rx /= raiders.length; ry /= raiders.length;
@@ -1670,9 +1669,9 @@
 
             let stance = 'push';
             if (spread < 9 && gap > 8 && game.waveNumber >= 2 && Math.random() < 0.55) {
-                stance = 'split';   // player is clumped — hit both roads
+                stance = 'split';
             } else if (gap > 11 && Math.random() < 0.45) {
-                stance = 'hold';    // hold back and bait them forward
+                stance = 'hold';
             }
 
             if (stance !== ai.stance) {
@@ -1682,12 +1681,11 @@
                     showToast('Raiders are holding back — they are baiting you.');
                 } else if (stance === 'split') {
                     showToast('Raiders are splitting up!');
-                    // Re-route roughly half of them onto the other road.
                     let flip = false;
                     for (const r of game.raiders) {
                         if (!r.alive || r.state === 'fleeing' || r.state === 'fighting') continue;
                         if (r.routeKey !== 'south') continue;
-                        if (r.x < TILE * 38) continue;   // too far west, leave them
+                        if (r.x < TILE * 38) continue;
                         flip = !flip;
                         if (flip) rerouteRaider(r, 'north');
                     }
@@ -1947,7 +1945,6 @@
             all.forEach(u => u.draw(ctx));
             drawEffects(ctx);
 
-            // Command marker
             const sy = game.syndicates[game.selectedSyndicate];
             if (sy) {
                 const sx = sy.commandX - game.camera.x;
@@ -1983,7 +1980,6 @@
                 ctx.fillStyle = r.routeKey === 'north' ? '#ffb45c' : '#ff8a5c';
                 ctx.fillRect((r.x / TILE) * MINIMAP_SCALE, (r.y / TILE) * MINIMAP_SCALE, 2, 2);
             });
-            // Building attack markers
             sceneryBuildings.forEach(b => {
                 if (!b.alive || b.hp >= b.maxHp) return;
                 ctx.fillStyle = '#e86858';
@@ -2061,7 +2057,7 @@
             game.syndicateTimer = 0;
             game.waveNumber = 1;
             game.waveState = 'intermission';
-            game.waveTimer = 3; // Spawn first wave quickly for testing
+            game.waveTimer = 3;
             game.waveMoralePct = 100;
             game.waveTotalHp = 0;
             game.waveSpawnQueue = [];

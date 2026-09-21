@@ -324,9 +324,7 @@
 
     <div id="left-dock">
         <div id="panel-view">
-            <div id="panel-header">
-                <span id="panel-title">Tactics</span>
-            </div>
+            <div id="panel-header"><span id="panel-title">Tactics</span></div>
             <div id="options-panel"></div>
         </div>
     </div>
@@ -424,7 +422,6 @@
         }
 
         const ROAD_W = 6;
-
         const ROAD_Y_TOP = 14;
         const ROAD_Y_BOTTOM = 38;
         const ROAD_X_START = 8;
@@ -434,12 +431,10 @@
 
         const BASE_TILE_X = 54;
         const BASE_TILE_Y = ROAD_Y_BOTTOM;
-
         const OFFICER_MIN_TILE_Y = ROAD_Y_TOP - 4;
 
         const ROAD_TILES_WIDE = ROAD_W + 1;
         const OFFICERS_PER_ROW = ROAD_TILES_WIDE;
-
         const ROW_SPACING = 1.2;
         const COL_SPACING = 1.1;
         const OFFICERS_PER_SYNDICATE = 15;
@@ -450,8 +445,6 @@
         const SYNDICATE_START_X = [46, 54, 62];
         const SYNDICATE_START_Y = [ROAD_Y_BOTTOM, ROAD_Y_BOTTOM, ROAD_Y_BOTTOM];
 
-        // Emergency "all out" squad — wider radius so they can break off and
-        // chase raiders that come near the station.
         const ALL_OUT_COUNT = 20;
         const ALL_OUT_DURATION = 20;
         const ALL_OUT_COOLDOWN = 55;
@@ -483,9 +476,11 @@
 
             mergedMode: false,
             mergedIntoIndex: 0,
-
             allOutCooldown: 0,
             allOutActive: 0,
+
+            squads: new Map(),
+            nextSquadId: 1,
 
             waveNumber: 1,
             waveState: 'intermission',
@@ -501,31 +496,114 @@
             raiderGroupMorale: 100,
             buildingsDestroyed: 0,
 
-            raidAI: {
-                objective: 'base',
-                stance: 'push',
-                timer: 8,
-                holdTimer: 0,
-            },
+            raidAI: { objective: 'base' },
         };
 
         // ========== ROAD GRAPH ==========
-        // NOTE: entry nodes used to be at y: -2 which is off-map.  isValidPosition
-        // rejects negative tiles, so raiders got wedged there and never appeared.
-        // They now spawn just inside the top edge (y = 0.5 tiles).
         const ROAD_NODES = [
             { id: 'EL0', x: ENTRY_XS[0], y: 0.5 },
-            { id: 'EL1', x: ENTRY_XS[0], y: ROAD_Y_BOTTOM },
+            { id: 'EL1', x: ENTRY_XS[0], y: ROAD_Y_TOP },
+            { id: 'EL2', x: ENTRY_XS[0], y: ROAD_Y_BOTTOM },
             { id: 'ER0', x: ENTRY_XS[1], y: 0.5 },
-            { id: 'ER1', x: ENTRY_XS[1], y: ROAD_Y_BOTTOM },
+            { id: 'ER1', x: ENTRY_XS[1], y: ROAD_Y_TOP },
+            { id: 'ER2', x: ENTRY_XS[1], y: ROAD_Y_BOTTOM },
+            { id: 'TJ1', x: JUNCTION_XS[0], y: ROAD_Y_TOP },
+            { id: 'TJ2', x: JUNCTION_XS[1], y: ROAD_Y_TOP },
+            { id: 'TJ3', x: JUNCTION_XS[2], y: ROAD_Y_TOP },
+            { id: 'BJ1', x: JUNCTION_XS[0], y: ROAD_Y_BOTTOM },
+            { id: 'BJ3', x: JUNCTION_XS[2], y: ROAD_Y_BOTTOM },
             { id: 'BASE', x: BASE_TILE_X, y: BASE_TILE_Y },
         ];
         function getNode(id) { return ROAD_NODES.find(n => n.id === id); }
 
-        const RAIDER_ROUTES = {
-            west: { nodes: ['EL0', 'EL1', 'BASE'], hold: 'EL1', label: 'West Approach' },
-            east: { nodes: ['ER0', 'ER1', 'BASE'], hold: 'ER1', label: 'East Approach' },
+        // Named squad routes — different approaches to the station.
+        const SQUAD_ROUTES = {
+            'west_direct': ['EL0', 'EL1', 'EL2', 'BASE'],
+            'east_direct': ['ER0', 'ER1', 'ER2', 'BASE'],
+            'west_high':   ['EL0', 'EL1', 'TJ1', 'TJ2', 'BASE'],
+            'east_high':   ['ER0', 'ER1', 'TJ3', 'TJ2', 'BASE'],
+            'west_side':   ['EL0', 'EL1', 'TJ1', 'BJ1', 'BASE'],
+            'east_side':   ['ER0', 'ER1', 'TJ3', 'BJ3', 'BASE'],
         };
+
+        // Wave compositions — each entry defines a squad for the wave.
+        const WAVE_TACTICS = {
+            'single': [
+                { routeKey: 'west_direct', share: 1.0, personality: 'aggressive' },
+            ],
+            'pincer': [
+                { routeKey: 'west_direct', share: 0.5, personality: 'aggressive' },
+                { routeKey: 'east_direct', share: 0.5, personality: 'aggressive' },
+            ],
+            'multi_front': [
+                { routeKey: 'west_direct', share: 0.35, personality: 'aggressive' },
+                { routeKey: 'east_direct', share: 0.35, personality: 'aggressive' },
+                { routeKey: 'west_high',   share: 0.30, personality: 'sneaky' },
+            ],
+            'flank': [
+                { routeKey: 'west_direct', share: 0.55, personality: 'aggressive' },
+                { routeKey: 'west_side',   share: 0.45, personality: 'sneaky' },
+            ],
+            'ambush': [
+                { routeKey: 'west_direct', share: 0.5, personality: 'cautious' },
+                { routeKey: 'east_direct', share: 0.5, personality: 'aggressive' },
+            ],
+            'mass_charge': [
+                { routeKey: 'west_direct', share: 1.0, personality: 'aggressive', initialState: 'regroup' },
+            ],
+        };
+
+        function chooseWaveTactic() {
+            const wave = game.waveNumber;
+            if (wave <= 1) return 'single';
+            if (wave === 2) return 'pincer';
+            const roll = Math.random();
+            if (roll < 0.15) return 'single';
+            if (roll < 0.32) return 'pincer';
+            if (roll < 0.50) return 'multi_front';
+            if (roll < 0.65) return 'flank';
+            if (roll < 0.82) return 'ambush';
+            return 'mass_charge';
+        }
+
+        // ========== SQUAD ==========
+        class RaiderSquad {
+            constructor(id, routeKey, personality, initialState) {
+                this.id = id;
+                this.routeKey = routeKey;
+                this.route = SQUAD_ROUTES[routeKey] || SQUAD_ROUTES['west_direct'];
+                this.personality = personality || 'aggressive';
+                this.state = initialState || 'advance';
+                this.stateTimer = (initialState === 'regroup') ? (4 + Math.random() * 3) : (2 + Math.random() * 2);
+                this.rallyX = 0;
+                this.rallyY = 0;
+                this.contactTimer = 0;
+                this.centroid = { x: 0, y: 0, count: 0 };
+            }
+            members() {
+                const arr = [];
+                for (const r of game.raiders) if (r.alive && r.squadId === this.id) arr.push(r);
+                return arr;
+            }
+            computeCentroid() {
+                let cx = 0, cy = 0, n = 0;
+                for (const r of game.raiders) {
+                    if (!r.alive || r.squadId !== this.id) continue;
+                    cx += r.x; cy += r.y; n++;
+                }
+                if (n === 0) return { x: 0, y: 0, count: 0 };
+                this.centroid = { x: cx / n, y: cy / n, count: n };
+                return this.centroid;
+            }
+            avgHpPct() {
+                let total = 0, n = 0;
+                for (const r of game.raiders) {
+                    if (!r.alive || r.squadId !== this.id) continue;
+                    total += r.hp / r.maxHp; n++;
+                }
+                return n > 0 ? total / n : 1;
+            }
+        }
 
         // ========== MAP GENERATION ==========
         function tileIsRoad(tx, ty) {
@@ -554,7 +632,6 @@
             }
             return false;
         }
-
         function generateMap() {
             map = [];
             for (let y = 0; y < MAP_H; y++) {
@@ -603,7 +680,6 @@
             const n = Math.sin(x * 127.1 + y * 311.7) * 43758.5453;
             return n - Math.floor(n);
         }
-
         function findBuildingFront(tx, ty) {
             const maxR = Math.max(MAP_W, MAP_H);
             for (let r = 0; r < maxR; r++) {
@@ -613,59 +689,43 @@
                         const nx = tx + dx, ny = ty + dy;
                         if (nx < 0 || ny < 0 || nx >= MAP_W || ny >= MAP_H) continue;
                         const t = map[ny][nx];
-                        if (t === TILE_ROAD || t === TILE_SIDEWALK) {
-                            return { x: nx * TILE + TILE / 2, y: ny * TILE + TILE / 2 };
-                        }
+                        if (t === TILE_ROAD || t === TILE_SIDEWALK) return { x: nx * TILE + TILE/2, y: ny * TILE + TILE/2 };
                     }
                 }
             }
             return null;
         }
-
         function placeSceneryBuildings() {
             sceneryBuildings = [];
             const footprint = new Uint8Array(MAP_W * MAP_H);
-
             const isWalk = (x, y) => {
                 if (x < 0 || y < 0 || x >= MAP_W || y >= MAP_H) return false;
                 const t = map[y][x];
                 return t === TILE_ROAD || t === TILE_SIDEWALK || t === TILE_BASE;
             };
-            const isBlock = (x, y) =>
-                x >= 0 && y >= 0 && x < MAP_W && y < MAP_H && map[y][x] === TILE_BLOCK;
-
+            const isBlock = (x, y) => x >= 0 && y >= 0 && x < MAP_W && y < MAP_H && map[y][x] === TILE_BLOCK;
             const freeSpot = (x0, y0, x1, y1) => {
                 if (x0 < 0 || y0 < 0 || x1 > MAP_W - 1 || y1 > MAP_H - 1) return false;
-                const ax0 = Math.max(0, Math.floor(x0));
-                const ax1 = Math.min(MAP_W - 1, Math.ceil(x1) - 1);
-                const ay0 = Math.max(0, Math.floor(y0));
-                const ay1 = Math.min(MAP_H - 1, Math.ceil(y1) - 1);
-                for (let ty = ay0; ty <= ay1; ty++) {
-                    for (let tx = ax0; tx <= ax1; tx++) {
-                        if (map[ty][tx] !== TILE_BLOCK) return false;
-                        if (footprint[ty * MAP_W + tx]) return false;
-                    }
+                const ax0 = Math.max(0, Math.floor(x0)), ax1 = Math.min(MAP_W - 1, Math.ceil(x1) - 1);
+                const ay0 = Math.max(0, Math.floor(y0)), ay1 = Math.min(MAP_H - 1, Math.ceil(y1) - 1);
+                for (let ty = ay0; ty <= ay1; ty++) for (let tx = ax0; tx <= ax1; tx++) {
+                    if (map[ty][tx] !== TILE_BLOCK) return false;
+                    if (footprint[ty * MAP_W + tx]) return false;
                 }
                 return true;
             };
             const markSpot = (x0, y0, x1, y1) => {
-                const ax0 = Math.max(0, Math.floor(x0));
-                const ax1 = Math.min(MAP_W - 1, Math.ceil(x1) - 1);
-                const ay0 = Math.max(0, Math.floor(y0));
-                const ay1 = Math.min(MAP_H - 1, Math.ceil(y1) - 1);
-                for (let ty = ay0; ty <= ay1; ty++)
-                    for (let tx = ax0; tx <= ax1; tx++)
-                        footprint[ty * MAP_W + tx] = 1;
+                const ax0 = Math.max(0, Math.floor(x0)), ax1 = Math.min(MAP_W - 1, Math.ceil(x1) - 1);
+                const ay0 = Math.max(0, Math.floor(y0)), ay1 = Math.min(MAP_H - 1, Math.ceil(y1) - 1);
+                for (let ty = ay0; ty <= ay1; ty++) for (let tx = ax0; tx <= ax1; tx++) footprint[ty * MAP_W + tx] = 1;
             };
-
             function tryPlace(ax, ay, key) {
                 const img = assets[key];
                 if (!img) return false;
                 const scale = BUILDING_DRAW_H / img.height;
                 const wT = (img.width * scale) / TILE;
                 const hT = (img.height * scale) / TILE;
-                const x0 = ax - wT / 2, x1 = ax + wT / 2;
-                const y0 = ay - 0.86 * hT, y1 = ay + 0.14 * hT;
+                const x0 = ax - wT/2, x1 = ax + wT/2, y0 = ay - 0.86*hT, y1 = ay + 0.14*hT;
                 if (!freeSpot(x0, y0, x1, y1)) return false;
                 const b = { tx: ax, ty: ay, key, hp: BUILDING_MAX_HP, maxHp: BUILDING_MAX_HP, alive: true, wT, hT };
                 const front = findBuildingFront(Math.floor(ax), Math.floor(ay));
@@ -674,12 +734,10 @@
                 markSpot(x0, y0, x1, y1);
                 return true;
             }
-
             function pickKey(cx, cy, salt) {
                 const s = seedFromXY(cx * 5.3 + salt * 13.7, cy * 7.1 + salt * 3.3);
                 return BUILDING_KEYS[Math.floor(s * BUILDING_KEYS.length) % BUILDING_KEYS.length];
             }
-
             for (const roadBelow of [true, false]) {
                 for (let y = 1; y < MAP_H - 1; y++) {
                     let x = 0;
@@ -696,17 +754,13 @@
                                 const hT = (img.height * scale) / TILE;
                                 const ax = x + wT / 2;
                                 const ay = roadBelow ? (y + 1 - 0.14 * hT) : (y + 0.86 * hT);
-                                if (tryPlace(ax, ay, key)) {
-                                    x += Math.max(1, Math.round(wT));
-                                    placed = true;
-                                }
+                                if (tryPlace(ax, ay, key)) { x += Math.max(1, Math.round(wT)); placed = true; }
                             }
                         }
                         if (!placed) x++;
                     }
                 }
             }
-
             for (const roadRight of [true, false]) {
                 for (let x = 1; x < MAP_W - 1; x++) {
                     let y = 0;
@@ -721,12 +775,9 @@
                                 const scale = BUILDING_DRAW_H / img.height;
                                 const wT = (img.width * scale) / TILE;
                                 const hT = (img.height * scale) / TILE;
-                                const ax = roadRight ? (x + 1 - wT / 2) : (x + wT / 2);
+                                const ax = roadRight ? (x + 1 - wT/2) : (x + wT/2);
                                 const ay = y + 0.86 * hT;
-                                if (tryPlace(ax, ay, key)) {
-                                    y += Math.max(1, Math.round(hT));
-                                    placed = true;
-                                }
+                                if (tryPlace(ax, ay, key)) { y += Math.max(1, Math.round(hT)); placed = true; }
                             }
                         }
                         if (!placed) y++;
@@ -787,17 +838,14 @@
             t.stroke();
             t.setLineDash([]);
         }
-
         function drawStation(t) {
             const x0 = (BASE_TILE_X - 2) * TILE;
             const y0 = (BASE_TILE_Y - 3) * TILE;
-            const w = 4 * TILE;
-            const h = 5 * TILE;
+            const w = 4 * TILE, h = 5 * TILE;
             t.fillStyle = 'rgba(0,0,0,0.4)';
             t.fillRect(x0 + 5, y0 + 7, w, h);
             const g = t.createLinearGradient(x0, y0, x0, y0 + h);
-            g.addColorStop(0, '#3b5f8a');
-            g.addColorStop(1, '#1f3a56');
+            g.addColorStop(0, '#3b5f8a'); g.addColorStop(1, '#1f3a56');
             t.fillStyle = g;
             t.fillRect(x0, y0, w, h);
             t.fillStyle = '#7fb3e0';
@@ -814,17 +862,12 @@
             t.textAlign = 'center';
             t.fillText('STATION', x0 + w / 2, y0 + h - 25);
         }
-
         function buildTerrainCanvas() {
             const c = document.createElement('canvas');
             c.width = MAP_W * TILE; c.height = MAP_H * TILE;
             const t = c.getContext('2d');
             t.fillStyle = '#1c2028'; t.fillRect(0, 0, c.width, c.height);
-            for (let y = 0; y < MAP_H; y++) {
-                for (let x = 0; x < MAP_W; x++) {
-                    paintTerrainTile(t, x * TILE, y * TILE, map[y][x], x, y);
-                }
-            }
+            for (let y = 0; y < MAP_H; y++) for (let x = 0; x < MAP_W; x++) paintTerrainTile(t, x * TILE, y * TILE, map[y][x], x, y);
             drawLaneMarkings(t);
             sceneryBuildings.forEach(b => {
                 if (!b.alive) return;
@@ -860,27 +903,22 @@
 
         // ========== POSITION VALIDATION ==========
         function isValidPosition(x, y) {
-            const tx = Math.floor(x / TILE);
-            const ty = Math.floor(y / TILE);
+            const tx = Math.floor(x / TILE), ty = Math.floor(y / TILE);
             if (tx < 0 || ty < 0 || tx >= MAP_W || ty >= MAP_H) return false;
             const t = map[ty][tx];
             return t === TILE_ROAD || t === TILE_SIDEWALK || t === TILE_BASE;
         }
         function isValidOfficerPosition(x, y) {
             if (!isValidPosition(x, y)) return false;
-            const tx = Math.floor(x / TILE);
-            const ty = Math.floor(y / TILE);
+            const tx = Math.floor(x / TILE), ty = Math.floor(y / TILE);
             if (ty < OFFICER_MIN_TILE_Y) return false;
             if (ty < ROAD_Y_TOP) {
-                for (const ex of ENTRY_XS) {
-                    if (Math.abs(tx - ex) <= ROAD_W / 2 + 1) return false;
-                }
+                for (const ex of ENTRY_XS) if (Math.abs(tx - ex) <= ROAD_W / 2 + 1) return false;
             }
             return true;
         }
         function snapToTileCenter(x, y) {
-            const tx = Math.floor(x / TILE);
-            const ty = Math.floor(y / TILE);
+            const tx = Math.floor(x / TILE), ty = Math.floor(y / TILE);
             return { x: tx * TILE + TILE / 2, y: ty * TILE + TILE / 2 };
         }
 
@@ -888,13 +926,12 @@
         const OFFICER = {
             hp: 120, meleeDamage: 15, meleeRange: 1.35, atkCooldown: 0.85,
             walkSpeed: 3.5, sprintSpeed: 6.5, lungeRange: 2.1, restRegen: 7,
-            retreatHpPct: 0.25, cooldownTime: 60,
-            disperseDamageMult: 3.0,
+            retreatHpPct: 0.25, cooldownTime: 60, disperseDamageMult: 3.0,
         };
         const OFFICER_PALETTE = { cloth: '#232f45', dark: '#141b29', visor: '#8fd6ff', shield: '#c7d3e0', shieldEdge: '#7c8aa0' };
         const ALL_OUT_PALETTE = { cloth: '#4a2430', dark: '#2a1018', visor: '#ffd08a', shield: '#e8c9a0', shieldEdge: '#a08050' };
-
         let officerIdSeq = 1;
+
         class Officer {
             constructor(x, y, syndicateIndex, opts) {
                 opts = opts || {};
@@ -920,18 +957,13 @@
                 this.baseX = BASE_TILE_X * TILE;
                 this.baseY = BASE_TILE_Y * TILE;
             }
-
             mySyndicate() {
-                if (game.mergedMode) {
-                    return game.syndicates[game.mergedIntoIndex] || game.syndicates[0];
-                }
+                if (game.mergedMode) return game.syndicates[game.mergedIntoIndex] || game.syndicates[0];
                 return game.syndicates[this.syndicateIndex] || game.syndicates[0];
             }
-
             update(dt) {
                 if (!this.alive) return;
                 if (this.isAllOut) { this.updateAllOut(dt); return; }
-
                 this.animTimer += dt;
                 if (this.attackFlash > 0) this.attackFlash = Math.max(0, this.attackFlash - dt);
                 this.atkTimer = Math.max(0, this.atkTimer - dt);
@@ -946,12 +978,11 @@
                     this.isMoving = dist > 4;
                     if (dist > 4) {
                         const step = Math.min(dist, OFFICER.sprintSpeed * TILE * dt);
-                        const nx = this.x + (dx / dist) * step;
-                        const ny = this.y + (dy / dist) * step;
+                        const nx = this.x + (dx/dist) * step, ny = this.y + (dy/dist) * step;
                         if (isValidOfficerPosition(nx, ny)) { this.x = nx; this.y = ny; }
-                        else if (isValidOfficerPosition(nx, this.y)) { this.x = nx; }
-                        else if (isValidOfficerPosition(this.x, ny)) { this.y = ny; }
-                        this.dir = { x: dx / dist, y: dy / dist };
+                        else if (isValidOfficerPosition(nx, this.y)) this.x = nx;
+                        else if (isValidOfficerPosition(this.x, ny)) this.y = ny;
+                        this.dir = { x: dx/dist, y: dy/dist };
                     } else {
                         this.state = 'cooldown';
                         this.cooldownTimer = OFFICER.cooldownTime;
@@ -963,37 +994,25 @@
                     this.cooldownTimer -= dt;
                     this.isMoving = false;
                     this.hp = Math.min(this.maxHp, this.hp + OFFICER.restRegen * dt * 0.5);
-                    if (this.cooldownTimer <= 0) {
-                        this.state = 'active';
-                        this.x = this.targetX; this.y = this.targetY;
-                    }
+                    if (this.cooldownTimer <= 0) { this.state = 'active'; this.x = this.targetX; this.y = this.targetY; }
                     return;
                 }
 
                 const sy = this.mySyndicate();
                 const tactic = sy.tactic;
                 this.shieldUp = tactic !== 'rest';
-
-                if (tactic === 'rest' && this.hp < this.maxHp) {
-                    this.hp = Math.min(this.maxHp, this.hp + OFFICER.restRegen * dt);
-                }
+                if (tactic === 'rest' && this.hp < this.maxHp) this.hp = Math.min(this.maxHp, this.hp + OFFICER.restRegen * dt);
 
                 const engageRange = OFFICER.lungeRange;
                 const dispersing = sy.disperseTimer > 0;
-
                 let target = null, bestD = Infinity;
                 for (const r of game.raiders) {
                     if (!r.alive || r.state === 'fleeing') continue;
                     const d = Math.hypot(r.x - this.x, r.y - this.y);
                     if (d < engageRange * TILE && d < bestD) { bestD = d; target = r; }
                 }
-
-                if (dispersing && target && bestD < OFFICER.meleeRange * TILE * 1.4 && !this.dashing) {
-                    this.dashing = true;
-                }
-                if (this.dashing && (!target || bestD > OFFICER.meleeRange * TILE * 2.2)) {
-                    this.dashing = false;
-                }
+                if (dispersing && target && bestD < OFFICER.meleeRange * TILE * 1.4 && !this.dashing) this.dashing = true;
+                if (this.dashing && (!target || bestD > OFFICER.meleeRange * TILE * 2.2)) this.dashing = false;
 
                 if (this.dashing && target) {
                     const dxp = target.x - this.x, dyp = target.y - this.y;
@@ -1001,14 +1020,13 @@
                     this.isMoving = dist > 1.5;
                     if (dist > 1) {
                         const step = Math.min(dist, OFFICER.sprintSpeed * TILE * dt);
-                        this.x += (dxp / dist) * step; this.y += (dyp / dist) * step;
+                        this.x += (dxp/dist) * step; this.y += (dyp/dist) * step;
                     }
-                    this.dir = { x: (target.x - this.x) / (dist || 1), y: (target.y - this.y) / (dist || 1) };
+                    this.dir = { x: (target.x - this.x)/(dist||1), y: (target.y - this.y)/(dist||1) };
                     if (target && bestD < engageRange * TILE && this.atkTimer <= 0) {
                         this.atkTimer = OFFICER.atkCooldown;
                         this.attackFlash = 0.22;
-                        const dmgMult = dispersing ? OFFICER.disperseDamageMult : 1.0;
-                        dealDamageToRaider(target, OFFICER.meleeDamage * dmgMult);
+                        dealDamageToRaider(target, OFFICER.meleeDamage * (dispersing ? OFFICER.disperseDamageMult : 1.0));
                     }
                     return;
                 }
@@ -1018,51 +1036,30 @@
                 this.isMoving = dist > 2;
                 if (dist > 2) {
                     const step = Math.min(dist, OFFICER.walkSpeed * TILE * dt);
-                    const mvx = (dX / dist) * step;
-                    const mvy = (dY / dist) * step;
-
+                    const mvx = (dX/dist) * step, mvy = (dY/dist) * step;
                     const currentValid = isValidOfficerPosition(this.x, this.y);
-                    if (!currentValid || isValidOfficerPosition(this.x + mvx, this.y)) {
-                        this.x += mvx;
-                    }
-                    if (!currentValid || isValidOfficerPosition(this.x, this.y + mvy)) {
-                        this.y += mvy;
-                    }
+                    if (!currentValid || isValidOfficerPosition(this.x + mvx, this.y)) this.x += mvx;
+                    if (!currentValid || isValidOfficerPosition(this.x, this.y + mvy)) this.y += mvy;
                 }
-
-                if (target && bestD < engageRange * TILE) {
-                    this.dir = { x: (target.x - this.x) / (bestD || 1), y: (target.y - this.y) / (bestD || 1) };
-                } else {
-                    if (this.isMoving && dist > 0) {
-                        this.dir = { x: dX / dist, y: dY / dist };
-                    }
-                }
+                if (target && bestD < engageRange * TILE) this.dir = { x: (target.x - this.x)/(bestD||1), y: (target.y - this.y)/(bestD||1) };
+                else if (this.isMoving && dist > 0) this.dir = { x: dX/dist, y: dY/dist };
 
                 if (target && bestD < engageRange * TILE && this.atkTimer <= 0) {
                     this.atkTimer = OFFICER.atkCooldown;
                     this.attackFlash = 0.22;
-                    const dmgMult = dispersing ? OFFICER.disperseDamageMult : 1.0;
-                    dealDamageToRaider(target, OFFICER.meleeDamage * dmgMult);
+                    dealDamageToRaider(target, OFFICER.meleeDamage * (dispersing ? OFFICER.disperseDamageMult : 1.0));
                 }
             }
-
-            // ---- Emergency squad ----
-            // These break formation freely.  They target any raider that is
-            // threatening the STATION (distance measured from base, not from
-            // themselves), so they leave the ring to chase and can fight
-            // anywhere near the base.
+            // Emergency squad — freely breaks formation, chases threats to the station
             updateAllOut(dt) {
                 this.animTimer += dt;
                 if (this.attackFlash > 0) this.attackFlash = Math.max(0, this.attackFlash - dt);
                 this.atkTimer = Math.max(0, this.atkTimer - dt);
                 this.shieldUp = true;
-
                 this.allOutTimer -= dt;
                 if (this.allOutTimer <= 0) { this.alive = false; return; }
 
-                const bx = BASE_TILE_X * TILE;
-                const by = BASE_TILE_Y * TILE;
-
+                const bx = BASE_TILE_X * TILE, by = BASE_TILE_Y * TILE;
                 let target = null, bestD = Infinity;
                 for (const r of game.raiders) {
                     if (!r.alive || r.state === 'fleeing') continue;
@@ -1071,17 +1068,15 @@
                     const d = Math.hypot(r.x - this.x, r.y - this.y);
                     if (d < bestD) { bestD = d; target = r; }
                 }
-
                 if (target) {
                     const dx = target.x - this.x, dy = target.y - this.y;
                     const d = Math.hypot(dx, dy) || 1;
-                    this.dir = { x: dx / d, y: dy / d };
+                    this.dir = { x: dx/d, y: dy/d };
                     const reach = OFFICER.meleeRange * TILE * 1.1;
                     if (d > reach) {
                         this.isMoving = true;
                         const step = Math.min(d - reach, OFFICER.sprintSpeed * TILE * dt);
-                        const nx = this.x + (dx / d) * step;
-                        const ny = this.y + (dy / d) * step;
+                        const nx = this.x + (dx/d) * step, ny = this.y + (dy/d) * step;
                         if (isValidPosition(nx, ny)) { this.x = nx; this.y = ny; }
                         else if (isValidPosition(nx, this.y)) this.x = nx;
                         else if (isValidPosition(this.x, ny)) this.y = ny;
@@ -1095,22 +1090,18 @@
                     }
                     return;
                 }
-
-                // No threats — walk back to the assigned ring position.
                 const dx = this.homeX - this.x, dy = this.homeY - this.y;
                 const d = Math.hypot(dx, dy);
                 this.isMoving = d > TILE * 1.5;
                 if (d > TILE * 1.5) {
                     const step = Math.min(d, OFFICER.walkSpeed * TILE * dt);
-                    const nx = this.x + (dx / d) * step;
-                    const ny = this.y + (dy / d) * step;
+                    const nx = this.x + (dx/d) * step, ny = this.y + (dy/d) * step;
                     if (isValidPosition(nx, ny)) { this.x = nx; this.y = ny; }
                     else if (isValidPosition(nx, this.y)) this.x = nx;
                     else if (isValidPosition(this.x, ny)) this.y = ny;
-                    this.dir = { x: dx / d, y: dy / d };
+                    this.dir = { x: dx/d, y: dy/d };
                 }
             }
-
             draw(ctx) {
                 if (!this.alive) return;
                 const sx = this.x - game.camera.x, sy = this.y - game.camera.y;
@@ -1121,26 +1112,20 @@
                 drawOfficerFigure(ctx, this);
                 ctx.restore();
                 drawHpBar(ctx, sx, sy - 24, this.hp, this.maxHp, this.isAllOut ? '#ffb45c' : '#6cc4ff');
-
                 if (this.isAllOut) {
-                    ctx.fillStyle = '#ff8a5c';
-                    ctx.font = 'bold 8px monospace';
-                    ctx.textAlign = 'center';
+                    ctx.fillStyle = '#ff8a5c'; ctx.font = 'bold 8px monospace'; ctx.textAlign = 'center';
                     ctx.fillText('⚡', sx, sy - 28);
                 } else if (this.state === 'retreating' || this.state === 'cooldown') {
                     ctx.fillStyle = this.state === 'retreating' ? '#ff4444' : '#ffaa00';
-                    ctx.font = '8px monospace';
-                    ctx.textAlign = 'center';
+                    ctx.font = '8px monospace'; ctx.textAlign = 'center';
                     ctx.fillText(this.state === 'retreating' ? '!' : '...', sx, sy - 28);
                 }
             }
         }
-
         function drawOfficerFigure(ctx, u) {
             const pal = u.isAllOut ? ALL_OUT_PALETTE : OFFICER_PALETTE;
             const walking = u.isMoving;
-            const swingHz = walking ? 7 : 1.2;
-            const phase = u.animTimer * swingHz;
+            const phase = u.animTimer * (walking ? 7 : 1.2);
             const amp = walking ? 1 : 0.12;
             const legSwing = Math.sin(phase) * amp;
             const H = 20;
@@ -1177,12 +1162,11 @@
             }
             ctx.restore();
         }
-
         function drawHpBar(ctx, sx, sy, hp, maxHp, color) {
             if (hp >= maxHp) return;
             const w = 20;
-            ctx.fillStyle = 'rgba(0,0,0,0.5)'; ctx.fillRect(sx - w / 2, sy, w, 3);
-            ctx.fillStyle = color; ctx.fillRect(sx - w / 2, sy, w * Math.max(0, hp / maxHp), 3);
+            ctx.fillStyle = 'rgba(0,0,0,0.5)'; ctx.fillRect(sx - w/2, sy, w, 3);
+            ctx.fillStyle = color; ctx.fillRect(sx - w/2, sy, w * Math.max(0, hp/maxHp), 3);
         }
 
         // ========== RAIDER ==========
@@ -1194,19 +1178,16 @@
         let raiderIdSeq = 1;
 
         class Raider {
-            constructor(kind, routeKey) {
+            constructor(kind, routeKey, squadId, spawnX, spawnY) {
                 this.id = raiderIdSeq++;
                 this.kind = kind;
-                this.routeKey = (routeKey && RAIDER_ROUTES[routeKey]) ? routeKey : 'west';
+                this.routeKey = routeKey || 'west_direct';
+                this.squadId = squadId || 0;
                 const def = RAIDER_TYPES[kind];
                 this.def = def;
                 this.hp = def.hp; this.maxHp = def.hp;
-
-                const nodes = RAIDER_ROUTES[this.routeKey].nodes;
-                const spawnNode = getNode(nodes[0]);
-                this.x = spawnNode.x * TILE;
-                this.y = spawnNode.y * TILE;
-
+                this.x = spawnX; this.y = spawnY;
+                this.spawnX = spawnX; this.spawnY = spawnY;
                 this.pathIndex = 1;
                 this.dir = { x: 0, y: 1 };
                 this.animTimer = Math.random() * 10;
@@ -1222,9 +1203,15 @@
                 this.targetBuilding = null;
                 this.jitterX = (Math.random() - 0.5) * TILE * 1.6;
                 this.jitterY = (Math.random() - 0.5) * TILE * 1.6;
+                this.timeSinceDamage = 0;
+                this.holdX = null; this.holdY = null;
             }
 
-            routeNodes() { return RAIDER_ROUTES[this.routeKey].nodes; }
+            routeNodes() {
+                const squad = game.squads.get(this.squadId);
+                if (squad && squad.route) return squad.route;
+                return ['EL0', 'EL1', 'BASE'];
+            }
 
             moveToward(tx, ty, dt, speed) {
                 const dx = tx - this.x, dy = ty - this.y;
@@ -1232,18 +1219,14 @@
                 this.isMoving = dist > 3;
                 if (dist < 0.001) return dist;
                 const step = Math.min(dist, speed * TILE * dt);
-                const nx = this.x + (dx / dist) * step;
-                const ny = this.y + (dy / dist) * step;
-
+                const nx = this.x + (dx/dist) * step, ny = this.y + (dy/dist) * step;
                 const canFull = isValidPosition(nx, ny);
                 const canX = isValidPosition(nx, this.y);
                 const canY = isValidPosition(this.x, ny);
-
                 if (canFull) { this.x = nx; this.y = ny; }
-                else if (canX && !canY) { this.x = nx; }
-                else if (canY && !canX) { this.y = ny; }
-
-                this.dir = { x: dx / dist, y: dy / dist };
+                else if (canX && !canY) this.x = nx;
+                else if (canY && !canX) this.y = ny;
+                this.dir = { x: dx/dist, y: dy/dist };
                 return dist;
             }
 
@@ -1262,13 +1245,30 @@
                 this.animTimer += dt;
                 if (this.attackFlash > 0) this.attackFlash = Math.max(0, this.attackFlash - dt);
                 this.atkTimer = Math.max(0, this.atkTimer - dt);
+                this.timeSinceDamage += dt;
 
+                // ---- Slow HP regeneration when not taking damage ----
+                if (this.timeSinceDamage > 3 && this.hp < this.maxHp && this.state !== 'fleeing') {
+                    let rate = 1.5;
+                    if (this.state === 'resting' || this.state === 'holding') rate = 3.5;
+                    let restingNearby = 0;
+                    for (const r of game.raiders) {
+                        if (r === this || !r.alive) continue;
+                        if (r.state !== 'resting' && r.state !== 'holding') continue;
+                        if (Math.hypot(r.x - this.x, r.y - this.y) < TILE * 3.5) restingNearby++;
+                    }
+                    rate += Math.min(3, restingNearby * 0.6);
+                    this.hp = Math.min(this.maxHp, this.hp + rate * dt);
+                }
+
+                // ---- Flee morale check (much harder to trigger) ----
                 if (this.state !== 'fleeing') {
                     this.fleeTimer -= dt;
                     if (this.fleeTimer <= 0) {
-                        this.fleeTimer = 1.0;
-                        if (game.raiderGroupMorale < 30) {
-                            const fleeChance = (30 - game.raiderGroupMorale) * 0.03;
+                        this.fleeTimer = 1.5;
+                        // Raiders only break when collective morale is really gone
+                        if (game.raiderGroupMorale < 12) {
+                            const fleeChance = (12 - game.raiderGroupMorale) * 0.01;
                             if (Math.random() < fleeChance) {
                                 this.state = 'fleeing';
                                 this.hp = 0;
@@ -1278,16 +1278,37 @@
                     }
                 }
 
+                // ---- Fleeing: still fights through anyone blocking the path ----
                 if (this.state === 'fleeing') {
-                    const nodes = this.routeNodes();
-                    const spawnNode = getNode(nodes[0]);
-                    const dx = spawnNode.x * TILE - this.x, dy = spawnNode.y * TILE - this.y;
+                    // Raiders don't walk past a wall of officers — they smash through.
+                    const blockRange = this.def.meleeRange * TILE * 1.35;
+                    let blocker = null, blockerD = Infinity;
+                    for (const o of game.officers) {
+                        if (!o.alive || o.state !== 'active') continue;
+                        const d = Math.hypot(o.x - this.x, o.y - this.y);
+                        if (d < blockRange && d < blockerD) { blockerD = d; blocker = o; }
+                    }
+                    if (blocker) {
+                        this.isMoving = false;
+                        const dx = blocker.x - this.x, dy = blocker.y - this.y;
+                        const d = Math.hypot(dx, dy) || 1;
+                        this.dir = { x: dx/d, y: dy/d };
+                        if (this.atkTimer <= 0) {
+                            this.atkTimer = this.def.atkCooldown * 0.8;
+                            this.attackFlash = 0.22;
+                            // Cornered raiders fight harder
+                            dealDamageToOfficer(blocker, this.def.damage * 1.5);
+                        }
+                        return;
+                    }
+                    const spawnNode = { x: this.spawnX / TILE, y: this.spawnY / TILE };
+                    const dx = this.spawnX - this.x, dy = this.spawnY - this.y;
                     const dist = Math.hypot(dx, dy);
                     this.isMoving = dist > 4;
                     if (dist > 4) {
                         const step = this.def.speed * 2 * TILE * dt;
-                        this.x += (dx / dist) * step; this.y += (dy / dist) * step;
-                        this.dir = { x: dx / dist, y: dy / dist };
+                        this.x += (dx/dist) * step; this.y += (dy/dist) * step;
+                        this.dir = { x: dx/dist, y: dy/dist };
                     } else {
                         this.alive = false;
                     }
@@ -1307,9 +1328,7 @@
                 if (!target) { target = fallbackTarget; bestD = fallbackD; }
 
                 this.engaged = !!(target && bestD < engageRange + TILE * 0.4);
-                if (this.engaged) {
-                    game.attackerCounts.set(target.id, (game.attackerCounts.get(target.id) || 0) + 1);
-                }
+                if (this.engaged) game.attackerCounts.set(target.id, (game.attackerCounts.get(target.id) || 0) + 1);
 
                 let nearbyOfficers = 0;
                 for (const o of game.officers) {
@@ -1322,9 +1341,7 @@
                     }
                 } else {
                     this.boxedInTimer = Math.max(0, this.boxedInTimer - dt);
-                    if (this.boxedInTimer <= 0) {
-                        this.def = RAIDER_TYPES[this.kind];
-                    }
+                    if (this.boxedInTimer <= 0) this.def = RAIDER_TYPES[this.kind];
                 }
 
                 if (this.engaged && target) {
@@ -1332,7 +1349,7 @@
                     this.isMoving = false;
                     const dx = target.x - this.x, dy = target.y - this.y;
                     const d = Math.hypot(dx, dy) || 1;
-                    this.dir = { x: dx / d, y: dy / d };
+                    this.dir = { x: dx/d, y: dy/d };
                     if (this.atkTimer <= 0) {
                         this.atkTimer = this.def.atkCooldown;
                         this.attackFlash = 0.22;
@@ -1345,6 +1362,52 @@
                 if (this.kind === 'bruiser') {
                     this.surgeTimer -= dt;
                     if (this.surgeTimer <= 0) { spd *= 1.8; if (this.surgeTimer < -0.6) this.surgeTimer = 2 + Math.random() * 3; }
+                }
+
+                // ---- Squad-state-driven behavior ----
+                const squad = game.squads.get(this.squadId);
+                if (squad) {
+                    const sState = squad.state;
+
+                    if (sState === 'rest') {
+                        const d = Math.hypot(squad.rallyX - this.x, squad.rallyY - this.y);
+                        if (d > TILE * 2.5) {
+                            this.state = 'advancing';
+                            this.moveToward(squad.rallyX, squad.rallyY, dt, spd * 0.7);
+                        } else {
+                            this.isMoving = false;
+                            this.state = 'resting';
+                        }
+                        return;
+                    }
+                    if (sState === 'hold') {
+                        const d = Math.hypot(squad.rallyX - this.x, squad.rallyY - this.y);
+                        if (d > TILE * 2.5) {
+                            this.state = 'advancing';
+                            this.moveToward(squad.rallyX, squad.rallyY, dt, spd * 0.75);
+                        } else {
+                            this.isMoving = false;
+                            this.state = 'holding';
+                        }
+                        return;
+                    }
+                    if (sState === 'regroup') {
+                        const d = Math.hypot(squad.rallyX - this.x, squad.rallyY - this.y);
+                        if (d > TILE * 2) {
+                            this.state = 'advancing';
+                            this.moveToward(squad.rallyX, squad.rallyY, dt, spd);
+                        } else {
+                            this.isMoving = false;
+                            this.state = 'resting';
+                        }
+                        return;
+                    }
+                    if (sState === 'ambush') {
+                        this.isMoving = false;
+                        this.state = 'ambushing';
+                        return;
+                    }
+                    // state === 'advance' → normal route-following below
                 }
 
                 const ai = game.raidAI;
@@ -1360,12 +1423,9 @@
                 }
 
                 if (objective === 'buildings') {
-                    if (!this.targetBuilding || !this.targetBuilding.alive) {
-                        this.targetBuilding = pickRaidBuilding(this);
-                    }
+                    if (!this.targetBuilding || !this.targetBuilding.alive) this.targetBuilding = pickRaidBuilding(this);
                     if (this.targetBuilding && this.targetBuilding.frontX !== undefined) {
-                        const fx = this.targetBuilding.frontX;
-                        const fy = this.targetBuilding.frontY;
+                        const fx = this.targetBuilding.frontX, fy = this.targetBuilding.frontY;
                         const d = Math.hypot(fx - this.x, fy - this.y);
                         const strikeRange = TILE * 2.2;
                         if (d < strikeRange) {
@@ -1374,7 +1434,7 @@
                             const bdx = this.targetBuilding.tx * TILE - this.x;
                             const bdy = this.targetBuilding.ty * TILE - this.y;
                             const bd = Math.hypot(bdx, bdy) || 1;
-                            this.dir = { x: bdx / bd, y: bdy / bd };
+                            this.dir = { x: bdx/bd, y: bdy/bd };
                             if (this.atkTimer <= 0) {
                                 this.atkTimer = this.def.atkCooldown;
                                 this.attackFlash = 0.22;
@@ -1388,21 +1448,6 @@
                     }
                 }
 
-                if (ai.stance === 'hold') {
-                    const holdNode = getNode(RAIDER_ROUTES[this.routeKey].hold);
-                    const hx = holdNode.x * TILE + this.jitterX;
-                    const hy = holdNode.y * TILE + this.jitterY;
-                    const d = Math.hypot(hx - this.x, hy - this.y);
-                    if (d < TILE * 1.2) {
-                        this.state = 'holding';
-                        this.isMoving = false;
-                        return;
-                    }
-                    this.state = 'advancing';
-                    this.moveToward(hx, hy, dt, spd);
-                    return;
-                }
-
                 const nodes = this.routeNodes();
                 if (this.pathIndex >= nodes.length) {
                     game.baseHp = Math.max(0, game.baseHp - this.def.damage * 3);
@@ -1411,14 +1456,11 @@
                     return;
                 }
                 const node = getNode(nodes[this.pathIndex]);
+                if (!node) { this.pathIndex = nodes.length; return; }
                 const tx = node.x * TILE, ty = node.y * TILE;
                 const d = Math.hypot(tx - this.x, ty - this.y);
-                if (d < 8) {
-                    this.pathIndex++;
-                } else {
-                    this.state = 'advancing';
-                    this.moveToward(tx, ty, dt, spd);
-                }
+                if (d < 8) this.pathIndex++;
+                else { this.state = 'advancing'; this.moveToward(tx, ty, dt, spd); }
             }
 
             draw(ctx) {
@@ -1432,15 +1474,14 @@
                 ctx.restore();
                 drawHpBar(ctx, sx, sy - 22, this.hp, this.maxHp, this.state === 'fleeing' ? '#aaaaaa' : '#ff8a5c');
 
-                if (this.state === 'holding') {
-                    ctx.fillStyle = '#ffcc33';
-                    ctx.font = '8px monospace';
-                    ctx.textAlign = 'center';
+                if (this.state === 'holding' || this.state === 'resting') {
+                    ctx.fillStyle = '#86cf72'; ctx.font = '8px monospace'; ctx.textAlign = 'center';
                     ctx.fillText('…', sx, sy - 26);
+                } else if (this.state === 'ambushing') {
+                    ctx.fillStyle = '#ffcc33'; ctx.font = '8px monospace'; ctx.textAlign = 'center';
+                    ctx.fillText('👁', sx, sy - 26);
                 } else if (this.state === 'vandal') {
-                    ctx.fillStyle = '#ff8a5c';
-                    ctx.font = '8px monospace';
-                    ctx.textAlign = 'center';
+                    ctx.fillStyle = '#ff8a5c'; ctx.font = '8px monospace'; ctx.textAlign = 'center';
                     ctx.fillText('💥', sx, sy - 26);
                 }
             }
@@ -1484,22 +1525,18 @@
         function pickRaidBuilding(r) {
             let best = null, bestD = Infinity;
             for (const b of sceneryBuildings) {
-                if (!b.alive) continue;
-                if (b.frontX === undefined) continue;
-                if (b.hp <= 0) continue;
+                if (!b.alive || b.frontX === undefined || b.hp <= 0) continue;
                 const d = Math.hypot(b.frontX - r.x, b.frontY - r.y);
                 if (d < bestD) { bestD = d; best = b; }
             }
             return best;
         }
-
         function damageBuilding(b, dmg) {
             if (!b || !b.alive) return;
             b.hp -= dmg;
             spawnHitEffect(b.tx * TILE, b.ty * TILE);
             if (b.hp <= 0) {
-                b.hp = 0;
-                b.alive = false;
+                b.hp = 0; b.alive = false;
                 game.buildingsDestroyed++;
                 game.baseHp = Math.max(0, game.baseHp - 15);
                 buildTerrainCanvas();
@@ -1511,30 +1548,28 @@
         function dealDamageToRaider(r, dmg) {
             if (r.state === 'fleeing') return;
             r.hp -= dmg;
+            r.timeSinceDamage = 0;
             spawnHitEffect(r.x, r.y);
             if (game.waveTotalHp > 0) {
                 game.waveMoralePct = Math.max(0, game.waveMoralePct - (dmg / game.waveTotalHp) * 100);
             }
-            game.raiderGroupMorale = Math.max(0, game.raiderGroupMorale - dmg * 0.05);
+            // Morale damage halved — much harder to break the crowd
+            game.raiderGroupMorale = Math.max(0, game.raiderGroupMorale - dmg * 0.025);
             if (r.hp <= 0 && r.alive) {
                 r.state = 'fleeing';
                 r.hp = 0;
                 game.routed++;
                 game.raidersDefeated++;
-                game.raiderGroupMorale = Math.max(0, game.raiderGroupMorale - 8);
+                game.raiderGroupMorale = Math.max(0, game.raiderGroupMorale - 5);
             }
         }
         function dealDamageToOfficer(o, dmg) {
             const mult = o.shieldUp ? 0.5 : 1.15;
             o.hp -= dmg * mult;
             spawnHitEffect(o.x, o.y);
-            if (o.hp <= 0 && o.alive) {
-                o.alive = false;
-            }
+            if (o.hp <= 0 && o.alive) o.alive = false;
         }
-        function spawnHitEffect(x, y) {
-            game.effects.push({ x, y, t: 0, life: 0.25 });
-        }
+        function spawnHitEffect(x, y) { game.effects.push({ x, y, t: 0, life: 0.25 }); }
         function updateEffects(dt) {
             for (let i = game.effects.length - 1; i >= 0; i--) {
                 const e = game.effects[i];
@@ -1554,17 +1589,12 @@
         // ========== FORMATION ==========
         function orderByFrontStrength(list) {
             return list.sort((a, b) => {
-                const ba = Math.floor(a.hp / 12);
-                const bb = Math.floor(b.hp / 12);
+                const ba = Math.floor(a.hp / 12), bb = Math.floor(b.hp / 12);
                 if (ba !== bb) return bb - ba;
                 return a.id - b.id;
             });
         }
-
-        function assignFormation() {
-            for (let idx = 0; idx < MAX_SYNDICATES; idx++) assignFormationForSyndicate(idx);
-        }
-
+        function assignFormation() { for (let idx = 0; idx < MAX_SYNDICATES; idx++) assignFormationForSyndicate(idx); }
         function assignFormationForSyndicate(idx) {
             let alive;
             if (game.mergedMode) {
@@ -1576,30 +1606,16 @@
             if (alive.length === 0) return;
             const sy = game.syndicates[idx];
             if (!sy) return;
-
             orderByFrontStrength(alive);
-
-            const cx = sy.commandX;
-            const cy = sy.commandY;
+            const cx = sy.commandX, cy = sy.commandY;
             const tactic = sy.tactic;
-
-            let fx = sy.facingX || 1;
-            let fy = sy.facingY || 0;
-            if (Math.abs(fx) > Math.abs(fy)) {
-                fx = Math.sign(fx) || 1;
-                fy = 0;
-            } else {
-                fx = 0;
-                fy = Math.sign(fy) || 1;
-            }
-            const px = fy;
-            const py = -fx;
-
+            let fx = sy.facingX || 1, fy = sy.facingY || 0;
+            if (Math.abs(fx) > Math.abs(fy)) { fx = Math.sign(fx) || 1; fy = 0; } else { fx = 0; fy = Math.sign(fy) || 1; }
+            const px = fy, py = -fx;
             const setSlot = (o, x, y) => { o.targetX = x; o.targetY = y; };
 
             if (tactic === 'rest') {
-                const perRow = 5;
-                let i = 0, row = 0;
+                const perRow = 5; let i = 0, row = 0;
                 while (i < alive.length) {
                     const countThisRow = Math.min(perRow, alive.length - i);
                     for (let c = 0; c < countThisRow; c++) {
@@ -1611,7 +1627,6 @@
                 }
                 return;
             }
-
             if (tactic === 'wedge') {
                 let i = 0, row = 0;
                 while (i < alive.length) {
@@ -1625,10 +1640,8 @@
                 }
                 return;
             }
-
             if (tactic === 'closedwall') {
-                const perRow = OFFICERS_PER_ROW;
-                const spacing = TILE;
+                const perRow = OFFICERS_PER_ROW, spacing = TILE;
                 let i = 0, row = 0;
                 while (i < alive.length) {
                     const countThisRow = Math.min(perRow, alive.length - i);
@@ -1641,10 +1654,8 @@
                 }
                 return;
             }
-
             if (tactic === 'staggeredwall') {
-                const perRow = OFFICERS_PER_ROW;
-                const spacing = TILE;
+                const perRow = OFFICERS_PER_ROW, spacing = TILE;
                 let i = 0, row = 0;
                 while (i < alive.length) {
                     const countThisRow = Math.min(perRow, alive.length - i);
@@ -1658,7 +1669,6 @@
                 }
                 return;
             }
-
             if (tactic === 'stackleft' || tactic === 'stackright') {
                 const sign = tactic === 'stackleft' ? -1 : 1;
                 const files = 3;
@@ -1674,13 +1684,10 @@
                 }
                 return;
             }
-
             if (tactic === 'box') {
                 const frontCount = Math.min(OFFICERS_PER_ROW, alive.length);
                 const remaining = alive.length - frontCount;
-                const leftCount = Math.ceil(remaining / 2);
-                const rightCount = remaining - leftCount;
-
+                const leftCount = Math.ceil(remaining / 2), rightCount = remaining - leftCount;
                 let i = 0;
                 for (let c = 0; c < frontCount; c++) {
                     const off = (c - (frontCount - 1) / 2) * TILE;
@@ -1700,7 +1707,6 @@
                 }
                 return;
             }
-
             let i = 0, row = 0;
             const perRow = 5;
             while (i < alive.length) {
@@ -1720,12 +1726,8 @@
                 const startX = (SYNDICATE_START_X[idx] !== undefined) ? SYNDICATE_START_X[idx] : (BASE_TILE_X + idx * 8);
                 const startY = (SYNDICATE_START_Y[idx] !== undefined) ? SYNDICATE_START_Y[idx] : ROAD_Y_BOTTOM;
                 game.syndicates[idx] = {
-                    tactic: 'wedge',
-                    commandX: startX * TILE,
-                    commandY: startY * TILE,
-                    facingX: -1, facingY: 0,
-                    disperseTimer: 0,
-                    batonsFree: true,
+                    tactic: 'wedge', commandX: startX * TILE, commandY: startY * TILE,
+                    facingX: -1, facingY: 0, disperseTimer: 0, batonsFree: true,
                 };
             }
             const sy = game.syndicates[idx];
@@ -1735,58 +1737,40 @@
             sy.batonsFree = true;
             return sy;
         }
-
         function applyTactic(kind) {
-            const idx = game.selectedSyndicate;
-            const sy = ensureSyndicateState(idx);
+            const sy = ensureSyndicateState(game.selectedSyndicate);
             sy.tactic = kind;
-            assignFormation();
-            updateSelectionUI();
-            renderOptionsPanel();
+            assignFormation(); updateSelectionUI(); renderOptionsPanel();
         }
-
         function applyOrder(kind) {
-            const idx = game.selectedSyndicate;
-            const sy = ensureSyndicateState(idx);
+            const sy = ensureSyndicateState(game.selectedSyndicate);
             if (kind === 'disperse') {
                 if (sy.disperseTimer > 0) return;
                 sy.disperseTimer = 10;
                 showToast('Disperse! Aggressive push for 10 seconds.');
             }
-            assignFormation();
-            updateSelectionUI();
-            renderOptionsPanel();
+            assignFormation(); updateSelectionUI(); renderOptionsPanel();
         }
-
         function commandMove(dx, dy) {
             const sy = ensureSyndicateState(game.selectedSyndicate);
-            const nx = sy.commandX + dx * TILE;
-            const ny = sy.commandY + dy * TILE;
+            const nx = sy.commandX + dx * TILE, ny = sy.commandY + dy * TILE;
             if (isValidOfficerPosition(nx, ny)) {
                 const snapped = snapToTileCenter(nx, ny);
-                sy.commandX = snapped.x;
-                sy.commandY = snapped.y;
+                sy.commandX = snapped.x; sy.commandY = snapped.y;
                 if (dx !== 0) { sy.facingX = dx; sy.facingY = 0; }
                 else if (dy !== 0) { sy.facingX = 0; sy.facingY = dy; }
-                assignFormation();
-                updateSelectionUI();
+                assignFormation(); updateSelectionUI();
             }
         }
-
         function canMove(dx, dy) {
             const sy = game.syndicates[game.selectedSyndicate];
             if (!sy) return false;
-            const nx = sy.commandX + dx * TILE;
-            const ny = sy.commandY + dy * TILE;
-            return isValidOfficerPosition(nx, ny);
+            return isValidOfficerPosition(sy.commandX + dx * TILE, sy.commandY + dy * TILE);
         }
 
         // ========== ALL UNITS ON ME ==========
         function toggleMergedMode() {
-            if (game.syndicatesDeployed < 2) {
-                showToast('Need at least 2 syndicates to merge.');
-                return;
-            }
+            if (game.syndicatesDeployed < 2) { showToast('Need at least 2 syndicates to merge.'); return; }
             if (game.mergedMode) {
                 game.mergedMode = false;
                 showToast('Units released — syndicates resume their own formations.');
@@ -1795,57 +1779,35 @@
                 game.mergedMode = true;
                 showToast('All units converging on Syndicate ' + (game.selectedSyndicate + 1) + '!');
             }
-            assignFormation();
-            renderSyndicateTabs();
-            renderOptionsPanel();
-            updateSelectionUI();
-            updateMergedButton();
+            assignFormation(); renderSyndicateTabs(); renderOptionsPanel(); updateSelectionUI(); updateMergedButton();
         }
-
         function updateMergedButton() {
             const btn = document.getElementById('all-units-btn');
             if (!btn) return;
-            if (game.mergedMode) {
-                btn.classList.add('active');
-                btn.textContent = '🔓 Release Units';
-            } else {
-                btn.classList.remove('active');
-                btn.textContent = '🪖 All Units On Me';
-            }
+            if (game.mergedMode) { btn.classList.add('active'); btn.textContent = '🔓 Release Units'; }
+            else { btn.classList.remove('active'); btn.textContent = '🪖 All Units On Me'; }
         }
 
-        // ========== ALL OUT (last-ditch emergency squad) ==========
+        // ========== ALL OUT ==========
         function triggerAllOut() {
             if (game.allOutCooldown > 0 || game.gameOver) return;
             game.allOutCooldown = ALL_OUT_COOLDOWN;
             game.allOutActive = ALL_OUT_DURATION;
-
-            const bx = BASE_TILE_X * TILE;
-            const by = BASE_TILE_Y * TILE;
+            const bx = BASE_TILE_X * TILE, by = BASE_TILE_Y * TILE;
             const placed = [];
-
             for (let i = 0; i < ALL_OUT_COUNT; i++) {
-                let sx = bx, sy = by;
-                let ok = false;
-                // Try to find a well-spaced, valid position in a wide ring
-                // around the station (radius ~5-13 tiles) so the squad does
-                // not spawn on top of the station itself.
+                let sx = bx, sy = by, ok = false;
                 for (let tries = 0; tries < 80; tries++) {
                     const a = Math.random() * Math.PI * 2;
                     const r = TILE * (5 + Math.random() * 8);
-                    const tx = bx + Math.cos(a) * r;
-                    const ty = by + Math.sin(a) * r;
+                    const tx = bx + Math.cos(a) * r, ty = by + Math.sin(a) * r;
                     if (!isValidPosition(tx, ty)) continue;
                     let tooClose = false;
-                    for (const p of placed) {
-                        if (Math.hypot(p.x - tx, p.y - ty) < TILE * 1.8) { tooClose = true; break; }
-                    }
+                    for (const p of placed) if (Math.hypot(p.x - tx, p.y - ty) < TILE * 1.8) { tooClose = true; break; }
                     if (tooClose) continue;
-                    sx = tx; sy = ty; ok = true;
-                    break;
+                    sx = tx; sy = ty; ok = true; break;
                 }
                 if (!ok) {
-                    // Fallback: place deterministically at a valid tile ring
                     for (let ringR = 5; ringR <= 11 && !ok; ringR++) {
                         for (let step = 0; step < 16 && !ok; step++) {
                             const a = (step / 16) * Math.PI * 2 + i * 0.4;
@@ -1853,9 +1815,7 @@
                             const ty = by + Math.sin(a) * TILE * ringR;
                             if (!isValidPosition(tx, ty)) continue;
                             let tooClose = false;
-                            for (const p of placed) {
-                                if (Math.hypot(p.x - tx, p.y - ty) < TILE * 1.4) { tooClose = true; break; }
-                            }
+                            for (const p of placed) if (Math.hypot(p.x - tx, p.y - ty) < TILE * 1.4) { tooClose = true; break; }
                             if (tooClose) continue;
                             sx = tx; sy = ty; ok = true;
                         }
@@ -1869,17 +1829,14 @@
             showToast('🚨 ALL OUT! Riot squads holding the station for 20 seconds!');
             updateAllOutButton();
         }
-
         function updateAllOutButton() {
             const btn = document.getElementById('all-out-btn');
             if (!btn) return;
             if (game.allOutCooldown > 0) {
-                btn.disabled = true;
-                btn.classList.remove('ready');
+                btn.disabled = true; btn.classList.remove('ready');
                 btn.textContent = '🚨 ALL OUT (' + Math.ceil(game.allOutCooldown) + 's)';
             } else {
-                btn.disabled = false;
-                btn.classList.add('ready');
+                btn.disabled = false; btn.classList.add('ready');
                 btn.textContent = '🚨 ALL OUT';
             }
         }
@@ -1889,8 +1846,7 @@
             if (game.syndicateQueue > 0) {
                 game.syndicateTimer += dt;
                 if (game.syndicateTimer >= game.SYNDICATE_TRAIN_TIME) {
-                    game.syndicateTimer = 0;
-                    game.syndicateQueue--;
+                    game.syndicateTimer = 0; game.syndicateQueue--;
                     spawnSyndicate();
                     showToast('A fresh syndicate has deployed from the station!');
                 }
@@ -1903,15 +1859,12 @@
             sub.textContent = (game.syndicatesDeployed + game.syndicateQueue) + '/' + MAX_SYNDICATES + (game.syndicateQueue ? ' training…' : '');
             prog.style.width = game.syndicateQueue ? Math.round(100 * game.syndicateTimer / game.SYNDICATE_TRAIN_TIME) + '%' : '0%';
         }
-
         function spawnSyndicate() {
             if (game.syndicatesDeployed >= MAX_SYNDICATES) return;
             const idx = game.syndicatesDeployed;
             game.syndicatesDeployed++;
             const sy = ensureSyndicateState(idx);
-
-            const cx = BASE_TILE_X * TILE;
-            const cy = BASE_TILE_Y * TILE;
+            const cx = BASE_TILE_X * TILE, cy = BASE_TILE_Y * TILE;
             for (let i = 0; i < OFFICERS_PER_SYNDICATE; i++) {
                 let spawnX = cx, spawnY = cy;
                 for (let tries = 0; tries < 40; tries++) {
@@ -1919,40 +1872,24 @@
                     const ty = cy + (Math.random() - 0.5) * TILE * 10;
                     if (isValidOfficerPosition(tx, ty)) { spawnX = tx; spawnY = ty; break; }
                 }
-                const o = new Officer(spawnX, spawnY, idx);
-                game.officers.push(o);
+                game.officers.push(new Officer(spawnX, spawnY, idx));
             }
-
-            assignFormation();
-            renderSyndicateTabs();
-
+            assignFormation(); renderSyndicateTabs();
             if (!game.mergedMode) {
                 game.selectedSyndicate = idx;
-                renderSyndicateTabs();
-                renderOptionsPanel();
-                updateSelectionUI();
+                renderSyndicateTabs(); renderOptionsPanel(); updateSelectionUI();
                 game.cameraUserLock = 0;
             }
         }
-
         function trainSyndicate() {
             if (game.syndicatesDeployed + game.syndicateQueue >= MAX_SYNDICATES) return;
-            game.syndicateQueue++;
-            game.syndicateTimer = 0;
+            game.syndicateQueue++; game.syndicateTimer = 0;
             showToast('Training a new syndicate…');
         }
 
         // ========== WAVES ==========
-        const OBJECTIVE_LABELS = {
-            base: 'Reach the Station',
-            buildings: 'Vandalize the City',
-            hunt: 'Attack the Officers',
-        };
-        const OBJECTIVE_SHORT = {
-            base: 'Station',
-            buildings: 'Vandalism',
-            hunt: 'Hunt Officers',
-        };
+        const OBJECTIVE_LABELS = { base: 'Reach the Station', buildings: 'Vandalize the City', hunt: 'Attack the Officers' };
+        const OBJECTIVE_SHORT = { base: 'Station', buildings: 'Vandalism', hunt: 'Hunt Officers' };
 
         function startWave() {
             game.waveState = 'active';
@@ -1968,23 +1905,48 @@
             else if (roll < 0.76) ai.objective = 'buildings';
             else ai.objective = 'hunt';
 
-            ai.stance = 'push';
-            ai.timer = 9;
-            ai.holdTimer = 0;
-
             const raiderCount = 18 + game.waveNumber * 6;
+            const tactic = chooseWaveTactic();
+            const squadConfigs = WAVE_TACTICS[tactic] || WAVE_TACTICS['single'];
+
+            // Reset squads for this wave
+            game.squads = new Map();
+            game.nextSquadId = 1;
+            let assigned = 0;
+            const createdSquads = [];
+            for (let i = 0; i < squadConfigs.length; i++) {
+                const cfg = squadConfigs[i];
+                const share = (i === squadConfigs.length - 1)
+                    ? (raiderCount - assigned)
+                    : Math.floor(raiderCount * cfg.share);
+                if (share <= 0) continue;
+                const squad = new RaiderSquad(game.nextSquadId++, cfg.routeKey, cfg.personality, cfg.initialState);
+                game.squads.set(squad.id, squad);
+                createdSquads.push({ squad, count: share });
+                assigned += share;
+            }
+
+            // Populate spawn queue with squad assignment
             game.waveSpawnQueue = [];
             let totalHp = 0;
-            for (let i = 0; i < raiderCount; i++) {
-                const isBruiser = Math.random() < 0.27;
-                const kind = isBruiser ? 'bruiser' : 'standard';
-                game.waveSpawnQueue.push(kind);
-                totalHp += RAIDER_TYPES[kind].hp;
+            for (const { squad, count } of createdSquads) {
+                for (let i = 0; i < count; i++) {
+                    const isBruiser = Math.random() < 0.27;
+                    const kind = isBruiser ? 'bruiser' : 'standard';
+                    game.waveSpawnQueue.push({ kind, squadId: squad.id });
+                    totalHp += RAIDER_TYPES[kind].hp;
+                }
             }
+            // Shuffle so squads interleave naturally on the approach
+            for (let i = game.waveSpawnQueue.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [game.waveSpawnQueue[i], game.waveSpawnQueue[j]] = [game.waveSpawnQueue[j], game.waveSpawnQueue[i]];
+            }
+
             game.waveTotalHp = totalHp;
             game.totalRaidersInWave = raiderCount;
             game.waveSpawnTimer = 0;
-            announceWave();
+            announceWave(tactic);
         }
 
         function updateWaves(dt) {
@@ -1998,15 +1960,23 @@
 
             game.waveSpawnTimer -= dt;
             if (game.waveSpawnQueue.length > 0 && game.waveSpawnTimer <= 0) {
-                const kind = game.waveSpawnQueue.shift();
-                const routeKey = Math.random() < 0.5 ? 'west' : 'east';
-                game.raiders.push(new Raider(kind, routeKey));
+                const entry = game.waveSpawnQueue.shift();
+                const squad = game.squads.get(entry.squadId);
+                if (squad) {
+                    const startNode = getNode(squad.route[0]);
+                    if (startNode) {
+                        const sx = startNode.x * TILE + (Math.random() - 0.5) * TILE * 3;
+                        const sy = startNode.y * TILE + (Math.random() - 0.5) * TILE * 2;
+                        const r = new Raider(entry.kind, squad.routeKey, squad.id, sx, sy);
+                        game.raiders.push(r);
+                    }
+                }
                 game.waveSpawnTimer = 0.12 + Math.random() * 0.22;
             }
 
-            const anyLeft = game.raiders.some(r => r.alive && r.state !== 'fleeing') || game.waveSpawnQueue.length > 0;
+            const anyLeft = game.raiders.some(r => r.alive) || game.waveSpawnQueue.length > 0;
             const moraleBroken = game.waveMoralePct <= 0;
-            const routedEnough = (game.raidersDefeated / Math.max(1, game.totalRaidersInWave)) >= 0.9;
+            const routedEnough = (game.raidersDefeated / Math.max(1, game.totalRaidersInWave)) >= 0.95;
 
             if (moraleBroken || routedEnough) {
                 game.waveSpawnQueue = [];
@@ -2025,53 +1995,100 @@
                     showToast('Wave cleared — raiders dispersed!');
                 }
             }
-            if (game.baseHp <= 0 && !game.gameOver) {
-                endGame(false);
-            }
+            if (game.baseHp <= 0 && !game.gameOver) endGame(false);
         }
 
-        function updateRaidAI(dt) {
-            const ai = game.raidAI;
-            if (!ai || game.waveState !== 'active') return;
-
-            if (ai.stance === 'hold') {
-                ai.holdTimer -= dt;
-                if (ai.holdTimer <= 0) {
-                    ai.stance = 'push';
-                    ai.timer = 6;
-                }
-            }
-
-            ai.timer -= dt;
-            if (ai.timer > 0) return;
-            ai.timer = 8 + Math.random() * 6;
-
+        // ========== SQUAD AI DIRECTOR ==========
+        function updateSquadAI(dt) {
             const officers = game.officers.filter(o => o.alive && o.state === 'active');
-            const raiders = game.raiders.filter(r => r.alive && r.state !== 'fleeing');
-            if (raiders.length < 3 || officers.length === 0) return;
+            for (const squad of game.squads.values()) {
+                const members = squad.members();
+                if (members.length === 0) continue;
 
-            let ox = 0, oy = 0;
-            officers.forEach(o => { ox += o.x; oy += o.y; });
-            ox /= officers.length; oy /= officers.length;
+                squad.stateTimer -= dt;
+                const c = squad.computeCentroid();
 
-            let rx = 0, ry = 0;
-            raiders.forEach(r => { rx += r.x; ry += r.y; });
-            rx /= raiders.length; ry /= raiders.length;
+                // Contact detection
+                let inContact = false;
+                for (const r of members) {
+                    for (const o of officers) {
+                        if (Math.hypot(r.x - o.x, r.y - o.y) < TILE * 3.5) { inContact = true; break; }
+                    }
+                    if (inContact) break;
+                }
+                if (inContact) squad.contactTimer = 2.0;
+                else squad.contactTimer = Math.max(0, squad.contactTimer - dt);
 
-            const gap = Math.hypot(rx - ox, ry - oy) / TILE;
+                if (squad.stateTimer > 0) continue;
+                if (c.count === 0) continue;
 
-            if (gap > 12 && Math.random() < 0.45 && ai.stance !== 'hold') {
-                ai.stance = 'hold';
-                ai.holdTimer = 8 + Math.random() * 6;
-                showToast('Raiders are massing — they are baiting you.');
+                const avgHp = squad.avgHpPct();
+
+                // Compute spread
+                let spread = 0;
+                for (const r of members) {
+                    const d = Math.hypot(r.x - c.x, r.y - c.y) / TILE;
+                    if (d > spread) spread = d;
+                }
+
+                // Distance from spawn (so we don't ambush at the entry point)
+                const spawnNode = getNode(squad.route[0]);
+                const spawnDist = spawnNode
+                    ? Math.hypot(c.x - spawnNode.x * TILE, c.y - spawnNode.y * TILE) / TILE
+                    : 999;
+
+                const restBias   = squad.personality === 'cautious' ? 0.70 : squad.personality === 'sneaky' ? 0.55 : 0.42;
+                const ambushBias = squad.personality === 'sneaky'   ? 0.40 : squad.personality === 'cautious' ? 0.22 : 0.10;
+
+                // 1. Very hurt + no contact → rest / heal in a group
+                if (avgHp < restBias && squad.contactTimer <= 0) {
+                    squad.state = 'rest';
+                    squad.stateTimer = 6 + Math.random() * 4;
+                    squad.rallyX = c.x; squad.rallyY = c.y;
+                    continue;
+                }
+                // 2. Scattered + no contact → regroup into one bigger group
+                if (spread > 11 && squad.contactTimer <= 0) {
+                    squad.state = 'regroup';
+                    squad.stateTimer = 4 + Math.random() * 3;
+                    squad.rallyX = c.x; squad.rallyY = c.y;
+                    continue;
+                }
+                // 3. Hurt + in contact → hold ground, force the player to come to them
+                if (avgHp < 0.60 && squad.contactTimer > 0 && Math.random() < 0.6) {
+                    squad.state = 'hold';
+                    squad.stateTimer = 5 + Math.random() * 4;
+                    squad.rallyX = c.x; squad.rallyY = c.y;
+                    continue;
+                }
+                // 4. Out in the field, no contact → possible ambush
+                if (squad.contactTimer <= 0 && spawnDist > 16 && Math.random() < ambushBias) {
+                    squad.state = 'ambush';
+                    squad.stateTimer = 6 + Math.random() * 6;
+                    squad.rallyX = c.x; squad.rallyY = c.y;
+                    continue;
+                }
+                // 5. Default: push forward
+                squad.state = 'advance';
+                squad.stateTimer = 6 + Math.random() * 4;
             }
         }
 
-        function announceWave() {
+        function announceWave(tactic) {
             const el = document.getElementById('wave-banner');
             const objLabel = OBJECTIVE_LABELS[game.raidAI.objective] || '';
+            const tacticLabels = {
+                'single': 'Massed Assault',
+                'pincer': 'Pincer Movement',
+                'multi_front': 'Multi-Pronged Attack',
+                'flank': 'Flanking Manoeuvre',
+                'ambush': 'Ambush & Probe',
+                'mass_charge': 'Massing For Charge',
+            };
+            const tLabel = tacticLabels[tactic] || '';
             el.innerHTML = 'WAVE ' + game.waveNumber +
-                '<br><span style="font-size:15px;letter-spacing:1px;color:#ffcc33">' + objLabel + '</span>';
+                '<br><span style="font-size:15px;letter-spacing:1px;color:#ffcc33">' + objLabel + '</span>' +
+                (tLabel ? '<br><span style="font-size:11px;letter-spacing:1px;color:#ff8a5c">' + tLabel + '</span>' : '');
             el.classList.remove('show'); void el.offsetWidth; el.classList.add('show');
         }
 
@@ -2131,25 +2148,18 @@
         function updateCamera(dt) {
             if (game.cameraUserLock > 0) { game.cameraUserLock -= dt; return; }
             if (game.mouse.down) return;
-
             let cx = 0, cy = 0, n = 0;
             if (game.mergedMode) {
-                for (const o of game.officers) {
-                    if (o.alive && !o.isAllOut && o.state === 'active') { cx += o.x; cy += o.y; n++; }
-                }
+                for (const o of game.officers) if (o.alive && !o.isAllOut && o.state === 'active') { cx += o.x; cy += o.y; n++; }
             } else {
                 const idx = game.selectedSyndicate;
-                for (const o of game.officers) {
-                    if (o.alive && !o.isAllOut && o.syndicateIndex === idx && o.state === 'active') { cx += o.x; cy += o.y; n++; }
-                }
+                for (const o of game.officers) if (o.alive && !o.isAllOut && o.syndicateIndex === idx && o.state === 'active') { cx += o.x; cy += o.y; n++; }
             }
             if (n === 0) return;
             cx /= n; cy /= n;
-            const targetX = cx - game.width / 2;
-            const targetY = cy - game.height / 2;
             const k = Math.min(1, dt * 3.2);
-            game.camera.x += (targetX - game.camera.x) * k;
-            game.camera.y += (targetY - game.camera.y) * k;
+            game.camera.x += (cx - game.width/2 - game.camera.x) * k;
+            game.camera.y += (cy - game.height/2 - game.camera.y) * k;
             clampCamera();
         }
 
@@ -2166,17 +2176,14 @@
         const ORDER_DEFS = [
             { key: 'disperse', label: '💨 Disperse', desc: 'Standing order — 10 seconds of triple damage and aggression. Formation is unchanged.' },
         ];
-
         function renderOptionsPanel() {
             const panel = document.getElementById('options-panel');
             panel.innerHTML = '';
             const sy = ensureSyndicateState(game.selectedSyndicate);
 
             const flabel = document.createElement('div');
-            flabel.className = 'section-label';
-            flabel.textContent = 'Formation';
+            flabel.className = 'section-label'; flabel.textContent = 'Formation';
             panel.appendChild(flabel);
-
             FORMATION_DEFS.forEach(t => {
                 const b = document.createElement('button');
                 b.textContent = t.label;
@@ -2184,7 +2191,6 @@
                 b.addEventListener('click', () => applyTactic(t.key));
                 panel.appendChild(b);
             });
-
             const found = FORMATION_DEFS.find(t => t.key === sy.tactic);
             if (found) {
                 const d = document.createElement('div');
@@ -2193,14 +2199,11 @@
             }
 
             const olabel = document.createElement('div');
-            olabel.className = 'section-label';
-            olabel.textContent = 'Standing Orders';
+            olabel.className = 'section-label'; olabel.textContent = 'Standing Orders';
             panel.appendChild(olabel);
-
             ORDER_DEFS.forEach(o => {
                 const b = document.createElement('button');
-                b.className = 'order-btn';
-                b.textContent = o.label;
+                b.className = 'order-btn'; b.textContent = o.label;
                 if (o.key === 'disperse' && sy.disperseTimer > 0) b.classList.add('active-choice');
                 if (o.key === 'disperse' && sy.disperseTimer > 0) b.disabled = true;
                 b.addEventListener('click', () => applyOrder(o.key));
@@ -2208,31 +2211,24 @@
             });
 
             const batonNote = document.createElement('div');
-            batonNote.className = 'info-line';
-            batonNote.style.color = '#86cf72';
+            batonNote.className = 'info-line'; batonNote.style.color = '#86cf72';
             batonNote.textContent = '🏏 Batons free (permanent)';
             panel.appendChild(batonNote);
 
             if (sy.disperseTimer > 0) {
                 const d = document.createElement('div');
-                d.className = 'info-line';
-                d.style.color = '#ffcc33';
+                d.className = 'info-line'; d.style.color = '#ffcc33';
                 d.textContent = '🔥 DISPERSE ACTIVE: ' + Math.ceil(sy.disperseTimer) + 's';
                 panel.appendChild(d);
             }
-
             if (game.mergedMode) {
                 const d = document.createElement('div');
-                d.className = 'info-line';
-                d.style.color = '#ff8a5c';
-                d.style.fontWeight = 'bold';
+                d.className = 'info-line'; d.style.color = '#ff8a5c'; d.style.fontWeight = 'bold';
                 d.textContent = '⚠ ALL UNITS MERGED';
                 panel.appendChild(d);
             }
-
             const kb = document.createElement('button');
-            kb.textContent = '🐕 K9 Unit';
-            kb.disabled = true;
+            kb.textContent = '🐕 K9 Unit'; kb.disabled = true;
             panel.appendChild(kb);
         }
 
@@ -2256,7 +2252,6 @@
                 b.classList.toggle('active', idx === game.selectedSyndicate && exists);
             });
         }
-
         function setupBottomRightUI() {
             document.querySelectorAll('#syndicate-tabs .syn-btn').forEach(b => {
                 b.addEventListener('click', () => {
@@ -2268,40 +2263,31 @@
                         updateMergedButton();
                     }
                     game.selectedSyndicate = idx;
-                    renderSyndicateTabs();
-                    renderOptionsPanel();
-                    updateSelectionUI();
+                    renderSyndicateTabs(); renderOptionsPanel(); updateSelectionUI();
                     game.cameraUserLock = 0;
                 });
             });
-
             const mergeBtn = document.getElementById('all-units-btn');
             if (mergeBtn) mergeBtn.addEventListener('click', toggleMergedMode);
-
             const allOutBtn = document.getElementById('all-out-btn');
             if (allOutBtn) allOutBtn.addEventListener('click', triggerAllOut);
-
             document.getElementById('btn-up').addEventListener('click', () => commandMove(0, -1));
             document.getElementById('btn-down').addEventListener('click', () => commandMove(0, 1));
             document.getElementById('btn-left').addEventListener('click', () => commandMove(-1, 0));
             document.getElementById('btn-right').addEventListener('click', () => commandMove(1, 0));
         }
-
         function updateMoveButtons() {
             document.getElementById('btn-up').disabled = !canMove(0, -1);
             document.getElementById('btn-down').disabled = !canMove(0, 1);
             document.getElementById('btn-left').disabled = !canMove(-1, 0);
             document.getElementById('btn-right').disabled = !canMove(1, 0);
         }
-
         function updateSelectionUI() {
             const idx = game.selectedSyndicate;
             const sy = game.syndicates[idx];
             const el = document.getElementById('selection-info');
             if (!sy) { el.textContent = ''; return; }
-
-            let count;
-            let prefix;
+            let count, prefix;
             if (game.mergedMode) {
                 count = game.officers.filter(o => o.alive && !o.isAllOut && o.state === 'active').length;
                 prefix = 'MERGED FORCE';
@@ -2310,7 +2296,6 @@
                 prefix = 'Syndicate ' + (idx + 1);
             }
             if (count === 0) { el.textContent = ''; return; }
-
             const tacticLabel = (FORMATION_DEFS.find(t => t.key === sy.tactic) || {}).label || sy.tactic;
             let extra = ' · 🏏 Batons Free';
             if (sy.disperseTimer > 0) extra += ' · 💨 ' + Math.ceil(sy.disperseTimer) + 's';
@@ -2339,10 +2324,7 @@
             moraleFill.style.width = Math.round(game.waveMoralePct) + '%';
             document.getElementById('morale-num').textContent = Math.round(game.waveMoralePct) + '%';
 
-            renderSyndicateTabs();
-            updateMoveButtons();
-            updateMergedButton();
-            updateAllOutButton();
+            renderSyndicateTabs(); updateMoveButtons(); updateMergedButton(); updateAllOutButton();
         }
 
         // ========== RENDER ==========
@@ -2361,23 +2343,16 @@
 
             const sy = game.syndicates[game.selectedSyndicate];
             if (sy) {
-                const sx = sy.commandX - game.camera.x;
-                const sy_ = sy.commandY - game.camera.y;
+                const sx = sy.commandX - game.camera.x, sy_ = sy.commandY - game.camera.y;
                 ctx.strokeStyle = game.mergedMode ? 'rgba(255,138,92,0.9)' : 'rgba(255, 204, 51, 0.8)';
                 ctx.lineWidth = 2;
                 ctx.setLineDash([4, 4]);
-                ctx.beginPath();
-                ctx.arc(sx, sy_, 12, 0, Math.PI * 2);
-                ctx.stroke();
+                ctx.beginPath(); ctx.arc(sx, sy_, 12, 0, Math.PI * 2); ctx.stroke();
                 const fx = sy.facingX || 1, fy = sy.facingY || 0;
-                ctx.beginPath();
-                ctx.moveTo(sx, sy_);
-                ctx.lineTo(sx + fx * 18, sy_ + fy * 18);
-                ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(sx, sy_); ctx.lineTo(sx + fx * 18, sy_ + fy * 18); ctx.stroke();
                 ctx.setLineDash([]);
             }
         }
-
         function drawMinimap() {
             const mm = document.getElementById('minimap');
             if (mm.width !== MINIMAP_W || mm.height !== MINIMAP_H) { mm.width = MINIMAP_W; mm.height = MINIMAP_H; }
@@ -2391,7 +2366,7 @@
             });
             game.raiders.forEach(r => {
                 if (!r.alive || r.state === 'fleeing') return;
-                ctx.fillStyle = r.routeKey === 'east' ? '#ffb45c' : '#ff8a5c';
+                ctx.fillStyle = r.state === 'resting' || r.state === 'holding' ? '#86cf72' : '#ff8a5c';
                 ctx.fillRect((r.x / TILE) * MINIMAP_SCALE, (r.y / TILE) * MINIMAP_SCALE, 2, 2);
             });
             sceneryBuildings.forEach(b => {
@@ -2418,15 +2393,10 @@
         function restartGame() {
             document.getElementById('gameover-overlay').classList.remove('show');
             initGameState();
-            generateMap();
-            buildTerrainCanvas();
-            buildMinimapTerrainCanvas();
+            generateMap(); buildTerrainCanvas(); buildMinimapTerrainCanvas();
             spawnSyndicate();
-            renderSyndicateTabs();
-            renderOptionsPanel();
-            updateSelectionUI();
-            updateMergedButton();
-            updateAllOutButton();
+            renderSyndicateTabs(); renderOptionsPanel(); updateSelectionUI();
+            updateMergedButton(); updateAllOutButton();
         }
 
         // ========== MAIN LOOP ==========
@@ -2436,7 +2406,7 @@
             if (!game.gameOver) {
                 updateTraining(dt);
                 updateWaves(dt);
-                updateRaidAI(dt);
+                updateSquadAI(dt);
 
                 if (game.allOutCooldown > 0) game.allOutCooldown = Math.max(0, game.allOutCooldown - dt);
 
@@ -2445,8 +2415,7 @@
                         sy.disperseTimer -= dt;
                         if (sy.disperseTimer <= 0) {
                             sy.disperseTimer = 0;
-                            renderOptionsPanel();
-                            updateSelectionUI();
+                            renderOptionsPanel(); updateSelectionUI();
                         }
                     }
                 });
@@ -2455,6 +2424,10 @@
                 game.attackerCounts.clear();
                 game.officers.forEach(o => o.update(dt));
                 game.raiders.forEach(r => r.update(dt));
+                // Clean up dead raiders
+                if (game.raiders.length > 0 && game.raiders.some(r => !r.alive)) {
+                    game.raiders = game.raiders.filter(r => r.alive);
+                }
                 updateEffects(dt);
                 updateCamera(dt);
                 updateStats();
@@ -2477,6 +2450,8 @@
             game.mergedIntoIndex = 0;
             game.allOutCooldown = 0;
             game.allOutActive = 0;
+            game.squads = new Map();
+            game.nextSquadId = 1;
             game.waveNumber = 1;
             game.waveState = 'intermission';
             game.waveTimer = 3;
@@ -2491,9 +2466,8 @@
             game.raidersDefeated = 0;
             game.raiderGroupMorale = 100;
             game.buildingsDestroyed = 0;
-            game.raidAI = { objective: 'base', stance: 'push', timer: 8, holdTimer: 0 };
+            game.raidAI = { objective: 'base' };
         }
-
         function resizeCanvas() {
             const c = game.canvas;
             game.width = window.innerWidth;
@@ -2504,7 +2478,6 @@
             game.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
             clampCamera();
         }
-
         function setupMinimapDPR() {
             const mm = document.getElementById('minimap');
             game.minimapCtx = mm.getContext('2d');
@@ -2512,25 +2485,20 @@
         function handleOrientationChange() { setTimeout(rebuildWorldForScreenSize, 300); }
         function rebuildWorldForScreenSize() {
             resizeCanvas();
-            computeMapSize();
-            computeMinimapSize();
-            generateMap();
-            buildTerrainCanvas();
-            buildMinimapTerrainCanvas();
+            computeMapSize(); computeMinimapSize();
+            generateMap(); buildTerrainCanvas(); buildMinimapTerrainCanvas();
             game.syndicates.forEach(sy => {
                 if (!sy) return;
                 sy.commandX = Math.max(0, Math.min(MAP_W * TILE, sy.commandX));
                 sy.commandY = Math.max(0, Math.min(MAP_H * TILE, sy.commandY));
                 if (!isValidOfficerPosition(sy.commandX, sy.commandY)) {
-                    sy.commandX = BASE_TILE_X * TILE;
-                    sy.commandY = BASE_TILE_Y * TILE;
+                    sy.commandX = BASE_TILE_X * TILE; sy.commandY = BASE_TILE_Y * TILE;
                 }
             });
             assignFormation();
             clampCamera();
         }
         function isLandscapeReady() { return window.innerWidth > window.innerHeight; }
-
         function init() {
             game.canvas = document.getElementById('game');
             game.ctx = game.canvas.getContext('2d');
@@ -2545,18 +2513,12 @@
 
             initGameState();
             resizeCanvas();
-            computeMapSize();
-            computeMinimapSize();
+            computeMapSize(); computeMinimapSize();
             loadAssets(() => {
-                generateMap();
-                buildTerrainCanvas();
-                buildMinimapTerrainCanvas();
+                generateMap(); buildTerrainCanvas(); buildMinimapTerrainCanvas();
                 spawnSyndicate();
-                renderSyndicateTabs();
-                renderOptionsPanel();
-                updateSelectionUI();
-                updateMergedButton();
-                updateAllOutButton();
+                renderSyndicateTabs(); renderOptionsPanel(); updateSelectionUI();
+                updateMergedButton(); updateAllOutButton();
                 requestAnimationFrame(loop);
             });
         }

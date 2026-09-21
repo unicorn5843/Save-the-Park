@@ -330,11 +330,6 @@
     </div>
 
     <div id="top-bar">
-        <button id="train-syndicate" class="train-btn">
-            <div class="tprog" id="train-syndicate-prog"></div>
-            <span class="tlabel">🚓 Syndicate</span>
-            <span class="tsub" id="train-syndicate-sub">0/3</span>
-        </button>
         <button id="train-arrest" class="train-btn" disabled>
             <span class="tlabel">🚨 Arrest Team</span>
             <span class="tsub">soon</span>
@@ -431,15 +426,14 @@
 
         const BASE_TILE_X = 54;
         const BASE_TILE_Y = ROAD_Y_BOTTOM;
-        const OFFICER_MIN_TILE_Y = ROAD_Y_TOP - 4;
+        // Smooth boundary — officers can now go right up to the top road edge
+        const OFFICER_MIN_TILE_Y = ROAD_Y_TOP - 1;
 
-        const ROAD_TILES_WIDE = ROAD_W + 1;
-        const OFFICERS_PER_ROW = ROAD_TILES_WIDE;
+        const OFFICERS_PER_ROW = ROAD_W + 1;
         const ROW_SPACING = 1.2;
         const COL_SPACING = 1.1;
         const OFFICERS_PER_SYNDICATE = 15;
         const MAX_SYNDICATES = 3;
-        const MAX_UNITS = OFFICERS_PER_SYNDICATE * MAX_SYNDICATES;
         const BASE_MAX_HP = 900;
 
         const SYNDICATE_START_X = [46, 54, 62];
@@ -468,12 +462,7 @@
             baseHp: BASE_MAX_HP,
             syndicates: [],
             selectedSyndicate: 0,
-
-            syndicatesDeployed: 1,
-            syndicateQueue: 0,
-            syndicateTimer: 0,
-            SYNDICATE_TRAIN_TIME: 6,
-
+            syndicatesDeployed: 3,
             mergedMode: false,
             mergedIntoIndex: 0,
             allOutCooldown: 0,
@@ -516,7 +505,6 @@
         ];
         function getNode(id) { return ROAD_NODES.find(n => n.id === id); }
 
-        // Named squad routes — different approaches to the station.
         const SQUAD_ROUTES = {
             'west_direct': ['EL0', 'EL1', 'EL2', 'BASE'],
             'east_direct': ['ER0', 'ER1', 'ER2', 'BASE'],
@@ -526,7 +514,6 @@
             'east_side':   ['ER0', 'ER1', 'TJ3', 'BJ3', 'BASE'],
         };
 
-        // Wave compositions — each entry defines a squad for the wave.
         const WAVE_TACTICS = {
             'single': [
                 { routeKey: 'west_direct', share: 1.0, personality: 'aggressive' },
@@ -575,10 +562,11 @@
                 this.personality = personality || 'aggressive';
                 this.state = initialState || 'advance';
                 this.stateTimer = (initialState === 'regroup') ? (4 + Math.random() * 3) : (2 + Math.random() * 2);
-                this.rallyX = 0;
-                this.rallyY = 0;
+                this.rallyX = 0; this.rallyY = 0;
                 this.contactTimer = 0;
                 this.centroid = { x: 0, y: 0, count: 0 };
+                this.wallPerpX = 0; this.wallPerpY = 1;
+                this.wallTravelX = 0; this.wallTravelY = 1;
             }
             members() {
                 const arr = [];
@@ -591,7 +579,7 @@
                     if (!r.alive || r.squadId !== this.id) continue;
                     cx += r.x; cy += r.y; n++;
                 }
-                if (n === 0) return { x: 0, y: 0, count: 0 };
+                if (n === 0) { this.centroid = { x: 0, y: 0, count: 0 }; return this.centroid; }
                 this.centroid = { x: cx / n, y: cy / n, count: n };
                 return this.centroid;
             }
@@ -674,7 +662,8 @@
         }
 
         const BUILDING_MAX_HP = 350;
-        const BUILDING_DRAW_H = TILE * 3.2;
+        // Smaller buildings → higher density
+        const BUILDING_DRAW_H = TILE * 2.6;
         let sceneryBuildings = [];
         function seedFromXY(x, y) {
             const n = Math.sin(x * 127.1 + y * 311.7) * 43758.5453;
@@ -738,14 +727,15 @@
                 const s = seedFromXY(cx * 5.3 + salt * 13.7, cy * 7.1 + salt * 3.3);
                 return BUILDING_KEYS[Math.floor(s * BUILDING_KEYS.length) % BUILDING_KEYS.length];
             }
+            // Rows — try every tile, not just every wT tiles, for max density
             for (const roadBelow of [true, false]) {
                 for (let y = 1; y < MAP_H - 1; y++) {
-                    let x = 0;
-                    while (x < MAP_W) {
+                    let x = 1;
+                    while (x < MAP_W - 1) {
                         let placed = false;
                         const edgeY = roadBelow ? y + 1 : y - 1;
                         if (isBlock(x, y) && isWalk(x, edgeY)) {
-                            for (let a = 0; a < 4 && !placed; a++) {
+                            for (let a = 0; a < 6 && !placed; a++) {
                                 const key = pickKey(x, y, a + (roadBelow ? 0 : 10));
                                 const img = assets[key];
                                 if (!img) continue;
@@ -754,21 +744,22 @@
                                 const hT = (img.height * scale) / TILE;
                                 const ax = x + wT / 2;
                                 const ay = roadBelow ? (y + 1 - 0.14 * hT) : (y + 0.86 * hT);
-                                if (tryPlace(ax, ay, key)) { x += Math.max(1, Math.round(wT)); placed = true; }
+                                if (tryPlace(ax, ay, key)) { placed = true; }
                             }
                         }
-                        if (!placed) x++;
+                        x++;
                     }
                 }
             }
+            // Columns
             for (const roadRight of [true, false]) {
                 for (let x = 1; x < MAP_W - 1; x++) {
-                    let y = 0;
-                    while (y < MAP_H) {
+                    let y = 1;
+                    while (y < MAP_H - 1) {
                         let placed = false;
                         const edgeX = roadRight ? x + 1 : x - 1;
                         if (isBlock(x, y) && isWalk(edgeX, y)) {
-                            for (let a = 0; a < 4 && !placed; a++) {
+                            for (let a = 0; a < 6 && !placed; a++) {
                                 const key = pickKey(x, y, a + (roadRight ? 20 : 30));
                                 const img = assets[key];
                                 if (!img) continue;
@@ -777,10 +768,34 @@
                                 const hT = (img.height * scale) / TILE;
                                 const ax = roadRight ? (x + 1 - wT/2) : (x + wT/2);
                                 const ay = y + 0.86 * hT;
-                                if (tryPlace(ax, ay, key)) { y += Math.max(1, Math.round(hT)); placed = true; }
+                                if (tryPlace(ax, ay, key)) { placed = true; }
                             }
                         }
-                        if (!placed) y++;
+                        y++;
+                    }
+                }
+            }
+            // Fill remaining gaps with smaller buildings, one tile at a time
+            for (let y = 1; y < MAP_H - 1; y++) {
+                for (let x = 1; x < MAP_W - 1; x++) {
+                    if (!isBlock(x, y)) continue;
+                    let nearRoad = false;
+                    for (let dy = -1; dy <= 1 && !nearRoad; dy++) {
+                        for (let dx = -1; dx <= 1 && !nearRoad; dx++) {
+                            if (dx === 0 && dy === 0) continue;
+                            if (isWalk(x + dx, y + dy)) nearRoad = true;
+                        }
+                    }
+                    if (!nearRoad) continue;
+                    for (let a = 0; a < 4; a++) {
+                        const key = pickKey(x, y, a + 40);
+                        const img = assets[key];
+                        if (!img) continue;
+                        const scale = BUILDING_DRAW_H / img.height;
+                        const wT = (img.width * scale) / TILE;
+                        const hT = (img.height * scale) / TILE;
+                        if (wT > 4 || hT > 3.5) continue;
+                        if (tryPlace(x + wT/2, y + 0.86*hT, key)) break;
                     }
                 }
             }
@@ -911,11 +926,26 @@
         function isValidOfficerPosition(x, y) {
             if (!isValidPosition(x, y)) return false;
             const tx = Math.floor(x / TILE), ty = Math.floor(y / TILE);
-            if (ty < OFFICER_MIN_TILE_Y) return false;
+            // Only block the entry corridors above the top road, and only
+            // by one tile of margin so formations flow freely along the top road.
             if (ty < ROAD_Y_TOP) {
-                for (const ex of ENTRY_XS) if (Math.abs(tx - ex) <= ROAD_W / 2 + 1) return false;
+                for (const ex of ENTRY_XS) if (Math.abs(tx - ex) <= ROAD_W / 2) return false;
             }
             return true;
+        }
+        // Snap a formation target into a legal officer spot so units never
+        // pile up against the invisible boundary.
+        function clampOfficerTarget(x, y) {
+            if (isValidOfficerPosition(x, y)) return { x, y };
+            for (let r = 1; r <= 10; r++) {
+                for (let a = 0; a < 12; a++) {
+                    const ang = (a / 12) * Math.PI * 2;
+                    const nx = x + Math.cos(ang) * TILE * r * 0.5;
+                    const ny = y + Math.sin(ang) * TILE * r * 0.5;
+                    if (isValidOfficerPosition(nx, ny)) return { x: nx, y: ny };
+                }
+            }
+            return { x, y };
         }
         function snapToTileCenter(x, y) {
             const tx = Math.floor(x / TILE), ty = Math.floor(y / TILE);
@@ -956,6 +986,7 @@
                 this.cooldownTimer = 0;
                 this.baseX = BASE_TILE_X * TILE;
                 this.baseY = BASE_TILE_Y * TILE;
+                this.stuckTimer = 0;
             }
             mySyndicate() {
                 if (game.mergedMode) return game.syndicates[game.mergedIntoIndex] || game.syndicates[0];
@@ -1036,10 +1067,31 @@
                 this.isMoving = dist > 2;
                 if (dist > 2) {
                     const step = Math.min(dist, OFFICER.walkSpeed * TILE * dt);
-                    const mvx = (dX/dist) * step, mvy = (dY/dist) * step;
+                    const ux = dX / dist, uy = dY / dist;
+                    const mvx = ux * step, mvy = uy * step;
+                    const beforeX = this.x, beforeY = this.y;
                     const currentValid = isValidOfficerPosition(this.x, this.y);
                     if (!currentValid || isValidOfficerPosition(this.x + mvx, this.y)) this.x += mvx;
                     if (!currentValid || isValidOfficerPosition(this.x, this.y + mvy)) this.y += mvy;
+
+                    // Stuck detection & reroute
+                    const moved = Math.hypot(this.x - beforeX, this.y - beforeY);
+                    if (moved < step * 0.35) {
+                        this.stuckTimer += dt;
+                    } else {
+                        this.stuckTimer = Math.max(0, this.stuckTimer - dt * 2);
+                    }
+                    if (this.stuckTimer > 0.4) {
+                        // Try a perpendicular sidestep
+                        const perpX = -uy, perpY = ux;
+                        const sideSign = (this.id % 2 === 0) ? 1 : -1;
+                        const ssx = this.x + perpX * sideSign * TILE * 1.1;
+                        const ssy = this.y + perpY * sideSign * TILE * 1.1;
+                        if (isValidOfficerPosition(ssx, ssy)) { this.x = ssx; this.y = ssy; }
+                        else if (isValidOfficerPosition(ssx, this.y)) this.x = ssx;
+                        else if (isValidOfficerPosition(this.x, ssy)) this.y = ssy;
+                        this.stuckTimer = 0;
+                    }
                 }
                 if (target && bestD < engageRange * TILE) this.dir = { x: (target.x - this.x)/(bestD||1), y: (target.y - this.y)/(bestD||1) };
                 else if (this.isMoving && dist > 0) this.dir = { x: dX/dist, y: dY/dist };
@@ -1050,7 +1102,6 @@
                     dealDamageToRaider(target, OFFICER.meleeDamage * (dispersing ? OFFICER.disperseDamageMult : 1.0));
                 }
             }
-            // Emergency squad — freely breaks formation, chases threats to the station
             updateAllOut(dt) {
                 this.animTimer += dt;
                 if (this.attackFlash > 0) this.attackFlash = Math.max(0, this.attackFlash - dt);
@@ -1169,10 +1220,10 @@
             ctx.fillStyle = color; ctx.fillRect(sx - w/2, sy, w * Math.max(0, hp/maxHp), 3);
         }
 
-        // ========== RAIDER ==========
+        // ========== RAIDER (tone-down, rioter behaviour) ==========
         const RAIDER_TYPES = {
-            standard: { name: 'Raider', hp: 38, damage: 7, meleeRange: 1.2, atkCooldown: 1.0, speed: 1.7, weight: 75, color: '#8a4a34', dark: '#4a2418' },
-            bruiser: { name: 'Bruiser', hp: 92, damage: 15, meleeRange: 1.35, atkCooldown: 1.15, speed: 1.45, weight: 25, color: '#7a2c2c', dark: '#3f1616' },
+            standard: { name: 'Raider', hp: 38, damage: 5, meleeRange: 1.2, atkCooldown: 1.15, speed: 1.7, weight: 75, color: '#8a4a34', dark: '#4a2418' },
+            bruiser: { name: 'Bruiser', hp: 80, damage: 10, meleeRange: 1.35, atkCooldown: 1.35, speed: 1.4, weight: 25, color: '#7a2c2c', dark: '#3f1616' },
         };
         const MAX_ATTACKERS_PER_OFFICER = 3;
         let raiderIdSeq = 1;
@@ -1204,32 +1255,48 @@
                 this.jitterX = (Math.random() - 0.5) * TILE * 1.6;
                 this.jitterY = (Math.random() - 0.5) * TILE * 1.6;
                 this.timeSinceDamage = 0;
-                this.holdX = null; this.holdY = null;
+                this.stuckTimer = 0;
+                this.wallOffset = 0;
+                this.wallBack = 0;
             }
-
             routeNodes() {
                 const squad = game.squads.get(this.squadId);
                 if (squad && squad.route) return squad.route;
                 return ['EL0', 'EL1', 'BASE'];
             }
-
             moveToward(tx, ty, dt, speed) {
                 const dx = tx - this.x, dy = ty - this.y;
                 const dist = Math.hypot(dx, dy);
                 this.isMoving = dist > 3;
                 if (dist < 0.001) return dist;
                 const step = Math.min(dist, speed * TILE * dt);
-                const nx = this.x + (dx/dist) * step, ny = this.y + (dy/dist) * step;
+                const ux = dx/dist, uy = dy/dist;
+                const nx = this.x + ux * step, ny = this.y + uy * step;
+                const beforeX = this.x, beforeY = this.y;
                 const canFull = isValidPosition(nx, ny);
                 const canX = isValidPosition(nx, this.y);
                 const canY = isValidPosition(this.x, ny);
                 if (canFull) { this.x = nx; this.y = ny; }
                 else if (canX && !canY) this.x = nx;
                 else if (canY && !canX) this.y = ny;
-                this.dir = { x: dx/dist, y: dy/dist };
+
+                // Stuck detection & reroute
+                const moved = Math.hypot(this.x - beforeX, this.y - beforeY);
+                if (moved < step * 0.35) this.stuckTimer += dt;
+                else this.stuckTimer = Math.max(0, this.stuckTimer - dt * 2);
+                if (this.stuckTimer > 0.5) {
+                    const perpX = -uy, perpY = ux;
+                    const sideSign = (this.id % 2 === 0) ? 1 : -1;
+                    const ssx = this.x + perpX * sideSign * TILE * 1.2;
+                    const ssy = this.y + perpY * sideSign * TILE * 1.2;
+                    if (isValidPosition(ssx, ssy)) { this.x = ssx; this.y = ssy; }
+                    else if (isValidPosition(ssx, this.y)) this.x = ssx;
+                    else if (isValidPosition(this.x, ssy)) this.y = ssy;
+                    this.stuckTimer = 0;
+                }
+                this.dir = { x: ux, y: uy };
                 return dist;
             }
-
             nearestActiveOfficer() {
                 let best = null, bestD = Infinity;
                 for (const o of game.officers) {
@@ -1239,7 +1306,6 @@
                 }
                 return best;
             }
-
             update(dt) {
                 if (!this.alive) return;
                 this.animTimer += dt;
@@ -1247,10 +1313,10 @@
                 this.atkTimer = Math.max(0, this.atkTimer - dt);
                 this.timeSinceDamage += dt;
 
-                // ---- Slow HP regeneration when not taking damage ----
+                // Regen when not taking damage (faster in groups)
                 if (this.timeSinceDamage > 3 && this.hp < this.maxHp && this.state !== 'fleeing') {
                     let rate = 1.5;
-                    if (this.state === 'resting' || this.state === 'holding') rate = 3.5;
+                    if (this.state === 'resting' || this.state === 'holding' || this.state === 'withdrawing') rate = 3.5;
                     let restingNearby = 0;
                     for (const r of game.raiders) {
                         if (r === this || !r.alive) continue;
@@ -1261,26 +1327,26 @@
                     this.hp = Math.min(this.maxHp, this.hp + rate * dt);
                 }
 
-                // ---- Flee morale check (much harder to trigger) ----
+                // Flee morale check — requires wounded HP so healthy raiders
+                // never mysteriously run.
                 if (this.state !== 'fleeing') {
                     this.fleeTimer -= dt;
                     if (this.fleeTimer <= 0) {
                         this.fleeTimer = 1.5;
-                        // Raiders only break when collective morale is really gone
-                        if (game.raiderGroupMorale < 12) {
-                            const fleeChance = (12 - game.raiderGroupMorale) * 0.01;
+                        const hpPct = this.hp / this.maxHp;
+                        if (game.raiderGroupMorale < 10 && hpPct < 0.4) {
+                            const fleeChance = (10 - game.raiderGroupMorale) * 0.02;
                             if (Math.random() < fleeChance) {
-                                this.state = 'fleeing';
-                                this.hp = 0;
-                                game.routed++;
+                                this.state = 'fleeing'; this.hp = 0; game.routed++;
                             }
+                        } else if (hpPct < 0.15 && Math.random() < 0.30) {
+                            this.state = 'fleeing'; this.hp = 0; game.routed++;
                         }
                     }
                 }
 
-                // ---- Fleeing: still fights through anyone blocking the path ----
+                // Fleeing raiders fight through anyone blocking the road
                 if (this.state === 'fleeing') {
-                    // Raiders don't walk past a wall of officers — they smash through.
                     const blockRange = this.def.meleeRange * TILE * 1.35;
                     let blocker = null, blockerD = Infinity;
                     for (const o of game.officers) {
@@ -1296,12 +1362,10 @@
                         if (this.atkTimer <= 0) {
                             this.atkTimer = this.def.atkCooldown * 0.8;
                             this.attackFlash = 0.22;
-                            // Cornered raiders fight harder
-                            dealDamageToOfficer(blocker, this.def.damage * 1.5);
+                            dealDamageToOfficer(blocker, this.def.damage * 1.4);
                         }
                         return;
                     }
-                    const spawnNode = { x: this.spawnX / TILE, y: this.spawnY / TILE };
                     const dx = this.spawnX - this.x, dy = this.spawnY - this.y;
                     const dist = Math.hypot(dx, dy);
                     this.isMoving = dist > 4;
@@ -1337,7 +1401,8 @@
                 if (nearbyOfficers >= 3) {
                     this.boxedInTimer += dt;
                     if (this.boxedInTimer > 1.5) {
-                        this.def = { ...RAIDER_TYPES[this.kind], damage: RAIDER_TYPES[this.kind].damage * 1.8, atkCooldown: RAIDER_TYPES[this.kind].atkCooldown * 0.6 };
+                        // Softer "cornered" boost
+                        this.def = { ...RAIDER_TYPES[this.kind], damage: RAIDER_TYPES[this.kind].damage * 1.4, atkCooldown: RAIDER_TYPES[this.kind].atkCooldown * 0.8 };
                     }
                 } else {
                     this.boxedInTimer = Math.max(0, this.boxedInTimer - dt);
@@ -1364,38 +1429,36 @@
                     if (this.surgeTimer <= 0) { spd *= 1.8; if (this.surgeTimer < -0.6) this.surgeTimer = 2 + Math.random() * 3; }
                 }
 
-                // ---- Squad-state-driven behavior ----
                 const squad = game.squads.get(this.squadId);
                 if (squad) {
                     const sState = squad.state;
 
-                    if (sState === 'rest') {
-                        const d = Math.hypot(squad.rallyX - this.x, squad.rallyY - this.y);
-                        if (d > TILE * 2.5) {
+                    // ---- Riot wall: form a loose line, blocking the road ----
+                    if (sState === 'wall') {
+                        const c = squad.centroid;
+                        if (c.count === 0) return;
+                        const spacing = TILE * 1.15;
+                        const perpOff = this.wallOffset * spacing;
+                        const tx = c.x + squad.wallPerpX * perpOff;
+                        const ty = c.y + squad.wallPerpY * perpOff;
+                        const d = Math.hypot(tx - this.x, ty - this.y);
+                        if (d > TILE * 0.8) {
                             this.state = 'advancing';
-                            this.moveToward(squad.rallyX, squad.rallyY, dt, spd * 0.7);
-                        } else {
-                            this.isMoving = false;
-                            this.state = 'resting';
-                        }
-                        return;
-                    }
-                    if (sState === 'hold') {
-                        const d = Math.hypot(squad.rallyX - this.x, squad.rallyY - this.y);
-                        if (d > TILE * 2.5) {
-                            this.state = 'advancing';
-                            this.moveToward(squad.rallyX, squad.rallyY, dt, spd * 0.75);
+                            this.moveToward(tx, ty, dt, spd * 0.85);
                         } else {
                             this.isMoving = false;
                             this.state = 'holding';
                         }
                         return;
                     }
-                    if (sState === 'regroup') {
+
+                    // ---- Rest / Hold / Regroup / Withdraw share a rally point ----
+                    if (sState === 'rest' || sState === 'hold' || sState === 'regroup' || sState === 'withdraw') {
+                        const speedMult = sState === 'withdraw' ? 1.05 : (sState === 'regroup' ? 1.0 : 0.75);
                         const d = Math.hypot(squad.rallyX - this.x, squad.rallyY - this.y);
-                        if (d > TILE * 2) {
-                            this.state = 'advancing';
-                            this.moveToward(squad.rallyX, squad.rallyY, dt, spd);
+                        if (d > TILE * 2.5) {
+                            this.state = sState === 'withdraw' ? 'withdrawing' : 'advancing';
+                            this.moveToward(squad.rallyX, squad.rallyY, dt, spd * speedMult);
                         } else {
                             this.isMoving = false;
                             this.state = 'resting';
@@ -1407,7 +1470,6 @@
                         this.state = 'ambushing';
                         return;
                     }
-                    // state === 'advance' → normal route-following below
                 }
 
                 const ai = game.raidAI;
@@ -1415,13 +1477,8 @@
 
                 if (objective === 'hunt') {
                     const o = this.nearestActiveOfficer();
-                    if (o) {
-                        this.state = 'advancing';
-                        this.moveToward(o.x, o.y, dt, spd);
-                        return;
-                    }
+                    if (o) { this.state = 'advancing'; this.moveToward(o.x, o.y, dt, spd); return; }
                 }
-
                 if (objective === 'buildings') {
                     if (!this.targetBuilding || !this.targetBuilding.alive) this.targetBuilding = pickRaidBuilding(this);
                     if (this.targetBuilding && this.targetBuilding.frontX !== undefined) {
@@ -1462,7 +1519,6 @@
                 if (d < 8) this.pathIndex++;
                 else { this.state = 'advancing'; this.moveToward(tx, ty, dt, spd); }
             }
-
             draw(ctx) {
                 if (!this.alive) return;
                 const sx = this.x - game.camera.x, sy = this.y - game.camera.y;
@@ -1480,6 +1536,9 @@
                 } else if (this.state === 'ambushing') {
                     ctx.fillStyle = '#ffcc33'; ctx.font = '8px monospace'; ctx.textAlign = 'center';
                     ctx.fillText('👁', sx, sy - 26);
+                } else if (this.state === 'withdrawing') {
+                    ctx.fillStyle = '#a0d0ff'; ctx.font = '8px monospace'; ctx.textAlign = 'center';
+                    ctx.fillText('↩', sx, sy - 26);
                 } else if (this.state === 'vandal') {
                     ctx.fillStyle = '#ff8a5c'; ctx.font = '8px monospace'; ctx.textAlign = 'center';
                     ctx.fillText('💥', sx, sy - 26);
@@ -1553,13 +1612,11 @@
             if (game.waveTotalHp > 0) {
                 game.waveMoralePct = Math.max(0, game.waveMoralePct - (dmg / game.waveTotalHp) * 100);
             }
-            // Morale damage halved — much harder to break the crowd
+            // Gentle collective morale damage
             game.raiderGroupMorale = Math.max(0, game.raiderGroupMorale - dmg * 0.025);
             if (r.hp <= 0 && r.alive) {
-                r.state = 'fleeing';
-                r.hp = 0;
-                game.routed++;
-                game.raidersDefeated++;
+                r.state = 'fleeing'; r.hp = 0;
+                game.routed++; game.raidersDefeated++;
                 game.raiderGroupMorale = Math.max(0, game.raiderGroupMorale - 5);
             }
         }
@@ -1568,6 +1625,14 @@
             o.hp -= dmg * mult;
             spawnHitEffect(o.x, o.y);
             if (o.hp <= 0 && o.alive) o.alive = false;
+            // Auto-disperse trigger
+            if (!o.isAllOut && o.syndicateIndex >= 0) {
+                const sy = game.syndicates[o.syndicateIndex];
+                if (sy && sy.autoDisperse && sy.disperseTimer <= 0) {
+                    sy.disperseTimer = 10;
+                    showToast('⚡ Auto-disperse! Triple damage for 10s.');
+                }
+            }
         }
         function spawnHitEffect(x, y) { game.effects.push({ x, y, t: 0, life: 0.25 }); }
         function updateEffects(dt) {
@@ -1594,6 +1659,19 @@
                 return a.id - b.id;
             });
         }
+        // Resting syndicates that come under fire automatically switch to a
+        // staggered wall so they're not caught with shields down and clumped.
+        function effectiveTactic(sy, idx) {
+            if (sy.tactic !== 'rest') return sy.tactic;
+            for (const o of game.officers) {
+                if (!o.alive || o.isAllOut || o.syndicateIndex !== idx || o.state !== 'active') continue;
+                for (const r of game.raiders) {
+                    if (!r.alive || r.state === 'fleeing') continue;
+                    if (Math.hypot(r.x - o.x, r.y - o.y) < TILE * 4.5) return 'staggeredwall';
+                }
+            }
+            return 'rest';
+        }
         function assignFormation() { for (let idx = 0; idx < MAX_SYNDICATES; idx++) assignFormationForSyndicate(idx); }
         function assignFormationForSyndicate(idx) {
             let alive;
@@ -1608,11 +1686,14 @@
             if (!sy) return;
             orderByFrontStrength(alive);
             const cx = sy.commandX, cy = sy.commandY;
-            const tactic = sy.tactic;
+            const tactic = effectiveTactic(sy, idx);
             let fx = sy.facingX || 1, fy = sy.facingY || 0;
             if (Math.abs(fx) > Math.abs(fy)) { fx = Math.sign(fx) || 1; fy = 0; } else { fx = 0; fy = Math.sign(fy) || 1; }
             const px = fy, py = -fx;
-            const setSlot = (o, x, y) => { o.targetX = x; o.targetY = y; };
+            const setSlot = (o, x, y) => {
+                const c = clampOfficerTarget(x, y);
+                o.targetX = c.x; o.targetY = c.y;
+            };
 
             if (tactic === 'rest') {
                 const perRow = 5; let i = 0, row = 0;
@@ -1727,14 +1808,14 @@
                 const startY = (SYNDICATE_START_Y[idx] !== undefined) ? SYNDICATE_START_Y[idx] : ROAD_Y_BOTTOM;
                 game.syndicates[idx] = {
                     tactic: 'wedge', commandX: startX * TILE, commandY: startY * TILE,
-                    facingX: -1, facingY: 0, disperseTimer: 0, batonsFree: true,
+                    facingX: -1, facingY: 0, disperseTimer: 0, autoDisperse: false,
                 };
             }
             const sy = game.syndicates[idx];
             if (sy.facingX === undefined) sy.facingX = -1;
             if (sy.facingY === undefined) sy.facingY = 0;
             if (sy.disperseTimer === undefined) sy.disperseTimer = 0;
-            sy.batonsFree = true;
+            if (sy.autoDisperse === undefined) sy.autoDisperse = false;
             return sy;
         }
         function applyTactic(kind) {
@@ -1744,12 +1825,11 @@
         }
         function applyOrder(kind) {
             const sy = ensureSyndicateState(game.selectedSyndicate);
-            if (kind === 'disperse') {
-                if (sy.disperseTimer > 0) return;
-                sy.disperseTimer = 10;
-                showToast('Disperse! Aggressive push for 10 seconds.');
+            if (kind === 'autoDisperse') {
+                sy.autoDisperse = !sy.autoDisperse;
+                showToast(sy.autoDisperse ? '⚡ Auto-disperse ON' : 'Auto-disperse OFF');
             }
-            assignFormation(); updateSelectionUI(); renderOptionsPanel();
+            renderOptionsPanel(); updateSelectionUI();
         }
         function commandMove(dx, dy) {
             const sy = ensureSyndicateState(game.selectedSyndicate);
@@ -1807,20 +1887,6 @@
                     if (tooClose) continue;
                     sx = tx; sy = ty; ok = true; break;
                 }
-                if (!ok) {
-                    for (let ringR = 5; ringR <= 11 && !ok; ringR++) {
-                        for (let step = 0; step < 16 && !ok; step++) {
-                            const a = (step / 16) * Math.PI * 2 + i * 0.4;
-                            const tx = bx + Math.cos(a) * TILE * ringR;
-                            const ty = by + Math.sin(a) * TILE * ringR;
-                            if (!isValidPosition(tx, ty)) continue;
-                            let tooClose = false;
-                            for (const p of placed) if (Math.hypot(p.x - tx, p.y - ty) < TILE * 1.4) { tooClose = true; break; }
-                            if (tooClose) continue;
-                            sx = tx; sy = ty; ok = true;
-                        }
-                    }
-                }
                 placed.push({ x: sx, y: sy });
                 const o = new Officer(sx, sy, -1, { allOut: true });
                 o.homeX = sx; o.homeY = sy;
@@ -1841,24 +1907,7 @@
             }
         }
 
-        // ========== TRAINING ==========
-        function updateTraining(dt) {
-            if (game.syndicateQueue > 0) {
-                game.syndicateTimer += dt;
-                if (game.syndicateTimer >= game.SYNDICATE_TRAIN_TIME) {
-                    game.syndicateTimer = 0; game.syndicateQueue--;
-                    spawnSyndicate();
-                    showToast('A fresh syndicate has deployed from the station!');
-                }
-            }
-            const btn = document.getElementById('train-syndicate');
-            const sub = document.getElementById('train-syndicate-sub');
-            const prog = document.getElementById('train-syndicate-prog');
-            const atCap = game.syndicatesDeployed + game.syndicateQueue >= MAX_SYNDICATES;
-            btn.disabled = atCap;
-            sub.textContent = (game.syndicatesDeployed + game.syndicateQueue) + '/' + MAX_SYNDICATES + (game.syndicateQueue ? ' training…' : '');
-            prog.style.width = game.syndicateQueue ? Math.round(100 * game.syndicateTimer / game.SYNDICATE_TRAIN_TIME) + '%' : '0%';
-        }
+        // ========== SPAWN ==========
         function spawnSyndicate() {
             if (game.syndicatesDeployed >= MAX_SYNDICATES) return;
             const idx = game.syndicatesDeployed;
@@ -1874,17 +1923,7 @@
                 }
                 game.officers.push(new Officer(spawnX, spawnY, idx));
             }
-            assignFormation(); renderSyndicateTabs();
-            if (!game.mergedMode) {
-                game.selectedSyndicate = idx;
-                renderSyndicateTabs(); renderOptionsPanel(); updateSelectionUI();
-                game.cameraUserLock = 0;
-            }
-        }
-        function trainSyndicate() {
-            if (game.syndicatesDeployed + game.syndicateQueue >= MAX_SYNDICATES) return;
-            game.syndicateQueue++; game.syndicateTimer = 0;
-            showToast('Training a new syndicate…');
+            assignFormation();
         }
 
         // ========== WAVES ==========
@@ -1905,11 +1944,10 @@
             else if (roll < 0.76) ai.objective = 'buildings';
             else ai.objective = 'hunt';
 
-            const raiderCount = 18 + game.waveNumber * 6;
+            const raiderCount = 16 + game.waveNumber * 5;
             const tactic = chooseWaveTactic();
             const squadConfigs = WAVE_TACTICS[tactic] || WAVE_TACTICS['single'];
 
-            // Reset squads for this wave
             game.squads = new Map();
             game.nextSquadId = 1;
             let assigned = 0;
@@ -1926,18 +1964,16 @@
                 assigned += share;
             }
 
-            // Populate spawn queue with squad assignment
             game.waveSpawnQueue = [];
             let totalHp = 0;
             for (const { squad, count } of createdSquads) {
                 for (let i = 0; i < count; i++) {
-                    const isBruiser = Math.random() < 0.27;
+                    const isBruiser = Math.random() < 0.25;
                     const kind = isBruiser ? 'bruiser' : 'standard';
                     game.waveSpawnQueue.push({ kind, squadId: squad.id });
                     totalHp += RAIDER_TYPES[kind].hp;
                 }
             }
-            // Shuffle so squads interleave naturally on the approach
             for (let i = game.waveSpawnQueue.length - 1; i > 0; i--) {
                 const j = Math.floor(Math.random() * (i + 1));
                 [game.waveSpawnQueue[i], game.waveSpawnQueue[j]] = [game.waveSpawnQueue[j], game.waveSpawnQueue[i]];
@@ -1951,13 +1987,11 @@
 
         function updateWaves(dt) {
             if (game.testMode) return;
-
             if (game.waveState === 'intermission') {
                 game.waveTimer -= dt;
                 if (game.waveTimer <= 0) startWave();
                 return;
             }
-
             game.waveSpawnTimer -= dt;
             if (game.waveSpawnQueue.length > 0 && game.waveSpawnTimer <= 0) {
                 const entry = game.waveSpawnQueue.shift();
@@ -1967,8 +2001,7 @@
                     if (startNode) {
                         const sx = startNode.x * TILE + (Math.random() - 0.5) * TILE * 3;
                         const sy = startNode.y * TILE + (Math.random() - 0.5) * TILE * 2;
-                        const r = new Raider(entry.kind, squad.routeKey, squad.id, sx, sy);
-                        game.raiders.push(r);
+                        game.raiders.push(new Raider(entry.kind, squad.routeKey, squad.id, sx, sy));
                     }
                 }
                 game.waveSpawnTimer = 0.12 + Math.random() * 0.22;
@@ -1999,76 +2032,126 @@
         }
 
         // ========== SQUAD AI DIRECTOR ==========
+        function enterWallState(squad) {
+            squad.state = 'wall';
+            squad.stateTimer = 5 + Math.random() * 4;
+            const c = squad.centroid;
+            // Direction toward objective (BASE) — used to make the wall
+            // perpendicular to the direction of travel so it blocks the road.
+            const obj = getNode('BASE');
+            const dx = obj.x * TILE - c.x, dy = obj.y * TILE - c.y;
+            if (Math.abs(dx) > Math.abs(dy)) {
+                squad.wallPerpX = 0; squad.wallPerpY = 1;
+                squad.wallTravelX = Math.sign(dx) || 1; squad.wallTravelY = 0;
+            } else {
+                squad.wallPerpX = 1; squad.wallPerpY = 0;
+                squad.wallTravelX = 0; squad.wallTravelY = Math.sign(dy) || 1;
+            }
+            // Assign stable wall slots — split into up to 6 front + back ranks
+            const members = squad.members();
+            members.sort((a, b) => a.id - b.id);
+            const n = members.length;
+            const front = Math.min(6, n);
+            const rows = Math.ceil(n / front);
+            let i = 0;
+            for (let row = 0; row < rows; row++) {
+                const countThisRow = Math.min(front, n - i);
+                for (let cIdx = 0; cIdx < countThisRow; cIdx++) {
+                    const off = cIdx - (countThisRow - 1) / 2;
+                    members[i].wallOffset = off;
+                    members[i].wallBack = row * 1.4;   // tiles behind the front
+                    i++;
+                }
+            }
+        }
+
         function updateSquadAI(dt) {
             const officers = game.officers.filter(o => o.alive && o.state === 'active');
             for (const squad of game.squads.values()) {
                 const members = squad.members();
                 if (members.length === 0) continue;
-
                 squad.stateTimer -= dt;
                 const c = squad.computeCentroid();
-
-                // Contact detection
-                let inContact = false;
-                for (const r of members) {
-                    for (const o of officers) {
-                        if (Math.hypot(r.x - o.x, r.y - o.y) < TILE * 3.5) { inContact = true; break; }
-                    }
-                    if (inContact) break;
-                }
-                if (inContact) squad.contactTimer = 2.0;
-                else squad.contactTimer = Math.max(0, squad.contactTimer - dt);
-
-                if (squad.stateTimer > 0) continue;
                 if (c.count === 0) continue;
 
-                const avgHp = squad.avgHpPct();
-
-                // Compute spread
-                let spread = 0;
-                for (const r of members) {
-                    const d = Math.hypot(r.x - c.x, r.y - c.y) / TILE;
-                    if (d > spread) spread = d;
+                // Recompute wall slots while walling (in case members change)
+                if (squad.state === 'wall') {
+                    const n = members.length;
+                    const front = Math.min(6, n);
+                    const rows = Math.ceil(n / front);
+                    let i = 0;
+                    const sorted = [...members].sort((a, b) => a.id - b.id);
+                    for (let row = 0; row < rows; row++) {
+                        const countThisRow = Math.min(front, n - i);
+                        for (let cIdx = 0; cIdx < countThisRow; cIdx++) {
+                            sorted[i].wallOffset = cIdx - (countThisRow - 1) / 2;
+                            sorted[i].wallBack = row * 1.4;
+                            i++;
+                        }
+                    }
                 }
 
-                // Distance from spawn (so we don't ambush at the entry point)
+                // Contact — anywhere within ~3.5 tiles of any officer
+                let inContact = false;
+                let nearestOfficerDist = Infinity;
+                for (const r of members) {
+                    for (const o of officers) {
+                        const d = Math.hypot(r.x - o.x, r.y - o.y);
+                        if (d < nearestOfficerDist) nearestOfficerDist = d;
+                        if (d < TILE * 3.5) { inContact = true; }
+                    }
+                }
+                squad.contactTimer = inContact ? 2.0 : Math.max(0, squad.contactTimer - dt);
+                const officerDistTiles = nearestOfficerDist / TILE;
+
+                if (squad.stateTimer > 0) continue;
+
+                const avgHp = squad.avgHpPct();
                 const spawnNode = getNode(squad.route[0]);
                 const spawnDist = spawnNode
                     ? Math.hypot(c.x - spawnNode.x * TILE, c.y - spawnNode.y * TILE) / TILE
                     : 999;
 
-                const restBias   = squad.personality === 'cautious' ? 0.70 : squad.personality === 'sneaky' ? 0.55 : 0.42;
-                const ambushBias = squad.personality === 'sneaky'   ? 0.40 : squad.personality === 'cautious' ? 0.22 : 0.10;
-
-                // 1. Very hurt + no contact → rest / heal in a group
+                // 1. Heavily hurt + no contact → withdraw to a rear rally point
+                if (avgHp < 0.32 && squad.contactTimer <= 0 && squad.route.length >= 2) {
+                    const rn = getNode(squad.route[1]) || getNode(squad.route[0]);
+                    if (rn) {
+                        squad.state = 'withdraw';
+                        squad.rallyX = rn.x * TILE;
+                        squad.rallyY = rn.y * TILE;
+                        squad.stateTimer = 9 + Math.random() * 5;
+                        continue;
+                    }
+                }
+                // 2. Moderately hurt + no contact → rest in place
+                const restBias = squad.personality === 'cautious' ? 0.65 : squad.personality === 'sneaky' ? 0.52 : 0.42;
                 if (avgHp < restBias && squad.contactTimer <= 0) {
                     squad.state = 'rest';
                     squad.stateTimer = 6 + Math.random() * 4;
                     squad.rallyX = c.x; squad.rallyY = c.y;
                     continue;
                 }
-                // 2. Scattered + no contact → regroup into one bigger group
-                if (spread > 11 && squad.contactTimer <= 0) {
-                    squad.state = 'regroup';
-                    squad.stateTimer = 4 + Math.random() * 3;
-                    squad.rallyX = c.x; squad.rallyY = c.y;
+                // 3. Officers visible ahead → form a riot wall and block the road
+                if (!inContact && officerDistTiles < 14 && members.length >= 2 && Math.random() < 0.7) {
+                    enterWallState(squad);
                     continue;
                 }
-                // 3. Hurt + in contact → hold ground, force the player to come to them
-                if (avgHp < 0.60 && squad.contactTimer > 0 && Math.random() < 0.6) {
-                    squad.state = 'hold';
-                    squad.stateTimer = 5 + Math.random() * 4;
-                    squad.rallyX = c.x; squad.rallyY = c.y;
+                // 4. In contact with a lot of officers but not yet engaged →
+                //    hold and let the wall absorb the pressure.
+                if (inContact && officerDistTiles > 1.8 && members.length >= 3 && Math.random() < 0.55) {
+                    if (squad.state !== 'wall') enterWallState(squad);
+                    else squad.stateTimer = 4 + Math.random() * 3;
                     continue;
                 }
-                // 4. Out in the field, no contact → possible ambush
+                // 5. Advanced out in the field, no contact → ambush chance
+                const ambushBias = squad.personality === 'sneaky' ? 0.35 : squad.personality === 'cautious' ? 0.20 : 0.10;
                 if (squad.contactTimer <= 0 && spawnDist > 16 && Math.random() < ambushBias) {
                     squad.state = 'ambush';
                     squad.stateTimer = 6 + Math.random() * 6;
                     squad.rallyX = c.x; squad.rallyY = c.y;
                     continue;
                 }
-                // 5. Default: push forward
+                // 6. Default: advance
                 squad.state = 'advance';
                 squad.stateTimer = 6 + Math.random() * 4;
             }
@@ -2092,7 +2175,6 @@
             el.classList.remove('show'); void el.offsetWidth; el.classList.add('show');
         }
 
-        // ========== TOAST ==========
         function showToast(msg) {
             const t = document.getElementById('toast');
             if (!t) return;
@@ -2165,7 +2247,7 @@
 
         // ========== LEFT PANEL UI ==========
         const FORMATION_DEFS = [
-            { key: 'rest', label: '😌 Rest', desc: 'Shields down, spaced out for recovery. HP regenerates, but officers take more damage if hit.' },
+            { key: 'rest', label: '😌 Rest', desc: 'Shields down, spaced out for recovery. Auto-shifts to a Staggered Wall the moment a raider gets close.' },
             { key: 'wedge', label: '🔺 Wedge', desc: 'Spearhead. The healthiest officer forms the point and rows widen behind. Drives into a crowd and splits it open.' },
             { key: 'closedwall', label: '🧱 Closed Wall', desc: 'Fills the ENTIRE road width, edge to edge. Extra officers backfill behind the front line. Nothing gets past.' },
             { key: 'staggeredwall', label: '🧱 Staggered Wall', desc: 'Full-width line with alternate rows offset. Officers reach further, but a gap can open up.' },
@@ -2174,8 +2256,9 @@
             { key: 'box', label: '📦 Box', desc: 'Three-sided box. Front row faces direction of travel, sides extend back. Rigid alignment.' },
         ];
         const ORDER_DEFS = [
-            { key: 'disperse', label: '💨 Disperse', desc: 'Standing order — 10 seconds of triple damage and aggression. Formation is unchanged.' },
+            { key: 'autoDisperse', label: '⚡ Auto-Disperse', desc: 'When ON, Disperse (10s, triple damage) triggers automatically the instant any officer in this syndicate is hit. Has a cooldown.' },
         ];
+
         function renderOptionsPanel() {
             const panel = document.getElementById('options-panel');
             panel.innerHTML = '';
@@ -2204,16 +2287,16 @@
             ORDER_DEFS.forEach(o => {
                 const b = document.createElement('button');
                 b.className = 'order-btn'; b.textContent = o.label;
-                if (o.key === 'disperse' && sy.disperseTimer > 0) b.classList.add('active-choice');
-                if (o.key === 'disperse' && sy.disperseTimer > 0) b.disabled = true;
+                if (o.key === 'autoDisperse' && sy.autoDisperse) b.classList.add('active-choice');
                 b.addEventListener('click', () => applyOrder(o.key));
                 panel.appendChild(b);
             });
-
-            const batonNote = document.createElement('div');
-            batonNote.className = 'info-line'; batonNote.style.color = '#86cf72';
-            batonNote.textContent = '🏏 Batons free (permanent)';
-            panel.appendChild(batonNote);
+            const od = ORDER_DEFS.find(o => o.key === 'autoDisperse');
+            if (od) {
+                const d = document.createElement('div');
+                d.className = 'info-line'; d.textContent = od.desc;
+                panel.appendChild(d);
+            }
 
             if (sy.disperseTimer > 0) {
                 const d = document.createElement('div');
@@ -2227,9 +2310,6 @@
                 d.textContent = '⚠ ALL UNITS MERGED';
                 panel.appendChild(d);
             }
-            const kb = document.createElement('button');
-            kb.textContent = '🐕 K9 Unit'; kb.disabled = true;
-            panel.appendChild(kb);
         }
 
         // ========== BOTTOM-RIGHT UI ==========
@@ -2297,8 +2377,9 @@
             }
             if (count === 0) { el.textContent = ''; return; }
             const tacticLabel = (FORMATION_DEFS.find(t => t.key === sy.tactic) || {}).label || sy.tactic;
-            let extra = ' · 🏏 Batons Free';
-            if (sy.disperseTimer > 0) extra += ' · 💨 ' + Math.ceil(sy.disperseTimer) + 's';
+            let extra = '';
+            if (sy.autoDisperse) extra += ' · ⚡ Auto';
+            if (sy.disperseTimer > 0) extra += ' · 🔥 ' + Math.ceil(sy.disperseTimer) + 's';
             el.textContent = prefix + ' — ' + count + ' officers — ' + tacticLabel + extra;
         }
 
@@ -2366,7 +2447,7 @@
             });
             game.raiders.forEach(r => {
                 if (!r.alive || r.state === 'fleeing') return;
-                ctx.fillStyle = r.state === 'resting' || r.state === 'holding' ? '#86cf72' : '#ff8a5c';
+                ctx.fillStyle = (r.state === 'resting' || r.state === 'holding') ? '#86cf72' : '#ff8a5c';
                 ctx.fillRect((r.x / TILE) * MINIMAP_SCALE, (r.y / TILE) * MINIMAP_SCALE, 2, 2);
             });
             sceneryBuildings.forEach(b => {
@@ -2394,7 +2475,8 @@
             document.getElementById('gameover-overlay').classList.remove('show');
             initGameState();
             generateMap(); buildTerrainCanvas(); buildMinimapTerrainCanvas();
-            spawnSyndicate();
+            for (let i = 0; i < MAX_SYNDICATES; i++) spawnSyndicate();
+            game.selectedSyndicate = 0;
             renderSyndicateTabs(); renderOptionsPanel(); updateSelectionUI();
             updateMergedButton(); updateAllOutButton();
         }
@@ -2404,7 +2486,6 @@
             const dt = Math.min(0.05, (t - (game.lastTime || t)) / 1000);
             game.lastTime = t;
             if (!game.gameOver) {
-                updateTraining(dt);
                 updateWaves(dt);
                 updateSquadAI(dt);
 
@@ -2424,7 +2505,6 @@
                 game.attackerCounts.clear();
                 game.officers.forEach(o => o.update(dt));
                 game.raiders.forEach(r => r.update(dt));
-                // Clean up dead raiders
                 if (game.raiders.length > 0 && game.raiders.some(r => !r.alive)) {
                     game.raiders = game.raiders.filter(r => r.alive);
                 }
@@ -2444,8 +2524,6 @@
             game.selectedSyndicate = 0;
             game.baseHp = BASE_MAX_HP;
             game.syndicatesDeployed = 0;
-            game.syndicateQueue = 0;
-            game.syndicateTimer = 0;
             game.mergedMode = false;
             game.mergedIntoIndex = 0;
             game.allOutCooldown = 0;
@@ -2505,7 +2583,6 @@
             setupMinimapDPR();
             setupEvents();
             setupBottomRightUI();
-            document.getElementById('train-syndicate').addEventListener('click', trainSyndicate);
             document.getElementById('train-arrest').addEventListener('click', () => showToast('Arrest teams — coming in the next update!'));
             document.getElementById('gameover-restart').addEventListener('click', restartGame);
             window.addEventListener('resize', () => setTimeout(rebuildWorldForScreenSize, 50));
@@ -2516,7 +2593,9 @@
             computeMapSize(); computeMinimapSize();
             loadAssets(() => {
                 generateMap(); buildTerrainCanvas(); buildMinimapTerrainCanvas();
-                spawnSyndicate();
+                // All three syndicates spawn instantly at boot
+                for (let i = 0; i < MAX_SYNDICATES; i++) spawnSyndicate();
+                game.selectedSyndicate = 0;
                 renderSyndicateTabs(); renderOptionsPanel(); updateSelectionUI();
                 updateMergedButton(); updateAllOutButton();
                 requestAnimationFrame(loop);

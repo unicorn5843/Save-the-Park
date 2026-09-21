@@ -357,7 +357,7 @@
             <div class="stat-line">
                 <span class="stat-icon">🏢</span>
                 <div class="stat-track"><div class="stat-fill" id="base-hp-fill"></div></div>
-                <span class="stat-num" id="base-hp-num">500/500</span>
+                <span class="stat-num" id="base-hp-num">900/900</span>
             </div>
             <div class="stat-line">
                 <span class="stat-icon">👮</span>
@@ -425,20 +425,16 @@
 
         const ROAD_W = 6;
 
-        // Road grid -----------------------------------------------------------
         const ROAD_Y_TOP = 14;
         const ROAD_Y_BOTTOM = 38;
         const ROAD_X_START = 8;
         const ROAD_X_END = 98;
         const JUNCTION_XS = [30, 54, 78];
-        const ENTRY_XS = [18, 90];            // raider approach corridors (top of map)
+        const ENTRY_XS = [18, 90];
 
-        // Player's police station / HQ (bottom-road centre)
         const BASE_TILE_X = 54;
         const BASE_TILE_Y = ROAD_Y_BOTTOM;
 
-        // Officers may never enter the top strip or the upper halves of the
-        // raider approach corridors.  Keeps spawn-camping impossible.
         const OFFICER_MIN_TILE_Y = ROAD_Y_TOP - 4;
 
         const ROAD_TILES_WIDE = ROAD_W + 1;
@@ -451,16 +447,15 @@
         const MAX_UNITS = OFFICERS_PER_SYNDICATE * MAX_SYNDICATES;
         const BASE_MAX_HP = 900;
 
-        // Syndicates all deploy from the station; these are their default
-        // assembly points just outside it.
         const SYNDICATE_START_X = [46, 54, 62];
         const SYNDICATE_START_Y = [ROAD_Y_BOTTOM, ROAD_Y_BOTTOM, ROAD_Y_BOTTOM];
 
-        // Emergency "all out" squad
+        // Emergency "all out" squad — wider radius so they can break off and
+        // chase raiders that come near the station.
         const ALL_OUT_COUNT = 20;
         const ALL_OUT_DURATION = 20;
         const ALL_OUT_COOLDOWN = 55;
-        const ALL_OUT_RADIUS = TILE * 9;
+        const ALL_OUT_RADIUS = TILE * 15;
 
         // ========== GAME STATE ==========
         let map = [];
@@ -515,10 +510,13 @@
         };
 
         // ========== ROAD GRAPH ==========
+        // NOTE: entry nodes used to be at y: -2 which is off-map.  isValidPosition
+        // rejects negative tiles, so raiders got wedged there and never appeared.
+        // They now spawn just inside the top edge (y = 0.5 tiles).
         const ROAD_NODES = [
-            { id: 'EL0', x: ENTRY_XS[0], y: -2 },              // west approach, off-screen
+            { id: 'EL0', x: ENTRY_XS[0], y: 0.5 },
             { id: 'EL1', x: ENTRY_XS[0], y: ROAD_Y_BOTTOM },
-            { id: 'ER0', x: ENTRY_XS[1], y: -2 },              // east approach, off-screen
+            { id: 'ER0', x: ENTRY_XS[1], y: 0.5 },
             { id: 'ER1', x: ENTRY_XS[1], y: ROAD_Y_BOTTOM },
             { id: 'BASE', x: BASE_TILE_X, y: BASE_TILE_Y },
         ];
@@ -569,7 +567,6 @@
                 }
                 map.push(row);
             }
-            // Police station block
             for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 1; dx++) {
                 const tx = BASE_TILE_X + dx, ty = BASE_TILE_Y + dy;
                 if (tx >= 0 && ty >= 0 && tx < MAP_W && ty < MAP_H) map[ty][tx] = TILE_BASE;
@@ -625,10 +622,6 @@
             return null;
         }
 
-        // ---------------------------------------------------------------------
-        // Buildings hug every road edge, forming a solid wall around each block
-        // so the player can read the exact limits of the street.
-        // ---------------------------------------------------------------------
         function placeSceneryBuildings() {
             sceneryBuildings = [];
             const footprint = new Uint8Array(MAP_W * MAP_H);
@@ -687,7 +680,6 @@
                 return BUILDING_KEYS[Math.floor(s * BUILDING_KEYS.length) % BUILDING_KEYS.length];
             }
 
-            // ---- Rows along east/west streets ----
             for (const roadBelow of [true, false]) {
                 for (let y = 1; y < MAP_H - 1; y++) {
                     let x = 0;
@@ -715,7 +707,6 @@
                 }
             }
 
-            // ---- Columns along north/south streets ----
             for (const roadRight of [true, false]) {
                 for (let x = 1; x < MAP_W - 1; x++) {
                     let y = 0;
@@ -875,8 +866,6 @@
             const t = map[ty][tx];
             return t === TILE_ROAD || t === TILE_SIDEWALK || t === TILE_BASE;
         }
-        // Officers additionally may not enter the raider approach corridors
-        // above the top road — keeps them out of the raider staging area.
         function isValidOfficerPosition(x, y) {
             if (!isValidPosition(x, y)) return false;
             const tx = Math.floor(x / TILE);
@@ -989,7 +978,6 @@
                     this.hp = Math.min(this.maxHp, this.hp + OFFICER.restRegen * dt);
                 }
 
-                // Batons are permanently free — officers always strike out.
                 const engageRange = OFFICER.lungeRange;
                 const dispersing = sy.disperseTimer > 0;
 
@@ -1058,8 +1046,11 @@
                 }
             }
 
-            // Emergency squad: stands guard around the station and picks off
-            // anything that comes close. Lives for ALL_OUT_DURATION seconds.
+            // ---- Emergency squad ----
+            // These break formation freely.  They target any raider that is
+            // threatening the STATION (distance measured from base, not from
+            // themselves), so they leave the ring to chase and can fight
+            // anywhere near the base.
             updateAllOut(dt) {
                 this.animTimer += dt;
                 if (this.attackFlash > 0) this.attackFlash = Math.max(0, this.attackFlash - dt);
@@ -1069,18 +1060,23 @@
                 this.allOutTimer -= dt;
                 if (this.allOutTimer <= 0) { this.alive = false; return; }
 
+                const bx = BASE_TILE_X * TILE;
+                const by = BASE_TILE_Y * TILE;
+
                 let target = null, bestD = Infinity;
                 for (const r of game.raiders) {
                     if (!r.alive || r.state === 'fleeing') continue;
+                    const dSt = Math.hypot(r.x - bx, r.y - by);
+                    if (dSt > ALL_OUT_RADIUS) continue;
                     const d = Math.hypot(r.x - this.x, r.y - this.y);
-                    if (d < ALL_OUT_RADIUS && d < bestD) { bestD = d; target = r; }
+                    if (d < bestD) { bestD = d; target = r; }
                 }
 
                 if (target) {
                     const dx = target.x - this.x, dy = target.y - this.y;
                     const d = Math.hypot(dx, dy) || 1;
                     this.dir = { x: dx / d, y: dy / d };
-                    const reach = OFFICER.meleeRange * TILE * 1.15;
+                    const reach = OFFICER.meleeRange * TILE * 1.1;
                     if (d > reach) {
                         this.isMoving = true;
                         const step = Math.min(d - reach, OFFICER.sprintSpeed * TILE * dt);
@@ -1100,7 +1096,7 @@
                     return;
                 }
 
-                // No target — return to the station perimeter.
+                // No threats — walk back to the assigned ring position.
                 const dx = this.homeX - this.x, dy = this.homeY - this.y;
                 const d = Math.hypot(dx, dy);
                 this.isMoving = d > TILE * 1.5;
@@ -1556,9 +1552,6 @@
         }
 
         // ========== FORMATION ==========
-        // Officers are ordered healthiest-first so the FRONT of every formation
-        // is always held by the strongest unit.  As troops take damage they drop
-        // out of the front and fresh bodies from the rear/side fill the gap.
         function orderByFrontStrength(list) {
             return list.sort((a, b) => {
                 const ba = Math.floor(a.hp / 12);
@@ -1619,7 +1612,6 @@
                 return;
             }
 
-            // ---- WEDGE: a spearhead. One point unit, rows widen behind it. ----
             if (tactic === 'wedge') {
                 let i = 0, row = 0;
                 while (i < alive.length) {
@@ -1709,7 +1701,6 @@
                 return;
             }
 
-            // Fallback — standard 3x5 block
             let i = 0, row = 0;
             const perRow = 5;
             while (i < alive.length) {
@@ -1741,7 +1732,7 @@
             if (sy.facingX === undefined) sy.facingX = -1;
             if (sy.facingY === undefined) sy.facingY = 0;
             if (sy.disperseTimer === undefined) sy.disperseTimer = 0;
-            sy.batonsFree = true; // permanent standing order
+            sy.batonsFree = true;
             return sy;
         }
 
@@ -1831,17 +1822,48 @@
 
             const bx = BASE_TILE_X * TILE;
             const by = BASE_TILE_Y * TILE;
+            const placed = [];
+
             for (let i = 0; i < ALL_OUT_COUNT; i++) {
-                const a = (i / ALL_OUT_COUNT) * Math.PI * 2;
-                const r = TILE * (2 + Math.random() * 5);
-                let sx = bx + Math.cos(a) * r;
-                let sy = by + Math.sin(a) * r;
-                if (!isValidPosition(sx, sy)) {
-                    const snapped = snapToTileCenter(bx, by);
-                    sx = snapped.x; sy = snapped.y;
+                let sx = bx, sy = by;
+                let ok = false;
+                // Try to find a well-spaced, valid position in a wide ring
+                // around the station (radius ~5-13 tiles) so the squad does
+                // not spawn on top of the station itself.
+                for (let tries = 0; tries < 80; tries++) {
+                    const a = Math.random() * Math.PI * 2;
+                    const r = TILE * (5 + Math.random() * 8);
+                    const tx = bx + Math.cos(a) * r;
+                    const ty = by + Math.sin(a) * r;
+                    if (!isValidPosition(tx, ty)) continue;
+                    let tooClose = false;
+                    for (const p of placed) {
+                        if (Math.hypot(p.x - tx, p.y - ty) < TILE * 1.8) { tooClose = true; break; }
+                    }
+                    if (tooClose) continue;
+                    sx = tx; sy = ty; ok = true;
+                    break;
                 }
+                if (!ok) {
+                    // Fallback: place deterministically at a valid tile ring
+                    for (let ringR = 5; ringR <= 11 && !ok; ringR++) {
+                        for (let step = 0; step < 16 && !ok; step++) {
+                            const a = (step / 16) * Math.PI * 2 + i * 0.4;
+                            const tx = bx + Math.cos(a) * TILE * ringR;
+                            const ty = by + Math.sin(a) * TILE * ringR;
+                            if (!isValidPosition(tx, ty)) continue;
+                            let tooClose = false;
+                            for (const p of placed) {
+                                if (Math.hypot(p.x - tx, p.y - ty) < TILE * 1.4) { tooClose = true; break; }
+                            }
+                            if (tooClose) continue;
+                            sx = tx; sy = ty; ok = true;
+                        }
+                    }
+                }
+                placed.push({ x: sx, y: sy });
                 const o = new Officer(sx, sy, -1, { allOut: true });
-                o.homeX = bx; o.homeY = by;
+                o.homeX = sx; o.homeY = sy;
                 game.officers.push(o);
             }
             showToast('🚨 ALL OUT! Riot squads holding the station for 20 seconds!');
@@ -1950,7 +1972,6 @@
             ai.timer = 9;
             ai.holdTimer = 0;
 
-            // Bigger crowds, arriving in one heavy surge.
             const raiderCount = 18 + game.waveNumber * 6;
             game.waveSpawnQueue = [];
             let totalHp = 0;
@@ -1980,7 +2001,6 @@
                 const kind = game.waveSpawnQueue.shift();
                 const routeKey = Math.random() < 0.5 ? 'west' : 'east';
                 game.raiders.push(new Raider(kind, routeKey));
-                // Tight spawn spacing = one big rolling crowd.
                 game.waveSpawnTimer = 0.12 + Math.random() * 0.22;
             }
 

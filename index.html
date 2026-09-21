@@ -151,7 +151,7 @@
         }
         .train-btn {
             display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px;
-            width: 92px; height: 44px;
+            width: 96px; height: 46px;
             background: linear-gradient(180deg, #2e3a4f, #212a3a);
             border: 1px solid #47597a; border-radius: 7px;
             color: #e8edf5; font-size: 9.5px; font-weight: 700; cursor: pointer;
@@ -162,6 +162,29 @@
         .train-btn .tlabel { z-index: 2; }
         .train-btn .tsub { z-index: 2; font-size: 8.5px; color: #9fb0c7; font-weight: 500; }
         .train-btn .tprog { position: absolute; left: 0; bottom: 0; height: 3px; background: #ffcc33; width: 0%; z-index: 2; }
+        .train-btn.arrest {
+            background: linear-gradient(180deg, #3a5a8a, #1e3a5a);
+            border-color: #6a9ac8;
+            color: #dbe9ff;
+        }
+        .train-btn.arrest.ready {
+            background: linear-gradient(180deg, #4a7ab0, #2a4a70);
+            box-shadow: 0 0 12px rgba(90, 150, 220, 0.5);
+        }
+        .train-btn.k9 {
+            background: linear-gradient(180deg, #5a3a1e, #3a2210);
+            border-color: #a07040;
+            color: #ffd9b0;
+        }
+        .train-btn.k9.ready {
+            background: linear-gradient(180deg, #8a5a2a, #5a3a1e);
+            box-shadow: 0 0 12px rgba(200, 130, 60, 0.55);
+            animation: k9Pulse 1.6s ease-in-out infinite;
+        }
+        @keyframes k9Pulse {
+            0%, 100% { box-shadow: 0 0 10px rgba(200, 130, 60, 0.4); }
+            50% { box-shadow: 0 0 20px rgba(230, 160, 70, 0.85); }
+        }
 
         #bottom-right-ui {
             position: fixed; right: 8px; bottom: 48px; z-index: 97;
@@ -330,9 +353,13 @@
     </div>
 
     <div id="top-bar">
-        <button id="train-arrest" class="train-btn" disabled>
-            <span class="tlabel">🚨 Arrest Team</span>
-            <span class="tsub">soon</span>
+        <button id="send-arrest" class="train-btn arrest ready">
+            <span class="tlabel">🚔 Send In Arrest Team</span>
+            <span class="tsub" id="send-arrest-sub">S1 ready</span>
+        </button>
+        <button id="deploy-k9" class="train-btn k9 ready">
+            <span class="tlabel">🐕 Deploy K9</span>
+            <span class="tsub" id="deploy-k9-sub">S1 ready</span>
         </button>
     </div>
 
@@ -341,6 +368,7 @@
         <div id="stats-panel">
             <div class="stat">🌊 <span id="wave">1</span></div>
             <div class="stat">🚫 <span id="routed">0</span></div>
+            <div class="stat">🔒 <span id="arrested">0</span></div>
             <div class="stat" style="flex:1 1 100%">🎯 <span id="objective">Base</span></div>
         </div>
     </div>
@@ -426,7 +454,6 @@
 
         const BASE_TILE_X = 54;
         const BASE_TILE_Y = ROAD_Y_BOTTOM;
-        // Smooth boundary — officers can now go right up to the top road edge
         const OFFICER_MIN_TILE_Y = ROAD_Y_TOP - 1;
 
         const OFFICERS_PER_ROW = ROAD_W + 1;
@@ -444,6 +471,26 @@
         const ALL_OUT_COOLDOWN = 55;
         const ALL_OUT_RADIUS = TILE * 15;
 
+        // Arrest team
+        const ARREST_TEAM_SIZE = 3;
+        const ARREST_COOLDOWN = 40;
+        const ARREST_OFFICER_HP = 300;
+        const ARREST_OFFICER_SPEED = 2.9;   // tiles/sec — faster than raiders
+        const ARREST_GRAB_RANGE = TILE * 3.2;
+        const ARREST_MAX_RANGE_FROM_SYNDICATE = TILE * 9;
+
+        // K9
+        const K9_HP = 90;
+        const K9_DEPLOY_TIME = 10;
+        const K9_COOLDOWN = 50;
+        const K9_SPEED = 5.2;               // tiles/sec
+        const K9_ATTACK_DAMAGE = 55;        // very high
+        const K9_ATTACK_RANGE = TILE * 1.3;
+        const K9_ATTACK_COOLDOWN = 0.55;
+        const K9_MORALE_DAMAGE_MULT = 4.0;  // extra morale damage
+        const K9_LEAD_LENGTH_ATTACHED = TILE * 1.6;
+        const K9_LEAD_LENGTH_DEPLOYED = TILE * 7.5;
+
         // ========== GAME STATE ==========
         let map = [];
         let toastTimer = null;
@@ -451,6 +498,7 @@
             canvas: null, ctx: null, minimapCtx: null,
             width: 0, height: 0,
             officers: [], raiders: [], effects: [],
+            arrestOfficers: [], k9s: [],
             terrainCanvas: null, minimapTerrainCanvas: null,
             camera: { x: 0, y: 0 },
             cameraUserLock: 0,
@@ -468,6 +516,8 @@
             allOutCooldown: 0,
             allOutActive: 0,
 
+            arrestCooldown: [0, 0, 0],  // per syndicate
+
             squads: new Map(),
             nextSquadId: 1,
 
@@ -479,6 +529,7 @@
             waveSpawnQueue: [],
             waveSpawnTimer: 0,
             routed: 0,
+            arrested: 0,
             attackerCounts: new Map(),
             totalRaidersInWave: 0,
             raidersDefeated: 0,
@@ -662,7 +713,6 @@
         }
 
         const BUILDING_MAX_HP = 350;
-        // Smaller buildings → higher density
         const BUILDING_DRAW_H = TILE * 2.6;
         let sceneryBuildings = [];
         function seedFromXY(x, y) {
@@ -727,7 +777,6 @@
                 const s = seedFromXY(cx * 5.3 + salt * 13.7, cy * 7.1 + salt * 3.3);
                 return BUILDING_KEYS[Math.floor(s * BUILDING_KEYS.length) % BUILDING_KEYS.length];
             }
-            // Rows — try every tile, not just every wT tiles, for max density
             for (const roadBelow of [true, false]) {
                 for (let y = 1; y < MAP_H - 1; y++) {
                     let x = 1;
@@ -751,7 +800,6 @@
                     }
                 }
             }
-            // Columns
             for (const roadRight of [true, false]) {
                 for (let x = 1; x < MAP_W - 1; x++) {
                     let y = 1;
@@ -775,7 +823,6 @@
                     }
                 }
             }
-            // Fill remaining gaps with smaller buildings, one tile at a time
             for (let y = 1; y < MAP_H - 1; y++) {
                 for (let x = 1; x < MAP_W - 1; x++) {
                     if (!isBlock(x, y)) continue;
@@ -926,15 +973,11 @@
         function isValidOfficerPosition(x, y) {
             if (!isValidPosition(x, y)) return false;
             const tx = Math.floor(x / TILE), ty = Math.floor(y / TILE);
-            // Only block the entry corridors above the top road, and only
-            // by one tile of margin so formations flow freely along the top road.
             if (ty < ROAD_Y_TOP) {
                 for (const ex of ENTRY_XS) if (Math.abs(tx - ex) <= ROAD_W / 2) return false;
             }
             return true;
         }
-        // Snap a formation target into a legal officer spot so units never
-        // pile up against the invisible boundary.
         function clampOfficerTarget(x, y) {
             if (isValidOfficerPosition(x, y)) return { x, y };
             for (let r = 1; r <= 10; r++) {
@@ -1038,7 +1081,7 @@
                 const dispersing = sy.disperseTimer > 0;
                 let target = null, bestD = Infinity;
                 for (const r of game.raiders) {
-                    if (!r.alive || r.state === 'fleeing') continue;
+                    if (!r.alive || r.state === 'fleeing' || r.beingArrested) continue;
                     const d = Math.hypot(r.x - this.x, r.y - this.y);
                     if (d < engageRange * TILE && d < bestD) { bestD = d; target = r; }
                 }
@@ -1074,15 +1117,10 @@
                     if (!currentValid || isValidOfficerPosition(this.x + mvx, this.y)) this.x += mvx;
                     if (!currentValid || isValidOfficerPosition(this.x, this.y + mvy)) this.y += mvy;
 
-                    // Stuck detection & reroute
                     const moved = Math.hypot(this.x - beforeX, this.y - beforeY);
-                    if (moved < step * 0.35) {
-                        this.stuckTimer += dt;
-                    } else {
-                        this.stuckTimer = Math.max(0, this.stuckTimer - dt * 2);
-                    }
+                    if (moved < step * 0.35) this.stuckTimer += dt;
+                    else this.stuckTimer = Math.max(0, this.stuckTimer - dt * 2);
                     if (this.stuckTimer > 0.4) {
-                        // Try a perpendicular sidestep
                         const perpX = -uy, perpY = ux;
                         const sideSign = (this.id % 2 === 0) ? 1 : -1;
                         const ssx = this.x + perpX * sideSign * TILE * 1.1;
@@ -1113,7 +1151,7 @@
                 const bx = BASE_TILE_X * TILE, by = BASE_TILE_Y * TILE;
                 let target = null, bestD = Infinity;
                 for (const r of game.raiders) {
-                    if (!r.alive || r.state === 'fleeing') continue;
+                    if (!r.alive || r.state === 'fleeing' || r.beingArrested) continue;
                     const dSt = Math.hypot(r.x - bx, r.y - by);
                     if (dSt > ALL_OUT_RADIUS) continue;
                     const d = Math.hypot(r.x - this.x, r.y - this.y);
@@ -1220,7 +1258,427 @@
             ctx.fillStyle = color; ctx.fillRect(sx - w/2, sy, w * Math.max(0, hp/maxHp), 3);
         }
 
-        // ========== RAIDER (tone-down, rioter behaviour) ==========
+        // ========== ARREST OFFICER ==========
+        const ARREST_PALETTE = { cloth: '#1a3050', dark: '#0e1c33', vest: '#ffcc33', vestDark: '#b08820', cuff: '#e8e8e8' };
+        let arrestIdSeq = 1;
+        class ArrestOfficer {
+            constructor(x, y, syndicateIndex) {
+                this.id = arrestIdSeq++;
+                this.syndicateIndex = syndicateIndex;
+                this.x = x; this.y = y;
+                this.hp = ARREST_OFFICER_HP;
+                this.maxHp = ARREST_OFFICER_HP;
+                this.dir = { x: 1, y: 0 };
+                this.animTimer = Math.random() * 10;
+                this.isMoving = false;
+                this.alive = true;
+                this.carrying = null;      // raider being carried
+                this.state = 'escort';     // 'escort' | 'grabbing' | 'returning'
+                this.slotOffset = 0;       // assigned lateral slot behind the syndicate
+                this.stuckTimer = 0;
+                this.attackFlash = 0;
+            }
+
+            update(dt) {
+                if (!this.alive) return;
+                this.animTimer += dt;
+                if (this.attackFlash > 0) this.attackFlash = Math.max(0, this.attackFlash - dt);
+
+                const sy = game.syndicates[this.syndicateIndex];
+                if (!sy) return;
+
+                // ---- Returning to station with a raider ----
+                if (this.carrying) {
+                    const bx = BASE_TILE_X * TILE, by = BASE_TILE_Y * TILE;
+                    const dx = bx - this.x, dy = by - this.y;
+                    const d = Math.hypot(dx, dy);
+                    if (d < TILE * 1.6) {
+                        // Hand the raider over — arrested.
+                        const r = this.carrying;
+                        r.alive = false;
+                        r.beingArrested = false;
+                        game.arrested++;
+                        game.raidersDefeated++;
+                        game.raiderGroupMorale = Math.max(0, game.raiderGroupMorale - 12);
+                        spawnHitEffect(r.x, r.y);
+                        this.carrying = null;
+                        this.state = 'returning';
+                        showToast('🔒 Raider arrested!');
+                    } else {
+                        this.isMoving = true;
+                        const step = Math.min(d, ARREST_OFFICER_SPEED * TILE * dt);
+                        const nx = this.x + (dx/d) * step, ny = this.y + (dy/d) * step;
+                        if (isValidPosition(nx, ny)) { this.x = nx; this.y = ny; }
+                        else if (isValidPosition(nx, this.y)) this.x = nx;
+                        else if (isValidPosition(this.x, ny)) this.y = ny;
+                        this.dir = { x: dx/d, y: dy/d };
+                        // Drag the raider along
+                        this.carrying.x = this.x + this.dir.x * -TILE * 0.6;
+                        this.carrying.y = this.y + this.dir.y * -TILE * 0.6;
+                    }
+                    return;
+                }
+
+                // ---- Escorting behind the syndicate ----
+                // Compute a slot behind the syndicate command marker.
+                let aliveSyndicate = game.officers.filter(o => o.alive && !o.isAllOut && o.syndicateIndex === this.syndicateIndex && o.state === 'active');
+                if (aliveSyndicate.length === 0) aliveSyndicate = game.officers.filter(o => o.alive && !o.isAllOut && o.syndicateIndex === this.syndicateIndex);
+
+                let anchorX, anchorY;
+                if (aliveSyndicate.length > 0) {
+                    let cx = 0, cy = 0;
+                    for (const o of aliveSyndicate) { cx += o.x; cy += o.y; }
+                    cx /= aliveSyndicate.length; cy /= aliveSyndicate.length;
+                    anchorX = cx; anchorY = cy;
+                } else {
+                    anchorX = sy.commandX; anchorY = sy.commandY;
+                }
+
+                // Behind the syndicate — opposite its facing
+                let fx = sy.facingX || 1, fy = sy.facingY || 0;
+                if (Math.abs(fx) > Math.abs(fy)) { fx = Math.sign(fx) || 1; fy = 0; }
+                else { fx = 0; fy = Math.sign(fy) || 1; }
+                const px = fy, py = -fx;
+                const back = TILE * 4.5;
+                const targetX = anchorX + px * (this.slotOffset * TILE) - fx * back;
+                const targetY = anchorY + py * (this.slotOffset * TILE) - fy * back;
+
+                // Look for the strongest raider within grab range
+                let grabTarget = null, grabBestScore = -Infinity;
+                const maxRangeSq = ARREST_GRAB_RANGE * ARREST_GRAB_RANGE;
+                for (const r of game.raiders) {
+                    if (!r.alive || r.state === 'fleeing' || r.beingArrested) continue;
+                    const dSq = (r.x - this.x) * (r.x - this.x) + (r.y - this.y) * (r.y - this.y);
+                    if (dSq > maxRangeSq) continue;
+                    // Prefer "strongest": higher max HP / bruisers are preferred
+                    const strength = r.maxHp + r.hp * 0.3;
+                    if (strength > grabBestScore) { grabBestScore = strength; grabTarget = r; }
+                }
+
+                // Only commit to a grab if we're not too far from the syndicate's zone
+                if (grabTarget) {
+                    const dFromAnchor = Math.hypot(this.x - anchorX, this.y - anchorY);
+                    if (dFromAnchor < ARREST_MAX_RANGE_FROM_SYNDICATE) {
+                        this.carrying = grabTarget;
+                        grabTarget.beingArrested = true;
+                        grabTarget.arrestOfficer = this;
+                        this.state = 'grabbing';
+                        spawnHitEffect(grabTarget.x, grabTarget.y);
+                        return;
+                    }
+                }
+
+                // Otherwise move toward the escort position
+                const dX = targetX - this.x, dY = targetY - this.y;
+                const dist = Math.hypot(dX, dY);
+                this.isMoving = dist > 3;
+                if (dist > 3) {
+                    const step = Math.min(dist, ARREST_OFFICER_SPEED * TILE * dt);
+                    const ux = dX / dist, uy = dY / dist;
+                    const mvx = ux * step, mvy = uy * step;
+                    const beforeX = this.x, beforeY = this.y;
+                    if (isValidOfficerPosition(this.x + mvx, this.y)) this.x += mvx;
+                    if (isValidOfficerPosition(this.x, this.y + mvy)) this.y += mvy;
+
+                    const moved = Math.hypot(this.x - beforeX, this.y - beforeY);
+                    if (moved < step * 0.35) this.stuckTimer += dt;
+                    else this.stuckTimer = Math.max(0, this.stuckTimer - dt * 2);
+                    if (this.stuckTimer > 0.4) {
+                        const perpX = -uy, perpY = ux;
+                        const sign = (this.id % 2 === 0) ? 1 : -1;
+                        const ssx = this.x + perpX * sign * TILE * 1.1;
+                        const ssy = this.y + perpY * sign * TILE * 1.1;
+                        if (isValidOfficerPosition(ssx, ssy)) { this.x = ssx; this.y = ssy; }
+                        else if (isValidOfficerPosition(ssx, this.y)) this.x = ssx;
+                        else if (isValidOfficerPosition(this.x, ssy)) this.y = ssy;
+                        this.stuckTimer = 0;
+                    }
+                    this.dir = { x: ux, y: uy };
+                }
+                if (this.state === 'returning' && !this.carrying) {
+                    this.state = 'escort';
+                }
+            }
+
+            draw(ctx) {
+                if (!this.alive) return;
+                const sx = this.x - game.camera.x, sy = this.y - game.camera.y;
+                if (sx < -40 || sy < -40 || sx > game.width + 40 || sy > game.height + 40) return;
+                ctx.save();
+                ctx.translate(sx, sy);
+                if (this.dir.x < -0.05) ctx.scale(-1, 1);
+                drawArrestFigure(ctx, this);
+                ctx.restore();
+                drawHpBar(ctx, sx, sy - 24, this.hp, this.maxHp, '#ffcc33');
+                if (this.carrying) {
+                    ctx.fillStyle = '#ffcc33';
+                    ctx.font = 'bold 10px monospace';
+                    ctx.textAlign = 'center';
+                    ctx.fillText('🔒', sx, sy - 28);
+                }
+            }
+        }
+        function drawArrestFigure(ctx, u) {
+            const pal = ARREST_PALETTE;
+            const walking = u.isMoving;
+            const phase = u.animTimer * (walking ? 7 : 1.2);
+            const amp = walking ? 1 : 0.12;
+            const legSwing = Math.sin(phase) * amp;
+            const H = 20;
+            const legReach = H * 0.34;
+            ctx.lineCap = 'round';
+            // Legs
+            ctx.strokeStyle = pal.dark; ctx.lineWidth = 2.6;
+            ctx.beginPath(); ctx.moveTo(-1, -2); ctx.lineTo(-1 - legSwing * legReach * 0.6, legReach); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(-1, -2); ctx.lineTo(-1 + legSwing * legReach, legReach); ctx.stroke();
+            // Torso (dark navy)
+            ctx.strokeStyle = pal.cloth; ctx.lineWidth = 5.2;
+            ctx.beginPath(); ctx.moveTo(-1, -2); ctx.lineTo(-1, -H * 0.62); ctx.stroke();
+            // Yellow vest overlay
+            ctx.strokeStyle = pal.vest; ctx.lineWidth = 3.2;
+            ctx.beginPath(); ctx.moveTo(-1, -H * 0.18); ctx.lineTo(-1, -H * 0.55); ctx.stroke();
+            // Head
+            ctx.fillStyle = pal.dark;
+            ctx.beginPath(); ctx.arc(0, -H * 0.72, H * 0.19, 0, Math.PI * 2); ctx.fill();
+            // Cap peak
+            ctx.fillStyle = pal.cloth;
+            ctx.fillRect(-H * 0.2, -H * 0.88, H * 0.4, 3);
+            // Handcuffs swinging at hip
+            const cuffSwing = Math.sin(phase * 1.1) * 0.3;
+            ctx.save();
+            ctx.translate(H * 0.12, -H * 0.28);
+            ctx.rotate(cuffSwing);
+            ctx.strokeStyle = pal.cuff; ctx.lineWidth = 1.6;
+            ctx.beginPath(); ctx.arc(0, 0, 2.2, 0, Math.PI * 2); ctx.stroke();
+            ctx.beginPath(); ctx.arc(4, 0, 2.2, 0, Math.PI * 2); ctx.stroke();
+            ctx.restore();
+        }
+
+        // ========== K9 ==========
+        let k9IdSeq = 1;
+        class K9Unit {
+            constructor(x, y, syndicateIndex) {
+                this.id = k9IdSeq++;
+                this.syndicateIndex = syndicateIndex;
+                this.x = x; this.y = y;
+                this.hp = K9_HP; this.maxHp = K9_HP;
+                this.alive = true;
+                this.deployTimer = 0;      // > 0 means deployed
+                this.cooldownTimer = 0;
+                this.dir = { x: 1, y: 0 };
+                this.animTimer = Math.random() * 10;
+                this.isMoving = false;
+                this.atkTimer = 0;
+                this.attackFlash = 0;
+                this.target = null;
+                this.stuckTimer = 0;
+                this.attachedOfficer = null;  // cached officer it follows
+                this.attachedTimer = 0;
+            }
+
+            deploy() {
+                if (this.cooldownTimer > 0 || this.deployTimer > 0) return false;
+                this.deployTimer = K9_DEPLOY_TIME;
+                this.cooldownTimer = K9_COOLDOWN;
+                return true;
+            }
+
+            pickAttachedOfficer() {
+                // Prefer an active officer in our syndicate
+                let best = null, bestScore = -Infinity;
+                for (const o of game.officers) {
+                    if (!o.alive || o.isAllOut || o.syndicateIndex !== this.syndicateIndex) continue;
+                    if (o.state !== 'active') continue;
+                    const s = o.hp + (best === null ? 1 : 0);
+                    if (s > bestScore) { bestScore = s; best = o; }
+                }
+                if (!best) {
+                    for (const o of game.officers) {
+                        if (!o.alive || o.isAllOut || o.syndicateIndex !== this.syndicateIndex) continue;
+                        best = o; break;
+                    }
+                }
+                return best;
+            }
+
+            update(dt) {
+                if (!this.alive) return;
+                this.animTimer += dt;
+                if (this.attackFlash > 0) this.attackFlash = Math.max(0, this.attackFlash - dt);
+                this.atkTimer = Math.max(0, this.atkTimer - dt);
+                if (this.cooldownTimer > 0) this.cooldownTimer -= dt;
+
+                // Refresh attached officer occasionally
+                this.attachedTimer -= dt;
+                if (!this.attachedOfficer || !this.attachedOfficer.alive || this.attachedTimer <= 0) {
+                    this.attachedOfficer = this.pickAttachedOfficer();
+                    this.attachedTimer = 1.5;
+                }
+
+                if (this.deployTimer > 0) {
+                    this.deployTimer -= dt;
+
+                    // Hunt nearest raider
+                    let tgt = null, bestD = Infinity;
+                    for (const r of game.raiders) {
+                        if (!r.alive || r.state === 'fleeing' || r.beingArrested) continue;
+                        const d = Math.hypot(r.x - this.x, r.y - this.y);
+                        if (d < bestD) { bestD = d; tgt = r; }
+                    }
+
+                    if (tgt) {
+                        const dx = tgt.x - this.x, dy = tgt.y - this.y;
+                        const d = Math.hypot(dx, dy) || 1;
+                        this.dir = { x: dx/d, y: dy/d };
+                        if (d > K9_ATTACK_RANGE) {
+                            this.isMoving = true;
+                            const step = Math.min(d - K9_ATTACK_RANGE, K9_SPEED * TILE * dt);
+                            const nx = this.x + (dx/d) * step, ny = this.y + (dy/d) * step;
+                            if (isValidPosition(nx, ny)) { this.x = nx; this.y = ny; }
+                            else if (isValidPosition(nx, this.y)) this.x = nx;
+                            else if (isValidPosition(this.x, ny)) this.y = ny;
+                        } else {
+                            this.isMoving = false;
+                            if (this.atkTimer <= 0) {
+                                this.atkTimer = K9_ATTACK_COOLDOWN;
+                                this.attackFlash = 0.18;
+                                // Very high damage
+                                dealDamageToRaider(tgt, K9_ATTACK_DAMAGE, K9_MORALE_DAMAGE_MULT);
+                                spawnHitEffect(tgt.x, tgt.y);
+                            }
+                        }
+                    } else {
+                        // Nothing to chase — wander back toward officer
+                        this.followOfficer(dt, K9_SPEED * 0.7);
+                    }
+
+                    if (this.deployTimer <= 0) {
+                        this.deployTimer = 0;
+                        showToast('🐕 K9 is returning to handler.');
+                    }
+                    return;
+                }
+
+                // ---- Attached: follow officer from behind ----
+                this.followOfficer(dt, K9_SPEED * 0.9);
+            }
+
+            followOfficer(dt, speedMult) {
+                const o = this.attachedOfficer;
+                if (!o || !o.alive) {
+                    this.isMoving = false;
+                    return;
+                }
+                // Position: behind the officer, opposite their facing direction
+                let fx = o.dir.x, fy = o.dir.y;
+                const fl = Math.hypot(fx, fy) || 1;
+                fx /= fl; fy /= fl;
+                const tx = o.x - fx * K9_LEAD_LENGTH_ATTACHED;
+                const ty = o.y - fy * K9_LEAD_LENGTH_ATTACHED;
+                const dx = tx - this.x, dy = ty - this.y;
+                const d = Math.hypot(dx, dy);
+                this.isMoving = d > 4;
+                if (d > 4) {
+                    const step = Math.min(d, K9_SPEED * TILE * dt * speedMult);
+                    const ux = dx / d, uy = dy / d;
+                    const nx = this.x + ux * step, ny = this.y + uy * step;
+                    if (isValidPosition(nx, ny)) { this.x = nx; this.y = ny; }
+                    else if (isValidPosition(nx, this.y)) this.x = nx;
+                    else if (isValidPosition(this.x, ny)) this.y = ny;
+                    this.dir = { x: ux, y: uy };
+                }
+            }
+
+            draw(ctx) {
+                if (!this.alive) return;
+                const sx = this.x - game.camera.x, sy = this.y - game.camera.y;
+                if (sx < -40 || sy < -40 || sx > game.width + 40 || sy > game.height + 40) return;
+                ctx.save();
+                ctx.translate(sx, sy);
+                if (this.dir.x < -0.05) ctx.scale(-1, 1);
+                drawK9Figure(ctx, this);
+                ctx.restore();
+                // HP bar
+                drawHpBar(ctx, sx, sy - 16, this.hp, this.maxHp, '#ffcc33');
+                if (this.deployTimer > 0) {
+                    ctx.fillStyle = '#ff8a5c';
+                    ctx.font = 'bold 8px monospace';
+                    ctx.textAlign = 'center';
+                    ctx.fillText('⚡', sx, sy - 18);
+                } else if (this.cooldownTimer > 0) {
+                    ctx.fillStyle = '#8a919c';
+                    ctx.font = '7px monospace';
+                    ctx.textAlign = 'center';
+                    ctx.fillText(Math.ceil(this.cooldownTimer) + 's', sx, sy - 18);
+                }
+            }
+
+            drawLead(ctx) {
+                if (!this.alive) return;
+                const o = this.attachedOfficer;
+                if (!o || !o.alive) return;
+                const sx = this.x - game.camera.x, sy = this.y - game.camera.y;
+                const ox = o.x - game.camera.x, oy = o.y - game.camera.y;
+                ctx.strokeStyle = this.deployTimer > 0 ? 'rgba(255,204,51,0.6)' : 'rgba(180,150,90,0.7)';
+                ctx.lineWidth = 1.1;
+                ctx.setLineDash(this.deployTimer > 0 ? [3, 3] : []);
+                ctx.beginPath();
+                ctx.moveTo(ox, oy - 12);
+                ctx.lineTo(sx, sy - 6);
+                ctx.stroke();
+                ctx.setLineDash([]);
+            }
+        }
+        function drawK9Figure(ctx, u) {
+            const walking = u.isMoving;
+            const phase = u.animTimer * (walking ? 12 : 1.5);
+            // Body
+            ctx.fillStyle = '#6a3a1a';
+            ctx.strokeStyle = '#2a1408';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.ellipse(0, -6, 6.5, 4, 0, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+            // Head
+            ctx.fillStyle = '#7a4620';
+            ctx.beginPath();
+            ctx.ellipse(6, -9, 3.6, 3, 0, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+            // Snout
+            ctx.fillStyle = '#2a1408';
+            ctx.beginPath();
+            ctx.ellipse(9.2, -8.4, 1.6, 1.3, 0, 0, Math.PI * 2);
+            ctx.fill();
+            // Ear
+            ctx.fillStyle = '#4a2410';
+            ctx.beginPath();
+            ctx.moveTo(4.5, -11.5);
+            ctx.lineTo(6.5, -13.5);
+            ctx.lineTo(6.8, -10.5);
+            ctx.closePath();
+            ctx.fill();
+            // Tail
+            const tailSwing = Math.sin(phase * 1.7) * 0.6;
+            ctx.strokeStyle = '#6a3a1a'; ctx.lineWidth = 1.6;
+            ctx.beginPath();
+            ctx.moveTo(-6, -7);
+            ctx.quadraticCurveTo(-9, -10 + tailSwing * 2, -10, -6 + tailSwing * 3);
+            ctx.stroke();
+            // Legs
+            ctx.strokeStyle = '#2a1408'; ctx.lineWidth = 1.6;
+            const legSwing = Math.sin(phase) * (walking ? 2 : 0.3);
+            ctx.beginPath(); ctx.moveTo(-3, -3); ctx.lineTo(-3 - legSwing * 0.5, 1.5); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(2, -3); ctx.lineTo(2 + legSwing * 0.5, 1.5); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(-4.5, -3); ctx.lineTo(-4.5 + legSwing * 0.4, 1.5); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(3.5, -3); ctx.lineTo(3.5 - legSwing * 0.4, 1.5); ctx.stroke();
+            // Collar (yellow)
+            ctx.strokeStyle = '#ffcc33'; ctx.lineWidth = 1.4;
+            ctx.beginPath(); ctx.moveTo(3, -9.5); ctx.lineTo(4, -11); ctx.stroke();
+        }
+
+        // ========== RAIDER ==========
         const RAIDER_TYPES = {
             standard: { name: 'Raider', hp: 38, damage: 5, meleeRange: 1.2, atkCooldown: 1.15, speed: 1.7, weight: 75, color: '#8a4a34', dark: '#4a2418' },
             bruiser: { name: 'Bruiser', hp: 80, damage: 10, meleeRange: 1.35, atkCooldown: 1.35, speed: 1.4, weight: 25, color: '#7a2c2c', dark: '#3f1616' },
@@ -1258,6 +1716,8 @@
                 this.stuckTimer = 0;
                 this.wallOffset = 0;
                 this.wallBack = 0;
+                this.beingArrested = false;
+                this.arrestOfficer = null;
             }
             routeNodes() {
                 const squad = game.squads.get(this.squadId);
@@ -1280,7 +1740,6 @@
                 else if (canX && !canY) this.x = nx;
                 else if (canY && !canX) this.y = ny;
 
-                // Stuck detection & reroute
                 const moved = Math.hypot(this.x - beforeX, this.y - beforeY);
                 if (moved < step * 0.35) this.stuckTimer += dt;
                 else this.stuckTimer = Math.max(0, this.stuckTimer - dt * 2);
@@ -1308,12 +1767,23 @@
             }
             update(dt) {
                 if (!this.alive) return;
+
+                // Being arrested: freeze in place; the arrest officer moves us.
+                if (this.beingArrested) {
+                    this.isMoving = false;
+                    if (this.arrestOfficer && !this.arrestOfficer.alive) {
+                        // Officer died — released
+                        this.beingArrested = false;
+                        this.arrestOfficer = null;
+                    }
+                    return;
+                }
+
                 this.animTimer += dt;
                 if (this.attackFlash > 0) this.attackFlash = Math.max(0, this.attackFlash - dt);
                 this.atkTimer = Math.max(0, this.atkTimer - dt);
                 this.timeSinceDamage += dt;
 
-                // Regen when not taking damage (faster in groups)
                 if (this.timeSinceDamage > 3 && this.hp < this.maxHp && this.state !== 'fleeing') {
                     let rate = 1.5;
                     if (this.state === 'resting' || this.state === 'holding' || this.state === 'withdrawing') rate = 3.5;
@@ -1327,8 +1797,6 @@
                     this.hp = Math.min(this.maxHp, this.hp + rate * dt);
                 }
 
-                // Flee morale check — requires wounded HP so healthy raiders
-                // never mysteriously run.
                 if (this.state !== 'fleeing') {
                     this.fleeTimer -= dt;
                     if (this.fleeTimer <= 0) {
@@ -1345,7 +1813,6 @@
                     }
                 }
 
-                // Fleeing raiders fight through anyone blocking the road
                 if (this.state === 'fleeing') {
                     const blockRange = this.def.meleeRange * TILE * 1.35;
                     let blocker = null, blockerD = Infinity;
@@ -1401,7 +1868,6 @@
                 if (nearbyOfficers >= 3) {
                     this.boxedInTimer += dt;
                     if (this.boxedInTimer > 1.5) {
-                        // Softer "cornered" boost
                         this.def = { ...RAIDER_TYPES[this.kind], damage: RAIDER_TYPES[this.kind].damage * 1.4, atkCooldown: RAIDER_TYPES[this.kind].atkCooldown * 0.8 };
                     }
                 } else {
@@ -1433,16 +1899,15 @@
                 if (squad) {
                     const sState = squad.state;
 
-                    // ---- Riot wall: form a loose line, blocking the road ----
                     if (sState === 'wall') {
                         const c = squad.centroid;
                         if (c.count === 0) return;
                         const spacing = TILE * 1.15;
                         const perpOff = this.wallOffset * spacing;
-                        const tx = c.x + squad.wallPerpX * perpOff;
-                        const ty = c.y + squad.wallPerpY * perpOff;
+                        const tx = c.x + squad.wallPerpX * perpOff + squad.wallTravelX * this.wallBack * TILE;
+                        const ty = c.y + squad.wallPerpY * perpOff + squad.wallTravelY * this.wallBack * TILE;
                         const d = Math.hypot(tx - this.x, ty - this.y);
-                        if (d > TILE * 0.8) {
+                        if (d > TILE * 1.2) {
                             this.state = 'advancing';
                             this.moveToward(tx, ty, dt, spd * 0.85);
                         } else {
@@ -1451,8 +1916,6 @@
                         }
                         return;
                     }
-
-                    // ---- Rest / Hold / Regroup / Withdraw share a rally point ----
                     if (sState === 'rest' || sState === 'hold' || sState === 'regroup' || sState === 'withdraw') {
                         const speedMult = sState === 'withdraw' ? 1.05 : (sState === 'regroup' ? 1.0 : 0.75);
                         const d = Math.hypot(squad.rallyX - this.x, squad.rallyY - this.y);
@@ -1470,6 +1933,7 @@
                         this.state = 'ambushing';
                         return;
                     }
+                    // 'advance' → fall through to route logic below
                 }
 
                 const ai = game.raidAI;
@@ -1528,9 +1992,12 @@
                 if (this.dir.x < -0.05) ctx.scale(-1, 1);
                 drawRaiderFigure(ctx, this);
                 ctx.restore();
-                drawHpBar(ctx, sx, sy - 22, this.hp, this.maxHp, this.state === 'fleeing' ? '#aaaaaa' : '#ff8a5c');
+                drawHpBar(ctx, sx, sy - 22, this.hp, this.maxHp, this.state === 'fleeing' ? '#aaaaaa' : this.beingArrested ? '#ffcc33' : '#ff8a5c');
 
-                if (this.state === 'holding' || this.state === 'resting') {
+                if (this.beingArrested) {
+                    ctx.fillStyle = '#ffcc33'; ctx.font = 'bold 9px monospace'; ctx.textAlign = 'center';
+                    ctx.fillText('🔒', sx, sy - 26);
+                } else if (this.state === 'holding' || this.state === 'resting') {
                     ctx.fillStyle = '#86cf72'; ctx.font = '8px monospace'; ctx.textAlign = 'center';
                     ctx.fillText('…', sx, sy - 26);
                 } else if (this.state === 'ambushing') {
@@ -1604,20 +2071,20 @@
         }
 
         // ========== COMBAT ==========
-        function dealDamageToRaider(r, dmg) {
-            if (r.state === 'fleeing') return;
+        function dealDamageToRaider(r, dmg, moraleMult) {
+            if (r.state === 'fleeing' || r.beingArrested) return;
+            const mMult = moraleMult || 1.0;
             r.hp -= dmg;
             r.timeSinceDamage = 0;
             spawnHitEffect(r.x, r.y);
             if (game.waveTotalHp > 0) {
                 game.waveMoralePct = Math.max(0, game.waveMoralePct - (dmg / game.waveTotalHp) * 100);
             }
-            // Gentle collective morale damage
-            game.raiderGroupMorale = Math.max(0, game.raiderGroupMorale - dmg * 0.025);
+            game.raiderGroupMorale = Math.max(0, game.raiderGroupMorale - dmg * 0.025 * mMult);
             if (r.hp <= 0 && r.alive) {
                 r.state = 'fleeing'; r.hp = 0;
                 game.routed++; game.raidersDefeated++;
-                game.raiderGroupMorale = Math.max(0, game.raiderGroupMorale - 5);
+                game.raiderGroupMorale = Math.max(0, game.raiderGroupMorale - 5 * mMult);
             }
         }
         function dealDamageToOfficer(o, dmg) {
@@ -1625,7 +2092,6 @@
             o.hp -= dmg * mult;
             spawnHitEffect(o.x, o.y);
             if (o.hp <= 0 && o.alive) o.alive = false;
-            // Auto-disperse trigger
             if (!o.isAllOut && o.syndicateIndex >= 0) {
                 const sy = game.syndicates[o.syndicateIndex];
                 if (sy && sy.autoDisperse && sy.disperseTimer <= 0) {
@@ -1659,14 +2125,12 @@
                 return a.id - b.id;
             });
         }
-        // Resting syndicates that come under fire automatically switch to a
-        // staggered wall so they're not caught with shields down and clumped.
         function effectiveTactic(sy, idx) {
             if (sy.tactic !== 'rest') return sy.tactic;
             for (const o of game.officers) {
                 if (!o.alive || o.isAllOut || o.syndicateIndex !== idx || o.state !== 'active') continue;
                 for (const r of game.raiders) {
-                    if (!r.alive || r.state === 'fleeing') continue;
+                    if (!r.alive || r.state === 'fleeing' || r.beingArrested) continue;
                     if (Math.hypot(r.x - o.x, r.y - o.y) < TILE * 4.5) return 'staggeredwall';
                 }
             }
@@ -1907,6 +2371,89 @@
             }
         }
 
+        // ========== ARREST TEAM ==========
+        function sendInArrestTeam() {
+            const idx = game.selectedSyndicate;
+            if (game.arrestCooldown[idx] > 0) {
+                showToast('Arrest team for S' + (idx + 1) + ' is regrouping.');
+                return;
+            }
+            const sy = ensureSyndicateState(idx);
+            if (!sy) return;
+            // Spawn 3 arrest officers behind the syndicate command point
+            let fx = sy.facingX || 1, fy = sy.facingY || 0;
+            if (Math.abs(fx) > Math.abs(fy)) { fx = Math.sign(fx) || 1; fy = 0; }
+            else { fx = 0; fy = Math.sign(fy) || 1; }
+            const px = fy, py = -fx;
+            const back = TILE * 4;
+            const baseX = sy.commandX - fx * back;
+            const baseY = sy.commandY - fy * back;
+            for (let i = 0; i < ARREST_TEAM_SIZE; i++) {
+                const off = (i - (ARREST_TEAM_SIZE - 1) / 2) * TILE * 1.5;
+                let sx = baseX + px * off;
+                let sy2 = baseY + py * off;
+                if (!isValidOfficerPosition(sx, sy2)) {
+                    const snapped = snapToTileCenter(baseX, baseY);
+                    sx = snapped.x; sy2 = snapped.y;
+                }
+                const a = new ArrestOfficer(sx, sy2, idx);
+                a.slotOffset = (i - (ARREST_TEAM_SIZE - 1) / 2) * 1.2;
+                game.arrestOfficers.push(a);
+            }
+            game.arrestCooldown[idx] = ARREST_COOLDOWN;
+            showToast('🚔 Arrest team deploying behind Syndicate ' + (idx + 1) + '!');
+            updateArrestButton();
+        }
+        function updateArrestButton() {
+            const btn = document.getElementById('send-arrest');
+            const sub = document.getElementById('send-arrest-sub');
+            if (!btn) return;
+            const idx = game.selectedSyndicate;
+            const cd = game.arrestCooldown[idx] || 0;
+            if (cd > 0) {
+                btn.disabled = true; btn.classList.remove('ready');
+                sub.textContent = 'S' + (idx + 1) + ' ready in ' + Math.ceil(cd) + 's';
+            } else {
+                btn.disabled = false; btn.classList.add('ready');
+                sub.textContent = 'S' + (idx + 1) + ' ready';
+            }
+        }
+
+        // ========== K9 ==========
+        function deployK9() {
+            const idx = game.selectedSyndicate;
+            const k9 = game.k9s.find(k => k.syndicateIndex === idx && k.alive);
+            if (!k9) { showToast('No K9 available for this syndicate.'); return; }
+            if (k9.deployTimer > 0) { showToast('K9 already deployed.'); return; }
+            if (k9.cooldownTimer > 0) { showToast('K9 resting — ' + Math.ceil(k9.cooldownTimer) + 's until ready.'); return; }
+            if (k9.deploy()) {
+                showToast('🐕 K9 released!');
+                updateK9Button();
+            }
+        }
+        function updateK9Button() {
+            const btn = document.getElementById('deploy-k9');
+            const sub = document.getElementById('deploy-k9-sub');
+            if (!btn) return;
+            const idx = game.selectedSyndicate;
+            const k9 = game.k9s.find(k => k.syndicateIndex === idx);
+            if (!k9 || !k9.alive) {
+                btn.disabled = true; btn.classList.remove('ready');
+                sub.textContent = 'S' + (idx + 1) + ' unavailable';
+                return;
+            }
+            if (k9.deployTimer > 0) {
+                btn.disabled = true; btn.classList.remove('ready');
+                sub.textContent = 'S' + (idx + 1) + ' deployed ' + Math.ceil(k9.deployTimer) + 's';
+            } else if (k9.cooldownTimer > 0) {
+                btn.disabled = true; btn.classList.remove('ready');
+                sub.textContent = 'S' + (idx + 1) + ' ready in ' + Math.ceil(k9.cooldownTimer) + 's';
+            } else {
+                btn.disabled = false; btn.classList.add('ready');
+                sub.textContent = 'S' + (idx + 1) + ' ready';
+            }
+        }
+
         // ========== SPAWN ==========
         function spawnSyndicate() {
             if (game.syndicatesDeployed >= MAX_SYNDICATES) return;
@@ -1923,6 +2470,9 @@
                 }
                 game.officers.push(new Officer(spawnX, spawnY, idx));
             }
+            // Spawn a K9 for this syndicate
+            const k9 = new K9Unit(cx + (Math.random() - 0.5) * TILE * 2, cy + (Math.random() - 0.5) * TILE * 2, idx);
+            game.k9s.push(k9);
             assignFormation();
         }
 
@@ -2004,7 +2554,7 @@
                         game.raiders.push(new Raider(entry.kind, squad.routeKey, squad.id, sx, sy));
                     }
                 }
-                game.waveSpawnTimer = 0.12 + Math.random() * 0.22;
+                game.waveSpawnTimer = 0.10 + Math.random() * 0.18;
             }
 
             const anyLeft = game.raiders.some(r => r.alive) || game.waveSpawnQueue.length > 0;
@@ -2014,7 +2564,7 @@
             if (moraleBroken || routedEnough) {
                 game.waveSpawnQueue = [];
                 for (const r of game.raiders) {
-                    if (r.alive && r.state !== 'fleeing') { r.state = 'fleeing'; r.hp = 0; game.routed++; }
+                    if (r.alive && r.state !== 'fleeing' && !r.beingArrested) { r.state = 'fleeing'; r.hp = 0; game.routed++; }
                 }
             }
 
@@ -2034,10 +2584,8 @@
         // ========== SQUAD AI DIRECTOR ==========
         function enterWallState(squad) {
             squad.state = 'wall';
-            squad.stateTimer = 5 + Math.random() * 4;
+            squad.stateTimer = 3 + Math.random() * 2;   // shorter wall phases
             const c = squad.centroid;
-            // Direction toward objective (BASE) — used to make the wall
-            // perpendicular to the direction of travel so it blocks the road.
             const obj = getNode('BASE');
             const dx = obj.x * TILE - c.x, dy = obj.y * TILE - c.y;
             if (Math.abs(dx) > Math.abs(dy)) {
@@ -2047,7 +2595,6 @@
                 squad.wallPerpX = 1; squad.wallPerpY = 0;
                 squad.wallTravelX = 0; squad.wallTravelY = Math.sign(dy) || 1;
             }
-            // Assign stable wall slots — split into up to 6 front + back ranks
             const members = squad.members();
             members.sort((a, b) => a.id - b.id);
             const n = members.length;
@@ -2059,7 +2606,7 @@
                 for (let cIdx = 0; cIdx < countThisRow; cIdx++) {
                     const off = cIdx - (countThisRow - 1) / 2;
                     members[i].wallOffset = off;
-                    members[i].wallBack = row * 1.4;   // tiles behind the front
+                    members[i].wallBack = row * 1.4;
                     i++;
                 }
             }
@@ -2074,7 +2621,6 @@
                 const c = squad.computeCentroid();
                 if (c.count === 0) continue;
 
-                // Recompute wall slots while walling (in case members change)
                 if (squad.state === 'wall') {
                     const n = members.length;
                     const front = Math.min(6, n);
@@ -2091,14 +2637,13 @@
                     }
                 }
 
-                // Contact — anywhere within ~3.5 tiles of any officer
                 let inContact = false;
                 let nearestOfficerDist = Infinity;
                 for (const r of members) {
                     for (const o of officers) {
                         const d = Math.hypot(r.x - o.x, r.y - o.y);
                         if (d < nearestOfficerDist) nearestOfficerDist = d;
-                        if (d < TILE * 3.5) { inContact = true; }
+                        if (d < TILE * 3.5) inContact = true;
                     }
                 }
                 squad.contactTimer = inContact ? 2.0 : Math.max(0, squad.contactTimer - dt);
@@ -2112,48 +2657,33 @@
                     ? Math.hypot(c.x - spawnNode.x * TILE, c.y - spawnNode.y * TILE) / TILE
                     : 999;
 
-                // 1. Heavily hurt + no contact → withdraw to a rear rally point
-                if (avgHp < 0.32 && squad.contactTimer <= 0 && squad.route.length >= 2) {
+                // 1. Withdraw only at very low HP (much rarer)
+                if (avgHp < 0.15 && squad.contactTimer <= 0 && squad.route.length >= 2) {
                     const rn = getNode(squad.route[1]) || getNode(squad.route[0]);
                     if (rn) {
                         squad.state = 'withdraw';
                         squad.rallyX = rn.x * TILE;
                         squad.rallyY = rn.y * TILE;
-                        squad.stateTimer = 9 + Math.random() * 5;
+                        squad.stateTimer = 8 + Math.random() * 5;
                         continue;
                     }
                 }
-                // 2. Moderately hurt + no contact → rest in place
-                const restBias = squad.personality === 'cautious' ? 0.65 : squad.personality === 'sneaky' ? 0.52 : 0.42;
+                // 2. Rest only when quite hurt + out of contact
+                const restBias = squad.personality === 'cautious' ? 0.55 : squad.personality === 'sneaky' ? 0.45 : 0.35;
                 if (avgHp < restBias && squad.contactTimer <= 0) {
                     squad.state = 'rest';
-                    squad.stateTimer = 6 + Math.random() * 4;
+                    squad.stateTimer = 5 + Math.random() * 3;
                     squad.rallyX = c.x; squad.rallyY = c.y;
                     continue;
                 }
-                // 3. Officers visible ahead → form a riot wall and block the road
-                if (!inContact && officerDistTiles < 14 && members.length >= 2 && Math.random() < 0.7) {
+                // 3. Wall only when officers actually near
+                if (!inContact && officerDistTiles < 6 && members.length >= 2 && Math.random() < 0.5) {
                     enterWallState(squad);
                     continue;
                 }
-                // 4. In contact with a lot of officers but not yet engaged →
-                //    hold and let the wall absorb the pressure.
-                if (inContact && officerDistTiles > 1.8 && members.length >= 3 && Math.random() < 0.55) {
-                    if (squad.state !== 'wall') enterWallState(squad);
-                    else squad.stateTimer = 4 + Math.random() * 3;
-                    continue;
-                }
-                // 5. Advanced out in the field, no contact → ambush chance
-                const ambushBias = squad.personality === 'sneaky' ? 0.35 : squad.personality === 'cautious' ? 0.20 : 0.10;
-                if (squad.contactTimer <= 0 && spawnDist > 16 && Math.random() < ambushBias) {
-                    squad.state = 'ambush';
-                    squad.stateTimer = 6 + Math.random() * 6;
-                    squad.rallyX = c.x; squad.rallyY = c.y;
-                    continue;
-                }
-                // 6. Default: advance
+                // 4. Push forward default
                 squad.state = 'advance';
-                squad.stateTimer = 6 + Math.random() * 4;
+                squad.stateTimer = 9 + Math.random() * 4;
             }
         }
 
@@ -2247,7 +2777,7 @@
 
         // ========== LEFT PANEL UI ==========
         const FORMATION_DEFS = [
-            { key: 'rest', label: '😌 Rest', desc: 'Shields down, spaced out for recovery. Auto-shifts to a Staggered Wall the moment a raider gets close.' },
+            { key: 'rest', label: '😌 Rest', desc: 'Shields down, spaced out. Auto-shifts to Staggered Wall if a raider approaches.' },
             { key: 'wedge', label: '🔺 Wedge', desc: 'Spearhead. The healthiest officer forms the point and rows widen behind. Drives into a crowd and splits it open.' },
             { key: 'closedwall', label: '🧱 Closed Wall', desc: 'Fills the ENTIRE road width, edge to edge. Extra officers backfill behind the front line. Nothing gets past.' },
             { key: 'staggeredwall', label: '🧱 Staggered Wall', desc: 'Full-width line with alternate rows offset. Officers reach further, but a gap can open up.' },
@@ -2256,7 +2786,7 @@
             { key: 'box', label: '📦 Box', desc: 'Three-sided box. Front row faces direction of travel, sides extend back. Rigid alignment.' },
         ];
         const ORDER_DEFS = [
-            { key: 'autoDisperse', label: '⚡ Auto-Disperse', desc: 'When ON, Disperse (10s, triple damage) triggers automatically the instant any officer in this syndicate is hit. Has a cooldown.' },
+            { key: 'autoDisperse', label: '⚡ Auto-Disperse', desc: 'When ON, Disperse (10s, triple damage) triggers automatically the instant any officer in this syndicate is hit.' },
         ];
 
         function renderOptionsPanel() {
@@ -2344,6 +2874,7 @@
                     }
                     game.selectedSyndicate = idx;
                     renderSyndicateTabs(); renderOptionsPanel(); updateSelectionUI();
+                    updateArrestButton(); updateK9Button();
                     game.cameraUserLock = 0;
                 });
             });
@@ -2351,6 +2882,10 @@
             if (mergeBtn) mergeBtn.addEventListener('click', toggleMergedMode);
             const allOutBtn = document.getElementById('all-out-btn');
             if (allOutBtn) allOutBtn.addEventListener('click', triggerAllOut);
+            const arrestBtn = document.getElementById('send-arrest');
+            if (arrestBtn) arrestBtn.addEventListener('click', sendInArrestTeam);
+            const k9Btn = document.getElementById('deploy-k9');
+            if (k9Btn) k9Btn.addEventListener('click', deployK9);
             document.getElementById('btn-up').addEventListener('click', () => commandMove(0, -1));
             document.getElementById('btn-down').addEventListener('click', () => commandMove(0, 1));
             document.getElementById('btn-left').addEventListener('click', () => commandMove(-1, 0));
@@ -2387,6 +2922,7 @@
         function updateStats() {
             document.getElementById('wave').textContent = game.waveNumber;
             document.getElementById('routed').textContent = game.routed;
+            document.getElementById('arrested').textContent = game.arrested;
             const objEl = document.getElementById('objective');
             if (objEl) objEl.textContent = OBJECTIVE_SHORT[game.raidAI.objective] || '—';
 
@@ -2406,6 +2942,7 @@
             document.getElementById('morale-num').textContent = Math.round(game.waveMoralePct) + '%';
 
             renderSyndicateTabs(); updateMoveButtons(); updateMergedButton(); updateAllOutButton();
+            updateArrestButton(); updateK9Button();
         }
 
         // ========== RENDER ==========
@@ -2415,9 +2952,15 @@
             if (game.terrainCanvas) {
                 ctx.drawImage(game.terrainCanvas, game.camera.x, game.camera.y, game.width, game.height, 0, 0, game.width, game.height);
             }
+
+            // Draw K9 leads first (under everything else)
+            game.k9s.forEach(k => { if (k.alive) k.drawLead(ctx); });
+
             const all = [];
             game.officers.forEach(o => { if (o.alive) all.push(o); });
+            game.arrestOfficers.forEach(a => { if (a.alive) all.push(a); });
             game.raiders.forEach(r => { if (r.alive) all.push(r); });
+            game.k9s.forEach(k => { if (k.alive) all.push(k); });
             all.sort((a, b) => a.y - b.y);
             all.forEach(u => u.draw(ctx));
             drawEffects(ctx);
@@ -2445,9 +2988,19 @@
                 ctx.fillStyle = o.isAllOut ? '#ffb45c' : '#6cc4ff';
                 ctx.fillRect((o.x / TILE) * MINIMAP_SCALE, (o.y / TILE) * MINIMAP_SCALE, 2, 2);
             });
+            game.arrestOfficers.forEach(a => {
+                if (!a.alive) return;
+                ctx.fillStyle = '#ffcc33';
+                ctx.fillRect((a.x / TILE) * MINIMAP_SCALE, (a.y / TILE) * MINIMAP_SCALE, 2, 2);
+            });
+            game.k9s.forEach(k => {
+                if (!k.alive) return;
+                ctx.fillStyle = k.deployTimer > 0 ? '#ff5a30' : '#c08040';
+                ctx.fillRect((k.x / TILE) * MINIMAP_SCALE, (k.y / TILE) * MINIMAP_SCALE, 2, 2);
+            });
             game.raiders.forEach(r => {
                 if (!r.alive || r.state === 'fleeing') return;
-                ctx.fillStyle = (r.state === 'resting' || r.state === 'holding') ? '#86cf72' : '#ff8a5c';
+                ctx.fillStyle = r.beingArrested ? '#ffcc33' : ((r.state === 'resting' || r.state === 'holding') ? '#86cf72' : '#ff8a5c');
                 ctx.fillRect((r.x / TILE) * MINIMAP_SCALE, (r.y / TILE) * MINIMAP_SCALE, 2, 2);
             });
             sceneryBuildings.forEach(b => {
@@ -2468,6 +3021,7 @@
             document.getElementById('gameover-stats').textContent =
                 'Waves held: ' + (game.waveNumber - 1) +
                 '  •  Raiders routed: ' + game.routed +
+                '  •  Arrested: ' + game.arrested +
                 '  •  Buildings lost: ' + game.buildingsDestroyed;
             overlay.classList.add('show');
         }
@@ -2479,6 +3033,7 @@
             game.selectedSyndicate = 0;
             renderSyndicateTabs(); renderOptionsPanel(); updateSelectionUI();
             updateMergedButton(); updateAllOutButton();
+            updateArrestButton(); updateK9Button();
         }
 
         // ========== MAIN LOOP ==========
@@ -2490,6 +3045,9 @@
                 updateSquadAI(dt);
 
                 if (game.allOutCooldown > 0) game.allOutCooldown = Math.max(0, game.allOutCooldown - dt);
+                for (let i = 0; i < game.arrestCooldown.length; i++) {
+                    if (game.arrestCooldown[i] > 0) game.arrestCooldown[i] = Math.max(0, game.arrestCooldown[i] - dt);
+                }
 
                 game.syndicates.forEach(sy => {
                     if (sy && sy.disperseTimer > 0) {
@@ -2504,10 +3062,21 @@
                 assignFormation();
                 game.attackerCounts.clear();
                 game.officers.forEach(o => o.update(dt));
+                game.arrestOfficers.forEach(a => a.update(dt));
+                game.k9s.forEach(k => k.update(dt));
                 game.raiders.forEach(r => r.update(dt));
+
+                // Cleanup dead
                 if (game.raiders.length > 0 && game.raiders.some(r => !r.alive)) {
                     game.raiders = game.raiders.filter(r => r.alive);
                 }
+                if (game.arrestOfficers.length > 0 && game.arrestOfficers.some(a => !a.alive)) {
+                    game.arrestOfficers = game.arrestOfficers.filter(a => a.alive);
+                }
+                if (game.k9s.length > 0 && game.k9s.some(k => !k.alive)) {
+                    game.k9s = game.k9s.filter(k => k.alive);
+                }
+
                 updateEffects(dt);
                 updateCamera(dt);
                 updateStats();
@@ -2520,6 +3089,7 @@
         // ========== INIT ==========
         function initGameState() {
             game.officers = []; game.raiders = []; game.effects = [];
+            game.arrestOfficers = []; game.k9s = [];
             game.syndicates = [];
             game.selectedSyndicate = 0;
             game.baseHp = BASE_MAX_HP;
@@ -2528,6 +3098,7 @@
             game.mergedIntoIndex = 0;
             game.allOutCooldown = 0;
             game.allOutActive = 0;
+            game.arrestCooldown = [0, 0, 0];
             game.squads = new Map();
             game.nextSquadId = 1;
             game.waveNumber = 1;
@@ -2537,6 +3108,7 @@
             game.waveTotalHp = 0;
             game.waveSpawnQueue = [];
             game.routed = 0;
+            game.arrested = 0;
             game.gameOver = false;
             game.cameraUserLock = 0;
             game.attackerCounts.clear();
@@ -2583,7 +3155,6 @@
             setupMinimapDPR();
             setupEvents();
             setupBottomRightUI();
-            document.getElementById('train-arrest').addEventListener('click', () => showToast('Arrest teams — coming in the next update!'));
             document.getElementById('gameover-restart').addEventListener('click', restartGame);
             window.addEventListener('resize', () => setTimeout(rebuildWorldForScreenSize, 50));
             window.addEventListener('orientationchange', handleOrientationChange);
@@ -2593,11 +3164,11 @@
             computeMapSize(); computeMinimapSize();
             loadAssets(() => {
                 generateMap(); buildTerrainCanvas(); buildMinimapTerrainCanvas();
-                // All three syndicates spawn instantly at boot
                 for (let i = 0; i < MAX_SYNDICATES; i++) spawnSyndicate();
                 game.selectedSyndicate = 0;
                 renderSyndicateTabs(); renderOptionsPanel(); updateSelectionUI();
                 updateMergedButton(); updateAllOutButton();
+                updateArrestButton(); updateK9Button();
                 requestAnimationFrame(loop);
             });
         }

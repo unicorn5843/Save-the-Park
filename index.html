@@ -132,7 +132,7 @@
         .stat-fill.low { background: linear-gradient(180deg, #e8b24e, #b06a20); }
         .stat-fill.crit { background: linear-gradient(180deg, #e86858, #a02020); }
         .stat-num {
-            font-size: 9px; color: #ffcc33; font-weight: 700; min-width: 54px; text-align: right;
+            font-size: 9px; color: #ffcc33; font-weight: 700; min-width: 40px; text-align: right;
             font-variant-numeric: tabular-nums; flex: 0 0 auto;
         }
         #selection-info:empty { display: none; }
@@ -145,22 +145,23 @@
 
         #top-bar {
             position: fixed; top: 8px; left: 50%; transform: translateX(-50%); z-index: 96;
-            display: flex; gap: 6px; background: rgba(13, 16, 23, 0.82);
-            border: 1px solid #2e3a4f; border-radius: 9px; padding: 5px;
+            display: flex; gap: 5px; background: rgba(13, 16, 23, 0.82);
+            border: 1px solid #2e3a4f; border-radius: 9px; padding: 4px;
             backdrop-filter: blur(5px); box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+            max-width: calc(100vw - 340px);
         }
         .train-btn {
             display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px;
-            width: 96px; height: 46px;
+            width: 86px; min-width: 0; height: 44px;
             background: linear-gradient(180deg, #2e3a4f, #212a3a);
             border: 1px solid #47597a; border-radius: 7px;
             color: #e8edf5; font-size: 9.5px; font-weight: 700; cursor: pointer;
-            position: relative; overflow: hidden;
+            position: relative; overflow: hidden; flex: 1 1 auto;
         }
         .train-btn:active { transform: scale(0.97); }
         .train-btn:disabled { opacity: 0.42; cursor: not-allowed; }
-        .train-btn .tlabel { z-index: 2; }
-        .train-btn .tsub { z-index: 2; font-size: 8.5px; color: #9fb0c7; font-weight: 500; }
+        .train-btn .tlabel { z-index: 2; white-space: nowrap; }
+        .train-btn .tsub { z-index: 2; font-size: 8.5px; color: #9fb0c7; font-weight: 500; white-space: nowrap; }
         .train-btn .tprog { position: absolute; left: 0; bottom: 0; height: 3px; background: #ffcc33; width: 0%; z-index: 2; }
         .train-btn.arrest {
             background: linear-gradient(180deg, #3a5a8a, #1e3a5a);
@@ -368,11 +369,11 @@
 
     <div id="top-bar">
         <button id="send-arrest" class="train-btn arrest ready">
-            <span class="tlabel">🚔 Send In Arrest Team</span>
+            <span class="tlabel">🚔 Arrest Team</span>
             <span class="tsub" id="send-arrest-sub">S1 ready</span>
         </button>
         <button id="deploy-k9" class="train-btn k9 ready">
-            <span class="tlabel">🐕 Deploy K9</span>
+            <span class="tlabel">🐕 K9</span>
             <span class="tsub" id="deploy-k9-sub">S1 ready</span>
         </button>
         <button id="disperse-btn" class="train-btn disperse ready">
@@ -396,12 +397,12 @@
             <div class="stat-line">
                 <span class="stat-icon">🏢</span>
                 <div class="stat-track"><div class="stat-fill" id="base-hp-fill"></div></div>
-                <span class="stat-num" id="base-hp-num">900/900</span>
+                <span class="stat-num" id="base-hp-num">100%</span>
             </div>
             <div class="stat-line">
                 <span class="stat-icon">👮</span>
                 <div class="stat-track"><div class="stat-fill troops" id="troop-fill"></div></div>
-                <span class="stat-num" id="troop-num">0/45</span>
+                <span class="stat-num" id="troop-num">100%</span>
             </div>
             <div class="stat-line">
                 <span class="stat-icon">📢</span>
@@ -469,7 +470,6 @@
         const ROAD_X_END = 98;
         const JUNCTION_XS = [30, 54, 78];
         const ENTRY_XS = [18, 90];
-        // NEW: bottom entry roads (bottom-left and bottom-right)
         const BOTTOM_ENTRY_XS = [12, 96];
 
         const BASE_TILE_X = 54;
@@ -507,7 +507,6 @@
         const K9_MORALE_DAMAGE_MULT = 4.0;
         const K9_LEAD_LENGTH_ATTACHED = TILE * 1.0;
         const K9_LEAD_LENGTH_DEPLOYED = TILE * 3.75;
-        // K9 hard leash: if further than this from handler while not deployed, snap back
         const K9_MAX_LEASH_FROM_HANDLER = TILE * 12;
 
         const FORMATION_MODS = {
@@ -532,7 +531,6 @@
         const BRICK_THROW_TIME    = 0.85;
         const BRICK_MORALE_AURA   = TILE * 7;
         const BRICK_MORALE_RATE   = 1.6;
-        const BRICK_HANDLER_PRIORITY_RANGE = TILE * 14;
 
         // ========== GAME STATE ==========
         let map = [];
@@ -585,29 +583,24 @@
         };
 
         // ========== ROAD GRAPH ==========
-        // Rebuildable so MAP_H changes are reflected.
         let ROAD_NODES = [];
         function buildRoadNodes() {
             return [
-                // Top entries
-                { id: 'EL0', x: ENTRY_XS[0], y: 0.5 },
+                { id: 'EL0', x: ENTRY_XS[0], y: 1.5 },
                 { id: 'EL1', x: ENTRY_XS[0], y: ROAD_Y_TOP },
                 { id: 'EL2', x: ENTRY_XS[0], y: ROAD_Y_BOTTOM },
-                { id: 'ER0', x: ENTRY_XS[1], y: 0.5 },
+                { id: 'ER0', x: ENTRY_XS[1], y: 1.5 },
                 { id: 'ER1', x: ENTRY_XS[1], y: ROAD_Y_TOP },
                 { id: 'ER2', x: ENTRY_XS[1], y: ROAD_Y_BOTTOM },
-                // Junctions
                 { id: 'TJ1', x: JUNCTION_XS[0], y: ROAD_Y_TOP },
                 { id: 'TJ2', x: JUNCTION_XS[1], y: ROAD_Y_TOP },
                 { id: 'TJ3', x: JUNCTION_XS[2], y: ROAD_Y_TOP },
                 { id: 'BJ1', x: JUNCTION_XS[0], y: ROAD_Y_BOTTOM },
                 { id: 'BJ3', x: JUNCTION_XS[2], y: ROAD_Y_BOTTOM },
-                // Base
                 { id: 'BASE', x: BASE_TILE_X, y: BASE_TILE_Y },
-                // NEW: bottom entries (bottom-left & bottom-right) — go up from bottom edge
-                { id: 'BL0', x: BOTTOM_ENTRY_XS[0], y: Math.max(ROAD_Y_BOTTOM + 4, MAP_H - 0.5) },
+                { id: 'BL0', x: BOTTOM_ENTRY_XS[0], y: MAP_H - 1.5 },
                 { id: 'BL1', x: BOTTOM_ENTRY_XS[0], y: ROAD_Y_BOTTOM },
-                { id: 'BR0', x: BOTTOM_ENTRY_XS[1], y: Math.max(ROAD_Y_BOTTOM + 4, MAP_H - 0.5) },
+                { id: 'BR0', x: BOTTOM_ENTRY_XS[1], y: MAP_H - 1.5 },
                 { id: 'BR1', x: BOTTOM_ENTRY_XS[1], y: ROAD_Y_BOTTOM },
             ];
         }
@@ -620,7 +613,6 @@
             'east_high':   ['ER0', 'ER1', 'TJ3', 'TJ2', 'BASE'],
             'west_side':   ['EL0', 'EL1', 'TJ1', 'BJ1', 'BASE'],
             'east_side':   ['ER0', 'ER1', 'TJ3', 'BJ3', 'BASE'],
-            // NEW: bottom entry routes
             'botwest_direct': ['BL0', 'BL1', 'BJ1', 'BASE'],
             'boteast_direct': ['BR0', 'BR1', 'BJ3', 'BASE'],
         };
@@ -649,12 +641,10 @@
             'mass_charge': [
                 { routeKey: 'west_direct', share: 1.0, personality: 'aggressive', initialState: 'regroup' },
             ],
-            // NEW: bottom pincer — attacks exclusively from bottom entries
             'bottom_pincer': [
                 { routeKey: 'botwest_direct', share: 0.5, personality: 'aggressive' },
                 { routeKey: 'boteast_direct', share: 0.5, personality: 'aggressive' },
             ],
-            // NEW: surround — flanks from all four entry roads
             'surround': [
                 { routeKey: 'west_direct',    share: 0.25, personality: 'aggressive' },
                 { routeKey: 'east_direct',    share: 0.25, personality: 'aggressive' },
@@ -724,19 +714,14 @@
         // ========== MAP GENERATION ==========
         function tileIsRoad(tx, ty) {
             const hw = ROAD_W / 2;
-            // Top horizontal road
             if (ty >= ROAD_Y_TOP - hw && ty <= ROAD_Y_TOP + hw && tx >= ROAD_X_START && tx <= ROAD_X_END) return true;
-            // Bottom horizontal road
             if (ty >= ROAD_Y_BOTTOM - hw && ty <= ROAD_Y_BOTTOM + hw && tx >= ROAD_X_START && tx <= ROAD_X_END) return true;
-            // Vertical road at junctions
             for (let jx of JUNCTION_XS) {
                 if (tx >= jx - hw && tx <= jx + hw && ty >= ROAD_Y_TOP - hw && ty <= ROAD_Y_BOTTOM + hw) return true;
             }
-            // Top entry roads (from top edge down to bottom road)
             for (let ex of ENTRY_XS) {
                 if (tx >= ex - hw && tx <= ex + hw && ty >= 0 && ty <= ROAD_Y_BOTTOM + hw) return true;
             }
-            // NEW: Bottom entry roads (from bottom road down to bottom edge)
             for (let ex of BOTTOM_ENTRY_XS) {
                 if (tx >= ex - hw && tx <= ex + hw && ty >= ROAD_Y_BOTTOM - hw && ty <= MAP_H) return true;
             }
@@ -985,7 +970,6 @@
                 t.moveTo(ex * TILE, 0);
                 t.lineTo(ex * TILE, ROAD_Y_BOTTOM * TILE);
             }
-            // NEW: bottom entry lane markings
             for (const ex of BOTTOM_ENTRY_XS) {
                 t.moveTo(ex * TILE, ROAD_Y_BOTTOM * TILE);
                 t.lineTo(ex * TILE, MAP_H * TILE);
@@ -1063,9 +1047,7 @@
             const t = map[ty][tx];
             return t === TILE_ROAD || t === TILE_SIDEWALK || t === TILE_BASE;
         }
-        function isValidOfficerPosition(x, y) {
-            return isValidPosition(x, y);
-        }
+        function isValidOfficerPosition(x, y) { return isValidPosition(x, y); }
         function clampOfficerTarget(x, y) {
             if (isValidOfficerPosition(x, y)) return { x, y };
             for (let r = 1; r <= 10; r++) {
@@ -1634,7 +1616,6 @@
                 let fx = (sy && sy.facingX) || 1, fy = (sy && sy.facingY) || 0;
                 if (Math.abs(fx) > Math.abs(fy)) { fx = Math.sign(fx)||1; fy = 0; } else { fx = 0; fy = Math.sign(fy)||1; }
                 const px = fy, py = -fx;
-                // Handler stays close to formation — slightly behind and to one side
                 const targetX = cx - fx * TILE * 3.0 + px * TILE * 2.4;
                 const targetY = cy - fy * TILE * 3.0 + py * TILE * 2.4;
 
@@ -1753,12 +1734,10 @@
                 this.atkTimer = Math.max(0, this.atkTimer - dt);
                 if (this.cooldownTimer > 0) this.cooldownTimer -= dt;
 
-                // Refresh handler reference
                 if (!this.handler || !this.handler.alive) {
                     this.handler = game.handlers.find(h => h.alive && h.syndicateIndex === this.syndicateIndex) || null;
                 }
 
-                // Refresh attached officer (used only if handler dead)
                 this.attachedTimer -= dt;
                 if (!this.attachedOfficer || !this.attachedOfficer.alive || this.attachedTimer <= 0) {
                     this.attachedOfficer = this.pickAttachedOfficer();
@@ -1814,14 +1793,11 @@
                     return;
                 }
 
-                // --- Attached to handler (NOT to the arrest team) ---
                 this.followOfficer(dt, K9_SPEED * 0.9);
 
-                // Hard leash — if we somehow end up far from handler while attached, snap in
                 if (this.handler && this.handler.alive) {
                     const dh = Math.hypot(this.x - this.handler.x, this.y - this.handler.y);
                     if (dh > K9_MAX_LEASH_FROM_HANDLER) {
-                        // Try teleporting to just behind the handler
                         const h = this.handler;
                         const tx = h.x - (h.dir.x || 0) * K9_LEAD_LENGTH_ATTACHED;
                         const ty = h.y - (h.dir.y || 0) * K9_LEAD_LENGTH_ATTACHED;
@@ -1835,7 +1811,6 @@
                 let targetX = null, targetY = null;
                 let anchorX = this.x, anchorY = this.y;
 
-                // Priority 1: the syndicate's K9 handler
                 if (this.handler && this.handler.alive) {
                     const h = this.handler;
                     let fx = h.dir.x, fy = h.dir.y;
@@ -1844,9 +1819,7 @@
                     targetX = h.x - fx * K9_LEAD_LENGTH_ATTACHED;
                     targetY = h.y - fy * K9_LEAD_LENGTH_ATTACHED;
                     anchorX = h.x; anchorY = h.y;
-                }
-                // Priority 2: fallback to attached officer if handler is dead
-                else if (this.attachedOfficer && this.attachedOfficer.alive) {
+                } else if (this.attachedOfficer && this.attachedOfficer.alive) {
                     const o = this.attachedOfficer;
                     let fx = o.dir.x, fy = o.dir.y;
                     const fl = Math.hypot(fx, fy) || 1;
@@ -2994,8 +2967,22 @@
                 if (squad) {
                     const startNode = getNode(squad.route[0]);
                     if (startNode) {
-                        const sx = startNode.x * TILE + (Math.random() - 0.5) * TILE * 3;
-                        const sy = startNode.y * TILE + (Math.random() - 0.5) * TILE * 2;
+                        // Compute a spawn position that is safely inside the map
+                        let sx = startNode.x * TILE + (Math.random() - 0.5) * TILE * 2;
+                        let sy = startNode.y * TILE + (Math.random() - 0.5) * TILE;
+                        // Hard clamp so the raider is never hanging off the edge
+                        sx = Math.max(TILE, Math.min(MAP_W * TILE - TILE, sx));
+                        sy = Math.max(TILE, Math.min(MAP_H * TILE - TILE, sy));
+                        // If the resulting tile isn't walkable, snap back to the node's own center
+                        if (!isValidPosition(sx, sy)) {
+                            sx = startNode.x * TILE;
+                            sy = startNode.y * TILE;
+                            // Final fallback — station tile is guaranteed walkable
+                            if (!isValidPosition(sx, sy)) {
+                                sx = BASE_TILE_X * TILE;
+                                sy = BASE_TILE_Y * TILE;
+                            }
+                        }
                         game.raiders.push(new Raider(entry.kind, squad.routeKey, squad.id, sx, sy));
                     }
                 }
@@ -3264,11 +3251,11 @@
         const FORMATION_DEFS = [
             { key: 'rest', label: '😌 Rest', desc: 'Shields down, spaced out, FASTEST movement but weakest attack. Auto-shifts to Staggered Wall if a raider approaches.' },
             { key: 'wedge', label: '🔺 Wedge', desc: 'Spearhead. The healthiest officer forms the point and rows widen behind. Balanced all-rounder.' },
-            { key: 'closedwall', label: '🧱 Closed Wall', desc: 'Fills the ENTIRE road width. Extra officers backfill behind. Slower but sturdier.' },
+            { key: 'closedwall', label: '🧱 Closed Wall', desc: 'Fills the ENTIRE road width. Extra officers backfill behind. Slower but sturdier (15% less damage taken).' },
             { key: 'staggeredwall', label: '🧱 Staggered Wall', desc: 'Full-width line with alternate rows offset. SLOWEST but 55% extra damage and 30% less damage taken.' },
             { key: 'stackleft', label: '⬅️ Stack Left', desc: 'Press up against the left kerb, fast lateral movement.' },
             { key: 'stackright', label: '➡️ Stack Right', desc: 'Press up against the right kerb, fast lateral movement.' },
-            { key: 'box', label: '📦 Box', desc: 'Three-sided box. Balanced. ARREST TEAM + K9 STAY INSIDE the box, protected by the officers.' },
+            { key: 'box', label: '📦 Box', desc: 'Three-sided box. Balanced. ARREST TEAM + K9 STAY INSIDE the box, protected by the officers (20% less damage taken).' },
         ];
         const ORDER_DEFS = [
             { key: 'autoDisperse', label: '⚡ Auto-Disperse', desc: 'When ON, Disperse (10s, triple damage) triggers automatically the instant any officer in this syndicate is hit.' },
@@ -3413,16 +3400,19 @@
             const objEl = document.getElementById('objective');
             if (objEl) objEl.textContent = OBJECTIVE_SHORT[game.raidAI.objective] || '—';
 
+            // Base HP — show as percentage so bar length and number always agree
             const baseFill = document.getElementById('base-hp-fill');
             const basePct = game.baseHp / BASE_MAX_HP;
             baseFill.style.width = Math.round(basePct * 100) + '%';
             baseFill.className = 'stat-fill' + (basePct < 0.3 ? ' crit' : basePct < 0.6 ? ' low' : '');
-            document.getElementById('base-hp-num').textContent = Math.ceil(game.baseHp) + '/' + BASE_MAX_HP;
+            document.getElementById('base-hp-num').textContent = Math.round(basePct * 100) + '%';
 
+            // Troops — also as percentage of maximum possible force
             const aliveOfficers = game.officers.filter(o => o.alive).length;
             const cap = MAX_SYNDICATES * OFFICERS_PER_SYNDICATE;
-            document.getElementById('troop-fill').style.width = Math.round(100 * aliveOfficers / cap) + '%';
-            document.getElementById('troop-num').textContent = aliveOfficers + '/' + cap;
+            const troopPct = aliveOfficers / cap;
+            document.getElementById('troop-fill').style.width = Math.round(troopPct * 100) + '%';
+            document.getElementById('troop-num').textContent = Math.round(troopPct * 100) + '%';
 
             const moraleFill = document.getElementById('morale-fill');
             moraleFill.style.width = Math.round(game.waveMoralePct) + '%';

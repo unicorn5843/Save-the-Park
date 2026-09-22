@@ -475,21 +475,21 @@
         const ARREST_TEAM_SIZE = 3;
         const ARREST_COOLDOWN = 40;
         const ARREST_OFFICER_HP = 300;
-        const ARREST_OFFICER_SPEED = 2.9;   // tiles/sec — faster than raiders
-        const ARREST_GRAB_RANGE = TILE * 3.2;
-        const ARREST_MAX_RANGE_FROM_SYNDICATE = TILE * 9;
+        const ARREST_OFFICER_SPEED = 2.9;
+        const ARREST_GRAB_RANGE = TILE * 4.5;       // Increased range
+        const ARREST_MAX_RANGE_FROM_SYNDICATE = TILE * 12; // Increased range
 
         // K9
         const K9_HP = 90;
         const K9_DEPLOY_TIME = 10;
         const K9_COOLDOWN = 50;
-        const K9_SPEED = 5.2;               // tiles/sec
-        const K9_ATTACK_DAMAGE = 55;        // very high
+        const K9_SPEED = 5.2;
+        const K9_ATTACK_DAMAGE = 55;
         const K9_ATTACK_RANGE = TILE * 1.3;
         const K9_ATTACK_COOLDOWN = 0.55;
-        const K9_MORALE_DAMAGE_MULT = 4.0;  // extra morale damage
-        const K9_LEAD_LENGTH_ATTACHED = TILE * 1.6;
-        const K9_LEAD_LENGTH_DEPLOYED = TILE * 7.5;
+        const K9_MORALE_DAMAGE_MULT = 4.0;
+        const K9_LEAD_LENGTH_ATTACHED = TILE * 0.8;  // Halved
+        const K9_LEAD_LENGTH_DEPLOYED = TILE * 3.75; // Halved
 
         // ========== GAME STATE ==========
         let map = [];
@@ -971,12 +971,8 @@
             return t === TILE_ROAD || t === TILE_SIDEWALK || t === TILE_BASE;
         }
         function isValidOfficerPosition(x, y) {
-            if (!isValidPosition(x, y)) return false;
-            const tx = Math.floor(x / TILE), ty = Math.floor(y / TILE);
-            if (ty < ROAD_Y_TOP) {
-                for (const ex of ENTRY_XS) if (Math.abs(tx - ex) <= ROAD_W / 2) return false;
-            }
-            return true;
+            // Allow officers to go anywhere valid (including entry lanes)
+            return isValidPosition(x, y);
         }
         function clampOfficerTarget(x, y) {
             if (isValidOfficerPosition(x, y)) return { x, y };
@@ -1320,7 +1316,6 @@
                 }
 
                 // ---- Escorting behind the syndicate ----
-                // Compute a slot behind the syndicate command marker.
                 let aliveSyndicate = game.officers.filter(o => o.alive && !o.isAllOut && o.syndicateIndex === this.syndicateIndex && o.state === 'active');
                 if (aliveSyndicate.length === 0) aliveSyndicate = game.officers.filter(o => o.alive && !o.isAllOut && o.syndicateIndex === this.syndicateIndex);
 
@@ -1559,23 +1554,34 @@
                     return;
                 }
 
-                // ---- Attached: follow officer from behind ----
+                // ---- Attached: follow arrest team (rear) or officer ----
                 this.followOfficer(dt, K9_SPEED * 0.9);
             }
 
             followOfficer(dt, speedMult) {
-                const o = this.attachedOfficer;
-                if (!o || !o.alive) {
+                let targetX, targetY;
+                // Check if there's an arrest team to follow (rear position)
+                const arrestTeam = game.arrestOfficers.filter(a => a.alive && a.syndicateIndex === this.syndicateIndex);
+                
+                if (arrestTeam.length > 0) {
+                    let cx = 0, cy = 0;
+                    for (const a of arrestTeam) { cx += a.x; cy += a.y; }
+                    targetX = cx / arrestTeam.length;
+                    targetY = cy / arrestTeam.length;
+                } else if (this.attachedOfficer && this.attachedOfficer.alive) {
+                    // Fallback to following the officer
+                    const o = this.attachedOfficer;
+                    let fx = o.dir.x, fy = o.dir.y;
+                    const fl = Math.hypot(fx, fy) || 1;
+                    fx /= fl; fy /= fl;
+                    targetX = o.x - fx * K9_LEAD_LENGTH_ATTACHED;
+                    targetY = o.y - fy * K9_LEAD_LENGTH_ATTACHED;
+                } else {
                     this.isMoving = false;
                     return;
                 }
-                // Position: behind the officer, opposite their facing direction
-                let fx = o.dir.x, fy = o.dir.y;
-                const fl = Math.hypot(fx, fy) || 1;
-                fx /= fl; fy /= fl;
-                const tx = o.x - fx * K9_LEAD_LENGTH_ATTACHED;
-                const ty = o.y - fy * K9_LEAD_LENGTH_ATTACHED;
-                const dx = tx - this.x, dy = ty - this.y;
+                
+                const dx = targetX - this.x, dy = targetY - this.y;
                 const d = Math.hypot(dx, dy);
                 this.isMoving = d > 4;
                 if (d > 4) {
@@ -2380,7 +2386,7 @@
             }
             const sy = ensureSyndicateState(idx);
             if (!sy) return;
-            // Spawn 3 arrest officers behind the syndicate command point
+            
             let fx = sy.facingX || 1, fy = sy.facingY || 0;
             if (Math.abs(fx) > Math.abs(fy)) { fx = Math.sign(fx) || 1; fy = 0; }
             else { fx = 0; fy = Math.sign(fy) || 1; }
@@ -2388,17 +2394,41 @@
             const back = TILE * 4;
             const baseX = sy.commandX - fx * back;
             const baseY = sy.commandY - fy * back;
-            for (let i = 0; i < ARREST_TEAM_SIZE; i++) {
-                const off = (i - (ARREST_TEAM_SIZE - 1) / 2) * TILE * 1.5;
-                let sx = baseX + px * off;
-                let sy2 = baseY + py * off;
-                if (!isValidOfficerPosition(sx, sy2)) {
-                    const snapped = snapToTileCenter(baseX, baseY);
-                    sx = snapped.x; sy2 = snapped.y;
+
+            // Filter to only alive arrest officers for this syndicate
+            const existing = game.arrestOfficers.filter(a => a.alive && a.syndicateIndex === idx);
+            
+            if (existing.length >= ARREST_TEAM_SIZE) {
+                // Re-position existing team instead of spawning new ones
+                existing.forEach((a, i) => {
+                    const off = (i - (ARREST_TEAM_SIZE - 1) / 2) * TILE * 1.5;
+                    let sx = baseX + px * off;
+                    let sy2 = baseY + py * off;
+                    if (!isValidOfficerPosition(sx, sy2)) {
+                        const snapped = snapToTileCenter(baseX, baseY);
+                        sx = snapped.x; sy2 = snapped.y;
+                    }
+                    a.x = sx; a.y = sy2;
+                    a.hp = a.maxHp;
+                    a.carrying = null;
+                    a.state = 'escort';
+                    if (a.carrying) { a.carrying.beingArrested = false; a.carrying.arrestOfficer = null; a.carrying = null; }
+                });
+            } else {
+                // Spawn new team if they died or this is the first deployment
+                game.arrestOfficers = game.arrestOfficers.filter(a => a.alive); // Cleanup dead ones
+                for (let i = 0; i < ARREST_TEAM_SIZE; i++) {
+                    const off = (i - (ARREST_TEAM_SIZE - 1) / 2) * TILE * 1.5;
+                    let sx = baseX + px * off;
+                    let sy2 = baseY + py * off;
+                    if (!isValidOfficerPosition(sx, sy2)) {
+                        const snapped = snapToTileCenter(baseX, baseY);
+                        sx = snapped.x; sy2 = snapped.y;
+                    }
+                    const a = new ArrestOfficer(sx, sy2, idx);
+                    a.slotOffset = (i - (ARREST_TEAM_SIZE - 1) / 2) * 1.2;
+                    game.arrestOfficers.push(a);
                 }
-                const a = new ArrestOfficer(sx, sy2, idx);
-                a.slotOffset = (i - (ARREST_TEAM_SIZE - 1) / 2) * 1.2;
-                game.arrestOfficers.push(a);
             }
             game.arrestCooldown[idx] = ARREST_COOLDOWN;
             showToast('🚔 Arrest team deploying behind Syndicate ' + (idx + 1) + '!');
@@ -2760,13 +2790,22 @@
         function updateCamera(dt) {
             if (game.cameraUserLock > 0) { game.cameraUserLock -= dt; return; }
             if (game.mouse.down) return;
+            
             let cx = 0, cy = 0, n = 0;
-            if (game.mergedMode) {
-                for (const o of game.officers) if (o.alive && !o.isAllOut && o.state === 'active') { cx += o.x; cy += o.y; n++; }
-            } else {
-                const idx = game.selectedSyndicate;
-                for (const o of game.officers) if (o.alive && !o.isAllOut && o.syndicateIndex === idx && o.state === 'active') { cx += o.x; cy += o.y; n++; }
+            
+            // Track all active officers
+            for (const o of game.officers) {
+                if (o.alive && !o.isAllOut && o.state === 'active') { cx += o.x; cy += o.y; n++; }
             }
+            // Track arrest team
+            for (const a of game.arrestOfficers) {
+                if (a.alive) { cx += a.x; cy += a.y; n++; }
+            }
+            // Track raiders (weighted slightly higher to prioritize keeping them in view)
+            for (const r of game.raiders) {
+                if (r.alive && !r.beingArrested) { cx += r.x * 2; cy += r.y * 2; n += 2; }
+            }
+            
             if (n === 0) return;
             cx /= n; cy /= n;
             const k = Math.min(1, dt * 3.2);

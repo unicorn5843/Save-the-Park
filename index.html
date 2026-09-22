@@ -469,10 +469,11 @@
         const ROAD_X_END = 98;
         const JUNCTION_XS = [30, 54, 78];
         const ENTRY_XS = [18, 90];
+        // NEW: bottom entry roads (bottom-left and bottom-right)
+        const BOTTOM_ENTRY_XS = [12, 96];
 
         const BASE_TILE_X = 54;
         const BASE_TILE_Y = ROAD_Y_BOTTOM;
-        const OFFICER_MIN_TILE_Y = ROAD_Y_TOP - 1;
 
         const OFFICERS_PER_ROW = ROAD_W + 1;
         const ROW_SPACING = 1.2;
@@ -489,7 +490,6 @@
         const ALL_OUT_COOLDOWN = 55;
         const ALL_OUT_RADIUS = TILE * 15;
 
-        // Arrest team
         const ARREST_TEAM_SIZE = 3;
         const ARREST_COOLDOWN = 40;
         const ARREST_OFFICER_HP = 300;
@@ -497,7 +497,6 @@
         const ARREST_GRAB_RANGE = TILE * 4.5;
         const ARREST_MAX_RANGE_FROM_SYNDICATE = TILE * 12;
 
-        // K9
         const K9_HP = 90;
         const K9_DEPLOY_TIME = 10;
         const K9_COOLDOWN = 50;
@@ -506,10 +505,11 @@
         const K9_ATTACK_RANGE = TILE * 1.3;
         const K9_ATTACK_COOLDOWN = 0.55;
         const K9_MORALE_DAMAGE_MULT = 4.0;
-        const K9_LEAD_LENGTH_ATTACHED = TILE * 0.8;
+        const K9_LEAD_LENGTH_ATTACHED = TILE * 1.0;
         const K9_LEAD_LENGTH_DEPLOYED = TILE * 3.75;
+        // K9 hard leash: if further than this from handler while not deployed, snap back
+        const K9_MAX_LEASH_FROM_HANDLER = TILE * 12;
 
-        // ---- Formation modifiers: speed / attack / defense trade-offs ----
         const FORMATION_MODS = {
             rest:          { speedMult: 1.35, dmgMult: 0.60, dmgTakenMult: 0.90 },
             wedge:         { speedMult: 1.05, dmgMult: 1.00, dmgTakenMult: 1.00 },
@@ -523,11 +523,9 @@
             return FORMATION_MODS[tactic] || { speedMult: 1, dmgMult: 1, dmgTakenMult: 1 };
         }
 
-        // ---- Manual disperse ----
         const MANUAL_DISPERSE_DURATION = 10;
         const MANUAL_DISPERSE_COOLDOWN = 45;
 
-        // ---- Brick thrower ----
         const BRICK_THROW_RANGE   = TILE * 9;
         const BRICK_THROW_DAMAGE  = 22;
         const BRICK_THROW_AOE     = TILE * 1.6;
@@ -587,20 +585,32 @@
         };
 
         // ========== ROAD GRAPH ==========
-        const ROAD_NODES = [
-            { id: 'EL0', x: ENTRY_XS[0], y: 0.5 },
-            { id: 'EL1', x: ENTRY_XS[0], y: ROAD_Y_TOP },
-            { id: 'EL2', x: ENTRY_XS[0], y: ROAD_Y_BOTTOM },
-            { id: 'ER0', x: ENTRY_XS[1], y: 0.5 },
-            { id: 'ER1', x: ENTRY_XS[1], y: ROAD_Y_TOP },
-            { id: 'ER2', x: ENTRY_XS[1], y: ROAD_Y_BOTTOM },
-            { id: 'TJ1', x: JUNCTION_XS[0], y: ROAD_Y_TOP },
-            { id: 'TJ2', x: JUNCTION_XS[1], y: ROAD_Y_TOP },
-            { id: 'TJ3', x: JUNCTION_XS[2], y: ROAD_Y_TOP },
-            { id: 'BJ1', x: JUNCTION_XS[0], y: ROAD_Y_BOTTOM },
-            { id: 'BJ3', x: JUNCTION_XS[2], y: ROAD_Y_BOTTOM },
-            { id: 'BASE', x: BASE_TILE_X, y: BASE_TILE_Y },
-        ];
+        // Rebuildable so MAP_H changes are reflected.
+        let ROAD_NODES = [];
+        function buildRoadNodes() {
+            return [
+                // Top entries
+                { id: 'EL0', x: ENTRY_XS[0], y: 0.5 },
+                { id: 'EL1', x: ENTRY_XS[0], y: ROAD_Y_TOP },
+                { id: 'EL2', x: ENTRY_XS[0], y: ROAD_Y_BOTTOM },
+                { id: 'ER0', x: ENTRY_XS[1], y: 0.5 },
+                { id: 'ER1', x: ENTRY_XS[1], y: ROAD_Y_TOP },
+                { id: 'ER2', x: ENTRY_XS[1], y: ROAD_Y_BOTTOM },
+                // Junctions
+                { id: 'TJ1', x: JUNCTION_XS[0], y: ROAD_Y_TOP },
+                { id: 'TJ2', x: JUNCTION_XS[1], y: ROAD_Y_TOP },
+                { id: 'TJ3', x: JUNCTION_XS[2], y: ROAD_Y_TOP },
+                { id: 'BJ1', x: JUNCTION_XS[0], y: ROAD_Y_BOTTOM },
+                { id: 'BJ3', x: JUNCTION_XS[2], y: ROAD_Y_BOTTOM },
+                // Base
+                { id: 'BASE', x: BASE_TILE_X, y: BASE_TILE_Y },
+                // NEW: bottom entries (bottom-left & bottom-right) — go up from bottom edge
+                { id: 'BL0', x: BOTTOM_ENTRY_XS[0], y: Math.max(ROAD_Y_BOTTOM + 4, MAP_H - 0.5) },
+                { id: 'BL1', x: BOTTOM_ENTRY_XS[0], y: ROAD_Y_BOTTOM },
+                { id: 'BR0', x: BOTTOM_ENTRY_XS[1], y: Math.max(ROAD_Y_BOTTOM + 4, MAP_H - 0.5) },
+                { id: 'BR1', x: BOTTOM_ENTRY_XS[1], y: ROAD_Y_BOTTOM },
+            ];
+        }
         function getNode(id) { return ROAD_NODES.find(n => n.id === id); }
 
         const SQUAD_ROUTES = {
@@ -610,6 +620,9 @@
             'east_high':   ['ER0', 'ER1', 'TJ3', 'TJ2', 'BASE'],
             'west_side':   ['EL0', 'EL1', 'TJ1', 'BJ1', 'BASE'],
             'east_side':   ['ER0', 'ER1', 'TJ3', 'BJ3', 'BASE'],
+            // NEW: bottom entry routes
+            'botwest_direct': ['BL0', 'BL1', 'BJ1', 'BASE'],
+            'boteast_direct': ['BR0', 'BR1', 'BJ3', 'BASE'],
         };
 
         const WAVE_TACTICS = {
@@ -636,18 +649,33 @@
             'mass_charge': [
                 { routeKey: 'west_direct', share: 1.0, personality: 'aggressive', initialState: 'regroup' },
             ],
+            // NEW: bottom pincer — attacks exclusively from bottom entries
+            'bottom_pincer': [
+                { routeKey: 'botwest_direct', share: 0.5, personality: 'aggressive' },
+                { routeKey: 'boteast_direct', share: 0.5, personality: 'aggressive' },
+            ],
+            // NEW: surround — flanks from all four entry roads
+            'surround': [
+                { routeKey: 'west_direct',    share: 0.25, personality: 'aggressive' },
+                { routeKey: 'east_direct',    share: 0.25, personality: 'aggressive' },
+                { routeKey: 'botwest_direct', share: 0.25, personality: 'sneaky' },
+                { routeKey: 'boteast_direct', share: 0.25, personality: 'sneaky' },
+            ],
         };
 
         function chooseWaveTactic() {
             const wave = game.waveNumber;
             if (wave <= 1) return 'single';
             if (wave === 2) return 'pincer';
+            if (wave === 3) return 'bottom_pincer';
             const roll = Math.random();
-            if (roll < 0.15) return 'single';
-            if (roll < 0.32) return 'pincer';
-            if (roll < 0.50) return 'multi_front';
-            if (roll < 0.65) return 'flank';
-            if (roll < 0.82) return 'ambush';
+            if (roll < 0.10) return 'single';
+            if (roll < 0.22) return 'pincer';
+            if (roll < 0.36) return 'multi_front';
+            if (roll < 0.48) return 'flank';
+            if (roll < 0.60) return 'ambush';
+            if (roll < 0.74) return 'bottom_pincer';
+            if (roll < 0.88) return 'surround';
             return 'mass_charge';
         }
 
@@ -696,13 +724,21 @@
         // ========== MAP GENERATION ==========
         function tileIsRoad(tx, ty) {
             const hw = ROAD_W / 2;
+            // Top horizontal road
             if (ty >= ROAD_Y_TOP - hw && ty <= ROAD_Y_TOP + hw && tx >= ROAD_X_START && tx <= ROAD_X_END) return true;
+            // Bottom horizontal road
             if (ty >= ROAD_Y_BOTTOM - hw && ty <= ROAD_Y_BOTTOM + hw && tx >= ROAD_X_START && tx <= ROAD_X_END) return true;
+            // Vertical road at junctions
             for (let jx of JUNCTION_XS) {
                 if (tx >= jx - hw && tx <= jx + hw && ty >= ROAD_Y_TOP - hw && ty <= ROAD_Y_BOTTOM + hw) return true;
             }
+            // Top entry roads (from top edge down to bottom road)
             for (let ex of ENTRY_XS) {
                 if (tx >= ex - hw && tx <= ex + hw && ty >= 0 && ty <= ROAD_Y_BOTTOM + hw) return true;
+            }
+            // NEW: Bottom entry roads (from bottom road down to bottom edge)
+            for (let ex of BOTTOM_ENTRY_XS) {
+                if (tx >= ex - hw && tx <= ex + hw && ty >= ROAD_Y_BOTTOM - hw && ty <= MAP_H) return true;
             }
             return false;
         }
@@ -717,6 +753,9 @@
             }
             for (let ex of ENTRY_XS) {
                 if (tx >= ex - hw && tx <= ex + hw && ty >= 0 && ty <= ROAD_Y_BOTTOM + hw) return true;
+            }
+            for (let ex of BOTTOM_ENTRY_XS) {
+                if (tx >= ex - hw && tx <= ex + hw && ty >= ROAD_Y_BOTTOM - hw && ty <= MAP_H) return true;
             }
             return false;
         }
@@ -945,6 +984,11 @@
             for (const ex of ENTRY_XS) {
                 t.moveTo(ex * TILE, 0);
                 t.lineTo(ex * TILE, ROAD_Y_BOTTOM * TILE);
+            }
+            // NEW: bottom entry lane markings
+            for (const ex of BOTTOM_ENTRY_XS) {
+                t.moveTo(ex * TILE, ROAD_Y_BOTTOM * TILE);
+                t.lineTo(ex * TILE, MAP_H * TILE);
             }
             t.stroke();
             t.setLineDash([]);
@@ -1335,7 +1379,6 @@
                 const sy = game.syndicates[this.syndicateIndex];
                 if (!sy) return;
 
-                // ---- Returning to station with a raider ----
                 if (this.carrying) {
                     this.carryTimer += dt;
                     if (this.carryTimer > 12) {
@@ -1399,7 +1442,6 @@
                     return;
                 }
 
-                // ---- Escorting / chasing ----
                 let aliveSyndicate = game.officers.filter(o => o.alive && !o.isAllOut && o.syndicateIndex === this.syndicateIndex && o.state === 'active');
                 if (aliveSyndicate.length === 0) aliveSyndicate = game.officers.filter(o => o.alive && !o.isAllOut && o.syndicateIndex === this.syndicateIndex);
 
@@ -1418,7 +1460,6 @@
                 else { fx = 0; fy = Math.sign(fy) || 1; }
                 const px = fy, py = -fx;
 
-                // ---- Priority 1: grab a brick thrower already within reach ----
                 const brick = game.raiders.find(r =>
                     r.alive && !r.beingArrested && r.kind === 'brickthrower' &&
                     Math.hypot(r.x - this.x, r.y - this.y) < ARREST_GRAB_RANGE &&
@@ -1448,7 +1489,6 @@
                     return;
                 }
 
-                // ---- Chase priority: brick throwers first ----
                 let chaseTarget = null, chaseBest = Infinity;
                 for (const r of game.raiders) {
                     if (!r.alive || r.state === 'fleeing' || r.beingArrested) continue;
@@ -1594,8 +1634,9 @@
                 let fx = (sy && sy.facingX) || 1, fy = (sy && sy.facingY) || 0;
                 if (Math.abs(fx) > Math.abs(fy)) { fx = Math.sign(fx)||1; fy = 0; } else { fx = 0; fy = Math.sign(fy)||1; }
                 const px = fy, py = -fx;
-                const targetX = cx - fx * TILE * 3.5 + px * TILE * 2.6;
-                const targetY = cy - fy * TILE * 3.5 + py * TILE * 2.6;
+                // Handler stays close to formation — slightly behind and to one side
+                const targetX = cx - fx * TILE * 3.0 + px * TILE * 2.4;
+                const targetY = cy - fy * TILE * 3.0 + py * TILE * 2.4;
 
                 const dx = targetX - this.x, dy = targetY - this.y;
                 const d = Math.hypot(dx, dy);
@@ -1712,10 +1753,12 @@
                 this.atkTimer = Math.max(0, this.atkTimer - dt);
                 if (this.cooldownTimer > 0) this.cooldownTimer -= dt;
 
+                // Refresh handler reference
                 if (!this.handler || !this.handler.alive) {
                     this.handler = game.handlers.find(h => h.alive && h.syndicateIndex === this.syndicateIndex) || null;
                 }
 
+                // Refresh attached officer (used only if handler dead)
                 this.attachedTimer -= dt;
                 if (!this.attachedOfficer || !this.attachedOfficer.alive || this.attachedTimer <= 0) {
                     this.attachedOfficer = this.pickAttachedOfficer();
@@ -1771,29 +1814,29 @@
                     return;
                 }
 
+                // --- Attached to handler (NOT to the arrest team) ---
                 this.followOfficer(dt, K9_SPEED * 0.9);
+
+                // Hard leash — if we somehow end up far from handler while attached, snap in
+                if (this.handler && this.handler.alive) {
+                    const dh = Math.hypot(this.x - this.handler.x, this.y - this.handler.y);
+                    if (dh > K9_MAX_LEASH_FROM_HANDLER) {
+                        // Try teleporting to just behind the handler
+                        const h = this.handler;
+                        const tx = h.x - (h.dir.x || 0) * K9_LEAD_LENGTH_ATTACHED;
+                        const ty = h.y - (h.dir.y || 0) * K9_LEAD_LENGTH_ATTACHED;
+                        if (isValidPosition(tx, ty)) { this.x = tx; this.y = ty; }
+                        else if (isValidPosition(h.x, h.y)) { this.x = h.x; this.y = h.y; }
+                    }
+                }
             }
 
             followOfficer(dt, speedMult) {
                 let targetX = null, targetY = null;
-                const idx = this.syndicateIndex;
-                const arrestTeam = game.arrestOfficers.filter(a => a.alive && a.syndicateIndex === idx);
-
                 let anchorX = this.x, anchorY = this.y;
 
-                if (arrestTeam.length > 0) {
-                    let ax = 0, ay = 0;
-                    for (const a of arrestTeam) { ax += a.x; ay += a.y; }
-                    ax /= arrestTeam.length; ay /= arrestTeam.length;
-                    anchorX = ax; anchorY = ay;
-                    const sy = game.syndicates[idx];
-                    let fx = (sy && sy.facingX) || 1, fy = (sy && sy.facingY) || 0;
-                    if (Math.abs(fx) > Math.abs(fy)) { fx = Math.sign(fx) || 1; fy = 0; }
-                    else { fx = 0; fy = Math.sign(fy) || 1; }
-                    const back = TILE * 2.2;
-                    targetX = ax - fx * back;
-                    targetY = ay - fy * back;
-                } else if (this.handler && this.handler.alive) {
+                // Priority 1: the syndicate's K9 handler
+                if (this.handler && this.handler.alive) {
                     const h = this.handler;
                     let fx = h.dir.x, fy = h.dir.y;
                     const fl = Math.hypot(fx, fy) || 1;
@@ -1801,7 +1844,9 @@
                     targetX = h.x - fx * K9_LEAD_LENGTH_ATTACHED;
                     targetY = h.y - fy * K9_LEAD_LENGTH_ATTACHED;
                     anchorX = h.x; anchorY = h.y;
-                } else if (this.attachedOfficer && this.attachedOfficer.alive) {
+                }
+                // Priority 2: fallback to attached officer if handler is dead
+                else if (this.attachedOfficer && this.attachedOfficer.alive) {
                     const o = this.attachedOfficer;
                     let fx = o.dir.x, fy = o.dir.y;
                     const fl = Math.hypot(fx, fy) || 1;
@@ -2017,9 +2062,7 @@
                 this.atkTimer = Math.max(0, this.atkTimer - dt);
                 this.timeSinceDamage += dt;
 
-                // ---- Brick thrower behaviour ----
                 if (this.kind === 'brickthrower' && this.state !== 'fleeing' && !this.beingArrested) {
-                    // Aura: nearby raiders slowly regain morale
                     for (const r of game.raiders) {
                         if (r === this || !r.alive) continue;
                         if (r.state === 'fleeing') continue;
@@ -2027,7 +2070,6 @@
                             game.raiderGroupMorale = Math.min(100, game.raiderGroupMorale + BRICK_MORALE_RATE * dt);
                         }
                     }
-                    // Throw a brick at a nearby officer
                     this.throwTimer -= dt;
                     if (this.throwTimer <= 0) {
                         let best = null, bestD = Infinity;
@@ -2114,7 +2156,6 @@
                     return;
                 }
 
-                // Brick throwers keep their distance — they don't engage in melee if a target is nearby
                 const isBrick = this.kind === 'brickthrower';
                 const engageRange = this.def.meleeRange * TILE;
                 let target = null, bestD = Infinity, fallbackTarget = null, fallbackD = Infinity;
@@ -2128,9 +2169,7 @@
                 }
                 if (!target) { target = fallbackTarget; bestD = fallbackD; }
 
-                // Brick throwers keep their distance
                 if (isBrick && target && bestD < BRICK_THROW_RANGE) {
-                    // Retreat from target slowly so they stay at range
                     this.state = 'brick_kiting';
                     const dx = this.x - target.x, dy = this.y - target.y;
                     const d = Math.hypot(dx, dy) || 1;
@@ -2865,7 +2904,6 @@
                 }
                 game.officers.push(new Officer(spawnX, spawnY, idx));
             }
-            // Spawn a K9 handler
             let hx = cx, hy = cy;
             for (let tries = 0; tries < 40; tries++) {
                 const tx = cx + (Math.random() - 0.5) * TILE * 8;
@@ -2873,7 +2911,6 @@
                 if (isValidOfficerPosition(tx, ty)) { hx = tx; hy = ty; break; }
             }
             game.handlers.push(new K9Handler(hx, hy, idx));
-            // Spawn a K9
             const k9 = new K9Unit(cx + (Math.random() - 0.5) * TILE * 2, cy + (Math.random() - 0.5) * TILE * 2, idx);
             game.k9s.push(k9);
             assignFormation();
@@ -2915,7 +2952,6 @@
                 game.squads.set(squad.id, squad);
                 createdSquads.push({ squad, count: share });
                 assigned += share;
-                // Assign squad role + focus syndicate
                 const r = Math.random();
                 squad.role = (r < 0.55) ? 'main' : (r < 0.8) ? 'flank' : 'distraction';
                 squad.targetSyndicate = Math.floor(Math.random() * MAX_SYNDICATES);
@@ -3062,16 +3098,14 @@
 
                 const avgHp = squad.avgHpPct();
 
-                // ---- Distraction: feint attacks ----
                 if (squad.role === 'distraction' && !inContact && officerDistTiles < 12 && officerDistTiles > 4) {
                     squad.state = 'ambush';
                     squad.stateTimer = 4 + Math.random() * 3;
                     continue;
                 }
 
-                // ---- Flank: pick an alternative route avoiding officers ----
                 if (squad.role === 'flank' && officerDistTiles < 10 && officerDistTiles > 3) {
-                    const altRoutes = ['west_high', 'east_high', 'west_side', 'east_side'];
+                    const altRoutes = ['west_high', 'east_high', 'west_side', 'east_side', 'botwest_direct', 'boteast_direct'];
                     let bestRoute = null, bestScore = Infinity;
                     for (const rk of altRoutes) {
                         const nodes = SQUAD_ROUTES[rk];
@@ -3126,6 +3160,8 @@
                 'flank': 'Flanking Manoeuvre',
                 'ambush': 'Ambush & Probe',
                 'mass_charge': 'Massing For Charge',
+                'bottom_pincer': 'Rear Pincer',
+                'surround': 'Surround & Close',
             };
             const tLabel = tacticLabels[tactic] || '';
             el.innerHTML = 'WAVE ' + game.waveNumber +
@@ -3485,6 +3521,7 @@
         function restartGame() {
             document.getElementById('gameover-overlay').classList.remove('show');
             initGameState();
+            ROAD_NODES = buildRoadNodes();
             generateMap(); buildTerrainCanvas(); buildMinimapTerrainCanvas();
             for (let i = 0; i < MAX_SYNDICATES; i++) spawnSyndicate();
             game.selectedSyndicate = 0;
@@ -3602,6 +3639,7 @@
         function rebuildWorldForScreenSize() {
             resizeCanvas();
             computeMapSize(); computeMinimapSize();
+            ROAD_NODES = buildRoadNodes();
             generateMap(); buildTerrainCanvas(); buildMinimapTerrainCanvas();
             game.syndicates.forEach(sy => {
                 if (!sy) return;
@@ -3628,6 +3666,7 @@
             initGameState();
             resizeCanvas();
             computeMapSize(); computeMinimapSize();
+            ROAD_NODES = buildRoadNodes();
             loadAssets(() => {
                 generateMap(); buildTerrainCanvas(); buildMinimapTerrainCanvas();
                 for (let i = 0; i < MAX_SYNDICATES; i++) spawnSyndicate();

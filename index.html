@@ -1334,36 +1334,53 @@
                 if (Math.abs(fx) > Math.abs(fy)) { fx = Math.sign(fx) || 1; fy = 0; }
                 else { fx = 0; fy = Math.sign(fy) || 1; }
                 const px = fy, py = -fx;
-                const back = TILE * 4.5;
-                const targetX = anchorX + px * (this.slotOffset * TILE) - fx * back;
-                const targetY = anchorY + py * (this.slotOffset * TILE) - fy * back;
 
-                // Look for the strongest raider within grab range
+                // ---- 1. Grab anything already within reach (prefer bruisers) ----
                 let grabTarget = null, grabBestScore = -Infinity;
                 const maxRangeSq = ARREST_GRAB_RANGE * ARREST_GRAB_RANGE;
                 for (const r of game.raiders) {
                     if (!r.alive || r.state === 'fleeing' || r.beingArrested) continue;
+                    if (Math.hypot(r.x - anchorX, r.y - anchorY) > ARREST_MAX_RANGE_FROM_SYNDICATE) continue;
                     const dSq = (r.x - this.x) * (r.x - this.x) + (r.y - this.y) * (r.y - this.y);
                     if (dSq > maxRangeSq) continue;
-                    // Prefer "strongest": higher max HP / bruisers are preferred
                     const strength = r.maxHp + r.hp * 0.3;
                     if (strength > grabBestScore) { grabBestScore = strength; grabTarget = r; }
                 }
-
-                // Only commit to a grab if we're not too far from the syndicate's zone
                 if (grabTarget) {
-                    const dFromAnchor = Math.hypot(this.x - anchorX, this.y - anchorY);
-                    if (dFromAnchor < ARREST_MAX_RANGE_FROM_SYNDICATE) {
-                        this.carrying = grabTarget;
-                        grabTarget.beingArrested = true;
-                        grabTarget.arrestOfficer = this;
-                        this.state = 'grabbing';
-                        spawnHitEffect(grabTarget.x, grabTarget.y);
-                        return;
-                    }
+                    this.carrying = grabTarget;
+                    grabTarget.beingArrested = true;
+                    grabTarget.arrestOfficer = this;
+                    this.state = 'grabbing';
+                    spawnHitEffect(grabTarget.x, grabTarget.y);
+                    showToast('🚔 Arrest team has seized a raider!');
+                    return;
                 }
 
-                // Otherwise move toward the escort position
+                // ---- 2. Otherwise advance on the nearest raider in our zone ----
+                let chaseTarget = null, chaseBestD = Infinity;
+                for (const r of game.raiders) {
+                    if (!r.alive || r.state === 'fleeing' || r.beingArrested) continue;
+                    if (Math.hypot(r.x - anchorX, r.y - anchorY) > ARREST_MAX_RANGE_FROM_SYNDICATE) continue;
+                    const d = Math.hypot(r.x - this.x, r.y - this.y);
+                    if (d < chaseBestD) { chaseBestD = d; chaseTarget = r; }
+                }
+
+                let targetX, targetY;
+                if (chaseTarget) {
+                    // Run up to just inside grab range of the raider
+                    const dxc = chaseTarget.x - this.x, dyc = chaseTarget.y - this.y;
+                    const dc = Math.hypot(dxc, dyc) || 1;
+                    const stop = ARREST_GRAB_RANGE * 0.6;
+                    targetX = chaseTarget.x - (dxc / dc) * stop + px * this.slotOffset * TILE * 0.4;
+                    targetY = chaseTarget.y - (dyc / dc) * stop + py * this.slotOffset * TILE * 0.4;
+                } else {
+                    // Escort slot tucked in behind the syndicate
+                    const back = TILE * 4.5;
+                    targetX = anchorX + px * (this.slotOffset * TILE) - fx * back;
+                    targetY = anchorY + py * (this.slotOffset * TILE) - fy * back;
+                }
+
+                // Move toward the chase / escort position
                 const dX = targetX - this.x, dY = targetY - this.y;
                 const dist = Math.hypot(dX, dY);
                 this.isMoving = dist > 3;
@@ -1469,6 +1486,7 @@
                 this.stuckTimer = 0;
                 this.attachedOfficer = null;  // cached officer it follows
                 this.attachedTimer = 0;
+                this.leashX = x; this.leashY = y;   // live anchor for lead line
             }
 
             deploy() {
@@ -1512,6 +1530,10 @@
 
                 if (this.deployTimer > 0) {
                     this.deployTimer -= dt;
+                    if (this.attachedOfficer && this.attachedOfficer.alive) {
+                        this.leashX = this.attachedOfficer.x;
+                        this.leashY = this.attachedOfficer.y;
+                    }
 
                     // Hunt nearest raider
                     let tgt = null, bestD = Infinity;
@@ -1559,28 +1581,45 @@
             }
 
             followOfficer(dt, speedMult) {
-                let targetX, targetY;
-                // Check if there's an arrest team to follow (rear position)
-                const arrestTeam = game.arrestOfficers.filter(a => a.alive && a.syndicateIndex === this.syndicateIndex);
-                
+                let targetX = null, targetY = null;
+
+                const idx = this.syndicateIndex;
+                const arrestTeam = game.arrestOfficers.filter(a => a.alive && a.syndicateIndex === idx);
+
+                // Where the K9's leash is anchored (for the lead line)
+                let anchorX = this.x, anchorY = this.y;
+
                 if (arrestTeam.length > 0) {
-                    let cx = 0, cy = 0;
-                    for (const a of arrestTeam) { cx += a.x; cy += a.y; }
-                    targetX = cx / arrestTeam.length;
-                    targetY = cy / arrestTeam.length;
+                    // Sit at the REAR of the arrest team
+                    let ax = 0, ay = 0;
+                    for (const a of arrestTeam) { ax += a.x; ay += a.y; }
+                    ax /= arrestTeam.length; ay /= arrestTeam.length;
+                    anchorX = ax; anchorY = ay;
+
+                    const sy = game.syndicates[idx];
+                    let fx = (sy && sy.facingX) || 1, fy = (sy && sy.facingY) || 0;
+                    if (Math.abs(fx) > Math.abs(fy)) { fx = Math.sign(fx) || 1; fy = 0; }
+                    else { fx = 0; fy = Math.sign(fy) || 1; }
+
+                    const back = TILE * 2.2;
+                    targetX = ax - fx * back;
+                    targetY = ay - fy * back;
                 } else if (this.attachedOfficer && this.attachedOfficer.alive) {
-                    // Fallback to following the officer
                     const o = this.attachedOfficer;
                     let fx = o.dir.x, fy = o.dir.y;
                     const fl = Math.hypot(fx, fy) || 1;
                     fx /= fl; fy /= fl;
                     targetX = o.x - fx * K9_LEAD_LENGTH_ATTACHED;
                     targetY = o.y - fy * K9_LEAD_LENGTH_ATTACHED;
+                    anchorX = o.x; anchorY = o.y;
                 } else {
                     this.isMoving = false;
                     return;
                 }
-                
+
+                this.leashX = anchorX;
+                this.leashY = anchorY;
+
                 const dx = targetX - this.x, dy = targetY - this.y;
                 const d = Math.hypot(dx, dy);
                 this.isMoving = d > 4;
@@ -1621,15 +1660,14 @@
 
             drawLead(ctx) {
                 if (!this.alive) return;
-                const o = this.attachedOfficer;
-                if (!o || !o.alive) return;
+                if (this.leashX === undefined || this.leashY === undefined) return;
                 const sx = this.x - game.camera.x, sy = this.y - game.camera.y;
-                const ox = o.x - game.camera.x, oy = o.y - game.camera.y;
+                const ax = this.leashX - game.camera.x, ay = this.leashY - game.camera.y;
                 ctx.strokeStyle = this.deployTimer > 0 ? 'rgba(255,204,51,0.6)' : 'rgba(180,150,90,0.7)';
                 ctx.lineWidth = 1.1;
                 ctx.setLineDash(this.deployTimer > 0 ? [3, 3] : []);
                 ctx.beginPath();
-                ctx.moveTo(ox, oy - 12);
+                ctx.moveTo(ax, ay - 8);
                 ctx.lineTo(sx, sy - 6);
                 ctx.stroke();
                 ctx.setLineDash([]);
@@ -2790,27 +2828,35 @@
         function updateCamera(dt) {
             if (game.cameraUserLock > 0) { game.cameraUserLock -= dt; return; }
             if (game.mouse.down) return;
-            
+
+            const idx = game.selectedSyndicate;
             let cx = 0, cy = 0, n = 0;
-            
-            // Track all active officers
+
+            // Follow the SELECTED syndicate (or the whole merged force)
             for (const o of game.officers) {
-                if (o.alive && !o.isAllOut && o.state === 'active') { cx += o.x; cy += o.y; n++; }
+                if (!o.alive || o.isAllOut) continue;
+                if (!game.mergedMode && o.syndicateIndex !== idx) continue;
+                const w = (o.state === 'active') ? 1 : 0.3;   // retreating/resting units count less
+                cx += o.x * w; cy += o.y * w; n += w;
             }
-            // Track arrest team
             for (const a of game.arrestOfficers) {
-                if (a.alive) { cx += a.x; cy += a.y; n++; }
+                if (!a.alive) continue;
+                if (!game.mergedMode && a.syndicateIndex !== idx) continue;
+                cx += a.x; cy += a.y; n += 1;
             }
-            // Track raiders (weighted slightly higher to prioritize keeping them in view)
-            for (const r of game.raiders) {
-                if (r.alive && !r.beingArrested) { cx += r.x * 2; cy += r.y * 2; n += 2; }
+
+            // Nobody left in that syndicate? Fall back to all officers on the map.
+            if (n <= 0) {
+                for (const o of game.officers) {
+                    if (o.alive && !o.isAllOut) { cx += o.x; cy += o.y; n++; }
+                }
             }
-            
-            if (n === 0) return;
+            if (n <= 0) return;
+
             cx /= n; cy /= n;
             const k = Math.min(1, dt * 3.2);
-            game.camera.x += (cx - game.width/2 - game.camera.x) * k;
-            game.camera.y += (cy - game.height/2 - game.camera.y) * k;
+            game.camera.x += (cx - game.width / 2 - game.camera.x) * k;
+            game.camera.y += (cy - game.height / 2 - game.camera.y) * k;
             clampCamera();
         }
 

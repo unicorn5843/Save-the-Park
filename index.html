@@ -172,6 +172,20 @@
             background: linear-gradient(180deg, #4a7ab0, #2a4a70);
             box-shadow: 0 0 12px rgba(90, 150, 220, 0.5);
         }
+        .train-btn.gas {
+            background: linear-gradient(180deg, #6a6a20, #3a3a10);
+            border-color: #b0b040;
+            color: #f4f4c8;
+        }
+        .train-btn.gas.ready {
+            background: linear-gradient(180deg, #9a9a30, #6a6a20);
+            box-shadow: 0 0 12px rgba(200, 200, 60, 0.55);
+            animation: gasPulse 1.6s ease-in-out infinite;
+        }
+        @keyframes gasPulse {
+            0%, 100% { box-shadow: 0 0 10px rgba(200, 200, 60, 0.4); }
+            50% { box-shadow: 0 0 20px rgba(230, 230, 90, 0.85); }
+        }
         .train-btn.k9 {
             background: linear-gradient(180deg, #5a3a1e, #3a2210);
             border-color: #a07040;
@@ -372,6 +386,10 @@
             <span class="tlabel">🚔 Arrest Team</span>
             <span class="tsub" id="send-arrest-sub">S1 ready</span>
         </button>
+        <button id="deploy-gas" class="train-btn gas ready">
+            <span class="tlabel">💨 Tear Gas</span>
+            <span class="tsub" id="deploy-gas-sub">S1 ready</span>
+        </button>
         <button id="deploy-k9" class="train-btn k9 ready">
             <span class="tlabel">🐕 K9</span>
             <span class="tsub" id="deploy-k9-sub">S1 ready</span>
@@ -497,6 +515,20 @@
         const ARREST_GRAB_RANGE = TILE * 4.5;
         const ARREST_MAX_RANGE_FROM_SYNDICATE = TILE * 12;
 
+        // ----- Tear Gas team -----
+        const TEAR_GAS_TEAM_SIZE = 2;
+        const TEAR_GAS_COOLDOWN = 50;
+        const TEAR_GAS_SPRAY_DURATION = 3.0;
+        const TEAR_GAS_RANGE = ARREST_MAX_RANGE_FROM_SYNDICATE * 0.5; // half of arrest team range
+        const TEAR_GAS_CONE_HALF_ANGLE = Math.PI / 5;   // ~36° each side
+        const TEAR_GAS_STUN_DURATION = 4.0;
+        const TEAR_GAS_HIT_MORALE = 14;                 // per raider hit
+        const TEAR_GAS_WITNESS_RANGE = TILE * 10;
+        const TEAR_GAS_WITNESS_RATE = 5.0;              // morale/sec to witnesses
+        const TEAR_GAS_HP = 180;
+        const TEAR_GAS_SPEED = 3.2;
+        const TEAR_GAS_ADVANCE_SPEED_MULT = 1.6;
+
         const K9_HP = 90;
         const K9_DEPLOY_TIME = 10;
         const K9_COOLDOWN = 50;
@@ -540,6 +572,7 @@
             width: 0, height: 0,
             officers: [], raiders: [], effects: [],
             arrestOfficers: [], k9s: [], handlers: [],
+            tearGasOfficers: [],
             projectiles: [],
             terrainCanvas: null, minimapTerrainCanvas: null,
             camera: { x: 0, y: 0 },
@@ -559,6 +592,7 @@
             allOutActive: 0,
 
             arrestCooldown: [0, 0, 0],
+            tearGasCooldown: [0, 0, 0],
             manualDisperseCooldown: [0, 0, 0],
 
             squads: new Map(),
@@ -606,15 +640,22 @@
         }
         function getNode(id) { return ROAD_NODES.find(n => n.id === id); }
 
+        // Expanded route set — uses every vertical road and both south entrances
         const SQUAD_ROUTES = {
-            'west_direct': ['EL0', 'EL1', 'EL2', 'BASE'],
-            'east_direct': ['ER0', 'ER1', 'ER2', 'BASE'],
-            'west_high':   ['EL0', 'EL1', 'TJ1', 'TJ2', 'BASE'],
-            'east_high':   ['ER0', 'ER1', 'TJ3', 'TJ2', 'BASE'],
-            'west_side':   ['EL0', 'EL1', 'TJ1', 'BJ1', 'BASE'],
-            'east_side':   ['ER0', 'ER1', 'TJ3', 'BJ3', 'BASE'],
-            'botwest_direct': ['BL0', 'BL1', 'BJ1', 'BASE'],
-            'boteast_direct': ['BR0', 'BR1', 'BJ3', 'BASE'],
+            // Top entrances
+            'west_direct':     ['EL0', 'EL1', 'EL2', 'BASE'],               // 18 down, bottom road east
+            'east_direct':     ['ER0', 'ER1', 'ER2', 'BASE'],               // 90 down, bottom road west
+            'west_high':       ['EL0', 'EL1', 'TJ1', 'TJ2', 'BASE'],       // 18 top road, junction 54 down
+            'east_high':       ['ER0', 'ER1', 'TJ3', 'TJ2', 'BASE'],       // 90 top road, junction 54 down
+            'west_side':       ['EL0', 'EL1', 'TJ1', 'BJ1', 'BASE'],       // 18 top, junction 30 down, bottom
+            'east_side':       ['ER0', 'ER1', 'TJ3', 'BJ3', 'BASE'],       // 90 top, junction 78 down, bottom
+            'west_zigzag':     ['EL0', 'EL1', 'TJ1', 'BJ1', 'BASE'],       // same path as west_side
+            'east_zigzag':     ['ER0', 'ER1', 'TJ3', 'BJ3', 'BASE'],       // same path as east_side
+            // Bottom entrances
+            'botwest_direct':  ['BL0', 'BL1', 'BJ1', 'BASE'],              // 12 up, bottom road east
+            'boteast_direct':  ['BR0', 'BR1', 'BJ3', 'BASE'],              // 96 up, bottom road west
+            'botwest_top':     ['BL0', 'BL1', 'BJ1', 'TJ1', 'TJ2', 'BASE'],// 12 up, junction 30 up, top to 54, down
+            'boteast_top':     ['BR0', 'BR1', 'BJ3', 'TJ3', 'TJ2', 'BASE'],// 96 up, junction 78 up, top to 54, down
         };
 
         const WAVE_TACTICS = {
@@ -651,6 +692,22 @@
                 { routeKey: 'botwest_direct', share: 0.25, personality: 'sneaky' },
                 { routeKey: 'boteast_direct', share: 0.25, personality: 'sneaky' },
             ],
+            'four_ways': [
+                { routeKey: 'west_high',      share: 0.25, personality: 'aggressive' },
+                { routeKey: 'east_high',      share: 0.25, personality: 'aggressive' },
+                { routeKey: 'botwest_direct', share: 0.25, personality: 'sneaky' },
+                { routeKey: 'boteast_direct', share: 0.25, personality: 'sneaky' },
+            ],
+            'top_and_bottom': [
+                { routeKey: 'west_high',      share: 0.35, personality: 'aggressive' },
+                { routeKey: 'botwest_top',    share: 0.35, personality: 'sneaky' },
+                { routeKey: 'east_high',      share: 0.30, personality: 'aggressive' },
+            ],
+            'north_south': [
+                { routeKey: 'west_direct',    share: 0.30, personality: 'aggressive' },
+                { routeKey: 'botwest_top',    share: 0.40, personality: 'sneaky' },
+                { routeKey: 'boteast_top',    share: 0.30, personality: 'aggressive' },
+            ],
         };
 
         function chooseWaveTactic() {
@@ -658,15 +715,19 @@
             if (wave <= 1) return 'single';
             if (wave === 2) return 'pincer';
             if (wave === 3) return 'bottom_pincer';
+            if (wave === 4) return 'flank';
             const roll = Math.random();
-            if (roll < 0.10) return 'single';
-            if (roll < 0.22) return 'pincer';
-            if (roll < 0.36) return 'multi_front';
-            if (roll < 0.48) return 'flank';
-            if (roll < 0.60) return 'ambush';
-            if (roll < 0.74) return 'bottom_pincer';
-            if (roll < 0.88) return 'surround';
-            return 'mass_charge';
+            if (roll < 0.08) return 'single';
+            if (roll < 0.16) return 'pincer';
+            if (roll < 0.26) return 'multi_front';
+            if (roll < 0.34) return 'flank';
+            if (roll < 0.42) return 'ambush';
+            if (roll < 0.52) return 'bottom_pincer';
+            if (roll < 0.60) return 'surround';
+            if (roll < 0.68) return 'mass_charge';
+            if (roll < 0.78) return 'four_ways';
+            if (roll < 0.88) return 'top_and_bottom';
+            return 'north_south';
         }
 
         // ========== SQUAD ==========
@@ -1105,6 +1166,14 @@
                 if (game.mergedMode) return game.syndicates[game.mergedIntoIndex] || game.syndicates[0];
                 return game.syndicates[this.syndicateIndex] || game.syndicates[0];
             }
+            formationBonusHp() {
+                if (this.isAllOut) return 0;
+                const sy = this.mySyndicate();
+                if (!sy) return 0;
+                const fm = getFormationMods(sy.tactic);
+                if (fm.dmgTakenMult >= 1) return 0;
+                return this.maxHp / fm.dmgTakenMult - this.maxHp;
+            }
             update(dt) {
                 if (!this.alive) return;
                 if (this.isAllOut) { this.updateAllOut(dt); return; }
@@ -1273,7 +1342,8 @@
                 if (this.dir.x < -0.05) ctx.scale(-1, 1);
                 drawOfficerFigure(ctx, this);
                 ctx.restore();
-                drawHpBar(ctx, sx, sy - 24, this.hp, this.maxHp, this.isAllOut ? '#ffb45c' : '#6cc4ff');
+                const bonus = this.formationBonusHp();
+                drawHpBar(ctx, sx, sy - 24, this.hp, this.maxHp, this.isAllOut ? '#ffb45c' : '#6cc4ff', bonus);
                 if (this.isAllOut) {
                     ctx.fillStyle = '#ff8a5c'; ctx.font = 'bold 8px monospace'; ctx.textAlign = 'center';
                     ctx.fillText('⚡', sx, sy - 28);
@@ -1324,11 +1394,23 @@
             }
             ctx.restore();
         }
-        function drawHpBar(ctx, sx, sy, hp, maxHp, color) {
-            if (hp >= maxHp) return;
-            const w = 20;
-            ctx.fillStyle = 'rgba(0,0,0,0.5)'; ctx.fillRect(sx - w/2, sy, w, 3);
-            ctx.fillStyle = color; ctx.fillRect(sx - w/2, sy, w * Math.max(0, hp/maxHp), 3);
+        // HP bar with optional blue "formation bonus" segment
+        function drawHpBar(ctx, sx, sy, hp, maxHp, color, bonusHp) {
+            bonusHp = bonusHp || 0;
+            if (hp >= maxHp && bonusHp <= 0) return;
+            const barW = 22;
+            const total = maxHp + bonusHp;
+            const scale = barW / total;
+            const hpRatio = Math.max(0, Math.min(1, hp / maxHp));
+            const redW = Math.max(0, hp) * scale;
+            const blueW = bonusHp * hpRatio * scale;
+            ctx.fillStyle = 'rgba(0,0,0,0.5)'; ctx.fillRect(sx - barW/2, sy, barW, 3);
+            ctx.fillStyle = color; ctx.fillRect(sx - barW/2, sy, redW, 3);
+            if (blueW > 0.3) {
+                ctx.fillStyle = '#5aaaff'; ctx.fillRect(sx - barW/2 + redW, sy, blueW, 3);
+                // subtle highlight on top of the blue part
+                ctx.fillStyle = 'rgba(180,220,255,0.5)'; ctx.fillRect(sx - barW/2 + redW, sy, blueW, 1);
+            }
         }
 
         // ========== ARREST OFFICER ==========
@@ -1539,7 +1621,7 @@
                 if (this.dir.x < -0.05) ctx.scale(-1, 1);
                 drawArrestFigure(ctx, this);
                 ctx.restore();
-                drawHpBar(ctx, sx, sy - 24, this.hp, this.maxHp, '#ffcc33');
+                drawHpBar(ctx, sx, sy - 24, this.hp, this.maxHp, '#ffcc33', 0);
                 if (this.carrying) {
                     ctx.fillStyle = '#ffcc33';
                     ctx.font = 'bold 10px monospace';
@@ -1575,6 +1657,303 @@
             ctx.strokeStyle = pal.cuff; ctx.lineWidth = 1.6;
             ctx.beginPath(); ctx.arc(0, 0, 2.2, 0, Math.PI * 2); ctx.stroke();
             ctx.beginPath(); ctx.arc(4, 0, 2.2, 0, Math.PI * 2); ctx.stroke();
+            ctx.restore();
+        }
+
+        // ========== TEAR GAS OFFICER ==========
+        const TEAR_GAS_PALETTE = { cloth: '#4a4a20', dark: '#2a2a10', mask: '#e8e0c0', maskDark: '#4a4020', tank: '#c0a040', tankDark: '#806020' };
+        let tearGasIdSeq = 1;
+        class TearGasOfficer {
+            constructor(x, y, syndicateIndex) {
+                this.id = tearGasIdSeq++;
+                this.syndicateIndex = syndicateIndex;
+                this.x = x; this.y = y;
+                this.hp = TEAR_GAS_HP;
+                this.maxHp = TEAR_GAS_HP;
+                this.dir = { x: 1, y: 0 };
+                this.animTimer = Math.random() * 10;
+                this.isMoving = false;
+                this.alive = true;
+                this.state = 'escort';   // 'escort' | 'advancing' | 'spraying' | 'returning'
+                this.slotOffset = 0;
+                this.stuckTimer = 0;
+                this.sprayTimer = 0;
+                this.sprayCooldown = 0;
+                this.escortX = x; this.escortY = y;
+                this.frontX = x; this.frontY = y;
+                this.sprayDirX = 1; this.sprayDirY = 0;
+            }
+            computePositions() {
+                const sy = game.syndicates[this.syndicateIndex];
+                if (!sy) return;
+                let fx = sy.facingX || 1, fy = sy.facingY || 0;
+                if (Math.abs(fx) > Math.abs(fy)) { fx = Math.sign(fx) || 1; fy = 0; }
+                else { fx = 0; fy = Math.sign(fy) || 1; }
+                const px = fy, py = -fx;
+
+                // Find frontmost and rearmost officer of this syndicate
+                let frontAnchor = null, frontProj = -Infinity;
+                let rearAnchor = null, rearProj = Infinity;
+                for (const o of game.officers) {
+                    if (!o.alive || o.isAllOut) continue;
+                    if (!game.mergedMode && o.syndicateIndex !== this.syndicateIndex) continue;
+                    const proj = (o.x - sy.commandX) * fx + (o.y - sy.commandY) * fy;
+                    if (proj > frontProj) { frontProj = proj; frontAnchor = o; }
+                    if (proj < rearProj) { rearProj = proj; rearAnchor = o; }
+                }
+
+                let frontX, frontY, rearX, rearY;
+                if (frontAnchor) { frontX = frontAnchor.x; frontY = frontAnchor.y; }
+                else { frontX = sy.commandX; frontY = sy.commandY; }
+                if (rearAnchor) { rearX = rearAnchor.x; rearY = rearAnchor.y; }
+                else { rearX = sy.commandX; rearY = sy.commandY; }
+
+                // Escort position: just behind the rearmost officer (between arrest team and units)
+                const behind = TILE * 1.2;
+                this.escortX = rearX - fx * behind + px * this.slotOffset * TILE * 0.9;
+                this.escortY = rearY - fy * behind + py * this.slotOffset * TILE * 0.9;
+                // Front position: ahead of the frontmost officer
+                const ahead = TILE * 3.0;
+                this.frontX = frontX + fx * ahead + px * this.slotOffset * TILE * 0.8;
+                this.frontY = frontY + fy * ahead + py * this.slotOffset * TILE * 0.8;
+                this.sprayDirX = fx; this.sprayDirY = fy;
+            }
+            update(dt) {
+                if (!this.alive) return;
+                this.animTimer += dt;
+                this.computePositions();
+
+                if (this.state === 'escort') {
+                    this.moveTo(this.escortX, this.escortY, dt, 1.0);
+                } else if (this.state === 'advancing') {
+                    const arrived = this.moveTo(this.frontX, this.frontY, dt, TEAR_GAS_ADVANCE_SPEED_MULT);
+                    // push nearby officers aside as we pass
+                    for (const o of game.officers) {
+                        if (!o.alive || o.isAllOut) continue;
+                        if (!game.mergedMode && o.syndicateIndex !== this.syndicateIndex) continue;
+                        const dx = o.x - this.x, dy = o.y - this.y;
+                        const d = Math.hypot(dx, dy);
+                        if (d < TILE * 1.4 && d > 0.01) {
+                            const px2 = -this.dir.y, py2 = this.dir.x;
+                            const sign = (o.id % 2 === 0) ? 1 : -1;
+                            const push = TILE * 0.16;
+                            const nx = o.x + px2 * sign * push;
+                            const ny = o.y + py2 * sign * push;
+                            if (isValidOfficerPosition(nx, ny)) { o.x = nx; o.y = ny; }
+                            else if (isValidOfficerPosition(nx, o.y)) o.x = nx;
+                            else if (isValidOfficerPosition(o.x, ny)) o.y = ny;
+                        }
+                    }
+                    if (arrived) {
+                        this.state = 'spraying';
+                        this.sprayTimer = TEAR_GAS_SPRAY_DURATION;
+                        this.sprayDirX = this.dir.x;
+                        this.sprayDirY = this.dir.y;
+                        if (Math.abs(this.sprayDirX) < 0.01 && Math.abs(this.sprayDirY) < 0.01) {
+                            const sy = game.syndicates[this.syndicateIndex];
+                            if (sy) {
+                                let fx = sy.facingX || 1, fy = sy.facingY || 0;
+                                if (Math.abs(fx) > Math.abs(fy)) { fx = Math.sign(fx) || 1; fy = 0; }
+                                else { fx = 0; fy = Math.sign(fy) || 1; }
+                                this.sprayDirX = fx; this.sprayDirY = fy;
+                            }
+                        }
+                        this.dir = { x: this.sprayDirX, y: this.sprayDirY };
+                    }
+                } else if (this.state === 'spraying') {
+                    this.sprayTimer -= dt;
+                    this.isMoving = false;
+                    this.dir = { x: this.sprayDirX, y: this.sprayDirY };
+                    this.applyGasEffects(dt);
+                    if (this.sprayTimer <= 0) {
+                        this.state = 'returning';
+                    }
+                } else if (this.state === 'returning') {
+                    const arrived = this.moveTo(this.escortX, this.escortY, dt, 1.0);
+                    if (arrived) this.state = 'escort';
+                }
+            }
+            moveTo(tx, ty, dt, speedMult) {
+                const dx = tx - this.x, dy = ty - this.y;
+                const dist = Math.hypot(dx, dy);
+                this.isMoving = dist > 4;
+                if (dist < 4) return true;
+                const step = Math.min(dist, TEAR_GAS_SPEED * speedMult * TILE * dt);
+                const ux = dx / dist, uy = dy / dist;
+                const nx = this.x + ux * step, ny = this.y + uy * step;
+                const beforeX = this.x, beforeY = this.y;
+                if (isValidOfficerPosition(nx, ny)) { this.x = nx; this.y = ny; }
+                else if (isValidOfficerPosition(nx, this.y)) this.x = nx;
+                else if (isValidOfficerPosition(this.x, ny)) this.y = ny;
+                const moved = Math.hypot(this.x - beforeX, this.y - beforeY);
+                if (moved < step * 0.35) this.stuckTimer += dt;
+                else this.stuckTimer = Math.max(0, this.stuckTimer - dt * 2);
+                if (this.stuckTimer > 0.5) {
+                    const perpX = -uy, perpY = ux;
+                    const sign = (this.id % 2 === 0) ? 1 : -1;
+                    const tries = [
+                        { x: this.x + perpX * sign * TILE * 1.2, y: this.y + perpY * sign * TILE * 1.2 },
+                        { x: this.x - perpX * sign * TILE * 1.2, y: this.y - perpY * sign * TILE * 1.2 },
+                        { x: this.x - ux * TILE * 1.2,           y: this.y - uy * TILE * 1.2 },
+                    ];
+                    for (const t of tries) {
+                        if (isValidOfficerPosition(t.x, t.y)) { this.x = t.x; this.y = t.y; break; }
+                    }
+                    this.stuckTimer = 0;
+                }
+                this.dir = { x: ux, y: uy };
+                return false;
+            }
+            applyGasEffects(dt) {
+                const aimAngle = Math.atan2(this.sprayDirY, this.sprayDirX);
+                const coneHalf = TEAR_GAS_CONE_HALF_ANGLE;
+                // Directly hit raiders
+                for (const r of game.raiders) {
+                    if (!r.alive || r.state === 'fleeing') continue;
+                    const dx = r.x - this.x, dy = r.y - this.y;
+                    const d = Math.hypot(dx, dy);
+                    if (d > TEAR_GAS_RANGE) continue;
+                    let inCone = false;
+                    if (d < 0.01) inCone = true;
+                    else {
+                        const ang = Math.atan2(dy, dx);
+                        let diff = ang - aimAngle;
+                        while (diff > Math.PI) diff -= Math.PI * 2;
+                        while (diff < -Math.PI) diff += Math.PI * 2;
+                        if (Math.abs(diff) <= coneHalf) inCone = true;
+                    }
+                    if (inCone && r.gasStunTimer <= 0) {
+                        r.gasStunTimer = TEAR_GAS_STUN_DURATION;
+                        r.state = 'gas_stunned';
+                        game.raiderGroupMorale = Math.max(0, game.raiderGroupMorale - TEAR_GAS_HIT_MORALE);
+                        game.waveMoralePct = Math.max(0, game.waveMoralePct - 4);
+                        spawnHitEffect(r.x, r.y);
+                    }
+                }
+                // Witness morale drain
+                for (const other of game.raiders) {
+                    if (!other.alive || other.state === 'fleeing') continue;
+                    const dx = other.x - this.x, dy = other.y - this.y;
+                    const d = Math.hypot(dx, dy);
+                    if (d > TEAR_GAS_WITNESS_RANGE) continue;
+                    game.raiderGroupMorale = Math.max(0, game.raiderGroupMorale - TEAR_GAS_WITNESS_RATE * dt);
+                }
+            }
+            draw(ctx) {
+                if (!this.alive) return;
+                const sx = this.x - game.camera.x, sy = this.y - game.camera.y;
+                if (sx < -40 || sy < -40 || sx > game.width + 40 || sy > game.height + 40) return;
+                ctx.save();
+                ctx.translate(sx, sy);
+                if (this.dir.x < -0.05) ctx.scale(-1, 1);
+                drawTearGasFigure(ctx, this);
+                ctx.restore();
+                drawHpBar(ctx, sx, sy - 24, this.hp, this.maxHp, '#d0d050', 0);
+                if (this.state === 'advancing') {
+                    ctx.fillStyle = '#e0e070'; ctx.font = 'bold 8px monospace'; ctx.textAlign = 'center';
+                    ctx.fillText('➤', sx, sy - 28);
+                } else if (this.state === 'spraying') {
+                    ctx.fillStyle = '#f0f080'; ctx.font = 'bold 8px monospace'; ctx.textAlign = 'center';
+                    ctx.fillText('💨', sx, sy - 28);
+                }
+            }
+            // Draw the yellow gas cone — called from the main render after units
+            drawGasCloud(ctx) {
+                if (this.state !== 'spraying') return;
+                const sx = this.x - game.camera.x;
+                const sy = this.y - game.camera.y;
+                const aimAngle = Math.atan2(this.sprayDirY, this.sprayDirX);
+                const lifePct = Math.max(0, Math.min(1, this.sprayTimer / TEAR_GAS_SPRAY_DURATION));
+                // Ramp-up ramp-down alpha
+                const ramp = Math.min(1, lifePct * 4) * Math.min(1, (1 - lifePct) * 4 + 0.3);
+                const alpha = 0.55 * ramp;
+                if (alpha < 0.02) return;
+
+                ctx.save();
+                // Radial gradient cone
+                const grad = ctx.createRadialGradient(sx, sy, 0, sx, sy, TEAR_GAS_RANGE);
+                grad.addColorStop(0, `rgba(240, 230, 70, ${alpha})`);
+                grad.addColorStop(0.55, `rgba(220, 210, 50, ${alpha * 0.7})`);
+                grad.addColorStop(1, `rgba(180, 170, 30, 0)`);
+                ctx.fillStyle = grad;
+                ctx.beginPath();
+                ctx.moveTo(sx, sy);
+                ctx.arc(sx, sy, TEAR_GAS_RANGE, aimAngle - TEAR_GAS_CONE_HALF_ANGLE, aimAngle + TEAR_GAS_CONE_HALF_ANGLE);
+                ctx.closePath();
+                ctx.fill();
+                // Puffy particle blobs for texture
+                const t = (TEAR_GAS_SPRAY_DURATION - this.sprayTimer) * 5;
+                for (let i = 0; i < 10; i++) {
+                    const phase = t + i * 1.31;
+                    const dist = (Math.sin(phase) * 0.5 + 0.5) * TEAR_GAS_RANGE * 0.92;
+                    const spread = (seedFromXY(this.id * 13.7, i * 5.3) - 0.5) * 2 * TEAR_GAS_CONE_HALF_ANGLE * 1.05;
+                    const ang = aimAngle + spread;
+                    const px = sx + Math.cos(ang) * dist;
+                    const py = sy + Math.sin(ang) * dist;
+                    const size = 5 + (Math.sin(phase * 0.7 + i) * 0.5 + 0.5) * 9;
+                    ctx.fillStyle = `rgba(235, 225, 90, ${alpha * 0.45})`;
+                    ctx.beginPath();
+                    ctx.arc(px, py, size, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+                ctx.restore();
+            }
+        }
+        function drawTearGasFigure(ctx, u) {
+            const pal = TEAR_GAS_PALETTE;
+            const walking = u.isMoving;
+            const phase = u.animTimer * (walking ? 7 : 1.2);
+            const amp = walking ? 1 : 0.12;
+            const legSwing = Math.sin(phase) * amp;
+            const H = 20;
+            const legReach = H * 0.34;
+            ctx.lineCap = 'round';
+            // legs
+            ctx.strokeStyle = pal.dark; ctx.lineWidth = 2.6;
+            ctx.beginPath(); ctx.moveTo(-1, -2); ctx.lineTo(-1 - legSwing * legReach * 0.6, legReach); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(-1, -2); ctx.lineTo(-1 + legSwing * legReach, legReach); ctx.stroke();
+            // body
+            ctx.strokeStyle = pal.cloth; ctx.lineWidth = 5;
+            ctx.beginPath(); ctx.moveTo(-1, -2); ctx.lineTo(-1, -H * 0.62); ctx.stroke();
+            // Back tank
+            ctx.fillStyle = pal.tank;
+            ctx.strokeStyle = pal.tankDark; ctx.lineWidth = 1;
+            ctx.beginPath();
+            const tankX = -H * 0.38, tankY = -H * 0.72, tankW = H * 0.22, tankH = H * 0.5;
+            if (ctx.roundRect) {
+                ctx.roundRect(tankX, tankY, tankW, tankH, 2);
+            } else {
+                ctx.rect(tankX, tankY, tankW, tankH);
+            }
+            ctx.fill(); ctx.stroke();
+            // tank hose
+            ctx.strokeStyle = pal.tankDark; ctx.lineWidth = 1.2;
+            ctx.beginPath();
+            ctx.moveTo(tankX + tankW * 0.5, tankY + 2);
+            ctx.quadraticCurveTo(-H * 0.1, -H * 0.55, H * 0.32, -H * 0.42);
+            ctx.stroke();
+            // head + mask
+            ctx.fillStyle = pal.dark;
+            ctx.beginPath(); ctx.arc(0, -H * 0.72, H * 0.19, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = pal.mask;
+            ctx.beginPath(); ctx.arc(H * 0.07, -H * 0.72, H * 0.1, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = pal.maskDark;
+            ctx.beginPath(); ctx.arc(H * 0.07, -H * 0.72, H * 0.05, 0, Math.PI * 2); ctx.fill();
+            // nozzle arm
+            const nozzleAngle = (u.state === 'spraying') ? 0 : -0.15;
+            ctx.save();
+            ctx.translate(H * 0.05, -H * 0.4);
+            ctx.rotate(nozzleAngle);
+            ctx.strokeStyle = pal.dark; ctx.lineWidth = 2;
+            ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(H * 0.42, 0); ctx.stroke();
+            // nozzle tip
+            ctx.fillStyle = pal.tankDark;
+            ctx.beginPath(); ctx.arc(H * 0.42, 0, 2, 0, Math.PI * 2); ctx.fill();
+            // spray puff if spraying
+            if (u.state === 'spraying') {
+                ctx.fillStyle = `rgba(240, 230, 80, 0.85)`;
+                ctx.beginPath(); ctx.arc(H * 0.46, 0, 2.6, 0, Math.PI * 2); ctx.fill();
+            }
             ctx.restore();
         }
 
@@ -1651,7 +2030,7 @@
                 if (this.dir.x < -0.05) ctx.scale(-1, 1);
                 drawK9HandlerFigure(ctx, this);
                 ctx.restore();
-                drawHpBar(ctx, sx, sy - 24, this.hp, this.maxHp, '#7fd3a0');
+                drawHpBar(ctx, sx, sy - 24, this.hp, this.maxHp, '#7fd3a0', 0);
             }
         }
         function drawK9HandlerFigure(ctx, u) {
@@ -1858,7 +2237,7 @@
                 if (this.dir.x < -0.05) ctx.scale(-1, 1);
                 drawK9Figure(ctx, this);
                 ctx.restore();
-                drawHpBar(ctx, sx, sy - 16, this.hp, this.maxHp, '#ffcc33');
+                drawHpBar(ctx, sx, sy - 16, this.hp, this.maxHp, '#ffcc33', 0);
                 if (this.deployTimer > 0) {
                     ctx.fillStyle = '#ff8a5c';
                     ctx.font = 'bold 8px monospace';
@@ -1971,6 +2350,7 @@
                 this.beingArrested = false;
                 this.arrestOfficer = null;
                 this.throwTimer = Math.random() * 1.5;
+                this.gasStunTimer = 0;
             }
             routeNodes() {
                 const squad = game.squads.get(this.squadId);
@@ -2026,6 +2406,20 @@
                     if (this.arrestOfficer && !this.arrestOfficer.alive) {
                         this.beingArrested = false;
                         this.arrestOfficer = null;
+                    }
+                    return;
+                }
+
+                // Tear gas stun — stops all actions, then forces retreat
+                if (this.gasStunTimer > 0) {
+                    this.gasStunTimer -= dt;
+                    this.animTimer += dt;
+                    this.isMoving = false;
+                    this.state = 'gas_stunned';
+                    if (this.gasStunTimer <= 0) {
+                        this.state = 'fleeing';
+                        this.hp = 0;
+                        game.routed++;
                     }
                     return;
                 }
@@ -2294,9 +2688,12 @@
                 if (this.dir.x < -0.05) ctx.scale(-1, 1);
                 drawRaiderFigure(ctx, this);
                 ctx.restore();
-                drawHpBar(ctx, sx, sy - 22, this.hp, this.maxHp, this.state === 'fleeing' ? '#aaaaaa' : this.beingArrested ? '#ffcc33' : '#ff8a5c');
+                drawHpBar(ctx, sx, sy - 22, this.hp, this.maxHp, this.state === 'fleeing' ? '#aaaaaa' : this.beingArrested ? '#ffcc33' : '#ff8a5c', 0);
 
-                if (this.beingArrested) {
+                if (this.gasStunTimer > 0) {
+                    ctx.fillStyle = '#f0f080'; ctx.font = 'bold 9px monospace'; ctx.textAlign = 'center';
+                    ctx.fillText('💫', sx, sy - 26);
+                } else if (this.beingArrested) {
                     ctx.fillStyle = '#ffcc33'; ctx.font = 'bold 9px monospace'; ctx.textAlign = 'center';
                     ctx.fillText('🔒', sx, sy - 26);
                 } else if (this.state === 'holding' || this.state === 'resting') {
@@ -2788,6 +3185,55 @@
             }
         }
 
+        // ========== TEAR GAS ==========
+        function deployTearGas() {
+            const idx = game.selectedSyndicate;
+            if (game.tearGasCooldown[idx] > 0) {
+                showToast('Tear gas ready in ' + Math.ceil(game.tearGasCooldown[idx]) + 's.');
+                return;
+            }
+            const team = game.tearGasOfficers.filter(t => t.alive && t.syndicateIndex === idx);
+            if (team.length === 0) {
+                showToast('No tear gas team for this syndicate.');
+                return;
+            }
+            const busy = team.some(t => t.state === 'advancing' || t.state === 'spraying');
+            if (busy) {
+                showToast('Tear gas team already engaged.');
+                return;
+            }
+            for (const t of team) t.state = 'advancing';
+            game.tearGasCooldown[idx] = TEAR_GAS_COOLDOWN;
+            showToast('💨 Tear gas deploying! Units making way.');
+            updateTearGasButton();
+        }
+        function updateTearGasButton() {
+            const btn = document.getElementById('deploy-gas');
+            const sub = document.getElementById('deploy-gas-sub');
+            if (!btn) return;
+            const idx = game.selectedSyndicate;
+            const team = game.tearGasOfficers.filter(t => t.alive && t.syndicateIndex === idx);
+            if (team.length === 0) {
+                btn.disabled = true; btn.classList.remove('ready');
+                sub.textContent = 'S' + (idx + 1) + ' unavailable';
+                return;
+            }
+            const active = team.some(t => t.state === 'spraying');
+            if (active) {
+                btn.disabled = true; btn.classList.remove('ready');
+                sub.textContent = 'S' + (idx + 1) + ' spraying';
+                return;
+            }
+            const cd = game.tearGasCooldown[idx] || 0;
+            if (cd > 0) {
+                btn.disabled = true; btn.classList.remove('ready');
+                sub.textContent = 'S' + (idx + 1) + ' ready in ' + Math.ceil(cd) + 's';
+            } else {
+                btn.disabled = false; btn.classList.add('ready');
+                sub.textContent = 'S' + (idx + 1) + ' ready';
+            }
+        }
+
         // ========== K9 ==========
         function deployK9() {
             const idx = game.selectedSyndicate;
@@ -2886,6 +3332,18 @@
             game.handlers.push(new K9Handler(hx, hy, idx));
             const k9 = new K9Unit(cx + (Math.random() - 0.5) * TILE * 2, cy + (Math.random() - 0.5) * TILE * 2, idx);
             game.k9s.push(k9);
+            // Tear gas team
+            for (let i = 0; i < TEAR_GAS_TEAM_SIZE; i++) {
+                let sx = cx, sy2 = cy;
+                for (let tries = 0; tries < 40; tries++) {
+                    const tx = cx + (Math.random() - 0.5) * TILE * 8;
+                    const ty = cy + (Math.random() - 0.5) * TILE * 8;
+                    if (isValidOfficerPosition(tx, ty)) { sx = tx; sy2 = ty; break; }
+                }
+                const t = new TearGasOfficer(sx, sy2, idx);
+                t.slotOffset = (i - (TEAR_GAS_TEAM_SIZE - 1) / 2) * 1.6;
+                game.tearGasOfficers.push(t);
+            }
             assignFormation();
         }
 
@@ -2967,17 +3425,13 @@
                 if (squad) {
                     const startNode = getNode(squad.route[0]);
                     if (startNode) {
-                        // Compute a spawn position that is safely inside the map
                         let sx = startNode.x * TILE + (Math.random() - 0.5) * TILE * 2;
                         let sy = startNode.y * TILE + (Math.random() - 0.5) * TILE;
-                        // Hard clamp so the raider is never hanging off the edge
                         sx = Math.max(TILE, Math.min(MAP_W * TILE - TILE, sx));
                         sy = Math.max(TILE, Math.min(MAP_H * TILE - TILE, sy));
-                        // If the resulting tile isn't walkable, snap back to the node's own center
                         if (!isValidPosition(sx, sy)) {
                             sx = startNode.x * TILE;
                             sy = startNode.y * TILE;
-                            // Final fallback — station tile is guaranteed walkable
                             if (!isValidPosition(sx, sy)) {
                                 sx = BASE_TILE_X * TILE;
                                 sy = BASE_TILE_Y * TILE;
@@ -3092,7 +3546,7 @@
                 }
 
                 if (squad.role === 'flank' && officerDistTiles < 10 && officerDistTiles > 3) {
-                    const altRoutes = ['west_high', 'east_high', 'west_side', 'east_side', 'botwest_direct', 'boteast_direct'];
+                    const altRoutes = ['west_high', 'east_high', 'west_side', 'east_side', 'botwest_top', 'boteast_top'];
                     let bestRoute = null, bestScore = Infinity;
                     for (const rk of altRoutes) {
                         const nodes = SQUAD_ROUTES[rk];
@@ -3149,6 +3603,9 @@
                 'mass_charge': 'Massing For Charge',
                 'bottom_pincer': 'Rear Pincer',
                 'surround': 'Surround & Close',
+                'four_ways': 'Four-Pronged Assault',
+                'top_and_bottom': 'Top And Bottom Push',
+                'north_south': 'North-South Squeeze',
             };
             const tLabel = tacticLabels[tactic] || '';
             el.innerHTML = 'WAVE ' + game.waveNumber +
@@ -3232,6 +3689,11 @@
                 if (!game.mergedMode && h.syndicateIndex !== idx) continue;
                 cx += h.x; cy += h.y; n += 1;
             }
+            for (const t of game.tearGasOfficers) {
+                if (!t.alive) continue;
+                if (!game.mergedMode && t.syndicateIndex !== idx) continue;
+                cx += t.x; cy += t.y; n += 1;
+            }
 
             if (n <= 0) {
                 for (const o of game.officers) {
@@ -3251,11 +3713,11 @@
         const FORMATION_DEFS = [
             { key: 'rest', label: '😌 Rest', desc: 'Shields down, spaced out, FASTEST movement but weakest attack. Auto-shifts to Staggered Wall if a raider approaches.' },
             { key: 'wedge', label: '🔺 Wedge', desc: 'Spearhead. The healthiest officer forms the point and rows widen behind. Balanced all-rounder.' },
-            { key: 'closedwall', label: '🧱 Closed Wall', desc: 'Fills the ENTIRE road width. Extra officers backfill behind. Slower but sturdier (15% less damage taken).' },
-            { key: 'staggeredwall', label: '🧱 Staggered Wall', desc: 'Full-width line with alternate rows offset. SLOWEST but 55% extra damage and 30% less damage taken.' },
+            { key: 'closedwall', label: '🧱 Closed Wall', desc: 'Fills the ENTIRE road width. Extra officers backfill behind. Slower but sturdier (15% less damage taken — shows as blue HP).' },
+            { key: 'staggeredwall', label: '🧱 Staggered Wall', desc: 'Full-width line with alternate rows offset. SLOWEST but 55% extra damage and 30% less damage taken (shows as blue HP).' },
             { key: 'stackleft', label: '⬅️ Stack Left', desc: 'Press up against the left kerb, fast lateral movement.' },
             { key: 'stackright', label: '➡️ Stack Right', desc: 'Press up against the right kerb, fast lateral movement.' },
-            { key: 'box', label: '📦 Box', desc: 'Three-sided box. Balanced. ARREST TEAM + K9 STAY INSIDE the box, protected by the officers (20% less damage taken).' },
+            { key: 'box', label: '📦 Box', desc: 'Three-sided box. Balanced. ARREST TEAM + K9 STAY INSIDE the box, protected by the officers (20% less damage taken — shows as blue HP).' },
         ];
         const ORDER_DEFS = [
             { key: 'autoDisperse', label: '⚡ Auto-Disperse', desc: 'When ON, Disperse (10s, triple damage) triggers automatically the instant any officer in this syndicate is hit.' },
@@ -3346,7 +3808,7 @@
                     }
                     game.selectedSyndicate = idx;
                     renderSyndicateTabs(); renderOptionsPanel(); updateSelectionUI();
-                    updateArrestButton(); updateK9Button(); updateDisperseButton();
+                    updateArrestButton(); updateTearGasButton(); updateK9Button(); updateDisperseButton();
                     game.cameraUserLock = 0;
                 });
             });
@@ -3356,6 +3818,8 @@
             if (allOutBtn) allOutBtn.addEventListener('click', triggerAllOut);
             const arrestBtn = document.getElementById('send-arrest');
             if (arrestBtn) arrestBtn.addEventListener('click', sendInArrestTeam);
+            const gasBtn = document.getElementById('deploy-gas');
+            if (gasBtn) gasBtn.addEventListener('click', deployTearGas);
             const k9Btn = document.getElementById('deploy-k9');
             if (k9Btn) k9Btn.addEventListener('click', deployK9);
             const dispBtn = document.getElementById('disperse-btn');
@@ -3400,14 +3864,12 @@
             const objEl = document.getElementById('objective');
             if (objEl) objEl.textContent = OBJECTIVE_SHORT[game.raidAI.objective] || '—';
 
-            // Base HP — show as percentage so bar length and number always agree
             const baseFill = document.getElementById('base-hp-fill');
             const basePct = game.baseHp / BASE_MAX_HP;
             baseFill.style.width = Math.round(basePct * 100) + '%';
             baseFill.className = 'stat-fill' + (basePct < 0.3 ? ' crit' : basePct < 0.6 ? ' low' : '');
             document.getElementById('base-hp-num').textContent = Math.round(basePct * 100) + '%';
 
-            // Troops — also as percentage of maximum possible force
             const aliveOfficers = game.officers.filter(o => o.alive).length;
             const cap = MAX_SYNDICATES * OFFICERS_PER_SYNDICATE;
             const troopPct = aliveOfficers / cap;
@@ -3419,7 +3881,7 @@
             document.getElementById('morale-num').textContent = Math.round(game.waveMoralePct) + '%';
 
             renderSyndicateTabs(); updateMoveButtons(); updateMergedButton(); updateAllOutButton();
-            updateArrestButton(); updateK9Button(); updateDisperseButton();
+            updateArrestButton(); updateTearGasButton(); updateK9Button(); updateDisperseButton();
         }
 
         // ========== RENDER ==========
@@ -3436,12 +3898,16 @@
             game.officers.forEach(o => { if (o.alive) all.push(o); });
             game.arrestOfficers.forEach(a => { if (a.alive) all.push(a); });
             game.handlers.forEach(h => { if (h.alive) all.push(h); });
+            game.tearGasOfficers.forEach(t => { if (t.alive) all.push(t); });
             game.raiders.forEach(r => { if (r.alive) all.push(r); });
             game.k9s.forEach(k => { if (k.alive) all.push(k); });
             all.sort((a, b) => a.y - b.y);
             all.forEach(u => u.draw(ctx));
             drawProjectiles(ctx);
             drawEffects(ctx);
+
+            // Tear gas clouds drawn on top of everything for a thick fog effect
+            game.tearGasOfficers.forEach(t => { if (t.alive) t.drawGasCloud(ctx); });
 
             const sy = game.syndicates[game.selectedSyndicate];
             if (sy) {
@@ -3476,6 +3942,11 @@
                 ctx.fillStyle = '#7fd3a0';
                 ctx.fillRect((h.x / TILE) * MINIMAP_SCALE, (h.y / TILE) * MINIMAP_SCALE, 2, 2);
             });
+            game.tearGasOfficers.forEach(t => {
+                if (!t.alive) return;
+                ctx.fillStyle = t.state === 'spraying' ? '#f0f080' : '#c8d040';
+                ctx.fillRect((t.x / TILE) * MINIMAP_SCALE, (t.y / TILE) * MINIMAP_SCALE, 2, 2);
+            });
             game.k9s.forEach(k => {
                 if (!k.alive) return;
                 ctx.fillStyle = k.deployTimer > 0 ? '#ff5a30' : '#c08040';
@@ -3483,7 +3954,12 @@
             });
             game.raiders.forEach(r => {
                 if (!r.alive || r.state === 'fleeing') return;
-                ctx.fillStyle = r.beingArrested ? '#ffcc33' : (r.kind === 'brickthrower' ? '#e8c08a' : ((r.state === 'resting' || r.state === 'holding') ? '#86cf72' : '#ff8a5c'));
+                let col = '#ff8a5c';
+                if (r.beingArrested) col = '#ffcc33';
+                else if (r.gasStunTimer > 0) col = '#f0f080';
+                else if (r.kind === 'brickthrower') col = '#e8c08a';
+                else if (r.state === 'resting' || r.state === 'holding') col = '#86cf72';
+                ctx.fillStyle = col;
                 ctx.fillRect((r.x / TILE) * MINIMAP_SCALE, (r.y / TILE) * MINIMAP_SCALE, 2, 2);
             });
             sceneryBuildings.forEach(b => {
@@ -3517,7 +3993,7 @@
             game.selectedSyndicate = 0;
             renderSyndicateTabs(); renderOptionsPanel(); updateSelectionUI();
             updateMergedButton(); updateAllOutButton();
-            updateArrestButton(); updateK9Button(); updateDisperseButton();
+            updateArrestButton(); updateTearGasButton(); updateK9Button(); updateDisperseButton();
         }
 
         // ========== MAIN LOOP ==========
@@ -3531,6 +4007,9 @@
                 if (game.allOutCooldown > 0) game.allOutCooldown = Math.max(0, game.allOutCooldown - dt);
                 for (let i = 0; i < game.arrestCooldown.length; i++) {
                     if (game.arrestCooldown[i] > 0) game.arrestCooldown[i] = Math.max(0, game.arrestCooldown[i] - dt);
+                }
+                for (let i = 0; i < game.tearGasCooldown.length; i++) {
+                    if (game.tearGasCooldown[i] > 0) game.tearGasCooldown[i] = Math.max(0, game.tearGasCooldown[i] - dt);
                 }
                 for (let i = 0; i < game.manualDisperseCooldown.length; i++) {
                     if (game.manualDisperseCooldown[i] > 0) game.manualDisperseCooldown[i] = Math.max(0, game.manualDisperseCooldown[i] - dt);
@@ -3551,6 +4030,7 @@
                 game.officers.forEach(o => o.update(dt));
                 game.arrestOfficers.forEach(a => a.update(dt));
                 game.handlers.forEach(h => h.update(dt));
+                game.tearGasOfficers.forEach(t => t.update(dt));
                 game.k9s.forEach(k => k.update(dt));
                 game.raiders.forEach(r => r.update(dt));
                 updateProjectiles(dt);
@@ -3567,6 +4047,9 @@
                 if (game.k9s.length > 0 && game.k9s.some(k => !k.alive)) {
                     game.k9s = game.k9s.filter(k => k.alive);
                 }
+                if (game.tearGasOfficers.length > 0 && game.tearGasOfficers.some(t => !t.alive)) {
+                    game.tearGasOfficers = game.tearGasOfficers.filter(t => t.alive);
+                }
 
                 updateEffects(dt);
                 updateCamera(dt);
@@ -3581,6 +4064,7 @@
         function initGameState() {
             game.officers = []; game.raiders = []; game.effects = [];
             game.arrestOfficers = []; game.k9s = []; game.handlers = [];
+            game.tearGasOfficers = [];
             game.projectiles = [];
             game.syndicates = [];
             game.selectedSyndicate = 0;
@@ -3591,6 +4075,7 @@
             game.allOutCooldown = 0;
             game.allOutActive = 0;
             game.arrestCooldown = [0, 0, 0];
+            game.tearGasCooldown = [0, 0, 0];
             game.manualDisperseCooldown = [0, 0, 0];
             game.squads = new Map();
             game.nextSquadId = 1;
@@ -3663,7 +4148,7 @@
                 game.selectedSyndicate = 0;
                 renderSyndicateTabs(); renderOptionsPanel(); updateSelectionUI();
                 updateMergedButton(); updateAllOutButton();
-                updateArrestButton(); updateK9Button(); updateDisperseButton();
+                updateArrestButton(); updateTearGasButton(); updateK9Button(); updateDisperseButton();
                 requestAnimationFrame(loop);
             });
         }

@@ -483,6 +483,7 @@
 
         const ROAD_W = 6;
         const ROAD_Y_TOP = 14;
+        const ROAD_Y_MID = 26;      // NEW: parallel mid road
         const ROAD_Y_BOTTOM = 38;
         const ROAD_X_START = 8;
         const ROAD_X_END = 98;
@@ -513,21 +514,22 @@
         const ARREST_OFFICER_HP = 300;
         const ARREST_OFFICER_SPEED = 2.9;
         const ARREST_GRAB_RANGE = TILE * 4.5;
-        const ARREST_MAX_RANGE_FROM_SYNDICATE = TILE * 12;
+        const ARREST_MAX_RANGE_FROM_SYNDICATE = TILE * 10;
+        const ARREST_TEAM_LIFETIME = 45;   // NEW: arrests team withdraws after this long
 
-        // ----- Tear Gas team -----
+        // ----- Tear Gas team (BUFFED) -----
         const TEAR_GAS_TEAM_SIZE = 2;
-        const TEAR_GAS_COOLDOWN = 50;
-        const TEAR_GAS_SPRAY_DURATION = 3.0;
-        const TEAR_GAS_RANGE = ARREST_MAX_RANGE_FROM_SYNDICATE * 0.5; // half of arrest team range
-        const TEAR_GAS_CONE_HALF_ANGLE = Math.PI / 5;   // ~36° each side
-        const TEAR_GAS_STUN_DURATION = 4.0;
-        const TEAR_GAS_HIT_MORALE = 14;                 // per raider hit
-        const TEAR_GAS_WITNESS_RANGE = TILE * 10;
-        const TEAR_GAS_WITNESS_RATE = 5.0;              // morale/sec to witnesses
-        const TEAR_GAS_HP = 340;                        // <-- increased from 180
-        const TEAR_GAS_SPEED = 3.2;
-        const TEAR_GAS_ADVANCE_SPEED_MULT = 1.6;
+        const TEAR_GAS_COOLDOWN = 45;                       // faster cooldown
+        const TEAR_GAS_SPRAY_DURATION = 4.0;                // longer spray
+        const TEAR_GAS_RANGE = ARREST_MAX_RANGE_FROM_SYNDICATE * 0.75; // wider reach
+        const TEAR_GAS_CONE_HALF_ANGLE = Math.PI / 3.5;     // ~51° each side
+        const TEAR_GAS_STUN_DURATION = 6.0;                 // longer stun
+        const TEAR_GAS_HIT_MORALE = 25;                     // more morale damage per hit
+        const TEAR_GAS_WITNESS_RANGE = TILE * 12;           // larger witness radius
+        const TEAR_GAS_WITNESS_RATE = 10.0;                 // faster morale drain
+        const TEAR_GAS_HP = 700;                            // very tanky
+        const TEAR_GAS_SPEED = 3.6;
+        const TEAR_GAS_ADVANCE_SPEED_MULT = 1.7;
 
         const K9_HP = 90;
         const K9_DEPLOY_TIME = 10;
@@ -552,6 +554,20 @@
         };
         function getFormationMods(tactic) {
             return FORMATION_MODS[tactic] || { speedMult: 1, dmgMult: 1, dmgTakenMult: 1 };
+        }
+
+        // NEW: Formation armour pool. Damage chews through armour before HP.
+        const FORMATION_ARMOUR = {
+            rest:          0,
+            wedge:         30,
+            closedwall:    80,
+            staggeredwall: 120,
+            stackleft:     25,
+            stackright:    25,
+            box:           90,
+        };
+        function formationArmour(tactic) {
+            return FORMATION_ARMOUR[tactic] || 0;
         }
 
         const MANUAL_DISPERSE_DURATION = 10;
@@ -629,6 +645,12 @@
                 { id: 'TJ1', x: JUNCTION_XS[0], y: ROAD_Y_TOP },
                 { id: 'TJ2', x: JUNCTION_XS[1], y: ROAD_Y_TOP },
                 { id: 'TJ3', x: JUNCTION_XS[2], y: ROAD_Y_TOP },
+                // NEW mid-road nodes
+                { id: 'EML', x: ENTRY_XS[0], y: ROAD_Y_MID },
+                { id: 'EMR', x: ENTRY_XS[1], y: ROAD_Y_MID },
+                { id: 'MJ1', x: JUNCTION_XS[0], y: ROAD_Y_MID },
+                { id: 'MJ2', x: JUNCTION_XS[1], y: ROAD_Y_MID },
+                { id: 'MJ3', x: JUNCTION_XS[2], y: ROAD_Y_MID },
                 { id: 'BJ1', x: JUNCTION_XS[0], y: ROAD_Y_BOTTOM },
                 { id: 'BJ3', x: JUNCTION_XS[2], y: ROAD_Y_BOTTOM },
                 { id: 'BASE', x: BASE_TILE_X, y: BASE_TILE_Y },
@@ -640,22 +662,27 @@
         }
         function getNode(id) { return ROAD_NODES.find(n => n.id === id); }
 
-        // Expanded route set — uses every vertical road and both south entrances
+        // Expanded route set — uses every vertical road, mid road, and all entrances
         const SQUAD_ROUTES = {
-            // Top entrances
-            'west_direct':     ['EL0', 'EL1', 'EL2', 'BASE'],               // 18 down, bottom road east
-            'east_direct':     ['ER0', 'ER1', 'ER2', 'BASE'],               // 90 down, bottom road west
-            'west_high':       ['EL0', 'EL1', 'TJ1', 'TJ2', 'BASE'],       // 18 top road, junction 54 down
-            'east_high':       ['ER0', 'ER1', 'TJ3', 'TJ2', 'BASE'],       // 90 top road, junction 54 down
-            'west_side':       ['EL0', 'EL1', 'TJ1', 'BJ1', 'BASE'],       // 18 top, junction 30 down, bottom
-            'east_side':       ['ER0', 'ER1', 'TJ3', 'BJ3', 'BASE'],       // 90 top, junction 78 down, bottom
-            'west_zigzag':     ['EL0', 'EL1', 'TJ1', 'BJ1', 'BASE'],       // same path as west_side
-            'east_zigzag':     ['ER0', 'ER1', 'TJ3', 'BJ3', 'BASE'],       // same path as east_side
-            // Bottom entrances
-            'botwest_direct':  ['BL0', 'BL1', 'BJ1', 'BASE'],              // 12 up, bottom road east
-            'boteast_direct':  ['BR0', 'BR1', 'BJ3', 'BASE'],              // 96 up, bottom road west
-            'botwest_top':     ['BL0', 'BL1', 'BJ1', 'TJ1', 'TJ2', 'BASE'],// 12 up, junction 30 up, top to 54, down
-            'boteast_top':     ['BR0', 'BR1', 'BJ3', 'TJ3', 'TJ2', 'BASE'],// 96 up, junction 78 up, top to 54, down
+            'west_direct':     ['EL0', 'EL1', 'EL2', 'BASE'],
+            'east_direct':     ['ER0', 'ER1', 'ER2', 'BASE'],
+            'west_high':       ['EL0', 'EL1', 'TJ1', 'TJ2', 'BASE'],
+            'east_high':       ['ER0', 'ER1', 'TJ3', 'TJ2', 'BASE'],
+            'west_side':       ['EL0', 'EL1', 'TJ1', 'BJ1', 'BASE'],
+            'east_side':       ['ER0', 'ER1', 'TJ3', 'BJ3', 'BASE'],
+            // NEW: mid-road routes
+            'west_mid':        ['EL0', 'EL1', 'EML', 'MJ1', 'MJ2', 'BASE'],
+            'east_mid':        ['ER0', 'ER1', 'EMR', 'MJ3', 'MJ2', 'BASE'],
+            'west_mid_side':   ['EL0', 'EL1', 'EML', 'MJ1', 'BJ1', 'BASE'],
+            'east_mid_side':   ['ER0', 'ER1', 'EMR', 'MJ3', 'BJ3', 'BASE'],
+            'west_zigzag':     ['EL0', 'EL1', 'TJ1', 'BJ1', 'BASE'],
+            'east_zigzag':     ['ER0', 'ER1', 'TJ3', 'BJ3', 'BASE'],
+            'botwest_direct':  ['BL0', 'BL1', 'BJ1', 'BASE'],
+            'boteast_direct':  ['BR0', 'BR1', 'BJ3', 'BASE'],
+            'botwest_top':     ['BL0', 'BL1', 'BJ1', 'TJ1', 'TJ2', 'BASE'],
+            'boteast_top':     ['BR0', 'BR1', 'BJ3', 'TJ3', 'TJ2', 'BASE'],
+            'botwest_mid':     ['BL0', 'BL1', 'BJ1', 'MJ1', 'MJ2', 'BASE'],
+            'boteast_mid':     ['BR0', 'BR1', 'BJ3', 'MJ3', 'MJ2', 'BASE'],
         };
 
         const WAVE_TACTICS = {
@@ -669,7 +696,7 @@
             'multi_front': [
                 { routeKey: 'west_direct', share: 0.35, personality: 'aggressive' },
                 { routeKey: 'east_direct', share: 0.35, personality: 'aggressive' },
-                { routeKey: 'west_high',   share: 0.30, personality: 'sneaky' },
+                { routeKey: 'west_mid',   share: 0.30, personality: 'sneaky' },
             ],
             'flank': [
                 { routeKey: 'west_direct', share: 0.55, personality: 'aggressive' },
@@ -708,6 +735,11 @@
                 { routeKey: 'botwest_top',    share: 0.40, personality: 'sneaky' },
                 { routeKey: 'boteast_top',    share: 0.30, personality: 'aggressive' },
             ],
+            // NEW: mid-road pincer
+            'mid_pincer': [
+                { routeKey: 'west_mid',     share: 0.5, personality: 'sneaky' },
+                { routeKey: 'east_mid',     share: 0.5, personality: 'sneaky' },
+            ],
         };
 
         function chooseWaveTactic() {
@@ -722,11 +754,12 @@
             if (roll < 0.26) return 'multi_front';
             if (roll < 0.34) return 'flank';
             if (roll < 0.42) return 'ambush';
-            if (roll < 0.52) return 'bottom_pincer';
-            if (roll < 0.60) return 'surround';
-            if (roll < 0.68) return 'mass_charge';
-            if (roll < 0.78) return 'four_ways';
-            if (roll < 0.88) return 'top_and_bottom';
+            if (roll < 0.50) return 'bottom_pincer';
+            if (roll < 0.58) return 'surround';
+            if (roll < 0.66) return 'mass_charge';
+            if (roll < 0.74) return 'four_ways';
+            if (roll < 0.82) return 'top_and_bottom';
+            if (roll < 0.90) return 'mid_pincer';
             return 'north_south';
         }
 
@@ -776,6 +809,7 @@
         function tileIsRoad(tx, ty) {
             const hw = ROAD_W / 2;
             if (ty >= ROAD_Y_TOP - hw && ty <= ROAD_Y_TOP + hw && tx >= ROAD_X_START && tx <= ROAD_X_END) return true;
+            if (ty >= ROAD_Y_MID - hw && ty <= ROAD_Y_MID + hw && tx >= ROAD_X_START && tx <= ROAD_X_END) return true;
             if (ty >= ROAD_Y_BOTTOM - hw && ty <= ROAD_Y_BOTTOM + hw && tx >= ROAD_X_START && tx <= ROAD_X_END) return true;
             for (let jx of JUNCTION_XS) {
                 if (tx >= jx - hw && tx <= jx + hw && ty >= ROAD_Y_TOP - hw && ty <= ROAD_Y_BOTTOM + hw) return true;
@@ -793,6 +827,7 @@
             const pad = 1.5;
             const hw = ROAD_W / 2 + pad;
             if (ty >= ROAD_Y_TOP - hw && ty <= ROAD_Y_TOP + hw && tx >= ROAD_X_START - pad && tx <= ROAD_X_END + pad) return true;
+            if (ty >= ROAD_Y_MID - hw && ty <= ROAD_Y_MID + hw && tx >= ROAD_X_START - pad && tx <= ROAD_X_END + pad) return true;
             if (ty >= ROAD_Y_BOTTOM - hw && ty <= ROAD_Y_BOTTOM + hw && tx >= ROAD_X_START - pad && tx <= ROAD_X_END + pad) return true;
             for (let jx of JUNCTION_XS) {
                 if (tx >= jx - hw && tx <= jx + hw && ty >= ROAD_Y_TOP - hw && ty <= ROAD_Y_BOTTOM + hw) return true;
@@ -846,7 +881,8 @@
             });
         }
 
-        const BUILDING_MAX_HP = 350;
+        // MUCH tankier buildings
+        const BUILDING_MAX_HP = 1800;
         const BUILDING_DRAW_H = TILE * 2.6;
         let sceneryBuildings = [];
         function seedFromXY(x, y) {
@@ -1025,6 +1061,9 @@
             }
             t.moveTo(ROAD_X_START * TILE, ROAD_Y_TOP * TILE);
             t.lineTo(ROAD_X_END * TILE, ROAD_Y_TOP * TILE);
+            // NEW: mid road markings
+            t.moveTo(ROAD_X_START * TILE, ROAD_Y_MID * TILE);
+            t.lineTo(ROAD_X_END * TILE, ROAD_Y_MID * TILE);
             t.moveTo(ROAD_X_START * TILE, ROAD_Y_BOTTOM * TILE);
             t.lineTo(ROAD_X_END * TILE, ROAD_Y_BOTTOM * TILE);
             for (const ex of ENTRY_XS) {
@@ -1126,6 +1165,73 @@
             return { x: tx * TILE + TILE / 2, y: ty * TILE + TILE / 2 };
         }
 
+        // NEW: shared movement + un-stick helper for every walker on the map.
+        function steerUnit(e, tx, ty, dt, speed) {
+            const dx = tx - e.x, dy = ty - e.y;
+            const dist = Math.hypot(dx, dy);
+            e.isMoving = dist > 3;
+            if (dist < 0.001) return dist;
+            const step = Math.min(dist, speed * TILE * dt);
+            const ux = dx / dist, uy = dy / dist;
+            const beforeX = e.x, beforeY = e.y;
+            const currentlyValid = isValidPosition(e.x, e.y);
+            const nx = e.x + ux * step, ny = e.y + uy * step;
+            if (!currentlyValid) {
+                // If we somehow ended up off-road, move freely back toward validity
+                e.x = nx; e.y = ny;
+                const snap = clampOfficerTarget(e.x, e.y);
+                e.x = snap.x; e.y = snap.y;
+            } else {
+                if (isValidPosition(nx, ny)) { e.x = nx; e.y = ny; }
+                else if (isValidPosition(nx, e.y)) { e.x = nx; }
+                else if (isValidPosition(e.x, ny)) { e.y = ny; }
+            }
+            const moved = Math.hypot(e.x - beforeX, e.y - beforeY);
+            if (moved < step * 0.35) e.stuckTimer = (e.stuckTimer || 0) + dt;
+            else e.stuckTimer = Math.max(0, (e.stuckTimer || 0) - dt * 2);
+
+            // Tier 1: sidestep perpendicular / backwards
+            if (e.stuckTimer > 0.3) {
+                const perp1 = { x: -uy, y: ux };
+                const perp2 = { x: uy, y: -ux };
+                const sideSign = (e.id % 2 === 0) ? 1 : -1;
+                const tryDirs = [
+                    { x: perp1.x * sideSign, y: perp1.y * sideSign },
+                    { x: perp2.x * sideSign, y: perp2.y * sideSign },
+                    { x: -ux, y: -uy },
+                    { x: perp1.x, y: perp1.y },
+                    { x: perp2.x, y: perp2.y },
+                ];
+                const r = TILE * 1.4;
+                for (const d of tryDirs) {
+                    const tx2 = e.x + d.x * r, ty2 = e.y + d.y * r;
+                    if (isValidPosition(tx2, ty2)) { e.x = tx2; e.y = ty2; e.stuckTimer = 0; break; }
+                    if (isValidPosition(tx2, e.y)) { e.x = tx2; e.stuckTimer = 0; break; }
+                    if (isValidPosition(e.x, ty2)) { e.y = ty2; e.stuckTimer = 0; break; }
+                }
+            }
+            // Tier 2: hard escape — snap to the nearest valid tile within a small radius
+            if (e.stuckTimer > 1.0) {
+                let bestPos = null, bestDist = Infinity;
+                for (let radius = 1; radius <= 6; radius++) {
+                    for (let a = 0; a < 16; a++) {
+                        const ang = (a / 16) * Math.PI * 2;
+                        const tx2 = e.x + Math.cos(ang) * TILE * radius;
+                        const ty2 = e.y + Math.sin(ang) * TILE * radius;
+                        if (isValidPosition(tx2, ty2)) {
+                            const d = Math.hypot(tx2 - tx, ty2 - ty);
+                            if (d < bestDist) { bestDist = d; bestPos = { x: tx2, y: ty2 }; }
+                        }
+                    }
+                    if (bestPos) break;
+                }
+                if (bestPos) { e.x = bestPos.x; e.y = bestPos.y; }
+                e.stuckTimer = 0;
+            }
+            e.dir = { x: ux, y: uy };
+            return dist;
+        }
+
         // Helper: pick the nearest of the four map entrances from a given position
         function nearestExitTo(x, y) {
             const exits = [
@@ -1147,6 +1253,7 @@
             hp: 120, meleeDamage: 15, meleeRange: 1.35, atkCooldown: 0.85,
             walkSpeed: 3.5, sprintSpeed: 6.5, lungeRange: 2.1, restRegen: 7,
             retreatHpPct: 0.25, cooldownTime: 60, disperseDamageMult: 3.0,
+            armourRegen: 6, armourRegenDelay: 3.0,
         };
         const OFFICER_PALETTE = { cloth: '#232f45', dark: '#141b29', visor: '#8fd6ff', shield: '#c7d3e0', shieldEdge: '#7c8aa0' };
         const ALL_OUT_PALETTE = { cloth: '#4a2430', dark: '#2a1018', visor: '#ffd08a', shield: '#e8c9a0', shieldEdge: '#a08050' };
@@ -1164,6 +1271,9 @@
                 this.targetX = x; this.targetY = y;
                 this.hp = this.isAllOut ? 260 : OFFICER.hp;
                 this.maxHp = this.hp;
+                this.armour = 0;
+                this.maxArmour = 0;
+                this.armourRegenDelay = 0;
                 this.dir = { x: 1, y: 0 };
                 this.animTimer = Math.random() * 10;
                 this.isMoving = false;
@@ -1182,20 +1292,31 @@
                 if (game.mergedMode) return game.syndicates[game.mergedIntoIndex] || game.syndicates[0];
                 return game.syndicates[this.syndicateIndex] || game.syndicates[0];
             }
-            formationBonusHp() {
-                if (this.isAllOut) return 0;
-                const sy = this.mySyndicate();
-                if (!sy) return 0;
-                const fm = getFormationMods(sy.tactic);
-                if (fm.dmgTakenMult >= 1) return 0;
-                return this.maxHp / fm.dmgTakenMult - this.maxHp;
-            }
             update(dt) {
                 if (!this.alive) return;
                 if (this.isAllOut) { this.updateAllOut(dt); return; }
                 this.animTimer += dt;
                 if (this.attackFlash > 0) this.attackFlash = Math.max(0, this.attackFlash - dt);
                 this.atkTimer = Math.max(0, this.atkTimer - dt);
+
+                // ----- Armour regeneration & formation armour cap -----
+                const syForArm = this.mySyndicate();
+                const tacticForArm = syForArm ? syForArm.tactic : 'wedge';
+                const newMax = formationArmour(tacticForArm);
+                if (newMax !== this.maxArmour) {
+                    if (this.maxArmour > 0) {
+                        const frac = this.armour / this.maxArmour;
+                        this.maxArmour = newMax;
+                        this.armour = newMax * Math.max(0, Math.min(1, frac));
+                    } else {
+                        this.maxArmour = newMax;
+                        this.armour = newMax;
+                    }
+                }
+                if (this.armourRegenDelay > 0) this.armourRegenDelay -= dt;
+                else if (this.armour < this.maxArmour) {
+                    this.armour = Math.min(this.maxArmour, this.armour + OFFICER.armourRegen * dt);
+                }
 
                 if (this.state === 'active' && this.hp <= this.maxHp * OFFICER.retreatHpPct) {
                     this.state = 'retreating';
@@ -1206,12 +1327,7 @@
                     const dist = Math.hypot(dx, dy);
                     this.isMoving = dist > 4;
                     if (dist > 4) {
-                        const step = Math.min(dist, OFFICER.sprintSpeed * TILE * dt);
-                        const nx = this.x + (dx/dist) * step, ny = this.y + (dy/dist) * step;
-                        if (isValidOfficerPosition(nx, ny)) { this.x = nx; this.y = ny; }
-                        else if (isValidOfficerPosition(nx, this.y)) this.x = nx;
-                        else if (isValidOfficerPosition(this.x, ny)) this.y = ny;
-                        this.dir = { x: dx/dist, y: dy/dist };
+                        steerUnit(this, this.baseX, this.baseY, dt, OFFICER.sprintSpeed);
                     } else {
                         this.state = 'cooldown';
                         this.cooldownTimer = OFFICER.cooldownTime;
@@ -1223,7 +1339,6 @@
                     this.cooldownTimer -= dt;
                     this.isMoving = false;
                     this.hp = Math.min(this.maxHp, this.hp + OFFICER.restRegen * dt * 0.5);
-                    // FIX: no longer teleport to formation slot — officer walks back on his own
                     if (this.cooldownTimer <= 0) { this.state = 'active'; }
                     return;
                 }
@@ -1264,33 +1379,14 @@
 
                 const dX = this.targetX - this.x, dY = this.targetY - this.y;
                 const dist = Math.hypot(dX, dY);
-                this.isMoving = dist > 2;
                 if (dist > 2) {
                     const fmods = getFormationMods(tactic);
-                    const step = Math.min(dist, OFFICER.walkSpeed * TILE * dt * fmods.speedMult);
-                    const ux = dX / dist, uy = dY / dist;
-                    const mvx = ux * step, mvy = uy * step;
-                    const beforeX = this.x, beforeY = this.y;
-                    const currentValid = isValidOfficerPosition(this.x, this.y);
-                    if (!currentValid || isValidOfficerPosition(this.x + mvx, this.y)) this.x += mvx;
-                    if (!currentValid || isValidOfficerPosition(this.x, this.y + mvy)) this.y += mvy;
-
-                    const moved = Math.hypot(this.x - beforeX, this.y - beforeY);
-                    if (moved < step * 0.35) this.stuckTimer += dt;
-                    else this.stuckTimer = Math.max(0, this.stuckTimer - dt * 2);
-                    if (this.stuckTimer > 0.4) {
-                        const perpX = -uy, perpY = ux;
-                        const sideSign = (this.id % 2 === 0) ? 1 : -1;
-                        const ssx = this.x + perpX * sideSign * TILE * 1.1;
-                        const ssy = this.y + perpY * sideSign * TILE * 1.1;
-                        if (isValidOfficerPosition(ssx, ssy)) { this.x = ssx; this.y = ssy; }
-                        else if (isValidOfficerPosition(ssx, this.y)) this.x = ssx;
-                        else if (isValidOfficerPosition(this.x, ssy)) this.y = ssy;
-                        this.stuckTimer = 0;
-                    }
+                    steerUnit(this, this.targetX, this.targetY, dt, OFFICER.walkSpeed * fmods.speedMult);
+                } else {
+                    this.isMoving = false;
                 }
+
                 if (target && bestD < engageRange * TILE) this.dir = { x: (target.x - this.x)/(bestD||1), y: (target.y - this.y)/(bestD||1) };
-                else if (this.isMoving && dist > 0) this.dir = { x: dX/dist, y: dY/dist };
 
                 if (target && bestD < engageRange * TILE && this.atkTimer <= 0) {
                     this.atkTimer = OFFICER.atkCooldown;
@@ -1359,15 +1455,18 @@
                 if (this.dir.x < -0.05) ctx.scale(-1, 1);
                 drawOfficerFigure(ctx, this);
                 ctx.restore();
-                const bonus = this.formationBonusHp();
-                drawHpBar(ctx, sx, sy - 24, this.hp, this.maxHp, this.isAllOut ? '#ffb45c' : '#6cc4ff', bonus);
+                // Armour bar above HP bar
+                if (!this.isAllOut && this.maxArmour > 0) {
+                    drawArmourBar(ctx, sx, sy - 27, this.armour, this.maxArmour);
+                }
+                drawHpBar(ctx, sx, sy - 23, this.hp, this.maxHp, this.isAllOut ? '#ffb45c' : '#6cc4ff');
                 if (this.isAllOut) {
                     ctx.fillStyle = '#ff8a5c'; ctx.font = 'bold 8px monospace'; ctx.textAlign = 'center';
                     ctx.fillText('⚡', sx, sy - 28);
                 } else if (this.state === 'retreating' || this.state === 'cooldown') {
                     ctx.fillStyle = this.state === 'retreating' ? '#ff4444' : '#ffaa00';
                     ctx.font = '8px monospace'; ctx.textAlign = 'center';
-                    ctx.fillText(this.state === 'retreating' ? '!' : '...', sx, sy - 28);
+                    ctx.fillText(this.state === 'retreating' ? '!' : '...', sx, sy - 32);
                 }
             }
         }
@@ -1411,23 +1510,27 @@
             }
             ctx.restore();
         }
-        // HP bar with optional blue "formation bonus" segment
-        function drawHpBar(ctx, sx, sy, hp, maxHp, color, bonusHp) {
-            bonusHp = bonusHp || 0;
-            if (hp >= maxHp && bonusHp <= 0) return;
+        // HP bar
+        function drawHpBar(ctx, sx, sy, hp, maxHp, color) {
+            if (hp >= maxHp) return;
             const barW = 22;
-            const total = maxHp + bonusHp;
-            const scale = barW / total;
-            const hpRatio = Math.max(0, Math.min(1, hp / maxHp));
-            const redW = Math.max(0, hp) * scale;
-            const blueW = bonusHp * hpRatio * scale;
             ctx.fillStyle = 'rgba(0,0,0,0.5)'; ctx.fillRect(sx - barW/2, sy, barW, 3);
-            ctx.fillStyle = color; ctx.fillRect(sx - barW/2, sy, redW, 3);
-            if (blueW > 0.3) {
-                ctx.fillStyle = '#5aaaff'; ctx.fillRect(sx - barW/2 + redW, sy, blueW, 3);
-                // subtle highlight on top of the blue part
-                ctx.fillStyle = 'rgba(180,220,255,0.5)'; ctx.fillRect(sx - barW/2 + redW, sy, blueW, 1);
-            }
+            const pct = Math.max(0, Math.min(1, hp / maxHp));
+            ctx.fillStyle = color; ctx.fillRect(sx - barW/2, sy, barW * pct, 3);
+        }
+        // NEW: Armour bar (blue gradient)
+        function drawArmourBar(ctx, sx, sy, armour, maxArmour) {
+            if (maxArmour <= 0) return;
+            const barW = 22;
+            const pct = Math.max(0, Math.min(1, armour / maxArmour));
+            ctx.fillStyle = 'rgba(0,0,0,0.55)'; ctx.fillRect(sx - barW/2, sy, barW, 2.5);
+            const grad = ctx.createLinearGradient(sx - barW/2, 0, sx + barW/2, 0);
+            grad.addColorStop(0, '#5aaaff');
+            grad.addColorStop(1, '#a0d0ff');
+            ctx.fillStyle = grad;
+            ctx.fillRect(sx - barW/2, sy, barW * pct, 2.5);
+            ctx.fillStyle = 'rgba(255,255,255,0.4)';
+            ctx.fillRect(sx - barW/2, sy, barW * pct, 0.8);
         }
 
         // ========== ARREST OFFICER ==========
@@ -1450,12 +1553,29 @@
                 this.stuckTimer = 0;
                 this.attackFlash = 0;
                 this.carryTimer = 0;
+                this.lifeTimer = ARREST_TEAM_LIFETIME;   // NEW: withdraw after this long
+                this.returningHome = false;
             }
 
             update(dt) {
                 if (!this.alive) return;
                 this.animTimer += dt;
                 if (this.attackFlash > 0) this.attackFlash = Math.max(0, this.attackFlash - dt);
+
+                // NEW: Lifetime countdown. Once expired, head home and despawn.
+                if (!this.returningHome) {
+                    this.lifeTimer -= dt;
+                    if (this.lifeTimer <= 0 && !this.carrying) {
+                        this.returningHome = true;
+                    }
+                }
+                if (this.returningHome) {
+                    const bx = BASE_TILE_X * TILE, by = BASE_TILE_Y * TILE;
+                    const d = Math.hypot(bx - this.x, by - this.y);
+                    if (d < TILE * 1.5) { this.alive = false; return; }
+                    steerUnit(this, bx, by, dt, ARREST_OFFICER_SPEED);
+                    return;
+                }
 
                 const sy = game.syndicates[this.syndicateIndex];
                 if (!sy) return;
@@ -1493,32 +1613,11 @@
                         showToast('🔒 Raider arrested!');
                     } else {
                         this.isMoving = true;
-                        const step = Math.min(d, ARREST_OFFICER_SPEED * TILE * dt);
-                        const nx = this.x + (dx/d) * step, ny = this.y + (dy/d) * step;
-                        const beforeX = this.x, beforeY = this.y;
-                        if (isValidPosition(nx, ny)) { this.x = nx; this.y = ny; }
-                        else if (isValidPosition(nx, this.y)) this.x = nx;
-                        else if (isValidPosition(this.x, ny)) this.y = ny;
-                        const moved = Math.hypot(this.x - beforeX, this.y - beforeY);
-                        if (moved < step * 0.35) this.stuckTimer += dt;
-                        else this.stuckTimer = Math.max(0, this.stuckTimer - dt * 2);
-                        if (this.stuckTimer > 0.5) {
-                            const ux = dx/d, uy = dy/d;
-                            const perpX = -uy, perpY = ux;
-                            const s = (this.id % 2 === 0) ? 1 : -1;
-                            const tries = [
-                                { x: this.x + perpX * s * TILE * 1.4, y: this.y + perpY * s * TILE * 1.4 },
-                                { x: this.x - perpX * s * TILE * 1.4, y: this.y - perpY * s * TILE * 1.4 },
-                                { x: this.x - ux * TILE * 1.4,        y: this.y - uy * TILE * 1.4 },
-                            ];
-                            for (const t of tries) {
-                                if (isValidPosition(t.x, t.y)) { this.x = t.x; this.y = t.y; break; }
-                            }
-                            this.stuckTimer = 0;
+                        steerUnit(this, bx, by, dt, ARREST_OFFICER_SPEED);
+                        if (this.carrying) {
+                            this.carrying.x = this.x + this.dir.x * -TILE * 0.6;
+                            this.carrying.y = this.y + this.dir.y * -TILE * 0.6;
                         }
-                        this.dir = { x: dx/d, y: dy/d };
-                        this.carrying.x = this.x + this.dir.x * -TILE * 0.6;
-                        this.carrying.y = this.y + this.dir.y * -TILE * 0.6;
                     }
                     return;
                 }
@@ -1595,38 +1694,8 @@
                     targetY = anchorY + py * (this.slotOffset * TILE) - fy * back;
                 }
 
-                const dX = targetX - this.x, dY = targetY - this.y;
-                const dist = Math.hypot(dX, dY);
-                this.isMoving = dist > 3;
-                if (dist > 3) {
-                    const step = Math.min(dist, ARREST_OFFICER_SPEED * TILE * dt);
-                    const ux = dX / dist, uy = dY / dist;
-                    const mvx = ux * step, mvy = uy * step;
-                    const beforeX = this.x, beforeY = this.y;
-                    if (isValidOfficerPosition(this.x + mvx, this.y)) this.x += mvx;
-                    if (isValidOfficerPosition(this.x, this.y + mvy)) this.y += mvy;
-
-                    const moved = Math.hypot(this.x - beforeX, this.y - beforeY);
-                    if (moved < step * 0.35) this.stuckTimer += dt;
-                    else this.stuckTimer = Math.max(0, this.stuckTimer - dt * 2);
-                    if (this.stuckTimer > 0.5) {
-                        const perpX = -uy, perpY = ux;
-                        const sign = (this.id % 2 === 0) ? 1 : -1;
-                        const tries = [
-                            { x: this.x + perpX * sign * TILE * 1.4, y: this.y + perpY * sign * TILE * 1.4 },
-                            { x: this.x - perpX * sign * TILE * 1.4, y: this.y - perpY * sign * TILE * 1.4 },
-                            { x: this.x - ux * TILE * 1.4,           y: this.y - uy * TILE * 1.4 },
-                        ];
-                        for (const t of tries) {
-                            if (isValidOfficerPosition(t.x, t.y)) { this.x = t.x; this.y = t.y; break; }
-                        }
-                        this.stuckTimer = 0;
-                    }
-                    this.dir = { x: ux, y: uy };
-                }
-                if (this.state === 'returning' && !this.carrying) {
-                    this.state = 'escort';
-                }
+                steerUnit(this, targetX, targetY, dt, ARREST_OFFICER_SPEED);
+                if (this.state === 'returning' && !this.carrying) this.state = 'escort';
             }
 
             draw(ctx) {
@@ -1638,12 +1707,17 @@
                 if (this.dir.x < -0.05) ctx.scale(-1, 1);
                 drawArrestFigure(ctx, this);
                 ctx.restore();
-                drawHpBar(ctx, sx, sy - 24, this.hp, this.maxHp, '#ffcc33', 0);
+                drawHpBar(ctx, sx, sy - 23, this.hp, this.maxHp, '#ffcc33');
                 if (this.carrying) {
                     ctx.fillStyle = '#ffcc33';
                     ctx.font = 'bold 10px monospace';
                     ctx.textAlign = 'center';
                     ctx.fillText('🔒', sx, sy - 28);
+                } else if (this.lifeTimer < 8) {
+                    ctx.fillStyle = '#9fb0c7';
+                    ctx.font = '7px monospace';
+                    ctx.textAlign = 'center';
+                    ctx.fillText(Math.ceil(this.lifeTimer) + 's', sx, sy - 28);
                 }
             }
         }
@@ -1691,7 +1765,7 @@
                 this.animTimer = Math.random() * 10;
                 this.isMoving = false;
                 this.alive = true;
-                this.state = 'escort';   // 'escort' | 'advancing' | 'spraying' | 'returning'
+                this.state = 'escort';
                 this.slotOffset = 0;
                 this.stuckTimer = 0;
                 this.sprayTimer = 0;
@@ -1708,7 +1782,6 @@
                 else { fx = 0; fy = Math.sign(fy) || 1; }
                 const px = fy, py = -fx;
 
-                // Find frontmost and rearmost officer of this syndicate
                 let frontAnchor = null, frontProj = -Infinity;
                 let rearAnchor = null, rearProj = Infinity;
                 for (const o of game.officers) {
@@ -1725,11 +1798,9 @@
                 if (rearAnchor) { rearX = rearAnchor.x; rearY = rearAnchor.y; }
                 else { rearX = sy.commandX; rearY = sy.commandY; }
 
-                // Escort position: just behind the rearmost officer (between arrest team and units)
                 const behind = TILE * 1.2;
                 this.escortX = rearX - fx * behind + px * this.slotOffset * TILE * 0.9;
                 this.escortY = rearY - fy * behind + py * this.slotOffset * TILE * 0.9;
-                // Front position: ahead of the frontmost officer
                 const ahead = TILE * 3.0;
                 this.frontX = frontX + fx * ahead + px * this.slotOffset * TILE * 0.8;
                 this.frontY = frontY + fy * ahead + py * this.slotOffset * TILE * 0.8;
@@ -1741,9 +1812,10 @@
                 this.computePositions();
 
                 if (this.state === 'escort') {
-                    this.moveTo(this.escortX, this.escortY, dt, 1.0);
+                    steerUnit(this, this.escortX, this.escortY, dt, TEAR_GAS_SPEED);
                 } else if (this.state === 'advancing') {
-                    const arrived = this.moveTo(this.frontX, this.frontY, dt, TEAR_GAS_ADVANCE_SPEED_MULT);
+                    const before = Math.hypot(this.frontX - this.x, this.frontY - this.y);
+                    steerUnit(this, this.frontX, this.frontY, dt, TEAR_GAS_SPEED * TEAR_GAS_ADVANCE_SPEED_MULT);
                     // push nearby officers aside as we pass
                     for (const o of game.officers) {
                         if (!o.alive || o.isAllOut) continue;
@@ -1761,7 +1833,8 @@
                             else if (isValidOfficerPosition(o.x, ny)) o.y = ny;
                         }
                     }
-                    if (arrived) {
+                    const after = Math.hypot(this.frontX - this.x, this.frontY - this.y);
+                    if (after < 4 || (before - after) < 0.01) {
                         this.state = 'spraying';
                         this.sprayTimer = TEAR_GAS_SPRAY_DURATION;
                         this.sprayDirX = this.dir.x;
@@ -1786,45 +1859,15 @@
                         this.state = 'returning';
                     }
                 } else if (this.state === 'returning') {
-                    const arrived = this.moveTo(this.escortX, this.escortY, dt, 1.0);
-                    if (arrived) this.state = 'escort';
+                    const before = Math.hypot(this.escortX - this.x, this.escortY - this.y);
+                    steerUnit(this, this.escortX, this.escortY, dt, TEAR_GAS_SPEED);
+                    const after = Math.hypot(this.escortX - this.x, this.escortY - this.y);
+                    if (after < 4 || (before - after) < 0.01) this.state = 'escort';
                 }
-            }
-            moveTo(tx, ty, dt, speedMult) {
-                const dx = tx - this.x, dy = ty - this.y;
-                const dist = Math.hypot(dx, dy);
-                this.isMoving = dist > 4;
-                if (dist < 4) return true;
-                const step = Math.min(dist, TEAR_GAS_SPEED * speedMult * TILE * dt);
-                const ux = dx / dist, uy = dy / dist;
-                const nx = this.x + ux * step, ny = this.y + uy * step;
-                const beforeX = this.x, beforeY = this.y;
-                if (isValidOfficerPosition(nx, ny)) { this.x = nx; this.y = ny; }
-                else if (isValidOfficerPosition(nx, this.y)) this.x = nx;
-                else if (isValidOfficerPosition(this.x, ny)) this.y = ny;
-                const moved = Math.hypot(this.x - beforeX, this.y - beforeY);
-                if (moved < step * 0.35) this.stuckTimer += dt;
-                else this.stuckTimer = Math.max(0, this.stuckTimer - dt * 2);
-                if (this.stuckTimer > 0.5) {
-                    const perpX = -uy, perpY = ux;
-                    const sign = (this.id % 2 === 0) ? 1 : -1;
-                    const tries = [
-                        { x: this.x + perpX * sign * TILE * 1.2, y: this.y + perpY * sign * TILE * 1.2 },
-                        { x: this.x - perpX * sign * TILE * 1.2, y: this.y - perpY * sign * TILE * 1.2 },
-                        { x: this.x - ux * TILE * 1.2,           y: this.y - uy * TILE * 1.2 },
-                    ];
-                    for (const t of tries) {
-                        if (isValidOfficerPosition(t.x, t.y)) { this.x = t.x; this.y = t.y; break; }
-                    }
-                    this.stuckTimer = 0;
-                }
-                this.dir = { x: ux, y: uy };
-                return false;
             }
             applyGasEffects(dt) {
                 const aimAngle = Math.atan2(this.sprayDirY, this.sprayDirX);
                 const coneHalf = TEAR_GAS_CONE_HALF_ANGLE;
-                // Directly hit raiders
                 for (const r of game.raiders) {
                     if (!r.alive || r.state === 'fleeing') continue;
                     const dx = r.x - this.x, dy = r.y - this.y;
@@ -1843,11 +1886,10 @@
                         r.gasStunTimer = TEAR_GAS_STUN_DURATION;
                         r.state = 'gas_stunned';
                         game.raiderGroupMorale = Math.max(0, game.raiderGroupMorale - TEAR_GAS_HIT_MORALE);
-                        game.waveMoralePct = Math.max(0, game.waveMoralePct - 4);
+                        game.waveMoralePct = Math.max(0, game.waveMoralePct - 6);
                         spawnHitEffect(r.x, r.y);
                     }
                 }
-                // Witness morale drain
                 for (const other of game.raiders) {
                     if (!other.alive || other.state === 'fleeing') continue;
                     const dx = other.x - this.x, dy = other.y - this.y;
@@ -1865,7 +1907,7 @@
                 if (this.dir.x < -0.05) ctx.scale(-1, 1);
                 drawTearGasFigure(ctx, this);
                 ctx.restore();
-                drawHpBar(ctx, sx, sy - 24, this.hp, this.maxHp, '#d0d050', 0);
+                drawHpBar(ctx, sx, sy - 23, this.hp, this.maxHp, '#d0d050');
                 if (this.state === 'advancing') {
                     ctx.fillStyle = '#e0e070'; ctx.font = 'bold 8px monospace'; ctx.textAlign = 'center';
                     ctx.fillText('➤', sx, sy - 28);
@@ -1874,20 +1916,17 @@
                     ctx.fillText('💨', sx, sy - 28);
                 }
             }
-            // Draw the yellow gas cone — called from the main render after units
             drawGasCloud(ctx) {
                 if (this.state !== 'spraying') return;
                 const sx = this.x - game.camera.x;
                 const sy = this.y - game.camera.y;
                 const aimAngle = Math.atan2(this.sprayDirY, this.sprayDirX);
                 const lifePct = Math.max(0, Math.min(1, this.sprayTimer / TEAR_GAS_SPRAY_DURATION));
-                // Ramp-up ramp-down alpha
                 const ramp = Math.min(1, lifePct * 4) * Math.min(1, (1 - lifePct) * 4 + 0.3);
-                const alpha = 0.55 * ramp;
+                const alpha = 0.6 * ramp;
                 if (alpha < 0.02) return;
 
                 ctx.save();
-                // Radial gradient cone
                 const grad = ctx.createRadialGradient(sx, sy, 0, sx, sy, TEAR_GAS_RANGE);
                 grad.addColorStop(0, `rgba(240, 230, 70, ${alpha})`);
                 grad.addColorStop(0.55, `rgba(220, 210, 50, ${alpha * 0.7})`);
@@ -1898,16 +1937,15 @@
                 ctx.arc(sx, sy, TEAR_GAS_RANGE, aimAngle - TEAR_GAS_CONE_HALF_ANGLE, aimAngle + TEAR_GAS_CONE_HALF_ANGLE);
                 ctx.closePath();
                 ctx.fill();
-                // Puffy particle blobs for texture
                 const t = (TEAR_GAS_SPRAY_DURATION - this.sprayTimer) * 5;
-                for (let i = 0; i < 10; i++) {
+                for (let i = 0; i < 14; i++) {
                     const phase = t + i * 1.31;
                     const dist = (Math.sin(phase) * 0.5 + 0.5) * TEAR_GAS_RANGE * 0.92;
                     const spread = (seedFromXY(this.id * 13.7, i * 5.3) - 0.5) * 2 * TEAR_GAS_CONE_HALF_ANGLE * 1.05;
                     const ang = aimAngle + spread;
                     const px = sx + Math.cos(ang) * dist;
                     const py = sy + Math.sin(ang) * dist;
-                    const size = 5 + (Math.sin(phase * 0.7 + i) * 0.5 + 0.5) * 9;
+                    const size = 5 + (Math.sin(phase * 0.7 + i) * 0.5 + 0.5) * 10;
                     ctx.fillStyle = `rgba(235, 225, 90, ${alpha * 0.45})`;
                     ctx.beginPath();
                     ctx.arc(px, py, size, 0, Math.PI * 2);
@@ -1925,14 +1963,11 @@
             const H = 20;
             const legReach = H * 0.34;
             ctx.lineCap = 'round';
-            // legs
             ctx.strokeStyle = pal.dark; ctx.lineWidth = 2.6;
             ctx.beginPath(); ctx.moveTo(-1, -2); ctx.lineTo(-1 - legSwing * legReach * 0.6, legReach); ctx.stroke();
             ctx.beginPath(); ctx.moveTo(-1, -2); ctx.lineTo(-1 + legSwing * legReach, legReach); ctx.stroke();
-            // body
             ctx.strokeStyle = pal.cloth; ctx.lineWidth = 5;
             ctx.beginPath(); ctx.moveTo(-1, -2); ctx.lineTo(-1, -H * 0.62); ctx.stroke();
-            // Back tank
             ctx.fillStyle = pal.tank;
             ctx.strokeStyle = pal.tankDark; ctx.lineWidth = 1;
             ctx.beginPath();
@@ -1943,30 +1978,25 @@
                 ctx.rect(tankX, tankY, tankW, tankH);
             }
             ctx.fill(); ctx.stroke();
-            // tank hose
             ctx.strokeStyle = pal.tankDark; ctx.lineWidth = 1.2;
             ctx.beginPath();
             ctx.moveTo(tankX + tankW * 0.5, tankY + 2);
             ctx.quadraticCurveTo(-H * 0.1, -H * 0.55, H * 0.32, -H * 0.42);
             ctx.stroke();
-            // head + mask
             ctx.fillStyle = pal.dark;
             ctx.beginPath(); ctx.arc(0, -H * 0.72, H * 0.19, 0, Math.PI * 2); ctx.fill();
             ctx.fillStyle = pal.mask;
             ctx.beginPath(); ctx.arc(H * 0.07, -H * 0.72, H * 0.1, 0, Math.PI * 2); ctx.fill();
             ctx.fillStyle = pal.maskDark;
             ctx.beginPath(); ctx.arc(H * 0.07, -H * 0.72, H * 0.05, 0, Math.PI * 2); ctx.fill();
-            // nozzle arm
             const nozzleAngle = (u.state === 'spraying') ? 0 : -0.15;
             ctx.save();
             ctx.translate(H * 0.05, -H * 0.4);
             ctx.rotate(nozzleAngle);
             ctx.strokeStyle = pal.dark; ctx.lineWidth = 2;
             ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(H * 0.42, 0); ctx.stroke();
-            // nozzle tip
             ctx.fillStyle = pal.tankDark;
             ctx.beginPath(); ctx.arc(H * 0.42, 0, 2, 0, Math.PI * 2); ctx.fill();
-            // spray puff if spraying
             if (u.state === 'spraying') {
                 ctx.fillStyle = `rgba(240, 230, 80, 0.85)`;
                 ctx.beginPath(); ctx.arc(H * 0.46, 0, 2.6, 0, Math.PI * 2); ctx.fill();
@@ -1998,14 +2028,7 @@
                 for (const o of officers) { cx += o.x; cy += o.y; n++; }
                 const sy = game.syndicates[this.syndicateIndex];
                 if (n === 0) {
-                    const dx = this.baseX - this.x, dy = this.baseY - this.y;
-                    const d = Math.hypot(dx, dy);
-                    this.isMoving = d > 4;
-                    if (d > 4) {
-                        const step = Math.min(d, OFFICER.walkSpeed * TILE * dt);
-                        this.x += (dx/d)*step; this.y += (dy/d)*step;
-                        this.dir = { x: dx/d, y: dy/d };
-                    }
+                    steerUnit(this, this.baseX, this.baseY, dt, OFFICER.walkSpeed);
                     return;
                 }
                 cx /= n; cy /= n;
@@ -2014,29 +2037,7 @@
                 const px = fy, py = -fx;
                 const targetX = cx - fx * TILE * 3.0 + px * TILE * 2.4;
                 const targetY = cy - fy * TILE * 3.0 + py * TILE * 2.4;
-
-                const dx = targetX - this.x, dy = targetY - this.y;
-                const d = Math.hypot(dx, dy);
-                this.isMoving = d > 4;
-                if (d > 4) {
-                    const step = Math.min(d, OFFICER.walkSpeed * TILE * dt * 1.15);
-                    const ux = dx/d, uy = dy/d;
-                    const beforeX = this.x, beforeY = this.y;
-                    if (isValidOfficerPosition(this.x + ux*step, this.y)) this.x += ux*step;
-                    if (isValidOfficerPosition(this.x, this.y + uy*step)) this.y += uy*step;
-                    const moved = Math.hypot(this.x - beforeX, this.y - beforeY);
-                    if (moved < step * 0.35) this.stuckTimer += dt;
-                    else this.stuckTimer = Math.max(0, this.stuckTimer - dt * 2);
-                    if (this.stuckTimer > 0.6) {
-                        const perpX = -uy, perpY = ux;
-                        const s = (this.id % 2 === 0) ? 1 : -1;
-                        const ssx = this.x + perpX * s * TILE * 1.2;
-                        const ssy = this.y + perpY * s * TILE * 1.2;
-                        if (isValidOfficerPosition(ssx, ssy)) { this.x = ssx; this.y = ssy; }
-                        this.stuckTimer = 0;
-                    }
-                    this.dir = { x: ux, y: uy };
-                }
+                steerUnit(this, targetX, targetY, dt, OFFICER.walkSpeed * 1.15);
             }
             draw(ctx) {
                 if (!this.alive) return;
@@ -2047,7 +2048,7 @@
                 if (this.dir.x < -0.05) ctx.scale(-1, 1);
                 drawK9HandlerFigure(ctx, this);
                 ctx.restore();
-                drawHpBar(ctx, sx, sy - 24, this.hp, this.maxHp, '#7fd3a0', 0);
+                drawHpBar(ctx, sx, sy - 23, this.hp, this.maxHp, '#7fd3a0');
             }
         }
         function drawK9HandlerFigure(ctx, u) {
@@ -2159,18 +2160,14 @@
                     }
 
                     if (tgt) {
-                        const dx = tgt.x - this.x, dy = tgt.y - this.y;
-                        const d = Math.hypot(dx, dy) || 1;
-                        this.dir = { x: dx/d, y: dy/d };
+                        const d = Math.hypot(tgt.x - this.x, tgt.y - this.y);
                         if (d > K9_ATTACK_RANGE) {
-                            this.isMoving = true;
-                            const step = Math.min(d - K9_ATTACK_RANGE, K9_SPEED * TILE * dt);
-                            const nx = this.x + (dx/d) * step, ny = this.y + (dy/d) * step;
-                            if (isValidPosition(nx, ny)) { this.x = nx; this.y = ny; }
-                            else if (isValidPosition(nx, this.y)) this.x = nx;
-                            else if (isValidPosition(this.x, ny)) this.y = ny;
+                            steerUnit(this, tgt.x, tgt.y, dt, K9_SPEED);
                         } else {
                             this.isMoving = false;
+                            const dx = tgt.x - this.x, dy = tgt.y - this.y;
+                            const dd = Math.hypot(dx, dy) || 1;
+                            this.dir = { x: dx/dd, y: dy/dd };
                             if (this.atkTimer <= 0) {
                                 this.atkTimer = K9_ATTACK_COOLDOWN;
                                 this.attackFlash = 0.18;
@@ -2230,19 +2227,7 @@
 
                 this.leashX = anchorX;
                 this.leashY = anchorY;
-
-                const dx = targetX - this.x, dy = targetY - this.y;
-                const d = Math.hypot(dx, dy);
-                this.isMoving = d > 4;
-                if (d > 4) {
-                    const step = Math.min(d, K9_SPEED * TILE * dt * speedMult);
-                    const ux = dx / d, uy = dy / d;
-                    const nx = this.x + ux * step, ny = this.y + uy * step;
-                    if (isValidPosition(nx, ny)) { this.x = nx; this.y = ny; }
-                    else if (isValidPosition(nx, this.y)) this.x = nx;
-                    else if (isValidPosition(this.x, ny)) this.y = ny;
-                    this.dir = { x: ux, y: uy };
-                }
+                steerUnit(this, targetX, targetY, dt, K9_SPEED * speedMult);
             }
 
             draw(ctx) {
@@ -2254,7 +2239,7 @@
                 if (this.dir.x < -0.05) ctx.scale(-1, 1);
                 drawK9Figure(ctx, this);
                 ctx.restore();
-                drawHpBar(ctx, sx, sy - 16, this.hp, this.maxHp, '#ffcc33', 0);
+                drawHpBar(ctx, sx, sy - 16, this.hp, this.maxHp, '#ffcc33');
                 if (this.deployTimer > 0) {
                     ctx.fillStyle = '#ff8a5c';
                     ctx.font = 'bold 8px monospace';
@@ -2368,6 +2353,9 @@
                 this.arrestOfficer = null;
                 this.throwTimer = Math.random() * 1.5;
                 this.gasStunTimer = 0;
+                // Flee target is locked in when fleeing begins so raiders don't jitter
+                this.fleeExitX = 0;
+                this.fleeExitY = 0;
             }
             routeNodes() {
                 const squad = game.squads.get(this.squadId);
@@ -2375,36 +2363,7 @@
                 return ['EL0', 'EL1', 'BASE'];
             }
             moveToward(tx, ty, dt, speed) {
-                const dx = tx - this.x, dy = ty - this.y;
-                const dist = Math.hypot(dx, dy);
-                this.isMoving = dist > 3;
-                if (dist < 0.001) return dist;
-                const step = Math.min(dist, speed * TILE * dt);
-                const ux = dx/dist, uy = dy/dist;
-                const nx = this.x + ux * step, ny = this.y + uy * step;
-                const beforeX = this.x, beforeY = this.y;
-                const canFull = isValidPosition(nx, ny);
-                const canX = isValidPosition(nx, this.y);
-                const canY = isValidPosition(this.x, ny);
-                if (canFull) { this.x = nx; this.y = ny; }
-                else if (canX && !canY) this.x = nx;
-                else if (canY && !canX) this.y = ny;
-
-                const moved = Math.hypot(this.x - beforeX, this.y - beforeY);
-                if (moved < step * 0.35) this.stuckTimer += dt;
-                else this.stuckTimer = Math.max(0, this.stuckTimer - dt * 2);
-                if (this.stuckTimer > 0.5) {
-                    const perpX = -uy, perpY = ux;
-                    const sideSign = (this.id % 2 === 0) ? 1 : -1;
-                    const ssx = this.x + perpX * sideSign * TILE * 1.2;
-                    const ssy = this.y + perpY * sideSign * TILE * 1.2;
-                    if (isValidPosition(ssx, ssy)) { this.x = ssx; this.y = ssy; }
-                    else if (isValidPosition(ssx, this.y)) this.x = ssx;
-                    else if (isValidPosition(this.x, ssy)) this.y = ssy;
-                    this.stuckTimer = 0;
-                }
-                this.dir = { x: ux, y: uy };
-                return dist;
+                return steerUnit(this, tx, ty, dt, speed);
             }
             nearestActiveOfficer() {
                 let best = null, bestD = Infinity;
@@ -2414,6 +2373,13 @@
                     if (d < bestD) { bestD = d; best = o; }
                 }
                 return best;
+            }
+            startFleeing() {
+                this.state = 'fleeing';
+                this.hp = 0;
+                const exit = nearestExitTo(this.x, this.y);
+                this.fleeExitX = exit.x;
+                this.fleeExitY = exit.y;
             }
             update(dt) {
                 if (!this.alive) return;
@@ -2427,15 +2393,13 @@
                     return;
                 }
 
-                // Tear gas stun — stops all actions, then forces retreat
                 if (this.gasStunTimer > 0) {
                     this.gasStunTimer -= dt;
                     this.animTimer += dt;
                     this.isMoving = false;
                     this.state = 'gas_stunned';
                     if (this.gasStunTimer <= 0) {
-                        this.state = 'fleeing';
-                        this.hp = 0;
+                        this.startFleeing();
                         game.routed++;
                     }
                     return;
@@ -2445,6 +2409,15 @@
                 if (this.attackFlash > 0) this.attackFlash = Math.max(0, this.attackFlash - dt);
                 this.atkTimer = Math.max(0, this.atkTimer - dt);
                 this.timeSinceDamage += dt;
+
+                // Fleeing raiders ignore officers entirely and run for the nearest exit.
+                if (this.state === 'fleeing') {
+                    const dist = this.moveToward(this.fleeExitX, this.fleeExitY, dt, this.def.speed * 2);
+                    if (dist < TILE * 1.5) this.alive = false;
+                    // Bail out if somehow stuck for ages — just despawn
+                    if (this.stuckTimer > 3) this.alive = false;
+                    return;
+                }
 
                 if (this.kind === 'brickthrower' && this.state !== 'fleeing' && !this.beingArrested) {
                     for (const r of game.raiders) {
@@ -2499,39 +2472,12 @@
                         if (game.raiderGroupMorale < 10 && hpPct < 0.4) {
                             const fleeChance = (10 - game.raiderGroupMorale) * 0.02;
                             if (Math.random() < fleeChance) {
-                                this.state = 'fleeing'; this.hp = 0; game.routed++;
+                                this.startFleeing(); game.routed++;
                             }
                         } else if (hpPct < 0.15 && Math.random() < 0.30) {
-                            this.state = 'fleeing'; this.hp = 0; game.routed++;
+                            this.startFleeing(); game.routed++;
                         }
                     }
-                }
-
-                if (this.state === 'fleeing') {
-                    const blockRange = this.def.meleeRange * TILE * 1.35;
-                    let blocker = null, blockerD = Infinity;
-                    for (const o of game.officers) {
-                        if (!o.alive || o.state !== 'active') continue;
-                        const d = Math.hypot(o.x - this.x, o.y - this.y);
-                        if (d < blockRange && d < blockerD) { blockerD = d; blocker = o; }
-                    }
-                    if (blocker) {
-                        this.isMoving = false;
-                        const dx = blocker.x - this.x, dy = blocker.y - this.y;
-                        const d = Math.hypot(dx, dy) || 1;
-                        this.dir = { x: dx/d, y: dy/d };
-                        if (this.atkTimer <= 0) {
-                            this.atkTimer = this.def.atkCooldown * 0.8;
-                            this.attackFlash = 0.22;
-                            dealDamageToOfficer(blocker, this.def.damage * 1.4);
-                        }
-                        return;
-                    }
-                    // FIX: flee toward whichever map entrance is closest, not the original spawn
-                    const exit = nearestExitTo(this.x, this.y);
-                    const dist = this.moveToward(exit.x, exit.y, dt, this.def.speed * 2);
-                    if (dist < TILE * 1.5) this.alive = false;
-                    return;
                 }
 
                 const isBrick = this.kind === 'brickthrower';
@@ -2699,7 +2645,7 @@
                 if (this.dir.x < -0.05) ctx.scale(-1, 1);
                 drawRaiderFigure(ctx, this);
                 ctx.restore();
-                drawHpBar(ctx, sx, sy - 22, this.hp, this.maxHp, this.state === 'fleeing' ? '#aaaaaa' : this.beingArrested ? '#ffcc33' : '#ff8a5c', 0);
+                drawHpBar(ctx, sx, sy - 21, this.hp, this.maxHp, this.state === 'fleeing' ? '#aaaaaa' : this.beingArrested ? '#ffcc33' : '#ff8a5c');
 
                 if (this.gasStunTimer > 0) {
                     ctx.fillStyle = '#f0f080'; ctx.font = 'bold 9px monospace'; ctx.textAlign = 'center';
@@ -2707,6 +2653,9 @@
                 } else if (this.beingArrested) {
                     ctx.fillStyle = '#ffcc33'; ctx.font = 'bold 9px monospace'; ctx.textAlign = 'center';
                     ctx.fillText('🔒', sx, sy - 26);
+                } else if (this.state === 'fleeing') {
+                    ctx.fillStyle = '#ffffff'; ctx.font = 'bold 8px monospace'; ctx.textAlign = 'center';
+                    ctx.fillText('🏃', sx, sy - 26);
                 } else if (this.state === 'holding' || this.state === 'resting') {
                     ctx.fillStyle = '#86cf72'; ctx.font = '8px monospace'; ctx.textAlign = 'center';
                     ctx.fillText('…', sx, sy - 26);
@@ -2799,7 +2748,7 @@
             }
             game.raiderGroupMorale = Math.max(0, game.raiderGroupMorale - dmg * 0.025 * mMult);
             if (r.hp <= 0 && r.alive) {
-                r.state = 'fleeing'; r.hp = 0;
+                r.startFleeing();
                 game.routed++; game.raidersDefeated++;
                 game.raiderGroupMorale = Math.max(0, game.raiderGroupMorale - 5 * mMult);
             }
@@ -2808,7 +2757,17 @@
             const mult = o.shieldUp ? 0.5 : 1.15;
             const sy = game.syndicates[o.syndicateIndex];
             const fmods = sy ? getFormationMods(sy.tactic) : { dmgTakenMult: 1 };
-            o.hp -= dmg * mult * fmods.dmgTakenMult;
+            let finalDmg = dmg * mult * fmods.dmgTakenMult;
+
+            // NEW: Armour absorbs damage first
+            if (o.armour > 0) {
+                const absorbed = Math.min(o.armour, finalDmg);
+                o.armour -= absorbed;
+                finalDmg -= absorbed;
+            }
+            if (finalDmg > 0) o.hp -= finalDmg;
+            o.armourRegenDelay = OFFICER.armourRegenDelay;
+
             spawnHitEffect(o.x, o.y);
             if (o.hp <= 0 && o.alive) o.alive = false;
             if (!o.isAllOut && o.syndicateIndex >= 0) {
@@ -3161,6 +3120,8 @@
                     a.carrying = null;
                     a.carryTimer = 0;
                     a.state = 'escort';
+                    a.lifeTimer = ARREST_TEAM_LIFETIME;
+                    a.returningHome = false;
                 });
             } else {
                 game.arrestOfficers = game.arrestOfficers.filter(a => a.alive);
@@ -3343,7 +3304,6 @@
             game.handlers.push(new K9Handler(hx, hy, idx));
             const k9 = new K9Unit(cx + (Math.random() - 0.5) * TILE * 2, cy + (Math.random() - 0.5) * TILE * 2, idx);
             game.k9s.push(k9);
-            // Tear gas team
             for (let i = 0; i < TEAR_GAS_TEAM_SIZE; i++) {
                 let sx = cx, sy2 = cy;
                 for (let tries = 0; tries < 40; tries++) {
@@ -3461,7 +3421,7 @@
             if (moraleBroken || routedEnough) {
                 game.waveSpawnQueue = [];
                 for (const r of game.raiders) {
-                    if (r.alive && r.state !== 'fleeing' && !r.beingArrested) { r.state = 'fleeing'; r.hp = 0; game.routed++; }
+                    if (r.alive && r.state !== 'fleeing' && !r.beingArrested) { r.startFleeing(); game.routed++; }
                 }
             }
 
@@ -3557,7 +3517,10 @@
                 }
 
                 if (squad.role === 'flank' && officerDistTiles < 10 && officerDistTiles > 3) {
-                    const altRoutes = ['west_high', 'east_high', 'west_side', 'east_side', 'botwest_top', 'boteast_top'];
+                    // NEW: include the mid-road options for reroutes
+                    const altRoutes = ['west_high', 'east_high', 'west_side', 'east_side',
+                                       'west_mid', 'east_mid', 'west_mid_side', 'east_mid_side',
+                                       'botwest_top', 'boteast_top', 'botwest_mid', 'boteast_mid'];
                     let bestRoute = null, bestScore = Infinity;
                     for (const rk of altRoutes) {
                         const nodes = SQUAD_ROUTES[rk];
@@ -3617,6 +3580,7 @@
                 'four_ways': 'Four-Pronged Assault',
                 'top_and_bottom': 'Top And Bottom Push',
                 'north_south': 'North-South Squeeze',
+                'mid_pincer': 'Centre-Road Pincer',
             };
             const tLabel = tacticLabels[tactic] || '';
             el.innerHTML = 'WAVE ' + game.waveNumber +
@@ -3723,12 +3687,12 @@
         // ========== LEFT PANEL UI ==========
         const FORMATION_DEFS = [
             { key: 'rest', label: '😌 Rest', desc: 'Shields down, spaced out, FASTEST movement but weakest attack. Auto-shifts to Staggered Wall if a raider approaches.' },
-            { key: 'wedge', label: '🔺 Wedge', desc: 'Spearhead. The healthiest officer forms the point and rows widen behind. Balanced all-rounder.' },
-            { key: 'closedwall', label: '🧱 Closed Wall', desc: 'Fills the ENTIRE road width. Extra officers backfill behind. Slower but sturdier (15% less damage taken — shows as blue HP).' },
-            { key: 'staggeredwall', label: '🧱 Staggered Wall', desc: 'Full-width line with alternate rows offset. SLOWEST but 55% extra damage and 30% less damage taken (shows as blue HP).' },
-            { key: 'stackleft', label: '⬅️ Stack Left', desc: 'Press up against the left kerb, fast lateral movement.' },
-            { key: 'stackright', label: '➡️ Stack Right', desc: 'Press up against the right kerb, fast lateral movement.' },
-            { key: 'box', label: '📦 Box', desc: 'Three-sided box. Balanced. ARREST TEAM + K9 STAY INSIDE the box, protected by the officers (20% less damage taken — shows as blue HP).' },
+            { key: 'wedge', label: '🔺 Wedge', desc: 'Spearhead. The healthiest officer forms the point and rows widen behind. Balanced all-rounder. Light armour (30).' },
+            { key: 'closedwall', label: '🧱 Closed Wall', desc: 'Fills the ENTIRE road width. Extra officers backfill behind. Slower but sturdier. Heavy armour (80).' },
+            { key: 'staggeredwall', label: '🧱 Staggered Wall', desc: 'Full-width line with alternate rows offset. SLOWEST but 55% extra damage. MAXIMUM armour (120).' },
+            { key: 'stackleft', label: '⬅️ Stack Left', desc: 'Press up against the left kerb, fast lateral movement. Light armour (25).' },
+            { key: 'stackright', label: '➡️ Stack Right', desc: 'Press up against the right kerb, fast lateral movement. Light armour (25).' },
+            { key: 'box', label: '📦 Box', desc: 'Three-sided box. ARREST TEAM + K9 STAY INSIDE. Heavy armour (90).' },
         ];
         const ORDER_DEFS = [
             { key: 'autoDisperse', label: '⚡ Auto-Disperse', desc: 'When ON, Disperse (10s, triple damage) triggers automatically the instant any officer in this syndicate is hit.' },
@@ -3917,7 +3881,6 @@
             drawProjectiles(ctx);
             drawEffects(ctx);
 
-            // Tear gas clouds drawn on top of everything for a thick fog effect
             game.tearGasOfficers.forEach(t => { if (t.alive) t.drawGasCloud(ctx); });
 
             const sy = game.syndicates[game.selectedSyndicate];

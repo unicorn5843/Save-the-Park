@@ -144,11 +144,11 @@
         }
 
         #top-bar {
-            position: fixed; top: 8px; left: 50%; transform: translateX(-50%); z-index: 96;
+            position: fixed; top: 8px; left: calc(50% + 64px); transform: translateX(-50%); z-index: 96;
             display: flex; gap: 5px; background: rgba(13, 16, 23, 0.82);
             border: 1px solid #2e3a4f; border-radius: 9px; padding: 4px;
             backdrop-filter: blur(5px); box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
-            max-width: calc(100vw - 340px);
+            max-width: calc(100vw - 320px);
         }
         .train-btn {
             display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px;
@@ -525,7 +525,7 @@
         const TEAR_GAS_HIT_MORALE = 14;                 // per raider hit
         const TEAR_GAS_WITNESS_RANGE = TILE * 10;
         const TEAR_GAS_WITNESS_RATE = 5.0;              // morale/sec to witnesses
-        const TEAR_GAS_HP = 180;
+        const TEAR_GAS_HP = 340;                        // <-- increased from 180
         const TEAR_GAS_SPEED = 3.2;
         const TEAR_GAS_ADVANCE_SPEED_MULT = 1.6;
 
@@ -1126,6 +1126,22 @@
             return { x: tx * TILE + TILE / 2, y: ty * TILE + TILE / 2 };
         }
 
+        // Helper: pick the nearest of the four map entrances from a given position
+        function nearestExitTo(x, y) {
+            const exits = [
+                { x: ENTRY_XS[0] * TILE,         y: 1.5 * TILE },
+                { x: ENTRY_XS[1] * TILE,         y: 1.5 * TILE },
+                { x: BOTTOM_ENTRY_XS[0] * TILE,  y: (MAP_H - 1.5) * TILE },
+                { x: BOTTOM_ENTRY_XS[1] * TILE,  y: (MAP_H - 1.5) * TILE },
+            ];
+            let best = exits[0], bestD = Infinity;
+            for (const e of exits) {
+                const d = Math.hypot(e.x - x, e.y - y);
+                if (d < bestD) { bestD = d; best = e; }
+            }
+            return best;
+        }
+
         // ========== OFFICER ==========
         const OFFICER = {
             hp: 120, meleeDamage: 15, meleeRange: 1.35, atkCooldown: 0.85,
@@ -1207,7 +1223,8 @@
                     this.cooldownTimer -= dt;
                     this.isMoving = false;
                     this.hp = Math.min(this.maxHp, this.hp + OFFICER.restRegen * dt * 0.5);
-                    if (this.cooldownTimer <= 0) { this.state = 'active'; this.x = this.targetX; this.y = this.targetY; }
+                    // FIX: no longer teleport to formation slot — officer walks back on his own
+                    if (this.cooldownTimer <= 0) { this.state = 'active'; }
                     return;
                 }
 
@@ -2510,16 +2527,10 @@
                         }
                         return;
                     }
-                    const dx = this.spawnX - this.x, dy = this.spawnY - this.y;
-                    const dist = Math.hypot(dx, dy);
-                    this.isMoving = dist > 4;
-                    if (dist > 4) {
-                        const step = this.def.speed * 2 * TILE * dt;
-                        this.x += (dx/dist) * step; this.y += (dy/dist) * step;
-                        this.dir = { x: dx/dist, y: dy/dist };
-                    } else {
-                        this.alive = false;
-                    }
+                    // FIX: flee toward whichever map entrance is closest, not the original spawn
+                    const exit = nearestExitTo(this.x, this.y);
+                    const dist = this.moveToward(exit.x, exit.y, dt, this.def.speed * 2);
+                    if (dist < TILE * 1.5) this.alive = false;
                     return;
                 }
 

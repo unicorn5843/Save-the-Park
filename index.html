@@ -483,7 +483,6 @@
 
         const ROAD_W = 6;
         const ROAD_Y_TOP = 14;
-        const ROAD_Y_MID = 26;      // NEW: parallel mid road
         const ROAD_Y_BOTTOM = 38;
         const ROAD_X_START = 8;
         const ROAD_X_END = 98;
@@ -515,19 +514,19 @@
         const ARREST_OFFICER_SPEED = 2.9;
         const ARREST_GRAB_RANGE = TILE * 4.5;
         const ARREST_MAX_RANGE_FROM_SYNDICATE = TILE * 10;
-        const ARREST_TEAM_LIFETIME = 45;   // NEW: arrests team withdraws after this long
+        const ARREST_TEAM_LIFETIME = 45;
 
         // ----- Tear Gas team (BUFFED) -----
         const TEAR_GAS_TEAM_SIZE = 2;
-        const TEAR_GAS_COOLDOWN = 45;                       // faster cooldown
-        const TEAR_GAS_SPRAY_DURATION = 4.0;                // longer spray
-        const TEAR_GAS_RANGE = ARREST_MAX_RANGE_FROM_SYNDICATE * 0.75; // wider reach
-        const TEAR_GAS_CONE_HALF_ANGLE = Math.PI / 3.5;     // ~51° each side
-        const TEAR_GAS_STUN_DURATION = 6.0;                 // longer stun
-        const TEAR_GAS_HIT_MORALE = 25;                     // more morale damage per hit
-        const TEAR_GAS_WITNESS_RANGE = TILE * 12;           // larger witness radius
-        const TEAR_GAS_WITNESS_RATE = 10.0;                 // faster morale drain
-        const TEAR_GAS_HP = 700;                            // very tanky
+        const TEAR_GAS_COOLDOWN = 45;
+        const TEAR_GAS_SPRAY_DURATION = 4.0;
+        const TEAR_GAS_RANGE = ARREST_MAX_RANGE_FROM_SYNDICATE * 0.75;
+        const TEAR_GAS_CONE_HALF_ANGLE = Math.PI / 3.5;
+        const TEAR_GAS_STUN_DURATION = 6.0;
+        const TEAR_GAS_HIT_MORALE = 25;
+        const TEAR_GAS_WITNESS_RANGE = TILE * 12;
+        const TEAR_GAS_WITNESS_RATE = 10.0;
+        const TEAR_GAS_HP = 700;
         const TEAR_GAS_SPEED = 3.6;
         const TEAR_GAS_ADVANCE_SPEED_MULT = 1.7;
 
@@ -556,7 +555,6 @@
             return FORMATION_MODS[tactic] || { speedMult: 1, dmgMult: 1, dmgTakenMult: 1 };
         }
 
-        // NEW: Formation armour pool. Damage chews through armour before HP.
         const FORMATION_ARMOUR = {
             rest:          0,
             wedge:         30,
@@ -645,12 +643,6 @@
                 { id: 'TJ1', x: JUNCTION_XS[0], y: ROAD_Y_TOP },
                 { id: 'TJ2', x: JUNCTION_XS[1], y: ROAD_Y_TOP },
                 { id: 'TJ3', x: JUNCTION_XS[2], y: ROAD_Y_TOP },
-                // NEW mid-road nodes
-                { id: 'EML', x: ENTRY_XS[0], y: ROAD_Y_MID },
-                { id: 'EMR', x: ENTRY_XS[1], y: ROAD_Y_MID },
-                { id: 'MJ1', x: JUNCTION_XS[0], y: ROAD_Y_MID },
-                { id: 'MJ2', x: JUNCTION_XS[1], y: ROAD_Y_MID },
-                { id: 'MJ3', x: JUNCTION_XS[2], y: ROAD_Y_MID },
                 { id: 'BJ1', x: JUNCTION_XS[0], y: ROAD_Y_BOTTOM },
                 { id: 'BJ3', x: JUNCTION_XS[2], y: ROAD_Y_BOTTOM },
                 { id: 'BASE', x: BASE_TILE_X, y: BASE_TILE_Y },
@@ -662,7 +654,6 @@
         }
         function getNode(id) { return ROAD_NODES.find(n => n.id === id); }
 
-        // Expanded route set — uses every vertical road, mid road, and all entrances
         const SQUAD_ROUTES = {
             'west_direct':     ['EL0', 'EL1', 'EL2', 'BASE'],
             'east_direct':     ['ER0', 'ER1', 'ER2', 'BASE'],
@@ -670,19 +661,12 @@
             'east_high':       ['ER0', 'ER1', 'TJ3', 'TJ2', 'BASE'],
             'west_side':       ['EL0', 'EL1', 'TJ1', 'BJ1', 'BASE'],
             'east_side':       ['ER0', 'ER1', 'TJ3', 'BJ3', 'BASE'],
-            // NEW: mid-road routes
-            'west_mid':        ['EL0', 'EL1', 'EML', 'MJ1', 'MJ2', 'BASE'],
-            'east_mid':        ['ER0', 'ER1', 'EMR', 'MJ3', 'MJ2', 'BASE'],
-            'west_mid_side':   ['EL0', 'EL1', 'EML', 'MJ1', 'BJ1', 'BASE'],
-            'east_mid_side':   ['ER0', 'ER1', 'EMR', 'MJ3', 'BJ3', 'BASE'],
             'west_zigzag':     ['EL0', 'EL1', 'TJ1', 'BJ1', 'BASE'],
             'east_zigzag':     ['ER0', 'ER1', 'TJ3', 'BJ3', 'BASE'],
             'botwest_direct':  ['BL0', 'BL1', 'BJ1', 'BASE'],
             'boteast_direct':  ['BR0', 'BR1', 'BJ3', 'BASE'],
             'botwest_top':     ['BL0', 'BL1', 'BJ1', 'TJ1', 'TJ2', 'BASE'],
             'boteast_top':     ['BR0', 'BR1', 'BJ3', 'TJ3', 'TJ2', 'BASE'],
-            'botwest_mid':     ['BL0', 'BL1', 'BJ1', 'MJ1', 'MJ2', 'BASE'],
-            'boteast_mid':     ['BR0', 'BR1', 'BJ3', 'MJ3', 'MJ2', 'BASE'],
         };
 
         const WAVE_TACTICS = {
@@ -696,7 +680,7 @@
             'multi_front': [
                 { routeKey: 'west_direct', share: 0.35, personality: 'aggressive' },
                 { routeKey: 'east_direct', share: 0.35, personality: 'aggressive' },
-                { routeKey: 'west_mid',   share: 0.30, personality: 'sneaky' },
+                { routeKey: 'west_side',   share: 0.30, personality: 'sneaky' },
             ],
             'flank': [
                 { routeKey: 'west_direct', share: 0.55, personality: 'aggressive' },
@@ -735,11 +719,6 @@
                 { routeKey: 'botwest_top',    share: 0.40, personality: 'sneaky' },
                 { routeKey: 'boteast_top',    share: 0.30, personality: 'aggressive' },
             ],
-            // NEW: mid-road pincer
-            'mid_pincer': [
-                { routeKey: 'west_mid',     share: 0.5, personality: 'sneaky' },
-                { routeKey: 'east_mid',     share: 0.5, personality: 'sneaky' },
-            ],
         };
 
         function chooseWaveTactic() {
@@ -749,17 +728,16 @@
             if (wave === 3) return 'bottom_pincer';
             if (wave === 4) return 'flank';
             const roll = Math.random();
-            if (roll < 0.08) return 'single';
-            if (roll < 0.16) return 'pincer';
-            if (roll < 0.26) return 'multi_front';
-            if (roll < 0.34) return 'flank';
-            if (roll < 0.42) return 'ambush';
-            if (roll < 0.50) return 'bottom_pincer';
-            if (roll < 0.58) return 'surround';
-            if (roll < 0.66) return 'mass_charge';
-            if (roll < 0.74) return 'four_ways';
-            if (roll < 0.82) return 'top_and_bottom';
-            if (roll < 0.90) return 'mid_pincer';
+            if (roll < 0.09) return 'single';
+            if (roll < 0.18) return 'pincer';
+            if (roll < 0.27) return 'multi_front';
+            if (roll < 0.36) return 'flank';
+            if (roll < 0.45) return 'ambush';
+            if (roll < 0.54) return 'bottom_pincer';
+            if (roll < 0.63) return 'surround';
+            if (roll < 0.72) return 'mass_charge';
+            if (roll < 0.81) return 'four_ways';
+            if (roll < 0.90) return 'top_and_bottom';
             return 'north_south';
         }
 
@@ -809,7 +787,6 @@
         function tileIsRoad(tx, ty) {
             const hw = ROAD_W / 2;
             if (ty >= ROAD_Y_TOP - hw && ty <= ROAD_Y_TOP + hw && tx >= ROAD_X_START && tx <= ROAD_X_END) return true;
-            if (ty >= ROAD_Y_MID - hw && ty <= ROAD_Y_MID + hw && tx >= ROAD_X_START && tx <= ROAD_X_END) return true;
             if (ty >= ROAD_Y_BOTTOM - hw && ty <= ROAD_Y_BOTTOM + hw && tx >= ROAD_X_START && tx <= ROAD_X_END) return true;
             for (let jx of JUNCTION_XS) {
                 if (tx >= jx - hw && tx <= jx + hw && ty >= ROAD_Y_TOP - hw && ty <= ROAD_Y_BOTTOM + hw) return true;
@@ -827,7 +804,6 @@
             const pad = 1.5;
             const hw = ROAD_W / 2 + pad;
             if (ty >= ROAD_Y_TOP - hw && ty <= ROAD_Y_TOP + hw && tx >= ROAD_X_START - pad && tx <= ROAD_X_END + pad) return true;
-            if (ty >= ROAD_Y_MID - hw && ty <= ROAD_Y_MID + hw && tx >= ROAD_X_START - pad && tx <= ROAD_X_END + pad) return true;
             if (ty >= ROAD_Y_BOTTOM - hw && ty <= ROAD_Y_BOTTOM + hw && tx >= ROAD_X_START - pad && tx <= ROAD_X_END + pad) return true;
             for (let jx of JUNCTION_XS) {
                 if (tx >= jx - hw && tx <= jx + hw && ty >= ROAD_Y_TOP - hw && ty <= ROAD_Y_BOTTOM + hw) return true;
@@ -881,7 +857,6 @@
             });
         }
 
-        // MUCH tankier buildings
         const BUILDING_MAX_HP = 1800;
         const BUILDING_DRAW_H = TILE * 2.6;
         let sceneryBuildings = [];
@@ -1061,9 +1036,6 @@
             }
             t.moveTo(ROAD_X_START * TILE, ROAD_Y_TOP * TILE);
             t.lineTo(ROAD_X_END * TILE, ROAD_Y_TOP * TILE);
-            // NEW: mid road markings
-            t.moveTo(ROAD_X_START * TILE, ROAD_Y_MID * TILE);
-            t.lineTo(ROAD_X_END * TILE, ROAD_Y_MID * TILE);
             t.moveTo(ROAD_X_START * TILE, ROAD_Y_BOTTOM * TILE);
             t.lineTo(ROAD_X_END * TILE, ROAD_Y_BOTTOM * TILE);
             for (const ex of ENTRY_XS) {
@@ -1165,7 +1137,6 @@
             return { x: tx * TILE + TILE / 2, y: ty * TILE + TILE / 2 };
         }
 
-        // NEW: shared movement + un-stick helper for every walker on the map.
         function steerUnit(e, tx, ty, dt, speed) {
             const dx = tx - e.x, dy = ty - e.y;
             const dist = Math.hypot(dx, dy);
@@ -1177,7 +1148,6 @@
             const currentlyValid = isValidPosition(e.x, e.y);
             const nx = e.x + ux * step, ny = e.y + uy * step;
             if (!currentlyValid) {
-                // If we somehow ended up off-road, move freely back toward validity
                 e.x = nx; e.y = ny;
                 const snap = clampOfficerTarget(e.x, e.y);
                 e.x = snap.x; e.y = snap.y;
@@ -1190,7 +1160,6 @@
             if (moved < step * 0.35) e.stuckTimer = (e.stuckTimer || 0) + dt;
             else e.stuckTimer = Math.max(0, (e.stuckTimer || 0) - dt * 2);
 
-            // Tier 1: sidestep perpendicular / backwards
             if (e.stuckTimer > 0.3) {
                 const perp1 = { x: -uy, y: ux };
                 const perp2 = { x: uy, y: -ux };
@@ -1210,7 +1179,6 @@
                     if (isValidPosition(e.x, ty2)) { e.y = ty2; e.stuckTimer = 0; break; }
                 }
             }
-            // Tier 2: hard escape — snap to the nearest valid tile within a small radius
             if (e.stuckTimer > 1.0) {
                 let bestPos = null, bestDist = Infinity;
                 for (let radius = 1; radius <= 6; radius++) {
@@ -1232,7 +1200,6 @@
             return dist;
         }
 
-        // Helper: pick the nearest of the four map entrances from a given position
         function nearestExitTo(x, y) {
             const exits = [
                 { x: ENTRY_XS[0] * TILE,         y: 1.5 * TILE },
@@ -1299,7 +1266,6 @@
                 if (this.attackFlash > 0) this.attackFlash = Math.max(0, this.attackFlash - dt);
                 this.atkTimer = Math.max(0, this.atkTimer - dt);
 
-                // ----- Armour regeneration & formation armour cap -----
                 const syForArm = this.mySyndicate();
                 const tacticForArm = syForArm ? syForArm.tactic : 'wedge';
                 const newMax = formationArmour(tacticForArm);
@@ -1455,7 +1421,6 @@
                 if (this.dir.x < -0.05) ctx.scale(-1, 1);
                 drawOfficerFigure(ctx, this);
                 ctx.restore();
-                // Armour bar above HP bar
                 if (!this.isAllOut && this.maxArmour > 0) {
                     drawArmourBar(ctx, sx, sy - 27, this.armour, this.maxArmour);
                 }
@@ -1510,7 +1475,6 @@
             }
             ctx.restore();
         }
-        // HP bar
         function drawHpBar(ctx, sx, sy, hp, maxHp, color) {
             if (hp >= maxHp) return;
             const barW = 22;
@@ -1518,7 +1482,6 @@
             const pct = Math.max(0, Math.min(1, hp / maxHp));
             ctx.fillStyle = color; ctx.fillRect(sx - barW/2, sy, barW * pct, 3);
         }
-        // NEW: Armour bar (blue gradient)
         function drawArmourBar(ctx, sx, sy, armour, maxArmour) {
             if (maxArmour <= 0) return;
             const barW = 22;
@@ -1553,7 +1516,7 @@
                 this.stuckTimer = 0;
                 this.attackFlash = 0;
                 this.carryTimer = 0;
-                this.lifeTimer = ARREST_TEAM_LIFETIME;   // NEW: withdraw after this long
+                this.lifeTimer = ARREST_TEAM_LIFETIME;
                 this.returningHome = false;
             }
 
@@ -1562,7 +1525,6 @@
                 this.animTimer += dt;
                 if (this.attackFlash > 0) this.attackFlash = Math.max(0, this.attackFlash - dt);
 
-                // NEW: Lifetime countdown. Once expired, head home and despawn.
                 if (!this.returningHome) {
                     this.lifeTimer -= dt;
                     if (this.lifeTimer <= 0 && !this.carrying) {
@@ -1816,7 +1778,6 @@
                 } else if (this.state === 'advancing') {
                     const before = Math.hypot(this.frontX - this.x, this.frontY - this.y);
                     steerUnit(this, this.frontX, this.frontY, dt, TEAR_GAS_SPEED * TEAR_GAS_ADVANCE_SPEED_MULT);
-                    // push nearby officers aside as we pass
                     for (const o of game.officers) {
                         if (!o.alive || o.isAllOut) continue;
                         if (!game.mergedMode && o.syndicateIndex !== this.syndicateIndex) continue;
@@ -2353,7 +2314,6 @@
                 this.arrestOfficer = null;
                 this.throwTimer = Math.random() * 1.5;
                 this.gasStunTimer = 0;
-                // Flee target is locked in when fleeing begins so raiders don't jitter
                 this.fleeExitX = 0;
                 this.fleeExitY = 0;
             }
@@ -2410,11 +2370,9 @@
                 this.atkTimer = Math.max(0, this.atkTimer - dt);
                 this.timeSinceDamage += dt;
 
-                // Fleeing raiders ignore officers entirely and run for the nearest exit.
                 if (this.state === 'fleeing') {
                     const dist = this.moveToward(this.fleeExitX, this.fleeExitY, dt, this.def.speed * 2);
                     if (dist < TILE * 1.5) this.alive = false;
-                    // Bail out if somehow stuck for ages — just despawn
                     if (this.stuckTimer > 3) this.alive = false;
                     return;
                 }
@@ -2759,7 +2717,6 @@
             const fmods = sy ? getFormationMods(sy.tactic) : { dmgTakenMult: 1 };
             let finalDmg = dmg * mult * fmods.dmgTakenMult;
 
-            // NEW: Armour absorbs damage first
             if (o.armour > 0) {
                 const absorbed = Math.min(o.armour, finalDmg);
                 o.armour -= absorbed;
@@ -3517,10 +3474,8 @@
                 }
 
                 if (squad.role === 'flank' && officerDistTiles < 10 && officerDistTiles > 3) {
-                    // NEW: include the mid-road options for reroutes
                     const altRoutes = ['west_high', 'east_high', 'west_side', 'east_side',
-                                       'west_mid', 'east_mid', 'west_mid_side', 'east_mid_side',
-                                       'botwest_top', 'boteast_top', 'botwest_mid', 'boteast_mid'];
+                                       'botwest_top', 'boteast_top'];
                     let bestRoute = null, bestScore = Infinity;
                     for (const rk of altRoutes) {
                         const nodes = SQUAD_ROUTES[rk];
@@ -3580,7 +3535,6 @@
                 'four_ways': 'Four-Pronged Assault',
                 'top_and_bottom': 'Top And Bottom Push',
                 'north_south': 'North-South Squeeze',
-                'mid_pincer': 'Centre-Road Pincer',
             };
             const tLabel = tacticLabels[tactic] || '';
             el.innerHTML = 'WAVE ' + game.waveNumber +

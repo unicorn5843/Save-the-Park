@@ -277,10 +277,15 @@
             backdrop-filter: blur(5px);
         }
         .syn-btn {
-            flex: 1; padding: 6px 4px;
+            flex: 1; padding: 6px 3px;
             background: linear-gradient(180deg, #2e3a4f, #212a3a);
             border: 1px solid #47597a; border-radius: 6px;
             color: #cdd6e2; font-size: 10px; font-weight: 700; cursor: pointer; white-space: nowrap;
+        }
+        .syn-btn.vehicle {
+            background: linear-gradient(180deg, #1e3a5a, #142838);
+            border-color: #4a7ab0;
+            color: #cfe6ff;
         }
         .syn-btn.active {
             background: linear-gradient(180deg, #ffcc33, #cc9922);
@@ -438,6 +443,7 @@
             <button class="syn-btn" data-idx="0">S1</button>
             <button class="syn-btn" data-idx="1">S2</button>
             <button class="syn-btn" data-idx="2">S3</button>
+            <button class="syn-btn vehicle" data-idx="3">🚙</button>
         </div>
         <div id="dpad-container">
             <button class="dpad-btn dpad-up" id="btn-up">▲</button>
@@ -486,6 +492,7 @@
         const ROAD_Y_BOTTOM = 38;
         const ROAD_X_START = 8;
         const ROAD_X_END = 98;
+        // Junctions now run the FULL height of the map — every one is an entrance/exit.
         const JUNCTION_XS = [30, 54, 78];
         const ENTRY_XS = [18, 90];
         const BOTTOM_ENTRY_XS = [12, 96];
@@ -497,7 +504,9 @@
         const ROW_SPACING = 1.2;
         const COL_SPACING = 1.1;
         const OFFICERS_PER_SYNDICATE = 15;
-        const MAX_SYNDICATES = 3;
+        const OFFICER_SYNDICATES = 3;   // S1 / S2 / S3 are officer syndicates
+        const MAX_SYNDICATES = 4;       // + the blockade vehicle syndicate
+        const VEHICLE_SYNDICATE = 3;
         const BASE_MAX_HP = 900;
 
         const SYNDICATE_START_X = [46, 54, 62];
@@ -516,7 +525,7 @@
         const ARREST_MAX_RANGE_FROM_SYNDICATE = TILE * 10;
         const ARREST_TEAM_LIFETIME = 45;
 
-        // ----- Tear Gas team (BUFFED) -----
+        // ----- Tear Gas team -----
         const TEAR_GAS_TEAM_SIZE = 2;
         const TEAR_GAS_COOLDOWN = 45;
         const TEAR_GAS_SPRAY_DURATION = 4.0;
@@ -542,30 +551,39 @@
         const K9_LEAD_LENGTH_DEPLOYED = TILE * 3.75;
         const K9_MAX_LEASH_FROM_HANDLER = TILE * 12;
 
+        // ----- BLOCKADE VEHICLE -----
+        const VEHICLE_SPEED = 2.6;              // tiles per second — deliberately slow
+        const VEHICLE_TURN_RATE = 5.0;
+
+        // ===== FORMATIONS =====
+        // Movement / offence modifiers stay as they are, but the *defensive*
+        // side is now a flat percentage of incoming damage that is ignored.
         const FORMATION_MODS = {
-            rest:          { speedMult: 1.35, dmgMult: 0.60, dmgTakenMult: 0.90 },
-            wedge:         { speedMult: 1.05, dmgMult: 1.00, dmgTakenMult: 1.00 },
-            closedwall:    { speedMult: 0.90, dmgMult: 1.05, dmgTakenMult: 0.85 },
-            staggeredwall: { speedMult: 0.72, dmgMult: 1.55, dmgTakenMult: 0.70 },
-            stackleft:     { speedMult: 1.10, dmgMult: 1.00, dmgTakenMult: 1.00 },
-            stackright:    { speedMult: 1.10, dmgMult: 1.00, dmgTakenMult: 1.00 },
-            box:           { speedMult: 0.98, dmgMult: 1.20, dmgTakenMult: 0.80 },
+            rest:          { speedMult: 1.35, dmgMult: 0.60 },
+            wedge:         { speedMult: 1.05, dmgMult: 1.00 },
+            closedwall:    { speedMult: 0.90, dmgMult: 1.05 },
+            staggeredwall: { speedMult: 0.72, dmgMult: 1.55 },
+            stackleft:     { speedMult: 1.10, dmgMult: 1.00 },
+            stackright:    { speedMult: 1.10, dmgMult: 1.00 },
+            box:           { speedMult: 0.98, dmgMult: 1.20 },
         };
         function getFormationMods(tactic) {
-            return FORMATION_MODS[tactic] || { speedMult: 1, dmgMult: 1, dmgTakenMult: 1 };
+            return FORMATION_MODS[tactic] || { speedMult: 1, dmgMult: 1 };
         }
 
-        const FORMATION_ARMOUR = {
-            rest:          0,
-            wedge:         30,
-            closedwall:    80,
-            staggeredwall: 120,
-            stackleft:     25,
-            stackright:    25,
-            box:           90,
+        // Percentage of raider damage completely ignored, by formation.
+        const FORMATION_RESISTANCE = {
+            rest:          0.00,
+            stackleft:     0.20,
+            stackright:    0.20,
+            wedge:         0.25,
+            closedwall:    0.45,
+            box:           0.50,
+            staggeredwall: 0.60,   // most resistant
         };
-        function formationArmour(tactic) {
-            return FORMATION_ARMOUR[tactic] || 0;
+        function formationResistance(tactic) {
+            const r = FORMATION_RESISTANCE[tactic];
+            return (r === undefined) ? 0 : r;
         }
 
         const MANUAL_DISPERSE_DURATION = 10;
@@ -605,9 +623,9 @@
             allOutCooldown: 0,
             allOutActive: 0,
 
-            arrestCooldown: [0, 0, 0],
-            tearGasCooldown: [0, 0, 0],
-            manualDisperseCooldown: [0, 0, 0],
+            arrestCooldown: [0, 0, 0, 0],
+            tearGasCooldown: [0, 0, 0, 0],
+            manualDisperseCooldown: [0, 0, 0, 0],
 
             squads: new Map(),
             nextSquadId: 1,
@@ -627,129 +645,157 @@
             raiderGroupMorale: 100,
             buildingsDestroyed: 0,
 
+            // ---- road blockade ----
+            vehicle: null,
+            blockedEdges: new Set(),
+            blockadeVersion: 0,
+
             raidAI: { objective: 'base' },
         };
 
         // ========== ROAD GRAPH ==========
         let ROAD_NODES = [];
+        let ROAD_EDGES = [];
+        let ROAD_ADJ = new Map();
+        let BLOCKADE_SPOTS = [];
+
+        const EXIT_NODE_IDS = ['N18', 'N30', 'N78', 'N90', 'S12', 'S30', 'S78', 'S96'];
+
         function buildRoadNodes() {
-            return [
-                { id: 'EL0', x: ENTRY_XS[0], y: 1.5 },
-                { id: 'EL1', x: ENTRY_XS[0], y: ROAD_Y_TOP },
-                { id: 'EL2', x: ENTRY_XS[0], y: ROAD_Y_BOTTOM },
-                { id: 'ER0', x: ENTRY_XS[1], y: 1.5 },
-                { id: 'ER1', x: ENTRY_XS[1], y: ROAD_Y_TOP },
-                { id: 'ER2', x: ENTRY_XS[1], y: ROAD_Y_BOTTOM },
-                { id: 'TJ1', x: JUNCTION_XS[0], y: ROAD_Y_TOP },
-                { id: 'TJ2', x: JUNCTION_XS[1], y: ROAD_Y_TOP },
-                { id: 'TJ3', x: JUNCTION_XS[2], y: ROAD_Y_TOP },
-                { id: 'BJ1', x: JUNCTION_XS[0], y: ROAD_Y_BOTTOM },
-                { id: 'BJ3', x: JUNCTION_XS[2], y: ROAD_Y_BOTTOM },
-                { id: 'BASE', x: BASE_TILE_X, y: BASE_TILE_Y },
-                { id: 'BL0', x: BOTTOM_ENTRY_XS[0], y: MAP_H - 1.5 },
-                { id: 'BL1', x: BOTTOM_ENTRY_XS[0], y: ROAD_Y_BOTTOM },
-                { id: 'BR0', x: BOTTOM_ENTRY_XS[1], y: MAP_H - 1.5 },
-                { id: 'BR1', x: BOTTOM_ENTRY_XS[1], y: ROAD_Y_BOTTOM },
-            ];
+            const nodes = [];
+            const push = (id, x, y) => nodes.push({ id, x, y });
+            [18, 30, 54, 78, 90].forEach(x => push('T' + x, x, ROAD_Y_TOP));
+            [12, 18, 30, 54, 78, 90, 96].forEach(x => push('B' + x, x, ROAD_Y_BOTTOM));
+            push('N18', 18, 1.5);
+            push('N30', 30, 1.5);
+            push('N78', 78, 1.5);
+            push('N90', 90, 1.5);
+            push('S12', 12, MAP_H - 1.5);
+            push('S30', 30, MAP_H - 1.5);
+            push('S78', 78, MAP_H - 1.5);
+            push('S96', 96, MAP_H - 1.5);
+            return nodes;
         }
         function getNode(id) { return ROAD_NODES.find(n => n.id === id); }
+        function edgeKey(a, b) { return a < b ? a + '|' + b : b + '|' + a; }
 
-        const SQUAD_ROUTES = {
-            'west_direct':     ['EL0', 'EL1', 'EL2', 'BASE'],
-            'east_direct':     ['ER0', 'ER1', 'ER2', 'BASE'],
-            'west_high':       ['EL0', 'EL1', 'TJ1', 'TJ2', 'BASE'],
-            'east_high':       ['ER0', 'ER1', 'TJ3', 'TJ2', 'BASE'],
-            'west_side':       ['EL0', 'EL1', 'TJ1', 'BJ1', 'BASE'],
-            'east_side':       ['ER0', 'ER1', 'TJ3', 'BJ3', 'BASE'],
-            'west_zigzag':     ['EL0', 'EL1', 'TJ1', 'BJ1', 'BASE'],
-            'east_zigzag':     ['ER0', 'ER1', 'TJ3', 'BJ3', 'BASE'],
-            'botwest_direct':  ['BL0', 'BL1', 'BJ1', 'BASE'],
-            'boteast_direct':  ['BR0', 'BR1', 'BJ3', 'BASE'],
-            'botwest_top':     ['BL0', 'BL1', 'BJ1', 'TJ1', 'TJ2', 'BASE'],
-            'boteast_top':     ['BR0', 'BR1', 'BJ3', 'TJ3', 'TJ2', 'BASE'],
-        };
+        function axisRoadClear(a, b) {
+            if (Math.abs(a.x - b.x) < 0.01) {
+                const tx = Math.floor(a.x);
+                const y0 = Math.floor(Math.min(a.y, b.y));
+                const y1 = Math.floor(Math.max(a.y, b.y));
+                for (let ty = y0; ty <= y1; ty++) if (!tileIsRoad(tx, ty)) return false;
+                return true;
+            }
+            const ty = Math.floor(a.y);
+            const x0 = Math.floor(Math.min(a.x, b.x));
+            const x1 = Math.floor(Math.max(a.x, b.x));
+            for (let tx = x0; tx <= x1; tx++) if (!tileIsRoad(tx, ty)) return false;
+            return true;
+        }
+        function nodeBetween(a, b) {
+            for (const n of ROAD_NODES) {
+                if (n === a || n === b) continue;
+                if (Math.abs(a.x - b.x) < 0.01 && Math.abs(n.x - a.x) < 0.01) {
+                    const lo = Math.min(a.y, b.y), hi = Math.max(a.y, b.y);
+                    if (n.y > lo + 0.01 && n.y < hi - 0.01) return true;
+                }
+                if (Math.abs(a.y - b.y) < 0.01 && Math.abs(n.y - a.y) < 0.01) {
+                    const lo = Math.min(a.x, b.x), hi = Math.max(a.x, b.x);
+                    if (n.x > lo + 0.01 && n.x < hi - 0.01) return true;
+                }
+            }
+            return false;
+        }
 
-        const WAVE_TACTICS = {
-            'single': [
-                { routeKey: 'west_direct', share: 1.0, personality: 'aggressive' },
-            ],
-            'pincer': [
-                { routeKey: 'west_direct', share: 0.5, personality: 'aggressive' },
-                { routeKey: 'east_direct', share: 0.5, personality: 'aggressive' },
-            ],
-            'multi_front': [
-                { routeKey: 'west_direct', share: 0.35, personality: 'aggressive' },
-                { routeKey: 'east_direct', share: 0.35, personality: 'aggressive' },
-                { routeKey: 'west_side',   share: 0.30, personality: 'sneaky' },
-            ],
-            'flank': [
-                { routeKey: 'west_direct', share: 0.55, personality: 'aggressive' },
-                { routeKey: 'west_side',   share: 0.45, personality: 'sneaky' },
-            ],
-            'ambush': [
-                { routeKey: 'west_direct', share: 0.5, personality: 'cautious' },
-                { routeKey: 'east_direct', share: 0.5, personality: 'aggressive' },
-            ],
-            'mass_charge': [
-                { routeKey: 'west_direct', share: 1.0, personality: 'aggressive', initialState: 'regroup' },
-            ],
-            'bottom_pincer': [
-                { routeKey: 'botwest_direct', share: 0.5, personality: 'aggressive' },
-                { routeKey: 'boteast_direct', share: 0.5, personality: 'aggressive' },
-            ],
-            'surround': [
-                { routeKey: 'west_direct',    share: 0.25, personality: 'aggressive' },
-                { routeKey: 'east_direct',    share: 0.25, personality: 'aggressive' },
-                { routeKey: 'botwest_direct', share: 0.25, personality: 'sneaky' },
-                { routeKey: 'boteast_direct', share: 0.25, personality: 'sneaky' },
-            ],
-            'four_ways': [
-                { routeKey: 'west_high',      share: 0.25, personality: 'aggressive' },
-                { routeKey: 'east_high',      share: 0.25, personality: 'aggressive' },
-                { routeKey: 'botwest_direct', share: 0.25, personality: 'sneaky' },
-                { routeKey: 'boteast_direct', share: 0.25, personality: 'sneaky' },
-            ],
-            'top_and_bottom': [
-                { routeKey: 'west_high',      share: 0.35, personality: 'aggressive' },
-                { routeKey: 'botwest_top',    share: 0.35, personality: 'sneaky' },
-                { routeKey: 'east_high',      share: 0.30, personality: 'aggressive' },
-            ],
-            'north_south': [
-                { routeKey: 'west_direct',    share: 0.30, personality: 'aggressive' },
-                { routeKey: 'botwest_top',    share: 0.40, personality: 'sneaky' },
-                { routeKey: 'boteast_top',    share: 0.30, personality: 'aggressive' },
-            ],
-        };
+        function buildRoadGraph() {
+            ROAD_NODES = buildRoadNodes();
+            ROAD_EDGES = [];
+            ROAD_ADJ = new Map();
+            for (const n of ROAD_NODES) ROAD_ADJ.set(n.id, []);
+            for (let i = 0; i < ROAD_NODES.length; i++) {
+                for (let j = i + 1; j < ROAD_NODES.length; j++) {
+                    const a = ROAD_NODES[i], b = ROAD_NODES[j];
+                    const sameX = Math.abs(a.x - b.x) < 0.01;
+                    const sameY = Math.abs(a.y - b.y) < 0.01;
+                    if (!sameX && !sameY) continue;
+                    if (nodeBetween(a, b)) continue;
+                    if (!axisRoadClear(a, b)) continue;
+                    ROAD_EDGES.push({ key: edgeKey(a.id, b.id), a: a.id, b: b.id, dir: sameY ? 'h' : 'v' });
+                    ROAD_ADJ.get(a.id).push({ id: b.id });
+                    ROAD_ADJ.get(b.id).push({ id: a.id });
+                }
+            }
+        }
 
-        function chooseWaveTactic() {
-            const wave = game.waveNumber;
-            if (wave <= 1) return 'single';
-            if (wave === 2) return 'pincer';
-            if (wave === 3) return 'bottom_pincer';
-            if (wave === 4) return 'flank';
-            const roll = Math.random();
-            if (roll < 0.09) return 'single';
-            if (roll < 0.18) return 'pincer';
-            if (roll < 0.27) return 'multi_front';
-            if (roll < 0.36) return 'flank';
-            if (roll < 0.45) return 'ambush';
-            if (roll < 0.54) return 'bottom_pincer';
-            if (roll < 0.63) return 'surround';
-            if (roll < 0.72) return 'mass_charge';
-            if (roll < 0.81) return 'four_ways';
-            if (roll < 0.90) return 'top_and_bottom';
-            return 'north_south';
+        function buildBlockadeSpots() {
+            BLOCKADE_SPOTS = [];
+            for (const e of ROAD_EDGES) {
+                const a = getNode(e.a), b = getNode(e.b);
+                if (!a || !b) continue;
+                BLOCKADE_SPOTS.push({
+                    key: e.key, a: e.a, b: e.b, dir: e.dir,
+                    x: ((a.x + b.x) / 2) * TILE,
+                    y: ((a.y + b.y) / 2) * TILE,
+                });
+            }
+        }
+
+        function rebuildRoadNetwork() {
+            buildRoadGraph();
+            buildBlockadeSpots();
+        }
+
+        // -------- pathfinding (BFS over the road graph) --------
+        function findPath(startId, goalId, blockedSet) {
+            if (!startId || !goalId) return null;
+            if (startId === goalId) return [startId];
+            const prev = new Map();
+            const seen = new Set([startId]);
+            const q = [startId];
+            while (q.length) {
+                const cur = q.shift();
+                const nbs = ROAD_ADJ.get(cur) || [];
+                for (const nb of nbs) {
+                    if (blockedSet && blockedSet.size && blockedSet.has(edgeKey(cur, nb.id))) continue;
+                    if (seen.has(nb.id)) continue;
+                    seen.add(nb.id);
+                    prev.set(nb.id, cur);
+                    if (nb.id === goalId) {
+                        const path = [];
+                        let p = goalId;
+                        let guard = 0;
+                        while (p !== undefined && guard++ < 200) { path.unshift(p); p = prev.get(p); }
+                        return path;
+                    }
+                    q.push(nb.id);
+                }
+            }
+            return null;
+        }
+        function nearestRoadNode(x, y) {
+            let best = null, bestD = Infinity;
+            for (const n of ROAD_NODES) {
+                const d = Math.hypot(n.x * TILE - x, n.y * TILE - y);
+                if (d < bestD) { bestD = d; best = n; }
+            }
+            return best;
+        }
+        function clearBlockades() {
+            if (game.blockedEdges.size > 0) {
+                game.blockedEdges.clear();
+                game.blockadeVersion++;
+            }
         }
 
         // ========== SQUAD ==========
         class RaiderSquad {
-            constructor(id, routeKey, personality, initialState) {
+            constructor(id, spawnNodeId, personality) {
                 this.id = id;
-                this.routeKey = routeKey;
-                this.route = SQUAD_ROUTES[routeKey] || SQUAD_ROUTES['west_direct'];
+                this.spawnNodeId = spawnNodeId;
                 this.personality = personality || 'aggressive';
-                this.state = initialState || 'advance';
-                this.stateTimer = (initialState === 'regroup') ? (4 + Math.random() * 3) : (2 + Math.random() * 2);
+                this.state = 'advance';
+                this.stateTimer = 1.0 + Math.random() * 1.5;
                 this.rallyX = 0; this.rallyY = 0;
                 this.contactTimer = 0;
                 this.centroid = { x: 0, y: 0, count: 0 };
@@ -788,8 +834,9 @@
             const hw = ROAD_W / 2;
             if (ty >= ROAD_Y_TOP - hw && ty <= ROAD_Y_TOP + hw && tx >= ROAD_X_START && tx <= ROAD_X_END) return true;
             if (ty >= ROAD_Y_BOTTOM - hw && ty <= ROAD_Y_BOTTOM + hw && tx >= ROAD_X_START && tx <= ROAD_X_END) return true;
+            // full-height vertical roads at the junctions — these are now map exits too
             for (let jx of JUNCTION_XS) {
-                if (tx >= jx - hw && tx <= jx + hw && ty >= ROAD_Y_TOP - hw && ty <= ROAD_Y_BOTTOM + hw) return true;
+                if (tx >= jx - hw && tx <= jx + hw && ty >= 0 && ty <= MAP_H) return true;
             }
             for (let ex of ENTRY_XS) {
                 if (tx >= ex - hw && tx <= ex + hw && ty >= 0 && ty <= ROAD_Y_BOTTOM + hw) return true;
@@ -806,7 +853,7 @@
             if (ty >= ROAD_Y_TOP - hw && ty <= ROAD_Y_TOP + hw && tx >= ROAD_X_START - pad && tx <= ROAD_X_END + pad) return true;
             if (ty >= ROAD_Y_BOTTOM - hw && ty <= ROAD_Y_BOTTOM + hw && tx >= ROAD_X_START - pad && tx <= ROAD_X_END + pad) return true;
             for (let jx of JUNCTION_XS) {
-                if (tx >= jx - hw && tx <= jx + hw && ty >= ROAD_Y_TOP - hw && ty <= ROAD_Y_BOTTOM + hw) return true;
+                if (tx >= jx - hw && tx <= jx + hw && ty >= -pad && ty <= MAP_H + pad) return true;
             }
             for (let ex of ENTRY_XS) {
                 if (tx >= ex - hw && tx <= ex + hw && ty >= 0 && ty <= ROAD_Y_BOTTOM + hw) return true;
@@ -1031,8 +1078,8 @@
             t.setLineDash([8, 8]);
             t.beginPath();
             for (let jx of JUNCTION_XS) {
-                t.moveTo(jx * TILE, ROAD_Y_TOP * TILE);
-                t.lineTo(jx * TILE, ROAD_Y_BOTTOM * TILE);
+                t.moveTo(jx * TILE, 0);
+                t.lineTo(jx * TILE, MAP_H * TILE);
             }
             t.moveTo(ROAD_X_START * TILE, ROAD_Y_TOP * TILE);
             t.lineTo(ROAD_X_END * TILE, ROAD_Y_TOP * TILE);
@@ -1120,6 +1167,10 @@
             return t === TILE_ROAD || t === TILE_SIDEWALK || t === TILE_BASE;
         }
         function isValidOfficerPosition(x, y) { return isValidPosition(x, y); }
+        function isRoadAt(x, y) {
+            const tx = Math.floor(x / TILE), ty = Math.floor(y / TILE);
+            return tileIsRoad(tx, ty);
+        }
         function clampOfficerTarget(x, y) {
             if (isValidOfficerPosition(x, y)) return { x, y };
             for (let r = 1; r <= 10; r++) {
@@ -1201,18 +1252,14 @@
         }
 
         function nearestExitTo(x, y) {
-            const exits = [
-                { x: ENTRY_XS[0] * TILE,         y: 1.5 * TILE },
-                { x: ENTRY_XS[1] * TILE,         y: 1.5 * TILE },
-                { x: BOTTOM_ENTRY_XS[0] * TILE,  y: (MAP_H - 1.5) * TILE },
-                { x: BOTTOM_ENTRY_XS[1] * TILE,  y: (MAP_H - 1.5) * TILE },
-            ];
-            let best = exits[0], bestD = Infinity;
-            for (const e of exits) {
-                const d = Math.hypot(e.x - x, e.y - y);
-                if (d < bestD) { bestD = d; best = e; }
+            let best = null, bestD = Infinity;
+            for (const id of EXIT_NODE_IDS) {
+                const n = getNode(id);
+                if (!n) continue;
+                const d = Math.hypot(n.x * TILE - x, n.y * TILE - y);
+                if (d < bestD) { bestD = d; best = { x: n.x * TILE, y: n.y * TILE }; }
             }
-            return best;
+            return best || { x: x, y: y };
         }
 
         // ========== OFFICER ==========
@@ -1220,7 +1267,6 @@
             hp: 120, meleeDamage: 15, meleeRange: 1.35, atkCooldown: 0.85,
             walkSpeed: 3.5, sprintSpeed: 6.5, lungeRange: 2.1, restRegen: 7,
             retreatHpPct: 0.25, cooldownTime: 60, disperseDamageMult: 3.0,
-            armourRegen: 6, armourRegenDelay: 3.0,
         };
         const OFFICER_PALETTE = { cloth: '#232f45', dark: '#141b29', visor: '#8fd6ff', shield: '#c7d3e0', shieldEdge: '#7c8aa0' };
         const ALL_OUT_PALETTE = { cloth: '#4a2430', dark: '#2a1018', visor: '#ffd08a', shield: '#e8c9a0', shieldEdge: '#a08050' };
@@ -1238,9 +1284,6 @@
                 this.targetX = x; this.targetY = y;
                 this.hp = this.isAllOut ? 260 : OFFICER.hp;
                 this.maxHp = this.hp;
-                this.armour = 0;
-                this.maxArmour = 0;
-                this.armourRegenDelay = 0;
                 this.dir = { x: 1, y: 0 };
                 this.animTimer = Math.random() * 10;
                 this.isMoving = false;
@@ -1265,24 +1308,6 @@
                 this.animTimer += dt;
                 if (this.attackFlash > 0) this.attackFlash = Math.max(0, this.attackFlash - dt);
                 this.atkTimer = Math.max(0, this.atkTimer - dt);
-
-                const syForArm = this.mySyndicate();
-                const tacticForArm = syForArm ? syForArm.tactic : 'wedge';
-                const newMax = formationArmour(tacticForArm);
-                if (newMax !== this.maxArmour) {
-                    if (this.maxArmour > 0) {
-                        const frac = this.armour / this.maxArmour;
-                        this.maxArmour = newMax;
-                        this.armour = newMax * Math.max(0, Math.min(1, frac));
-                    } else {
-                        this.maxArmour = newMax;
-                        this.armour = newMax;
-                    }
-                }
-                if (this.armourRegenDelay > 0) this.armourRegenDelay -= dt;
-                else if (this.armour < this.maxArmour) {
-                    this.armour = Math.min(this.maxArmour, this.armour + OFFICER.armourRegen * dt);
-                }
 
                 if (this.state === 'active' && this.hp <= this.maxHp * OFFICER.retreatHpPct) {
                     this.state = 'retreating';
@@ -1421,9 +1446,6 @@
                 if (this.dir.x < -0.05) ctx.scale(-1, 1);
                 drawOfficerFigure(ctx, this);
                 ctx.restore();
-                if (!this.isAllOut && this.maxArmour > 0) {
-                    drawArmourBar(ctx, sx, sy - 27, this.armour, this.maxArmour);
-                }
                 drawHpBar(ctx, sx, sy - 23, this.hp, this.maxHp, this.isAllOut ? '#ffb45c' : '#6cc4ff');
                 if (this.isAllOut) {
                     ctx.fillStyle = '#ff8a5c'; ctx.font = 'bold 8px monospace'; ctx.textAlign = 'center';
@@ -1481,19 +1503,6 @@
             ctx.fillStyle = 'rgba(0,0,0,0.5)'; ctx.fillRect(sx - barW/2, sy, barW, 3);
             const pct = Math.max(0, Math.min(1, hp / maxHp));
             ctx.fillStyle = color; ctx.fillRect(sx - barW/2, sy, barW * pct, 3);
-        }
-        function drawArmourBar(ctx, sx, sy, armour, maxArmour) {
-            if (maxArmour <= 0) return;
-            const barW = 22;
-            const pct = Math.max(0, Math.min(1, armour / maxArmour));
-            ctx.fillStyle = 'rgba(0,0,0,0.55)'; ctx.fillRect(sx - barW/2, sy, barW, 2.5);
-            const grad = ctx.createLinearGradient(sx - barW/2, 0, sx + barW/2, 0);
-            grad.addColorStop(0, '#5aaaff');
-            grad.addColorStop(1, '#a0d0ff');
-            ctx.fillStyle = grad;
-            ctx.fillRect(sx - barW/2, sy, barW * pct, 2.5);
-            ctx.fillStyle = 'rgba(255,255,255,0.4)';
-            ctx.fillRect(sx - barW/2, sy, barW * pct, 0.8);
         }
 
         // ========== ARREST OFFICER ==========
@@ -2271,6 +2280,186 @@
             ctx.beginPath(); ctx.moveTo(3, -9.5); ctx.lineTo(4, -11); ctx.stroke();
         }
 
+        // ========== BLOCKADE VEHICLE ==========
+        class BlockadeVehicle {
+            constructor(syndicateIndex) {
+                this.syndicateIndex = syndicateIndex;
+                this.x = 58 * TILE;
+                this.y = ROAD_Y_BOTTOM * TILE;
+                this.angle = 0;
+                this.targetAngle = 0;
+                this.lightPhase = Math.random() * 10;
+                this.alive = true;
+                this.parked = false;
+                this.targetSpot = null;
+                this.route = null;
+                this.routeIdx = 0;
+                this.speed = VEHICLE_SPEED;
+            }
+            setSpot(spot) {
+                if (!spot || this.targetSpot === spot) return;
+                this.targetSpot = spot;
+                this.parked = false;
+                clearBlockades();
+                this.recomputeRoute();
+            }
+            clearTarget() {
+                this.targetSpot = null;
+                this.route = null;
+                this.parked = false;
+                clearBlockades();
+            }
+            recomputeRoute() {
+                if (!this.targetSpot) { this.route = null; return; }
+                const start = nearestRoadNode(this.x, this.y);
+                if (!start) { this.route = null; return; }
+                const pa = findPath(start.id, this.targetSpot.a, null);
+                const pb = findPath(start.id, this.targetSpot.b, null);
+                let path = null;
+                if (pa && pb) path = (pa.length <= pb.length) ? pa.concat([this.targetSpot.b]) : pb.concat([this.targetSpot.a]);
+                else if (pa) path = pa.concat([this.targetSpot.b]);
+                else if (pb) path = pb.concat([this.targetSpot.a]);
+                else path = [start.id];
+                const pts = [];
+                for (const id of path) {
+                    const n = getNode(id);
+                    if (n) pts.push({ x: n.x * TILE, y: n.y * TILE });
+                }
+                pts.push({ x: this.targetSpot.x, y: this.targetSpot.y });
+                this.route = pts;
+                this.routeIdx = 1;
+            }
+            update(dt) {
+                if (!this.alive) return;
+                this.lightPhase += dt;
+
+                let da = this.targetAngle - this.angle;
+                while (da > Math.PI) da -= Math.PI * 2;
+                while (da < -Math.PI) da += Math.PI * 2;
+                this.angle += da * Math.min(1, dt * VEHICLE_TURN_RATE);
+
+                if (!this.targetSpot) { return; }
+
+                let tx = this.targetSpot.x, ty = this.targetSpot.y;
+                if (this.route && this.routeIdx < this.route.length) {
+                    const n = this.route[this.routeIdx];
+                    const dn = Math.hypot(n.x - this.x, n.y - this.y);
+                    if (dn < 8) this.routeIdx++;
+                    tx = n.x; ty = n.y;
+                }
+                const dx = tx - this.x, dy = ty - this.y;
+                const dist = Math.hypot(dx, dy);
+                if (dist < 3) {
+                    this.parked = true;
+                    this.targetAngle = (this.targetSpot.dir === 'h') ? Math.PI / 2 : 0;
+                    if (!game.blockedEdges.has(this.targetSpot.key)) {
+                        game.blockedEdges.clear();
+                        game.blockedEdges.add(this.targetSpot.key);
+                        game.blockadeVersion++;
+                        showToast('🚧 Road blocked — raiders are rerouting!');
+                        renderOptionsPanel(); updateSelectionUI();
+                    }
+                    return;
+                }
+                if (this.parked) {
+                    this.parked = false;
+                    clearBlockades();
+                }
+                const step = Math.min(dist, this.speed * TILE * dt);
+                const ux = dx / dist, uy = dy / dist;
+                const nx = this.x + ux * step, ny = this.y + uy * step;
+                if (isValidPosition(nx, ny) && isRoadAt(nx, ny)) { this.x = nx; this.y = ny; }
+                else if (isValidPosition(nx, this.y) && isRoadAt(nx, this.y)) { this.x = nx; }
+                else if (isValidPosition(this.x, ny) && isRoadAt(this.x, ny)) { this.y = ny; }
+                else { this.routeIdx++; }
+                this.targetAngle = Math.atan2(uy, ux);
+            }
+            draw(ctx) {
+                if (!this.alive) return;
+                const sx = this.x - game.camera.x, sy = this.y - game.camera.y;
+                if (sx < -140 || sy < -140 || sx > game.width + 140 || sy > game.height + 140) return;
+                ctx.save();
+                ctx.translate(sx, sy);
+                ctx.rotate(this.angle);
+                drawBlockadeVehicleFigure(ctx, this);
+                ctx.restore();
+            }
+        }
+        function drawBlockadeVehicleFigure(ctx, v) {
+            const L = ROAD_W * TILE * 0.86;
+            const W = TILE * 2.05;
+            const halfL = L / 2, halfW = W / 2;
+            const flash = Math.sin(v.lightPhase * 9) > 0;
+
+            // beacon glow
+            const glow = ctx.createRadialGradient(0, 0, 0, 0, 0, L * 0.62);
+            glow.addColorStop(0, `rgba(90,180,255,${flash ? 0.28 : 0.16})`);
+            glow.addColorStop(1, 'rgba(90,180,255,0)');
+            ctx.fillStyle = glow;
+            ctx.beginPath(); ctx.arc(0, 0, L * 0.62, 0, Math.PI * 2); ctx.fill();
+
+            // shadow
+            ctx.fillStyle = 'rgba(0,0,0,0.42)';
+            ctx.beginPath();
+            if (ctx.roundRect) ctx.roundRect(-halfL + 4, -halfW + 5, L, W, 5);
+            else ctx.rect(-halfL + 4, -halfW + 5, L, W);
+            ctx.fill();
+
+            // wheels
+            ctx.fillStyle = '#0b0b0e';
+            const wheelW = L * 0.15;
+            ctx.fillRect(-L * 0.36 - wheelW / 2, -halfW - 2.5, wheelW, 7);
+            ctx.fillRect(L * 0.24 - wheelW / 2, -halfW - 2.5, wheelW, 7);
+            ctx.fillRect(-L * 0.36 - wheelW / 2, halfW - 4.5, wheelW, 7);
+            ctx.fillRect(L * 0.24 - wheelW / 2, halfW - 4.5, wheelW, 7);
+
+            // body
+            const g = ctx.createLinearGradient(0, -halfW, 0, halfW);
+            g.addColorStop(0, '#2b4f74');
+            g.addColorStop(0.5, '#1d3a58');
+            g.addColorStop(1, '#10233a');
+            ctx.fillStyle = g;
+            ctx.beginPath();
+            if (ctx.roundRect) ctx.roundRect(-halfL, -halfW, L, W, 5);
+            else ctx.rect(-halfL, -halfW, L, W);
+            ctx.fill();
+            ctx.strokeStyle = '#08131f'; ctx.lineWidth = 1.5; ctx.stroke();
+
+            // roof / cabin
+            ctx.fillStyle = '#26496c';
+            ctx.beginPath();
+            if (ctx.roundRect) ctx.roundRect(-halfL * 0.60, -halfW * 0.80, L * 0.96, W * 0.80, 3);
+            else ctx.rect(-halfL * 0.60, -halfW * 0.80, L * 0.96, W * 0.80);
+            ctx.fill();
+            ctx.strokeStyle = '#14293f'; ctx.lineWidth = 1; ctx.stroke();
+
+            // windshield / windows
+            ctx.fillStyle = '#8ec8f0';
+            ctx.fillRect(L * 0.26, -halfW * 0.70, L * 0.085, W * 0.70);
+            ctx.fillStyle = '#6fa8d0';
+            ctx.fillRect(-halfL * 0.56, -halfW * 0.70, L * 0.065, W * 0.70);
+            ctx.fillRect(-L * 0.16, -halfW * 0.84, L * 0.34, 4.5);
+            ctx.fillRect(-L * 0.16, halfW * 0.84 - 4.5, L * 0.34, 4.5);
+
+            // hi-vis battenburg stripes
+            ctx.fillStyle = '#ffcc33';
+            ctx.fillRect(-halfL * 0.58, -halfW * 0.88, L * 0.94, 3);
+            ctx.fillRect(-halfL * 0.58, halfW * 0.88 - 3, L * 0.94, 3);
+
+            // light bar (perpendicular to travel, two halves flash alternately)
+            ctx.fillStyle = '#0d1218';
+            ctx.fillRect(-L * 0.035, -halfW * 0.86, L * 0.07, W * 0.86);
+            ctx.fillStyle = flash ? '#59c8ff' : '#17415f';
+            ctx.fillRect(-L * 0.035, -halfW * 0.86, L * 0.07, W * 0.43);
+            ctx.fillStyle = flash ? '#17415f' : '#59c8ff';
+            ctx.fillRect(-L * 0.035, -halfW * 0.43, L * 0.07, W * 0.43);
+
+            // spotlight nubs
+            ctx.fillStyle = '#ffd98a';
+            ctx.beginPath(); ctx.arc(L * 0.46, -halfW * 0.62, 2.4, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.arc(L * 0.46, halfW * 0.62, 2.4, 0, Math.PI * 2); ctx.fill();
+        }
+
         // ========== RAIDER ==========
         const RAIDER_TYPES = {
             standard:     { name: 'Raider',       hp: 38, damage: 5,  meleeRange: 1.2,  atkCooldown: 1.15, speed: 1.7, weight: 60, color: '#8a4a34', dark: '#4a2418' },
@@ -2281,17 +2470,16 @@
         let raiderIdSeq = 1;
 
         class Raider {
-            constructor(kind, routeKey, squadId, spawnX, spawnY) {
+            constructor(kind, spawnNodeId, squadId, spawnX, spawnY) {
                 this.id = raiderIdSeq++;
                 this.kind = kind;
-                this.routeKey = routeKey || 'west_direct';
+                this.spawnNodeId = spawnNodeId || 'N18';
                 this.squadId = squadId || 0;
                 const def = RAIDER_TYPES[kind];
                 this.def = def;
                 this.hp = def.hp; this.maxHp = def.hp;
                 this.x = spawnX; this.y = spawnY;
                 this.spawnX = spawnX; this.spawnY = spawnY;
-                this.pathIndex = 1;
                 this.dir = { x: 0, y: 1 };
                 this.animTimer = Math.random() * 10;
                 this.isMoving = true;
@@ -2316,11 +2504,13 @@
                 this.gasStunTimer = 0;
                 this.fleeExitX = 0;
                 this.fleeExitY = 0;
-            }
-            routeNodes() {
-                const squad = game.squads.get(this.squadId);
-                if (squad && squad.route) return squad.route;
-                return ['EL0', 'EL1', 'BASE'];
+
+                // dynamic pathing
+                this.route = null;
+                this.routeIdx = 0;
+                this.goalNodeId = null;
+                this.routeVersion = -1;
+                this.repathTimer = Math.random() * 0.6;
             }
             moveToward(tx, ty, dt, speed) {
                 return steerUnit(this, tx, ty, dt, speed);
@@ -2340,6 +2530,33 @@
                 const exit = nearestExitTo(this.x, this.y);
                 this.fleeExitX = exit.x;
                 this.fleeExitY = exit.y;
+            }
+            pickGoalNode() {
+                const ai = game.raidAI;
+                if (ai.objective === 'hunt') {
+                    const o = this.nearestActiveOfficer();
+                    if (o) { const n = nearestRoadNode(o.x, o.y); if (n) return n.id; }
+                    return 'B54';
+                }
+                if (ai.objective === 'buildings') {
+                    if (!this.targetBuilding || !this.targetBuilding.alive) this.targetBuilding = pickRaidBuilding(this);
+                    if (this.targetBuilding && this.targetBuilding.frontX !== undefined) {
+                        const n = nearestRoadNode(this.targetBuilding.frontX, this.targetBuilding.frontY);
+                        if (n) return n.id;
+                    }
+                    return 'B54';
+                }
+                return 'B54';
+            }
+            recomputeRoute() {
+                const start = nearestRoadNode(this.x, this.y);
+                if (!start) { this.route = null; return; }
+                const goal = this.goalNodeId || 'B54';
+                let path = findPath(start.id, goal, game.blockedEdges);
+                if (!path) path = findPath(start.id, goal, null);
+                this.route = path || [start.id];
+                this.routeIdx = 1;
+                this.routeVersion = game.blockadeVersion;
             }
             update(dt) {
                 if (!this.alive) return;
@@ -2547,14 +2764,35 @@
                     }
                 }
 
-                const ai = game.raidAI;
-                const objective = ai.objective || 'base';
-
-                if (objective === 'hunt') {
-                    const o = this.nearestActiveOfficer();
-                    if (o) { this.state = 'advancing'; this.moveToward(o.x, o.y, dt, spd); return; }
+                // ---- dynamic pathing along the road graph ----
+                this.repathTimer -= dt;
+                if (this.repathTimer <= 0 || this.routeVersion !== game.blockadeVersion || !this.route) {
+                    this.repathTimer = 1.4 + Math.random() * 1.2;
+                    const goal = this.pickGoalNode();
+                    if (goal !== this.goalNodeId || this.routeVersion !== game.blockadeVersion || !this.route) {
+                        this.goalNodeId = goal;
+                        this.recomputeRoute();
+                    }
                 }
-                if (objective === 'buildings') {
+
+                if (this.route && this.routeIdx < this.route.length) {
+                    const node = getNode(this.route[this.routeIdx]);
+                    if (node) {
+                        const tx = node.x * TILE, ty = node.y * TILE;
+                        const d = Math.hypot(tx - this.x, ty - this.y);
+                        if (d < 12) this.routeIdx++;
+                        else {
+                            this.state = 'advancing';
+                            this.moveToward(tx, ty, dt, spd);
+                            return;
+                        }
+                    } else this.routeIdx++;
+                }
+
+                // ---- reached the end of the path: execute the objective ----
+                const ai = game.raidAI;
+
+                if (ai.objective === 'buildings') {
                     if (!this.targetBuilding || !this.targetBuilding.alive) this.targetBuilding = pickRaidBuilding(this);
                     if (this.targetBuilding && this.targetBuilding.frontX !== undefined) {
                         const fx = this.targetBuilding.frontX, fy = this.targetBuilding.frontY;
@@ -2580,19 +2818,19 @@
                     }
                 }
 
-                const nodes = this.routeNodes();
-                if (this.pathIndex >= nodes.length) {
-                    game.baseHp = Math.max(0, game.baseHp - this.def.damage * 3);
-                    spawnHitEffect(this.x, this.y);
-                    this.alive = false;
-                    return;
+                if (ai.objective === 'hunt') {
+                    const o = this.nearestActiveOfficer();
+                    if (o) {
+                        this.state = 'advancing';
+                        this.moveToward(o.x, o.y, dt, spd);
+                        return;
+                    }
                 }
-                const node = getNode(nodes[this.pathIndex]);
-                if (!node) { this.pathIndex = nodes.length; return; }
-                const tx = node.x * TILE, ty = node.y * TILE;
-                const d = Math.hypot(tx - this.x, ty - this.y);
-                if (d < 8) this.pathIndex++;
-                else { this.state = 'advancing'; this.moveToward(tx, ty, dt, spd); }
+
+                // default — smash into the station
+                game.baseHp = Math.max(0, game.baseHp - this.def.damage * 3);
+                spawnHitEffect(this.x, this.y);
+                this.alive = false;
             }
             draw(ctx) {
                 if (!this.alive) return;
@@ -2712,18 +2950,12 @@
             }
         }
         function dealDamageToOfficer(o, dmg) {
-            const mult = o.shieldUp ? 0.5 : 1.15;
+            // Shield up = half damage; formations then ignore a flat percentage on top.
+            const shieldMult = o.shieldUp ? 0.5 : 1.15;
             const sy = game.syndicates[o.syndicateIndex];
-            const fmods = sy ? getFormationMods(sy.tactic) : { dmgTakenMult: 1 };
-            let finalDmg = dmg * mult * fmods.dmgTakenMult;
-
-            if (o.armour > 0) {
-                const absorbed = Math.min(o.armour, finalDmg);
-                o.armour -= absorbed;
-                finalDmg -= absorbed;
-            }
-            if (finalDmg > 0) o.hp -= finalDmg;
-            o.armourRegenDelay = OFFICER.armourRegenDelay;
+            const resist = sy ? formationResistance(sy.tactic) : 0;
+            const finalDmg = dmg * shieldMult * (1 - resist);
+            o.hp -= finalDmg;
 
             spawnHitEffect(o.x, o.y);
             if (o.hp <= 0 && o.alive) o.alive = false;
@@ -2807,7 +3039,7 @@
             }
             return 'rest';
         }
-        function assignFormation() { for (let idx = 0; idx < MAX_SYNDICATES; idx++) assignFormationForSyndicate(idx); }
+        function assignFormation() { for (let idx = 0; idx < OFFICER_SYNDICATES; idx++) assignFormationForSyndicate(idx); }
         function assignFormationForSyndicate(idx) {
             let alive;
             if (game.mergedMode) {
@@ -2942,7 +3174,7 @@
                 const startX = (SYNDICATE_START_X[idx] !== undefined) ? SYNDICATE_START_X[idx] : (BASE_TILE_X + idx * 8);
                 const startY = (SYNDICATE_START_Y[idx] !== undefined) ? SYNDICATE_START_Y[idx] : ROAD_Y_BOTTOM;
                 game.syndicates[idx] = {
-                    tactic: 'wedge', commandX: startX * TILE, commandY: startY * TILE,
+                    tactic: 'rest', commandX: startX * TILE, commandY: startY * TILE,
                     facingX: -1, facingY: 0, disperseTimer: 0, autoDisperse: false,
                 };
             }
@@ -2952,6 +3184,14 @@
             if (sy.disperseTimer === undefined) sy.disperseTimer = 0;
             if (sy.autoDisperse === undefined) sy.autoDisperse = false;
             return sy;
+        }
+        function ensureVehicleSyndicate() {
+            game.syndicates[VEHICLE_SYNDICATE] = {
+                tactic: 'blockade',
+                commandX: 58 * TILE,
+                commandY: ROAD_Y_BOTTOM * TILE,
+                facingX: -1, facingY: 0, disperseTimer: 0, autoDisperse: false,
+            };
         }
         function applyTactic(kind) {
             const sy = ensureSyndicateState(game.selectedSyndicate);
@@ -2967,6 +3207,7 @@
             renderOptionsPanel(); updateSelectionUI();
         }
         function commandMove(dx, dy) {
+            if (game.selectedSyndicate === VEHICLE_SYNDICATE) { commandMoveVehicle(dx, dy); return; }
             const sy = ensureSyndicateState(game.selectedSyndicate);
             const nx = sy.commandX + dx * TILE, ny = sy.commandY + dy * TILE;
             if (isValidOfficerPosition(nx, ny)) {
@@ -2977,10 +3218,38 @@
                 assignFormation(); updateSelectionUI();
             }
         }
+        function commandMoveVehicle(dx, dy) {
+            const v = game.vehicle;
+            if (!v) return;
+            const cx = v.targetSpot ? v.targetSpot.x : v.x;
+            const cy = v.targetSpot ? v.targetSpot.y : v.y;
+            let best = null, bestScore = Infinity;
+            for (const s of BLOCKADE_SPOTS) {
+                if (s === v.targetSpot) continue;
+                const ddx = s.x - cx, ddy = s.y - cy;
+                if (dx !== 0 && Math.sign(ddx) !== dx) continue;
+                if (dy !== 0 && Math.sign(ddy) !== dy) continue;
+                const along = dx !== 0 ? Math.abs(ddx) : Math.abs(ddy);
+                const across = dx !== 0 ? Math.abs(ddy) : Math.abs(ddx);
+                if (along < TILE * 2) continue;
+                const score = along + across * 3.5;
+                if (score < bestScore) { bestScore = score; best = s; }
+            }
+            if (best) setVehicleTarget(best);
+        }
         function canMove(dx, dy) {
+            if (game.selectedSyndicate === VEHICLE_SYNDICATE) return !!game.vehicle;
             const sy = game.syndicates[game.selectedSyndicate];
             if (!sy) return false;
             return isValidOfficerPosition(sy.commandX + dx * TILE, sy.commandY + dy * TILE);
+        }
+        function setVehicleTarget(spot) {
+            const v = game.vehicle;
+            if (!v || !spot) return;
+            v.setSpot(spot);
+            const sy = game.syndicates[VEHICLE_SYNDICATE];
+            if (sy) { sy.commandX = spot.x; sy.commandY = spot.y; }
+            renderOptionsPanel(); updateSelectionUI();
         }
 
         // ========== ALL UNITS ON ME ==========
@@ -2990,9 +3259,9 @@
                 game.mergedMode = false;
                 showToast('Units released — syndicates resume their own formations.');
             } else {
-                game.mergedIntoIndex = game.selectedSyndicate;
+                game.mergedIntoIndex = game.selectedSyndicate >= OFFICER_SYNDICATES ? 0 : game.selectedSyndicate;
                 game.mergedMode = true;
-                showToast('All units converging on Syndicate ' + (game.selectedSyndicate + 1) + '!');
+                showToast('All units converging on Syndicate ' + (game.mergedIntoIndex + 1) + '!');
             }
             assignFormation(); renderSyndicateTabs(); renderOptionsPanel(); updateSelectionUI(); updateMergedButton();
         }
@@ -3045,6 +3314,7 @@
         // ========== ARREST TEAM ==========
         function sendInArrestTeam() {
             const idx = game.selectedSyndicate;
+            if (idx >= OFFICER_SYNDICATES) { showToast('The blockade vehicle has no arrest team.'); return; }
             if (game.arrestCooldown[idx] > 0) {
                 showToast('Arrest team for S' + (idx + 1) + ' is regrouping.');
                 return;
@@ -3104,6 +3374,7 @@
             const sub = document.getElementById('send-arrest-sub');
             if (!btn) return;
             const idx = game.selectedSyndicate;
+            if (idx >= OFFICER_SYNDICATES) { btn.disabled = true; btn.classList.remove('ready'); sub.textContent = '—'; return; }
             const cd = game.arrestCooldown[idx] || 0;
             if (cd > 0) {
                 btn.disabled = true; btn.classList.remove('ready');
@@ -3117,6 +3388,7 @@
         // ========== TEAR GAS ==========
         function deployTearGas() {
             const idx = game.selectedSyndicate;
+            if (idx >= OFFICER_SYNDICATES) { showToast('The blockade vehicle carries no tear gas.'); return; }
             if (game.tearGasCooldown[idx] > 0) {
                 showToast('Tear gas ready in ' + Math.ceil(game.tearGasCooldown[idx]) + 's.');
                 return;
@@ -3141,6 +3413,7 @@
             const sub = document.getElementById('deploy-gas-sub');
             if (!btn) return;
             const idx = game.selectedSyndicate;
+            if (idx >= OFFICER_SYNDICATES) { btn.disabled = true; btn.classList.remove('ready'); sub.textContent = '—'; return; }
             const team = game.tearGasOfficers.filter(t => t.alive && t.syndicateIndex === idx);
             if (team.length === 0) {
                 btn.disabled = true; btn.classList.remove('ready');
@@ -3166,6 +3439,7 @@
         // ========== K9 ==========
         function deployK9() {
             const idx = game.selectedSyndicate;
+            if (idx >= OFFICER_SYNDICATES) { showToast('The blockade vehicle has no K9 unit.'); return; }
             const k9 = game.k9s.find(k => k.syndicateIndex === idx && k.alive);
             if (!k9) { showToast('No K9 available for this syndicate.'); return; }
             if (k9.deployTimer > 0) { showToast('K9 already deployed.'); return; }
@@ -3180,6 +3454,7 @@
             const sub = document.getElementById('deploy-k9-sub');
             if (!btn) return;
             const idx = game.selectedSyndicate;
+            if (idx >= OFFICER_SYNDICATES) { btn.disabled = true; btn.classList.remove('ready'); sub.textContent = '—'; return; }
             const k9 = game.k9s.find(k => k.syndicateIndex === idx);
             if (!k9 || !k9.alive) {
                 btn.disabled = true; btn.classList.remove('ready');
@@ -3201,6 +3476,7 @@
         // ========== MANUAL DISPERSE ==========
         function triggerDisperse() {
             const idx = game.selectedSyndicate;
+            if (idx >= OFFICER_SYNDICATES) { showToast('The blockade vehicle cannot disperse.'); return; }
             if (game.manualDisperseCooldown[idx] > 0) {
                 showToast('Disperse on cooldown — ' + Math.ceil(game.manualDisperseCooldown[idx]) + 's.');
                 return;
@@ -3220,6 +3496,7 @@
             const sub = document.getElementById('disperse-sub');
             if (!btn) return;
             const idx = game.selectedSyndicate;
+            if (idx >= OFFICER_SYNDICATES) { btn.disabled = true; btn.classList.remove('ready'); sub.textContent = '—'; return; }
             const sy = game.syndicates[idx];
             if (sy && sy.disperseTimer > 0) {
                 btn.disabled = true; btn.classList.remove('ready');
@@ -3238,7 +3515,7 @@
 
         // ========== SPAWN ==========
         function spawnSyndicate() {
-            if (game.syndicatesDeployed >= MAX_SYNDICATES) return;
+            if (game.syndicatesDeployed >= OFFICER_SYNDICATES) return;
             const idx = game.syndicatesDeployed;
             game.syndicatesDeployed++;
             const sy = ensureSyndicateState(idx);
@@ -3274,10 +3551,59 @@
             }
             assignFormation();
         }
+        function spawnVehicleSyndicate() {
+            ensureVehicleSyndicate();
+            const v = new BlockadeVehicle(VEHICLE_SYNDICATE);
+            v.x = 58 * TILE; v.y = ROAD_Y_BOTTOM * TILE;
+            game.vehicle = v;
+            const sy = game.syndicates[VEHICLE_SYNDICATE];
+            if (sy) { sy.commandX = v.x; sy.commandY = v.y; }
+        }
 
         // ========== WAVES ==========
         const OBJECTIVE_LABELS = { base: 'Reach the Station', buildings: 'Vandalize the City', hunt: 'Attack the Officers' };
         const OBJECTIVE_SHORT = { base: 'Station', buildings: 'Vandalism', hunt: 'Hunt Officers' };
+
+        // Every entrance/exit is a potential raider origin.
+        const WAVE_TACTICS = {
+            'single':        { exits: ['N18'], tone: 'Massed Assault' },
+            'pincer':        { exits: ['N18', 'N90'], tone: 'Pincer Movement' },
+            'multi_front':   { exits: ['N18', 'N90', 'S12'], tone: 'Multi-Pronged Attack' },
+            'flank':         { exits: ['N30', 'N78'], tone: 'Flanking Manoeuvre' },
+            'ambush':        { exits: ['N18', 'S96'], tone: 'Ambush & Probe' },
+            'mass_charge':   { exits: ['N30'], tone: 'Massing For Charge' },
+            'bottom_pincer': { exits: ['S12', 'S96'], tone: 'Rear Pincer' },
+            'surround':      { exits: ['N18', 'N90', 'S12', 'S96'], tone: 'Surround & Close' },
+            'four_ways':     { exits: ['N30', 'N78', 'S30', 'S78'], tone: 'Four-Pronged Assault' },
+            'top_and_bottom':{ exits: ['N18', 'N90', 'S30'], tone: 'Top And Bottom Push' },
+            'north_south':   { exits: ['N30', 'S30', 'S78'], tone: 'North-South Squeeze' },
+            'all_gates':     { exits: ['N18', 'N30', 'N78', 'N90', 'S12', 'S30', 'S78', 'S96'], tone: 'All Gates Open' },
+        };
+
+        function chooseWaveTactic() {
+            const wave = game.waveNumber;
+            if (wave <= 1) return 'single';
+            if (wave === 2) return 'pincer';
+            if (wave === 3) return 'bottom_pincer';
+            if (wave === 4) return 'flank';
+            const roll = Math.random();
+            if (roll < 0.08) return 'single';
+            if (roll < 0.16) return 'pincer';
+            if (roll < 0.24) return 'multi_front';
+            if (roll < 0.32) return 'flank';
+            if (roll < 0.40) return 'ambush';
+            if (roll < 0.48) return 'bottom_pincer';
+            if (roll < 0.57) return 'surround';
+            if (roll < 0.64) return 'mass_charge';
+            if (roll < 0.72) return 'four_ways';
+            if (roll < 0.80) return 'top_and_bottom';
+            if (roll < 0.89) return 'north_south';
+            return 'all_gates';
+        }
+        function pickPersonality() {
+            const r = Math.random();
+            return r < 0.5 ? 'aggressive' : (r < 0.8 ? 'cautious' : 'sneaky');
+        }
 
         function startWave() {
             game.waveState = 'active';
@@ -3295,25 +3621,25 @@
 
             const raiderCount = 16 + game.waveNumber * 5;
             const tactic = chooseWaveTactic();
-            const squadConfigs = WAVE_TACTICS[tactic] || WAVE_TACTICS['single'];
+            const cfg = WAVE_TACTICS[tactic] || WAVE_TACTICS['single'];
+            const exits = cfg.exits.slice();
 
             game.squads = new Map();
             game.nextSquadId = 1;
-            let assigned = 0;
             const createdSquads = [];
-            for (let i = 0; i < squadConfigs.length; i++) {
-                const cfg = squadConfigs[i];
-                const share = (i === squadConfigs.length - 1)
-                    ? (raiderCount - assigned)
-                    : Math.floor(raiderCount * cfg.share);
+            let assigned = 0;
+            const per = Math.floor(raiderCount / exits.length);
+
+            for (let i = 0; i < exits.length; i++) {
+                const share = (i === exits.length - 1) ? (raiderCount - assigned) : per;
                 if (share <= 0) continue;
-                const squad = new RaiderSquad(game.nextSquadId++, cfg.routeKey, cfg.personality, cfg.initialState);
+                const squad = new RaiderSquad(game.nextSquadId++, exits[i], pickPersonality());
                 game.squads.set(squad.id, squad);
                 createdSquads.push({ squad, count: share });
                 assigned += share;
                 const r = Math.random();
                 squad.role = (r < 0.55) ? 'main' : (r < 0.8) ? 'flank' : 'distraction';
-                squad.targetSyndicate = Math.floor(Math.random() * MAX_SYNDICATES);
+                squad.targetSyndicate = Math.floor(Math.random() * OFFICER_SYNDICATES);
             }
 
             game.waveSpawnQueue = [];
@@ -3351,7 +3677,7 @@
                 const entry = game.waveSpawnQueue.shift();
                 const squad = game.squads.get(entry.squadId);
                 if (squad) {
-                    const startNode = getNode(squad.route[0]);
+                    const startNode = getNode(squad.spawnNodeId);
                     if (startNode) {
                         let sx = startNode.x * TILE + (Math.random() - 0.5) * TILE * 2;
                         let sy = startNode.y * TILE + (Math.random() - 0.5) * TILE;
@@ -3360,12 +3686,13 @@
                         if (!isValidPosition(sx, sy)) {
                             sx = startNode.x * TILE;
                             sy = startNode.y * TILE;
-                            if (!isValidPosition(sx, sy)) {
-                                sx = BASE_TILE_X * TILE;
-                                sy = BASE_TILE_Y * TILE;
-                            }
                         }
-                        game.raiders.push(new Raider(entry.kind, squad.routeKey, squad.id, sx, sy));
+                        const r = new Raider(entry.kind, squad.spawnNodeId, squad.id, sx, sy);
+                        // Immediately push inwards so the player can watch them arrive.
+                        r.goalNodeId = r.pickGoalNode();
+                        r.recomputeRoute();
+                        r.routeIdx = Math.min(1, r.route.length - 1);
+                        game.raiders.push(r);
                     }
                 }
                 game.waveSpawnTimer = 0.10 + Math.random() * 0.18;
@@ -3400,8 +3727,10 @@
             squad.state = 'wall';
             squad.stateTimer = 3 + Math.random() * 2;
             const c = squad.centroid;
-            const obj = getNode('BASE');
-            const dx = obj.x * TILE - c.x, dy = obj.y * TILE - c.y;
+            const obj = getNode('B54');
+            const ox = obj ? obj.x * TILE : c.x;
+            const oy = obj ? obj.y * TILE : c.y;
+            const dx = ox - c.x, dy = oy - c.y;
             if (Math.abs(dx) > Math.abs(dy)) {
                 squad.wallPerpX = 0; squad.wallPerpY = 1;
                 squad.wallTravelX = Math.sign(dx) || 1; squad.wallTravelY = 0;
@@ -3466,43 +3795,23 @@
                 if (squad.stateTimer > 0) continue;
 
                 const avgHp = squad.avgHpPct();
+                const spawnNode = getNode(squad.spawnNodeId);
+                const spawnDist = spawnNode ? Math.hypot(spawnNode.x * TILE - c.x, spawnNode.y * TILE - c.y) : 999;
 
-                if (squad.role === 'distraction' && !inContact && officerDistTiles < 12 && officerDistTiles > 4) {
+                // Never idle near the entrance — always make visible progress into the map.
+                if (squad.role === 'distraction' && !inContact && spawnDist > TILE * 14 &&
+                    officerDistTiles < 12 && officerDistTiles > 4) {
                     squad.state = 'ambush';
                     squad.stateTimer = 4 + Math.random() * 3;
                     continue;
                 }
 
-                if (squad.role === 'flank' && officerDistTiles < 10 && officerDistTiles > 3) {
-                    const altRoutes = ['west_high', 'east_high', 'west_side', 'east_side',
-                                       'botwest_top', 'boteast_top'];
-                    let bestRoute = null, bestScore = Infinity;
-                    for (const rk of altRoutes) {
-                        const nodes = SQUAD_ROUTES[rk];
-                        if (!nodes) continue;
-                        const last = getNode(nodes[nodes.length - 2]) || getNode(nodes[0]);
-                        let officerNear = 0;
-                        for (const o of officers) {
-                            if (Math.hypot(o.x - last.x * TILE, o.y - last.y * TILE) < TILE * 10) officerNear++;
-                        }
-                        if (officerNear < bestScore) { bestScore = officerNear; bestRoute = rk; }
-                    }
-                    if (bestRoute && bestRoute !== squad.routeKey) {
-                        squad.routeKey = bestRoute;
-                        squad.route = SQUAD_ROUTES[bestRoute];
-                        for (const m of members) m.pathIndex = Math.min(m.pathIndex, 1);
-                    }
-                }
-
-                if (avgHp < 0.15 && squad.contactTimer <= 0 && squad.route.length >= 2) {
-                    const rn = getNode(squad.route[1]) || getNode(squad.route[0]);
-                    if (rn) {
-                        squad.state = 'withdraw';
-                        squad.rallyX = rn.x * TILE;
-                        squad.rallyY = rn.y * TILE;
-                        squad.stateTimer = 8 + Math.random() * 5;
-                        continue;
-                    }
+                if (avgHp < 0.15 && squad.contactTimer <= 0 && spawnNode) {
+                    squad.state = 'withdraw';
+                    squad.rallyX = spawnNode.x * TILE;
+                    squad.rallyY = spawnNode.y * TILE;
+                    squad.stateTimer = 8 + Math.random() * 5;
+                    continue;
                 }
                 const restBias = squad.personality === 'cautious' ? 0.55 : squad.personality === 'sneaky' ? 0.45 : 0.35;
                 if (avgHp < restBias && squad.contactTimer <= 0) {
@@ -3523,20 +3832,8 @@
         function announceWave(tactic) {
             const el = document.getElementById('wave-banner');
             const objLabel = OBJECTIVE_LABELS[game.raidAI.objective] || '';
-            const tacticLabels = {
-                'single': 'Massed Assault',
-                'pincer': 'Pincer Movement',
-                'multi_front': 'Multi-Pronged Attack',
-                'flank': 'Flanking Manoeuvre',
-                'ambush': 'Ambush & Probe',
-                'mass_charge': 'Massing For Charge',
-                'bottom_pincer': 'Rear Pincer',
-                'surround': 'Surround & Close',
-                'four_ways': 'Four-Pronged Assault',
-                'top_and_bottom': 'Top And Bottom Push',
-                'north_south': 'North-South Squeeze',
-            };
-            const tLabel = tacticLabels[tactic] || '';
+            const cfg = WAVE_TACTICS[tactic];
+            const tLabel = cfg ? cfg.tone : '';
             el.innerHTML = 'WAVE ' + game.waveNumber +
                 '<br><span style="font-size:15px;letter-spacing:1px;color:#ffcc33">' + objLabel + '</span>' +
                 (tLabel ? '<br><span style="font-size:11px;letter-spacing:1px;color:#ff8a5c">' + tLabel + '</span>' : '');
@@ -3578,7 +3875,25 @@
             clampCamera();
             game.mouse.curX = x; game.mouse.curY = y;
         }
-        function endInput() { game.mouse.down = false; }
+        function endInput() {
+            if (game.mouse.down && !game.mouse.moved) {
+                handleTap(game.mouse.startX, game.mouse.startY);
+            }
+            game.mouse.down = false;
+        }
+        function handleTap(clientX, clientY) {
+            if (game.gameOver) return;
+            if (game.selectedSyndicate !== VEHICLE_SYNDICATE) return;
+            const wx = clientX + game.camera.x;
+            const wy = clientY + game.camera.y;
+            let best = null, bestD = Infinity;
+            for (const s of BLOCKADE_SPOTS) {
+                const d = Math.hypot(s.x - wx, s.y - wy);
+                if (d < bestD) { bestD = d; best = s; }
+            }
+            if (best && bestD < TILE * 9) setVehicleTarget(best);
+            else showToast('Tap a green road marker to position the blockade.');
+        }
         function jumpCameraFromMinimap(x, y) {
             const rect = document.getElementById('minimap').getBoundingClientRect();
             const mx = (x - rect.left) / MINIMAP_SCALE, my = (y - rect.top) / MINIMAP_SCALE;
@@ -3600,6 +3915,15 @@
             if (game.mouse.down) return;
 
             const idx = game.selectedSyndicate;
+            const k = Math.min(1, dt * 3.2);
+
+            if (idx === VEHICLE_SYNDICATE && game.vehicle) {
+                game.camera.x += (game.vehicle.x - game.width / 2 - game.camera.x) * k;
+                game.camera.y += (game.vehicle.y - game.height / 2 - game.camera.y) * k;
+                clampCamera();
+                return;
+            }
+
             let cx = 0, cy = 0, n = 0;
 
             for (const o of game.officers) {
@@ -3632,7 +3956,6 @@
             if (n <= 0) return;
 
             cx /= n; cy /= n;
-            const k = Math.min(1, dt * 3.2);
             game.camera.x += (cx - game.width / 2 - game.camera.x) * k;
             game.camera.y += (cy - game.height / 2 - game.camera.y) * k;
             clampCamera();
@@ -3640,13 +3963,13 @@
 
         // ========== LEFT PANEL UI ==========
         const FORMATION_DEFS = [
-            { key: 'rest', label: '😌 Rest', desc: 'Shields down, spaced out, FASTEST movement but weakest attack. Auto-shifts to Staggered Wall if a raider approaches.' },
-            { key: 'wedge', label: '🔺 Wedge', desc: 'Spearhead. The healthiest officer forms the point and rows widen behind. Balanced all-rounder. Light armour (30).' },
-            { key: 'closedwall', label: '🧱 Closed Wall', desc: 'Fills the ENTIRE road width. Extra officers backfill behind. Slower but sturdier. Heavy armour (80).' },
-            { key: 'staggeredwall', label: '🧱 Staggered Wall', desc: 'Full-width line with alternate rows offset. SLOWEST but 55% extra damage. MAXIMUM armour (120).' },
-            { key: 'stackleft', label: '⬅️ Stack Left', desc: 'Press up against the left kerb, fast lateral movement. Light armour (25).' },
-            { key: 'stackright', label: '➡️ Stack Right', desc: 'Press up against the right kerb, fast lateral movement. Light armour (25).' },
-            { key: 'box', label: '📦 Box', desc: 'Three-sided box. ARREST TEAM + K9 STAY INSIDE. Heavy armour (90).' },
+            { key: 'rest', label: '😌 Rest', desc: 'Shields down, spaced out, FASTEST movement but weakest attack. No damage resistance. Auto-shifts to Staggered Wall if a raider approaches.' },
+            { key: 'wedge', label: '🔺 Wedge', desc: 'Spearhead. The healthiest officer forms the point and rows widen behind. Balanced all-rounder. 25% damage resistance.' },
+            { key: 'closedwall', label: '🧱 Closed Wall', desc: 'Fills the ENTIRE road width. Extra officers backfill behind. Slower but sturdier. 45% damage resistance.' },
+            { key: 'staggeredwall', label: '🧱 Staggered Wall', desc: 'Full-width line with alternate rows offset. SLOWEST but 55% extra damage. 60% damage resistance — the toughest formation.' },
+            { key: 'stackleft', label: '⬅️ Stack Left', desc: 'Press up against the left kerb, fast lateral movement. 20% damage resistance.' },
+            { key: 'stackright', label: '➡️ Stack Right', desc: 'Press up against the right kerb, fast lateral movement. 20% damage resistance.' },
+            { key: 'box', label: '📦 Box', desc: 'Three-sided box. ARREST TEAM + K9 STAY INSIDE. 50% damage resistance.' },
         ];
         const ORDER_DEFS = [
             { key: 'autoDisperse', label: '⚡ Auto-Disperse', desc: 'When ON, Disperse (10s, triple damage) triggers automatically the instant any officer in this syndicate is hit.' },
@@ -3655,6 +3978,12 @@
         function renderOptionsPanel() {
             const panel = document.getElementById('options-panel');
             panel.innerHTML = '';
+
+            if (game.selectedSyndicate === VEHICLE_SYNDICATE) {
+                renderVehiclePanel(panel);
+                return;
+            }
+
             const sy = ensureSyndicateState(game.selectedSyndicate);
 
             const flabel = document.createElement('div');
@@ -3705,10 +4034,66 @@
             }
         }
 
+        function renderVehiclePanel(panel) {
+            const v = game.vehicle;
+
+            const label = document.createElement('div');
+            label.className = 'section-label'; label.textContent = 'Road Blockade';
+            panel.appendChild(label);
+
+            const bMobile = document.createElement('button');
+            bMobile.textContent = '🚙 Mobile';
+            if (v && !v.parked && !v.targetSpot) bMobile.classList.add('active-choice');
+            bMobile.addEventListener('click', () => {
+                if (v) { v.clearTarget(); }
+                showToast('Vehicle released — roads open.');
+                renderOptionsPanel(); updateSelectionUI();
+            });
+            panel.appendChild(bMobile);
+
+            const bBlock = document.createElement('button');
+            bBlock.textContent = '🚧 Blockade';
+            if (v && (v.parked || v.targetSpot)) bBlock.classList.add('active-choice');
+            bBlock.addEventListener('click', () => {
+                if (!v) return;
+                if (!v.targetSpot) {
+                    // choose the closest blockade spot to the vehicle
+                    let best = null, bestD = Infinity;
+                    for (const s of BLOCKADE_SPOTS) {
+                        const d = Math.hypot(s.x - v.x, s.y - v.y);
+                        if (d < bestD) { bestD = d; best = s; }
+                    }
+                    if (best) setVehicleTarget(best);
+                } else {
+                    v.setSpot(v.targetSpot);
+                }
+                renderOptionsPanel(); updateSelectionUI();
+            });
+            panel.appendChild(bBlock);
+
+            const d = document.createElement('div');
+            d.className = 'info-line';
+            if (!v) d.textContent = 'Vehicle unavailable.';
+            else if (v.parked) d.textContent = '🚧 Road BLOCKED. Raiders must find another way around.';
+            else if (v.targetSpot) d.textContent = 'Driving to blockade point… ' + (v.route ? '' : '');
+            else d.textContent = 'Tap a green road marker (or use the d-pad) to choose a blockade point. Only the short span of a road can be blocked — never a junction.';
+            panel.appendChild(d);
+
+            const d2 = document.createElement('div');
+            d2.className = 'info-line'; d2.style.color = '#6e8fa8';
+            d2.textContent = 'The vehicle ignores all damage — it is the only one of its kind.';
+            panel.appendChild(d2);
+        }
+
         // ========== BOTTOM-RIGHT UI ==========
         function renderSyndicateTabs() {
             const tabs = document.querySelectorAll('#syndicate-tabs .syn-btn');
             tabs.forEach((b, idx) => {
+                if (idx === VEHICLE_SYNDICATE) {
+                    b.disabled = false;
+                    b.classList.toggle('active', game.selectedSyndicate === VEHICLE_SYNDICATE);
+                    return;
+                }
                 const exists = idx < game.syndicatesDeployed;
                 let count = 0;
                 if (exists) {
@@ -3729,7 +4114,7 @@
             document.querySelectorAll('#syndicate-tabs .syn-btn').forEach(b => {
                 b.addEventListener('click', () => {
                     const idx = parseInt(b.dataset.idx, 10);
-                    if (idx >= game.syndicatesDeployed) return;
+                    if (idx < OFFICER_SYNDICATES && idx >= game.syndicatesDeployed) return;
                     if (game.mergedMode) {
                         game.mergedMode = false;
                         showToast('Units released.');
@@ -3766,8 +4151,23 @@
         }
         function updateSelectionUI() {
             const idx = game.selectedSyndicate;
-            const sy = game.syndicates[idx];
             const el = document.getElementById('selection-info');
+
+            const topBar = document.getElementById('top-bar');
+            if (topBar) topBar.style.display = (idx === VEHICLE_SYNDICATE) ? 'none' : 'flex';
+
+            if (idx === VEHICLE_SYNDICATE) {
+                const v = game.vehicle;
+                if (!v) { el.textContent = ''; return; }
+                let txt = '🚙 Blockade Vehicle — ';
+                if (v.parked) txt += 'road blocked';
+                else if (v.targetSpot) txt += 'moving to position';
+                else txt += 'mobile';
+                el.textContent = txt;
+                return;
+            }
+
+            const sy = game.syndicates[idx];
             if (!sy) { el.textContent = ''; return; }
             let count, prefix;
             if (game.mergedMode) {
@@ -3779,7 +4179,8 @@
             }
             if (count === 0) { el.textContent = ''; return; }
             const tacticLabel = (FORMATION_DEFS.find(t => t.key === sy.tactic) || {}).label || sy.tactic;
-            let extra = '';
+            const resist = Math.round(formationResistance(sy.tactic) * 100);
+            let extra = ' · 🛡 ' + resist + '%';
             if (sy.autoDisperse) extra += ' · ⚡ Auto';
             if (sy.disperseTimer > 0) extra += ' · 🔥 ' + Math.ceil(sy.disperseTimer) + 's';
             el.textContent = prefix + ' — ' + count + ' officers — ' + tacticLabel + extra;
@@ -3800,7 +4201,7 @@
             document.getElementById('base-hp-num').textContent = Math.round(basePct * 100) + '%';
 
             const aliveOfficers = game.officers.filter(o => o.alive).length;
-            const cap = MAX_SYNDICATES * OFFICERS_PER_SYNDICATE;
+            const cap = OFFICER_SYNDICATES * OFFICERS_PER_SYNDICATE;
             const troopPct = aliveOfficers / cap;
             document.getElementById('troop-fill').style.width = Math.round(troopPct * 100) + '%';
             document.getElementById('troop-num').textContent = Math.round(troopPct * 100) + '%';
@@ -3830,6 +4231,7 @@
             game.tearGasOfficers.forEach(t => { if (t.alive) all.push(t); });
             game.raiders.forEach(r => { if (r.alive) all.push(r); });
             game.k9s.forEach(k => { if (k.alive) all.push(k); });
+            if (game.vehicle && game.vehicle.alive) all.push(game.vehicle);
             all.sort((a, b) => a.y - b.y);
             all.forEach(u => u.draw(ctx));
             drawProjectiles(ctx);
@@ -3837,16 +4239,51 @@
 
             game.tearGasOfficers.forEach(t => { if (t.alive) t.drawGasCloud(ctx); });
 
-            const sy = game.syndicates[game.selectedSyndicate];
-            if (sy) {
-                const sx = sy.commandX - game.camera.x, sy_ = sy.commandY - game.camera.y;
-                ctx.strokeStyle = game.mergedMode ? 'rgba(255,138,92,0.9)' : 'rgba(255, 204, 51, 0.8)';
-                ctx.lineWidth = 2;
-                ctx.setLineDash([4, 4]);
-                ctx.beginPath(); ctx.arc(sx, sy_, 12, 0, Math.PI * 2); ctx.stroke();
-                const fx = sy.facingX || 1, fy = sy.facingY || 0;
-                ctx.beginPath(); ctx.moveTo(sx, sy_); ctx.lineTo(sx + fx * 18, sy_ + fy * 18); ctx.stroke();
-                ctx.setLineDash([]);
+            // ---- blockade spot markers (only while the vehicle tab is selected) ----
+            if (game.selectedSyndicate === VEHICLE_SYNDICATE && game.vehicle) {
+                for (const s of BLOCKADE_SPOTS) {
+                    const sx = s.x - game.camera.x, sy = s.y - game.camera.y;
+                    if (sx < -20 || sy < -20 || sx > game.width + 20 || sy > game.height + 20) continue;
+                    const isTarget = game.vehicle.targetSpot === s;
+                    const isBlocked = game.blockedEdges.has(s.key);
+                    ctx.beginPath();
+                    ctx.arc(sx, sy, isTarget ? 7 : 4, 0, Math.PI * 2);
+                    ctx.fillStyle = isBlocked ? 'rgba(255,90,60,0.85)'
+                        : isTarget ? 'rgba(255,204,51,0.9)'
+                        : 'rgba(110,230,140,0.5)';
+                    ctx.fill();
+                    ctx.strokeStyle = 'rgba(0,0,0,0.55)'; ctx.lineWidth = 1; ctx.stroke();
+                    if (isBlocked) {
+                        ctx.strokeStyle = 'rgba(255,90,60,0.9)'; ctx.lineWidth = 2;
+                        ctx.beginPath(); ctx.arc(sx, sy, 10, 0, Math.PI * 2); ctx.stroke();
+                    }
+                }
+            }
+
+            // ---- command marker ----
+            if (game.selectedSyndicate === VEHICLE_SYNDICATE) {
+                const v = game.vehicle;
+                if (v) {
+                    const sx = (v.targetSpot ? v.targetSpot.x : v.x) - game.camera.x;
+                    const sy = (v.targetSpot ? v.targetSpot.y : v.y) - game.camera.y;
+                    ctx.strokeStyle = 'rgba(120,200,255,0.85)';
+                    ctx.lineWidth = 2;
+                    ctx.setLineDash([4, 4]);
+                    ctx.beginPath(); ctx.arc(sx, sy, 14, 0, Math.PI * 2); ctx.stroke();
+                    ctx.setLineDash([]);
+                }
+            } else {
+                const sy = game.syndicates[game.selectedSyndicate];
+                if (sy) {
+                    const sx = sy.commandX - game.camera.x, sy_ = sy.commandY - game.camera.y;
+                    ctx.strokeStyle = game.mergedMode ? 'rgba(255,138,92,0.9)' : 'rgba(255, 204, 51, 0.8)';
+                    ctx.lineWidth = 2;
+                    ctx.setLineDash([4, 4]);
+                    ctx.beginPath(); ctx.arc(sx, sy_, 12, 0, Math.PI * 2); ctx.stroke();
+                    const fx = sy.facingX || 1, fy = sy.facingY || 0;
+                    ctx.beginPath(); ctx.moveTo(sx, sy_); ctx.lineTo(sx + fx * 18, sy_ + fy * 18); ctx.stroke();
+                    ctx.setLineDash([]);
+                }
             }
         }
         function drawMinimap() {
@@ -3880,6 +4317,10 @@
                 ctx.fillStyle = k.deployTimer > 0 ? '#ff5a30' : '#c08040';
                 ctx.fillRect((k.x / TILE) * MINIMAP_SCALE, (k.y / TILE) * MINIMAP_SCALE, 2, 2);
             });
+            if (game.vehicle && game.vehicle.alive) {
+                ctx.fillStyle = game.vehicle.parked ? '#ff5a30' : '#5ac8ff';
+                ctx.fillRect((game.vehicle.x / TILE) * MINIMAP_SCALE - 1, (game.vehicle.y / TILE) * MINIMAP_SCALE - 1, 4, 4);
+            }
             game.raiders.forEach(r => {
                 if (!r.alive || r.state === 'fleeing') return;
                 let col = '#ff8a5c';
@@ -3915,9 +4356,10 @@
         function restartGame() {
             document.getElementById('gameover-overlay').classList.remove('show');
             initGameState();
-            ROAD_NODES = buildRoadNodes();
+            rebuildRoadNetwork();
             generateMap(); buildTerrainCanvas(); buildMinimapTerrainCanvas();
-            for (let i = 0; i < MAX_SYNDICATES; i++) spawnSyndicate();
+            for (let i = 0; i < OFFICER_SYNDICATES; i++) spawnSyndicate();
+            spawnVehicleSyndicate();
             game.selectedSyndicate = 0;
             renderSyndicateTabs(); renderOptionsPanel(); updateSelectionUI();
             updateMergedButton(); updateAllOutButton();
@@ -3961,6 +4403,7 @@
                 game.tearGasOfficers.forEach(t => t.update(dt));
                 game.k9s.forEach(k => k.update(dt));
                 game.raiders.forEach(r => r.update(dt));
+                if (game.vehicle) game.vehicle.update(dt);
                 updateProjectiles(dt);
 
                 if (game.raiders.length > 0 && game.raiders.some(r => !r.alive)) {
@@ -4002,9 +4445,9 @@
             game.mergedIntoIndex = 0;
             game.allOutCooldown = 0;
             game.allOutActive = 0;
-            game.arrestCooldown = [0, 0, 0];
-            game.tearGasCooldown = [0, 0, 0];
-            game.manualDisperseCooldown = [0, 0, 0];
+            game.arrestCooldown = [0, 0, 0, 0];
+            game.tearGasCooldown = [0, 0, 0, 0];
+            game.manualDisperseCooldown = [0, 0, 0, 0];
             game.squads = new Map();
             game.nextSquadId = 1;
             game.waveNumber = 1;
@@ -4023,6 +4466,9 @@
             game.raiderGroupMorale = 100;
             game.buildingsDestroyed = 0;
             game.raidAI = { objective: 'base' };
+            game.vehicle = null;
+            game.blockedEdges = new Set();
+            game.blockadeVersion = 0;
         }
         function resizeCanvas() {
             const c = game.canvas;
@@ -4042,8 +4488,30 @@
         function rebuildWorldForScreenSize() {
             resizeCanvas();
             computeMapSize(); computeMinimapSize();
-            ROAD_NODES = buildRoadNodes();
+            rebuildRoadNetwork();
             generateMap(); buildTerrainCanvas(); buildMinimapTerrainCanvas();
+
+            // re-anchor the vehicle to an equivalent blockade spot after a resize
+            if (game.vehicle) {
+                const oldKey = game.vehicle.targetSpot ? game.vehicle.targetSpot.key : null;
+                if (oldKey) {
+                    const s = BLOCKADE_SPOTS.find(sp => sp.key === oldKey);
+                    if (s) {
+                        game.vehicle.targetSpot = s;
+                        game.vehicle.x = s.x; game.vehicle.y = s.y;
+                        game.vehicle.parked = true;
+                        game.vehicle.angle = (s.dir === 'h') ? Math.PI / 2 : 0;
+                        game.vehicle.targetAngle = game.vehicle.angle;
+                        game.vehicle.route = null;
+                        game.blockedEdges.clear();
+                        game.blockedEdges.add(s.key);
+                    } else {
+                        game.vehicle.clearTarget();
+                    }
+                }
+                game.blockadeVersion++;
+            }
+
             game.syndicates.forEach(sy => {
                 if (!sy) return;
                 sy.commandX = Math.max(0, Math.min(MAP_W * TILE, sy.commandX));
@@ -4069,10 +4537,11 @@
             initGameState();
             resizeCanvas();
             computeMapSize(); computeMinimapSize();
-            ROAD_NODES = buildRoadNodes();
+            rebuildRoadNetwork();
             loadAssets(() => {
                 generateMap(); buildTerrainCanvas(); buildMinimapTerrainCanvas();
-                for (let i = 0; i < MAX_SYNDICATES; i++) spawnSyndicate();
+                for (let i = 0; i < OFFICER_SYNDICATES; i++) spawnSyndicate();
+                spawnVehicleSyndicate();
                 game.selectedSyndicate = 0;
                 renderSyndicateTabs(); renderOptionsPanel(); updateSelectionUI();
                 updateMergedButton(); updateAllOutButton();

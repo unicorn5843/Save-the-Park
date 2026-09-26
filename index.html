@@ -568,17 +568,26 @@
         const RAIDER_SEPARATION_STRENGTH = 55;
 
         // ===== FORMATIONS =====
+        // Formations change the *shape* of the line and how quickly it
+        // marches. Damage output is never scaled by formation — a syndicate
+        // always hits for the same amount regardless of what shape it's in.
+        // Damage RESISTANCE (incoming damage reduction) is still driven by
+        // formation, and is surfaced in the HUD via the 🛡 icon.
         const FORMATION_MODS = {
-            rest:          { speedMult: 1.35, dmgMult: 0.60 },
+            rest:          { speedMult: 1.35, dmgMult: 1.00 },
             wedge:         { speedMult: 1.05, dmgMult: 1.00 },
-            closedwall:    { speedMult: 0.90, dmgMult: 1.05 },
-            staggeredwall: { speedMult: 0.72, dmgMult: 1.55 },
+            closedwall:    { speedMult: 0.90, dmgMult: 1.00 },
+            staggeredwall: { speedMult: 0.72, dmgMult: 1.00 },
             stackleft:     { speedMult: 1.10, dmgMult: 1.00 },
             stackright:    { speedMult: 1.10, dmgMult: 1.00 },
-            box:           { speedMult: 0.98, dmgMult: 1.20 },
+            box:           { speedMult: 0.98, dmgMult: 1.00 },
         };
         function getFormationMods(tactic) {
-            return FORMATION_MODS[tactic] || { speedMult: 1, dmgMult: 1 };
+            const m = FORMATION_MODS[tactic];
+            return {
+                speedMult: m ? m.speedMult : 1,
+                dmgMult: m ? m.dmgMult : 1,
+            };
         }
 
         const FORMATION_RESISTANCE = {
@@ -829,6 +838,53 @@
             }
             return null;
         }
+
+        // Distance-weighted shortest path (Dijkstra). The road graph is tiny,
+        // so a linear-scan priority queue is plenty.
+        function findPathWeighted(startId, goalId, blockedSet) {
+            if (!startId || !goalId) return null;
+            if (startId === goalId) return [startId];
+
+            const dist = new Map([[startId, 0]]);
+            const prev = new Map();
+            const done = new Set();
+            const open = [startId];
+
+            while (open.length) {
+                let bi = 0;
+                for (let i = 1; i < open.length; i++) {
+                    if ((dist.get(open[i]) ?? Infinity) < (dist.get(open[bi]) ?? Infinity)) bi = i;
+                }
+                const cur = open.splice(bi, 1)[0];
+                if (done.has(cur)) continue;
+                done.add(cur);
+
+                if (cur === goalId) {
+                    const path = [];
+                    let p = goalId, guard = 0;
+                    while (p !== undefined && guard++ < 500) { path.unshift(p); p = prev.get(p); }
+                    return path;
+                }
+
+                const curNode = getNode(cur);
+                if (!curNode) continue;
+                for (const nb of (ROAD_ADJ.get(cur) || [])) {
+                    if (blockedSet && blockedSet.size && blockedSet.has(edgeKey(cur, nb.id))) continue;
+                    if (done.has(nb.id)) continue;
+                    const nbNode = getNode(nb.id);
+                    if (!nbNode) continue;
+                    const w = Math.hypot(nbNode.x - curNode.x, nbNode.y - curNode.y);
+                    const nd = (dist.get(cur) ?? 0) + w;
+                    if (nd < (dist.get(nb.id) ?? Infinity)) {
+                        dist.set(nb.id, nd);
+                        prev.set(nb.id, cur);
+                        open.push(nb.id);
+                    }
+                }
+            }
+            return null;
+        }
+
         function nearestRoadNode(x, y) {
             let best = null, bestD = Infinity;
             for (const n of ROAD_NODES) {
@@ -1667,7 +1723,7 @@
                 const start = nearestRoadNode(this.x, this.y);
                 const goal = nearestRoadNode(gx, gy);
                 if (!start || !goal) { this.route = null; return; }
-                const path = findPath(start.id, goal.id, null);
+                const path = findPathWeighted(start.id, goal.id, null);
                 if (!path) { this.route = null; return; }
                 const pts = [];
                 for (const id of path) {
@@ -2451,6 +2507,7 @@
                 this.targetSpot = null;
                 this.route = null;
                 this.routeIdx = 0;
+                this.stuckTimer = 0;
 
                 // Water cannon state
                 this.waterCannonOn = false;
@@ -2464,30 +2521,93 @@
                 if (!spot || this.targetSpot === spot) return;
                 this.targetSpot = spot;
                 this.parked = false;
+                this.stuckTimer = 0;
                 clearBlockades();
                 this.recomputeRoute();
             }
             clearTarget() {
                 this.targetSpot = null;
                 this.route = null;
+                this.routeIdx = 0;
                 this.parked = false;
+                this.stuckTimer = 0;
                 clearBlockades();
             }
             recomputeRoute() {
-                if (!this.targetSpot) { this.route = null; return; }
-                const start = nearestRoadNode(this.x, this.y);
-                if (!start) { this.route = null; return; }
-                const path = findPath(start.id, this.targetSpot.a || start.id, null)
-                    || findPath(start.id, this.targetSpot.b || start.id, null)
-                    || [start.id];
-                const pts = [];
-                for (const id of path) {
+                if (!this.targetSpot) { this.route = null; this.routeIdx = 0; return; }
+                const spot = this.targetSpot;
+
+                // Already basically on top of it — no route needed.
+                if (Math.hypot(spot.x - this.x, spot.y - this.y) < TILE * 2) {
+                    this.route = [{ x: spot.x, y: spot.y }];
+                    this.routeIdx = 0;
+                    return;
+                }
+
+                // The spot lives on a specific road edge. Its two endpoint
+                // nodes are the only sane graph goals.
+                const edge = ROAD_EDGES.find(e => e.key === spot.edgeKey);
+                const goalIds = edge ? [edge.a, edge.b] : [];
+                if (goalIds.length === 0) {
+                    this.route = [{ x: spot.x, y: spot.y }];
+                    this.routeIdx = 0;
+                    return;
+                }
+
+                // Candidate starts: the nearest node, plus both ends of the
+                // edge we're currently sitting on (the truck can be halfway
+                // down a long road).
+                const starts = [];
+                const near = nearestRoadNode(this.x, this.y);
+                if (near) starts.push(near.id);
+                const hereEdge = findEdgeForSpot({ x: this.x, y: this.y });
+                if (hereEdge) {
+                    const e = ROAD_EDGES.find(ed => ed.key === hereEdge);
+                    if (e) {
+                        if (!starts.includes(e.a)) starts.push(e.a);
+                        if (!starts.includes(e.b)) starts.push(e.b);
+                    }
+                }
+                if (starts.length === 0) starts.push('B54');
+
+                // Score every (start, goal) pair by real distance and take
+                // the cheapest — this is what stops the truck doubling back.
+                let bestPath = null, bestCost = Infinity;
+                for (const sId of starts) {
+                    const sNode = getNode(sId);
+                    if (!sNode) continue;
+                    const toStart = Math.hypot(sNode.x * TILE - this.x, sNode.y * TILE - this.y);
+                    for (const gId of goalIds) {
+                        const gNode = getNode(gId);
+                        if (!gNode) continue;
+                        const path = findPathWeighted(sId, gId, null);
+                        if (!path) continue;
+                        let len = 0;
+                        for (let i = 1; i < path.length; i++) {
+                            const a = getNode(path[i - 1]), b = getNode(path[i]);
+                            if (a && b) len += Math.hypot(b.x - a.x, b.y - a.y) * TILE;
+                        }
+                        const toSpot = Math.hypot(gNode.x * TILE - spot.x, gNode.y * TILE - spot.y);
+                        const cost = toStart + len + toSpot;
+                        if (cost < bestCost) { bestCost = cost; bestPath = path; }
+                    }
+                }
+
+                if (!bestPath) {
+                    this.route = [{ x: spot.x, y: spot.y }];
+                    this.routeIdx = 0;
+                    return;
+                }
+
+                const pts = [{ x: this.x, y: this.y }];
+                for (const id of bestPath) {
                     const n = getNode(id);
                     if (n) pts.push({ x: n.x * TILE, y: n.y * TILE });
                 }
-                pts.push({ x: this.targetSpot.x, y: this.targetSpot.y });
+                // Final leg runs down the target edge to the exact tapped spot.
+                pts.push({ x: spot.x, y: spot.y });
                 this.route = pts;
-                this.routeIdx = 1;
+                this.routeIdx = 0;
             }
             partUnits() {
                 const cosA = Math.cos(this.angle), sinA = Math.sin(this.angle);
@@ -2529,17 +2649,25 @@
                 this.angle += da * Math.min(1, dt * VEHICLE_TURN_RATE);
 
                 if (this.targetSpot) {
-                    let tx = this.targetSpot.x, ty = this.targetSpot.y;
-                    if (this.route && this.routeIdx < this.route.length) {
-                        const n = this.route[this.routeIdx];
-                        const dn = Math.hypot(n.x - this.x, n.y - this.y);
-                        if (dn < 8) this.routeIdx++;
-                        tx = n.x; ty = n.y;
+                    // Consume every waypoint we've already rolled over.
+                    if (this.route) {
+                        while (this.routeIdx < this.route.length &&
+                               Math.hypot(this.route[this.routeIdx].x - this.x,
+                                          this.route[this.routeIdx].y - this.y) < TILE * 0.7) {
+                            this.routeIdx++;
+                        }
                     }
+
+                    let tx = this.targetSpot.x, ty = this.targetSpot.y;
+                    const routeDone = !this.route || this.routeIdx >= this.route.length;
+                    if (!routeDone) { tx = this.route[this.routeIdx].x; ty = this.route[this.routeIdx].y; }
+
                     const dx = tx - this.x, dy = ty - this.y;
                     const dist = Math.hypot(dx, dy);
-                    if (dist < 3) {
+
+                    if (routeDone && dist < 3) {
                         this.parked = true;
+                        this.stuckTimer = 0;
                         this.targetAngle = (this.targetSpot.dir === 'h') ? Math.PI / 2 : 0;
                         if (this.targetSpot.edgeKey && !game.blockedEdges.has(this.targetSpot.edgeKey)) {
                             game.blockedEdges.clear();
@@ -2551,13 +2679,35 @@
                     } else {
                         if (this.parked) { this.parked = false; clearBlockades(); }
                         const step = Math.min(dist, VEHICLE_SPEED * TILE * dt);
-                        const ux = dx / dist, uy = dy / dist;
+                        const ux = dx / (dist || 1), uy = dy / (dist || 1);
                         const nx = this.x + ux * step, ny = this.y + uy * step;
-                        if (isValidPosition(nx, ny) && isRoadAt(nx, ny)) { this.x = nx; this.y = ny; }
-                        else if (isValidPosition(nx, this.y) && isRoadAt(nx, this.y)) { this.x = nx; }
-                        else if (isValidPosition(this.x, ny) && isRoadAt(this.x, ny)) { this.y = ny; }
-                        else { this.routeIdx++; }
-                        this.targetAngle = Math.atan2(uy, ux);
+
+                        let moved = false;
+                        if (isValidPosition(nx, ny) && isRoadAt(nx, ny)) { this.x = nx; this.y = ny; moved = true; }
+                        else if (isValidPosition(nx, this.y) && isRoadAt(nx, this.y)) { this.x = nx; moved = true; }
+                        else if (isValidPosition(this.x, ny) && isRoadAt(this.x, ny)) { this.y = ny; moved = true; }
+
+                        if (moved) {
+                            this.targetAngle = Math.atan2(uy, ux);
+                            const after = Math.hypot(tx - this.x, ty - this.y);
+                            if (dist - after < 0.05) this.stuckTimer += dt;
+                            else this.stuckTimer = Math.max(0, this.stuckTimer - dt * 2);
+                        } else {
+                            this.stuckTimer += dt;
+                        }
+
+                        // Shoved into a corner / wrong side of a junction:
+                        // drop the offending waypoint, and if there's nothing
+                        // left to drop, abandon the order instead of grinding.
+                        if (this.stuckTimer > 1.0) {
+                            this.stuckTimer = 0;
+                            if (this.route && this.routeIdx < this.route.length) {
+                                this.routeIdx++;
+                            } else {
+                                this.clearTarget();
+                                showToast('🚙 No clear route to that blockade point.');
+                            }
+                        }
                     }
                 }
 
@@ -3547,6 +3697,8 @@
                 game.syndicates[idx] = {
                     tactic: 'rest', commandX: startX * TILE, commandY: startY * TILE,
                     facingX: -1, facingY: 0, disperseTimer: 0, autoDisperse: false,
+                    path: null, pathIdx: 0, pathVersion: -1,
+                    goalX: startX * TILE, goalY: startY * TILE,
                 };
             }
             const sy = game.syndicates[idx];
@@ -3554,6 +3706,11 @@
             if (sy.facingY === undefined) sy.facingY = 0;
             if (sy.disperseTimer === undefined) sy.disperseTimer = 0;
             if (sy.autoDisperse === undefined) sy.autoDisperse = false;
+            if (sy.path === undefined) sy.path = null;
+            if (sy.pathIdx === undefined) sy.pathIdx = 0;
+            if (sy.pathVersion === undefined) sy.pathVersion = -1;
+            if (sy.goalX === undefined) sy.goalX = sy.commandX;
+            if (sy.goalY === undefined) sy.goalY = sy.commandY;
             return sy;
         }
         function ensureVehicleSyndicate() {
@@ -3580,10 +3737,13 @@
         function commandMove(dx, dy) {
             if (game.selectedSyndicate === VEHICLE_SYNDICATE) { commandMoveVehicle(dx, dy); return; }
             const sy = ensureSyndicateState(game.selectedSyndicate);
+            sy.path = null;
+            sy.pathIdx = 0;
             const nx = sy.commandX + dx * TILE, ny = sy.commandY + dy * TILE;
             if (isValidOfficerPosition(nx, ny)) {
                 const snapped = snapToTileCenter(nx, ny);
                 sy.commandX = snapped.x; sy.commandY = snapped.y;
+                sy.goalX = snapped.x; sy.goalY = snapped.y;
                 if (dx !== 0) { sy.facingX = dx; sy.facingY = 0; }
                 else if (dy !== 0) { sy.facingX = 0; sy.facingY = dy; }
                 assignFormation(); updateSelectionUI();
@@ -3622,6 +3782,90 @@
             const sy = game.syndicates[VEHICLE_SYNDICATE];
             if (sy) { sy.commandX = spot.x; sy.commandY = spot.y; }
             renderOptionsPanel(); updateSelectionUI();
+        }
+
+        // ===== SYNDICATE ROAD MARCH =====
+        const SYNDICATE_MARCH_SPEED = 3.0;   // tiles / second
+
+        // Build a road-graph route for a syndicate's command point, exactly
+        // like the blockade truck does — this is what stops officers piling
+        // into the side of a building when you tap across the map.
+        function pathSyndicateTo(sy, worldX, worldY) {
+            if (!sy) return;
+            const clamped = clampOfficerTarget(worldX, worldY);
+            const goalX = clamped.x, goalY = clamped.y;
+            sy.goalX = goalX; sy.goalY = goalY;
+
+            const pts = [{ x: sy.commandX, y: sy.commandY }];
+            const start = nearestRoadNode(sy.commandX, sy.commandY);
+            const goal = nearestRoadNode(goalX, goalY);
+            if (start && goal) {
+                const path = findPathWeighted(start.id, goal.id, game.blockedEdges)
+                          || findPathWeighted(start.id, goal.id, null);
+                if (path) {
+                    for (const id of path) {
+                        const n = getNode(id);
+                        if (n) pts.push({ x: n.x * TILE, y: n.y * TILE });
+                    }
+                }
+            }
+            pts.push({ x: goalX, y: goalY });
+
+            sy.path = pts;
+            sy.pathIdx = 0;
+            sy.pathVersion = game.blockadeVersion;
+        }
+
+        function commandSyndicateTo(worldX, worldY) {
+            if (game.selectedSyndicate === VEHICLE_SYNDICATE) return;
+            const sy = ensureSyndicateState(game.selectedSyndicate);
+            pathSyndicateTo(sy, worldX, worldY);
+            updateSelectionUI();
+        }
+
+        // Walks every syndicate's command point along its route. Formation
+        // slots are derived from the command point each frame, so the whole
+        // block tracks the route without any extra per-officer pathfinding.
+        function updateSyndicateMovement(dt) {
+            for (let i = 0; i < OFFICER_SYNDICATES; i++) {
+                const sy = game.syndicates[i];
+                if (!sy) continue;
+
+                // Re-route if the blockade vehicle just changed the graph.
+                if (sy.path && sy.pathVersion !== game.blockadeVersion) {
+                    pathSyndicateTo(sy, sy.goalX, sy.goalY);
+                }
+                if (!sy.path || sy.path.length === 0) continue;
+
+                let budget = SYNDICATE_MARCH_SPEED * TILE * dt;
+                let guard = 0;
+                while (budget > 0 && guard++ < 64) {
+                    if (sy.pathIdx >= sy.path.length) break;
+                    const wp = sy.path[sy.pathIdx];
+                    const dx = wp.x - sy.commandX, dy = wp.y - sy.commandY;
+                    const d = Math.hypot(dx, dy);
+                    if (d < 0.6) { sy.pathIdx++; continue; }
+
+                    const step = Math.min(d, budget);
+                    const ux = dx / d, uy = dy / d;
+                    sy.commandX += ux * step;
+                    sy.commandY += uy * step;
+                    budget -= step;
+
+                    // Face the cardinal direction of travel so the wall
+                    // leads with its shields.
+                    if (Math.abs(ux) > Math.abs(uy)) {
+                        const sx = Math.sign(ux) || 1;
+                        if (sy.facingX !== sx || sy.facingY !== 0) { sy.facingX = sx; sy.facingY = 0; }
+                    } else {
+                        const syDir = Math.sign(uy) || 1;
+                        if (sy.facingX !== 0 || sy.facingY !== syDir) { sy.facingX = 0; sy.facingY = syDir; }
+                    }
+
+                    if (step >= d - 0.001) sy.pathIdx++;
+                }
+                if (sy.pathIdx >= sy.path.length) sy.path = null;
+            }
         }
 
         // ========== ALL UNITS ON ME ==========
@@ -4254,16 +4498,21 @@
         }
         function handleTap(clientX, clientY) {
             if (game.gameOver) return;
-            if (game.selectedSyndicate !== VEHICLE_SYNDICATE) return;
             const wx = clientX + game.camera.x;
             const wy = clientY + game.camera.y;
-            let best = null, bestD = Infinity;
-            for (const s of BLOCKADE_SPOTS) {
-                const d = Math.hypot(s.x - wx, s.y - wy);
-                if (d < bestD) { bestD = d; best = s; }
+
+            if (game.selectedSyndicate === VEHICLE_SYNDICATE) {
+                let best = null, bestD = Infinity;
+                for (const s of BLOCKADE_SPOTS) {
+                    const d = Math.hypot(s.x - wx, s.y - wy);
+                    if (d < bestD) { bestD = d; best = s; }
+                }
+                if (best && bestD < TILE * 5) setVehicleTarget(best);
+                else showToast('Tap near a road to position the blockade.');
+                return;
             }
-            if (best && bestD < TILE * 5) setVehicleTarget(best);
-            else showToast('Tap near a road to position the blockade.');
+
+            commandSyndicateTo(wx, wy);
         }
         function jumpCameraFromMinimap(x, y) {
             const rect = document.getElementById('minimap').getBoundingClientRect();
@@ -4555,10 +4804,11 @@
             if (count === 0) { el.textContent = ''; return; }
             const tacticLabel = (FORMATION_DEFS.find(t => t.key === sy.tactic) || {}).label || sy.tactic;
             const resist = Math.round(formationResistance(sy.tactic) * 100);
-            let extra = ' · 🛡 ' + resist + '%';
-            if (sy.autoDisperse) extra += ' · ⚡ Auto';
-            if (sy.disperseTimer > 0) extra += ' · 🔥 ' + Math.ceil(sy.disperseTimer) + 's';
-            el.textContent = prefix + ' — ' + count + ' officers — ' + tacticLabel + extra;
+            const bits = [prefix + ' — ' + count + ' officers — ' + tacticLabel + ' · 🛡 ' + resist + '%'];
+            if (sy.autoDisperse) bits.push('⚡ Auto');
+            if (sy.disperseTimer > 0) bits.push('🔥 ' + Math.ceil(sy.disperseTimer) + 's');
+            if (sy.path) bits.push('➤ moving');
+            el.textContent = bits.join(' · ');
         }
 
         // ========== HUD ==========
@@ -4639,21 +4889,49 @@
             if (game.selectedSyndicate === VEHICLE_SYNDICATE) {
                 const v = game.vehicle;
                 if (v) {
+                    if (v.route && v.routeIdx < v.route.length) {
+                        ctx.strokeStyle = 'rgba(120,200,255,0.55)';
+                        ctx.lineWidth = 2; ctx.setLineDash([6, 6]);
+                        ctx.beginPath();
+                        ctx.moveTo(v.x - game.camera.x, v.y - game.camera.y);
+                        for (let i = v.routeIdx; i < v.route.length; i++) {
+                            ctx.lineTo(v.route[i].x - game.camera.x, v.route[i].y - game.camera.y);
+                        }
+                        ctx.stroke(); ctx.setLineDash([]);
+                    }
                     const sx = (v.targetSpot ? v.targetSpot.x : v.x) - game.camera.x;
                     const sy = (v.targetSpot ? v.targetSpot.y : v.y) - game.camera.y;
                     ctx.strokeStyle = 'rgba(120,200,255,0.85)';
-                    ctx.lineWidth = 2;
-                    ctx.setLineDash([4, 4]);
+                    ctx.lineWidth = 2; ctx.setLineDash([4, 4]);
                     ctx.beginPath(); ctx.arc(sx, sy, 14, 0, Math.PI * 2); ctx.stroke();
                     ctx.setLineDash([]);
                 }
             } else {
                 const sy = game.syndicates[game.selectedSyndicate];
                 if (sy) {
+                    if (sy.path && sy.pathIdx < sy.path.length) {
+                        ctx.strokeStyle = 'rgba(255, 204, 51, 0.45)';
+                        ctx.lineWidth = 2; ctx.setLineDash([6, 6]);
+                        ctx.beginPath();
+                        ctx.moveTo(sy.commandX - game.camera.x, sy.commandY - game.camera.y);
+                        for (let i = sy.pathIdx; i < sy.path.length; i++) {
+                            ctx.lineTo(sy.path[i].x - game.camera.x, sy.path[i].y - game.camera.y);
+                        }
+                        ctx.stroke(); ctx.setLineDash([]);
+
+                        const dest = sy.path[sy.path.length - 1];
+                        const dx2 = dest.x - game.camera.x, dy2 = dest.y - game.camera.y;
+                        ctx.strokeStyle = 'rgba(255, 204, 51, 0.9)';
+                        ctx.lineWidth = 2;
+                        ctx.beginPath(); ctx.arc(dx2, dy2, 9, 0, Math.PI * 2); ctx.stroke();
+                        ctx.beginPath();
+                        ctx.moveTo(dx2 - 13, dy2); ctx.lineTo(dx2 + 13, dy2);
+                        ctx.moveTo(dx2, dy2 - 13); ctx.lineTo(dx2, dy2 + 13);
+                        ctx.stroke();
+                    }
                     const sx = sy.commandX - game.camera.x, sy_ = sy.commandY - game.camera.y;
                     ctx.strokeStyle = game.mergedMode ? 'rgba(255,138,92,0.9)' : 'rgba(255, 204, 51, 0.8)';
-                    ctx.lineWidth = 2;
-                    ctx.setLineDash([4, 4]);
+                    ctx.lineWidth = 2; ctx.setLineDash([4, 4]);
                     ctx.beginPath(); ctx.arc(sx, sy_, 12, 0, Math.PI * 2); ctx.stroke();
                     const fx = sy.facingX || 1, fy = sy.facingY || 0;
                     ctx.beginPath(); ctx.moveTo(sx, sy_); ctx.lineTo(sx + fx * 18, sy_ + fy * 18); ctx.stroke();
@@ -4740,6 +5018,7 @@
             for (let i = 0; i < OFFICER_SYNDICATES; i++) spawnSyndicate();
             spawnVehicleSyndicate();
             game.selectedSyndicate = 0;
+            game.syndicates.forEach(sy => { if (sy) { sy.path = null; sy.pathIdx = 0; } });
             renderSyndicateTabs(); renderOptionsPanel(); updateSelectionUI();
             updateMergedButton(); updateAllOutButton();
             updateArrestButton(); updateTearGasButton(); updateK9Button(); updateDisperseButton();
@@ -4774,6 +5053,7 @@
                     }
                 });
 
+                updateSyndicateMovement(dt);
                 assignFormation();
                 game.attackerCounts.clear();
                 game.officers.forEach(o => o.update(dt));
@@ -4899,6 +5179,7 @@
                     sy.commandX = BASE_TILE_X * TILE; sy.commandY = BASE_TILE_Y * TILE;
                 }
             });
+            game.syndicates.forEach(sy => { if (sy) { sy.path = null; sy.pathIdx = 0; } });
             assignFormation();
             clampCamera();
         }

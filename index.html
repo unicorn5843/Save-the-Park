@@ -550,7 +550,6 @@
         const K9_MAX_LEASH_FROM_HANDLER = TILE * 12;
 
         // ----- BLOCKADE VEHICLE -----
-        // Faster than before, so deployment feels fluid across the road network.
         const VEHICLE_SPEED = 4.5;
         const VEHICLE_TURN_RATE = 6.0;
 
@@ -568,8 +567,6 @@
             return FORMATION_MODS[tactic] || { speedMult: 1, dmgMult: 1 };
         }
 
-        // Percentage of raider damage completely ignored, by formation.
-        // Ladder:  rest < stack < wedge < wall ≈ box < staggered wall
         const FORMATION_RESISTANCE = {
             rest:          0.00,
             stackleft:     0.15,
@@ -742,15 +739,11 @@
             return null;
         }
 
-        // Blockade spots are now placed on EVERY road tile (tile granularity),
-        // excluding junction interiors. That lets the player park the vehicle
-        // almost anywhere along a road, not just at edge midpoints.
         function buildBlockadeSpots() {
             BLOCKADE_SPOTS = [];
             const hw = ROAD_W / 2;
             const junctionMargin = hw + 1.5;
 
-            // Horizontal roads
             for (const roadY of [ROAD_Y_TOP, ROAD_Y_BOTTOM]) {
                 for (let tx = Math.ceil(ROAD_X_START); tx <= Math.floor(ROAD_X_END); tx++) {
                     if (!tileIsRoad(tx, roadY)) continue;
@@ -770,7 +763,6 @@
                 }
             }
 
-            // Vertical roads
             const verticalRoads = new Set([...ENTRY_XS, ...JUNCTION_XS, ...BOTTOM_ENTRY_XS]);
             for (const roadX of verticalRoads) {
                 for (let ty = 1; ty < MAP_H; ty++) {
@@ -797,7 +789,6 @@
             buildBlockadeSpots();
         }
 
-        // -------- pathfinding (BFS over the road graph) --------
         function findPath(startId, goalId, blockedSet) {
             if (!startId || !goalId) return null;
             if (startId === goalId) return [startId];
@@ -881,8 +872,6 @@
         }
 
         // ========== MAP GENERATION ==========
-        // Bottom junctions are now closed below the bottom road — the middle
-        // of the southern edge is walled off.
         function tileIsRoad(tx, ty) {
             const hw = ROAD_W / 2;
             if (ty >= ROAD_Y_TOP - hw && ty <= ROAD_Y_TOP + hw && tx >= ROAD_X_START && tx <= ROAD_X_END) return true;
@@ -2333,8 +2322,6 @@
         }
 
         // ========== BLOCKADE VEHICLE ==========
-        // An impossible object. It cannot be destroyed, it pushes units aside
-        // as it moves, and when parked it physically seals the road.
         class BlockadeVehicle {
             constructor(syndicateIndex) {
                 this.syndicateIndex = syndicateIndex;
@@ -2366,8 +2353,6 @@
                 if (!this.targetSpot) { this.route = null; return; }
                 const start = nearestRoadNode(this.x, this.y);
                 if (!start) { this.route = null; return; }
-                // The vehicle doesn't care about the raider blockade set — it
-                // can drive freely along any road.
                 const path = findPath(start.id, this.targetSpot.a || start.id, null)
                     || findPath(start.id, this.targetSpot.b || start.id, null)
                     || [start.id];
@@ -2382,6 +2367,8 @@
             }
             partUnits() {
                 // Push every unit out of the vehicle's oriented bounding box.
+                // Fleeing raiders are excluded — the vehicle must never be able
+                // to trap a runner against its hull.
                 const cosA = Math.cos(this.angle), sinA = Math.sin(this.angle);
                 const halfL = (ROAD_W + 1) * TILE * 0.94 / 2 + TILE * 0.25;
                 const halfW = TILE * 2.05 / 2 + TILE * 0.35;
@@ -2405,7 +2392,7 @@
                 };
 
                 for (const o of game.officers) if (o.alive && !o.isAllOut) push(o);
-                for (const r of game.raiders) if (r.alive && !r.beingArrested) push(r);
+                for (const r of game.raiders) if (r.alive && !r.beingArrested && r.state !== 'fleeing') push(r);
                 for (const a of game.arrestOfficers) if (a.alive) push(a);
                 for (const h of game.handlers) if (h.alive) push(h);
                 for (const t of game.tearGasOfficers) if (t.alive) push(t);
@@ -2453,7 +2440,6 @@
                     }
                 }
 
-                // The "impossible object" — everything else is shoved aside.
                 this.partUnits();
             }
             draw(ctx) {
@@ -2468,7 +2454,6 @@
             }
         }
         function drawBlockadeVehicleFigure(ctx, v) {
-            // Long axis spans the full road width when parked.
             const L = (ROAD_W + 1) * TILE * 0.94;
             const W = TILE * 2.05;
             const halfL = L / 2, halfW = W / 2;
@@ -2535,7 +2520,6 @@
         }
 
         // ========== RAIDER ==========
-        // Raider robustness has been raised across the board.
         const RAIDER_TYPES = {
             standard:     { name: 'Raider',       hp: 52, damage: 5,  meleeRange: 1.2,  atkCooldown: 1.15, speed: 1.7, weight: 60, color: '#8a4a34', dark: '#4a2418' },
             bruiser:      { name: 'Bruiser',      hp: 105, damage: 10, meleeRange: 1.35, atkCooldown: 1.35, speed: 1.4, weight: 25, color: '#7a2c2c', dark: '#3f1616' },
@@ -2663,8 +2647,16 @@
 
                 if (this.state === 'fleeing') {
                     const dist = this.moveToward(this.fleeExitX, this.fleeExitY, dt, this.def.speed * 2);
-                    if (dist < TILE * 1.5) this.alive = false;
-                    if (this.stuckTimer > 3) this.alive = false;
+                    if (dist < TILE * 1.5) { this.alive = false; return; }
+                    // A runner pinned by the blockade vehicle slips free instead
+                    // of dropping dead — the vehicle is a road block, not a weapon.
+                    if (this.stuckTimer > 2) {
+                        this.stuckTimer = 0;
+                        const a = Math.random() * Math.PI * 2;
+                        const nx = this.x + Math.cos(a) * TILE * 2;
+                        const ny = this.y + Math.sin(a) * TILE * 2;
+                        if (isValidPosition(nx, ny)) { this.x = nx; this.y = ny; }
+                    }
                     return;
                 }
 
@@ -2899,9 +2891,27 @@
                     }
                 }
 
-                game.baseHp = Math.max(0, game.baseHp - this.def.damage * 3);
-                spawnHitEffect(this.x, this.y);
-                this.alive = false;
+                // Siege the station. Damage accrues over time so a wave has to
+                // be held off, instead of the base evaporating on contact.
+                const stX = BASE_TILE_X * TILE, stY = BASE_TILE_Y * TILE;
+                const dB = Math.hypot(stX - this.x, stY - this.y);
+                if (dB > TILE * 4.0) {
+                    this.state = 'advancing';
+                    this.moveToward(stX, stY, dt, spd);
+                    return;
+                }
+                this.state = 'attacking_base';
+                this.isMoving = false;
+                const bdx = stX - this.x, bdy = stY - this.y;
+                const bdd = Math.hypot(bdx, bdy) || 1;
+                this.dir = { x: bdx / bdd, y: bdy / bdd };
+                if (this.atkTimer <= 0) {
+                    this.atkTimer = this.def.atkCooldown;
+                    this.attackFlash = 0.22;
+                    game.baseHp = Math.max(0, game.baseHp - this.def.damage * 0.5);
+                    spawnHitEffect(stX + (Math.random() - 0.5) * TILE * 3,
+                                   stY + (Math.random() - 0.5) * TILE * 3);
+                }
             }
             draw(ctx) {
                 if (!this.alive) return;
@@ -2932,6 +2942,9 @@
                 } else if (this.state === 'withdrawing') {
                     ctx.fillStyle = '#a0d0ff'; ctx.font = '8px monospace'; ctx.textAlign = 'center';
                     ctx.fillText('↩', sx, sy - 26);
+                } else if (this.state === 'attacking_base') {
+                    ctx.fillStyle = '#ff5a30'; ctx.font = 'bold 9px monospace'; ctx.textAlign = 'center';
+                    ctx.fillText('🏢', sx, sy - 26);
                 } else if (this.state === 'vandal') {
                     ctx.fillStyle = '#ff8a5c'; ctx.font = '8px monospace'; ctx.textAlign = 'center';
                     ctx.fillText('💥', sx, sy - 26);
@@ -2997,7 +3010,7 @@
             if (b.hp <= 0) {
                 b.hp = 0; b.alive = false;
                 game.buildingsDestroyed++;
-                game.baseHp = Math.max(0, game.baseHp - 15);
+                game.baseHp = Math.max(0, game.baseHp - 6);
                 buildTerrainCanvas();
                 showToast('🏚️ A building has been wrecked!');
             }
@@ -3021,7 +3034,6 @@
             }
         }
         function dealDamageToOfficer(o, dmg) {
-            // Shield up halves; formation resistance then ignores a flat percent.
             const shieldMult = o.shieldUp ? 0.5 : 1.15;
             const sy = game.syndicates[o.syndicateIndex];
             const resist = sy ? formationResistance(sy.tactic) : 0;
@@ -3159,35 +3171,54 @@
                 }
                 return;
             }
-            if (tactic === 'closedwall') {
-                const perRow = OFFICERS_PER_ROW, spacing = TILE;
+
+            // ── Continuous wall ──────────────────────────────────────────────
+            // One unbroken shoulder-to-shoulder line that keeps growing outward
+            // from the command point for as long as there is walkable ground.
+            // Only when the line runs into a building face (or the map edge)
+            // does the surplus step back into the next rank. No artificial
+            // per-row cap — a thin squad becomes a single long line.
+            if (tactic === 'closedwall' || tactic === 'staggeredwall') {
+                const spacing = TILE;
+                const rankDepth = ROW_SPACING * (tactic === 'closedwall' ? 1.05 : 0.8) * TILE;
+                const staggered = (tactic === 'staggeredwall');
                 let i = 0, row = 0;
-                while (i < alive.length) {
-                    const countThisRow = Math.min(perRow, alive.length - i);
-                    for (let c = 0; c < countThisRow; c++) {
-                        const off = (c - (countThisRow - 1) / 2) * spacing;
-                        const back = row * ROW_SPACING * 1.05 * TILE;
-                        setSlot(alive[i++], cx + px * off - fx * back, cy + py * off - fy * back);
+                const MAX_RANKS = 14;
+                while (i < alive.length && row < MAX_RANKS) {
+                    const stagger = (staggered && (row % 2 === 1)) ? spacing * 0.5 : 0;
+                    const back = row * rankDepth;
+                    const slots = [];
+                    const maxK = alive.length + 2;
+                    for (let k = 0; k <= maxK; k++) {
+                        const probes = (k === 0) ? [0] : [k, -k];
+                        let anyValid = false;
+                        for (const m of probes) {
+                            const off = m * spacing + stagger;
+                            const x = cx + px * off - fx * back;
+                            const y = cy + py * off - fy * back;
+                            if (isValidOfficerPosition(x, y)) {
+                                slots.push({ off, x, y });
+                                anyValid = true;
+                            }
+                        }
+                        if (!anyValid && k > 0) break;
                     }
+                    if (slots.length === 0) break;
+                    slots.sort((a, b) => a.off - b.off);
+                    for (const s of slots) {
+                        if (i >= alive.length) break;
+                        setSlot(alive[i++], s.x, s.y);
+                    }
+                    row++;
+                }
+                while (i < alive.length) {
+                    const back = row * rankDepth;
+                    setSlot(alive[i++], cx - fx * back, cy - fy * back);
                     row++;
                 }
                 return;
             }
-            if (tactic === 'staggeredwall') {
-                const perRow = OFFICERS_PER_ROW, spacing = TILE;
-                let i = 0, row = 0;
-                while (i < alive.length) {
-                    const countThisRow = Math.min(perRow, alive.length - i);
-                    const stagger = (row % 2 === 0) ? -spacing * 0.25 : spacing * 0.25;
-                    for (let c = 0; c < countThisRow; c++) {
-                        const off = (c - (countThisRow - 1) / 2) * spacing + stagger;
-                        const back = row * ROW_SPACING * 0.8 * TILE;
-                        setSlot(alive[i++], cx + px * off - fx * back, cy + py * off - fy * back);
-                    }
-                    row++;
-                }
-                return;
-            }
+
             if (tactic === 'stackleft' || tactic === 'stackright') {
                 const sign = tactic === 'stackleft' ? -1 : 1;
                 const files = 3;
@@ -3633,7 +3664,6 @@
         const OBJECTIVE_LABELS = { base: 'Reach the Station', buildings: 'Vandalize the City', hunt: 'Attack the Officers' };
         const OBJECTIVE_SHORT = { base: 'Station', buildings: 'Vandalism', hunt: 'Hunt Officers' };
 
-        // Available exits: 5 top gates + 2 bottom gates (bottom middle is closed).
         const WAVE_TACTICS = {
             'single':        { exits: ['N18'], tone: 'Massed Assault' },
             'pincer':        { exits: ['N18', 'N90'], tone: 'Pincer Movement' },
@@ -4283,8 +4313,6 @@
             all.sort((a, b) => a.y - b.y);
             all.forEach(u => u.draw(ctx));
 
-            // The blockade vehicle renders on top of everything else, so its
-            // "impossible object" nature is visually apparent.
             if (game.vehicle && game.vehicle.alive) game.vehicle.draw(ctx);
 
             drawProjectiles(ctx);

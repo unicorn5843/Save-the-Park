@@ -554,6 +554,19 @@
         const VEHICLE_TURN_RATE = 6.0;
         const VEHICLE_STEP_RANGE = TILE * 9;
 
+        // ----- WATER CANNON -----
+        const WATER_CANNON_RANGE = TILE * 9;
+        const WATER_CANNON_CONE_HALF = Math.PI / 4;
+        const WATER_CANNON_BURST_DURATION = 0.75;
+        const WATER_CANNON_IDLE_DURATION = 0.9;
+        const WATER_CANNON_TICK_INTERVAL = 0.1;
+        const WATER_CANNON_DAMAGE_PER_TICK = 18;
+        const WATER_CANNON_PUSH_PER_TICK = TILE * 0.32;
+
+        // ----- RAIDER CROWD SEPARATION -----
+        const RAIDER_SEPARATION_RADIUS = TILE * 0.85;
+        const RAIDER_SEPARATION_STRENGTH = 55;
+
         // ===== FORMATIONS =====
         const FORMATION_MODS = {
             rest:          { speedMult: 1.35, dmgMult: 0.60 },
@@ -1612,6 +1625,58 @@
                 this.carryTimer = 0;
                 this.lifeTimer = ARREST_TEAM_LIFETIME;
                 this.returningHome = false;
+                // Route following for the return trip / long chases.
+                this.route = null;
+                this.routeIdx = 0;
+                this.routeStuck = 0;
+            }
+
+            // Road-graph routing helper — used so arrest teams can navigate
+            // around buildings and the blockade vehicle instead of grinding
+            // against them forever. Falls back to direct steering once the
+            // goal is close by.
+            moveToGoal(gx, gy, dt, speed) {
+                const directDist = Math.hypot(gx - this.x, gy - this.y);
+                if (directDist < TILE * 3) {
+                    this.route = null;
+                    this.routeStuck = 0;
+                    return steerUnit(this, gx, gy, dt, speed);
+                }
+                if (!this.route || this.routeStuck > 1.2) {
+                    this.computeRoute(gx, gy);
+                    this.routeStuck = 0;
+                }
+                let tx = gx, ty = gy;
+                if (this.route && this.routeIdx < this.route.length) {
+                    const wp = this.route[this.routeIdx];
+                    if (Math.hypot(wp.x - this.x, wp.y - this.y) < TILE * 1.1) {
+                        this.routeIdx++;
+                    }
+                    if (this.routeIdx < this.route.length) {
+                        tx = this.route[this.routeIdx].x;
+                        ty = this.route[this.routeIdx].y;
+                    }
+                }
+                const before = Math.hypot(tx - this.x, ty - this.y);
+                steerUnit(this, tx, ty, dt, speed);
+                const after = Math.hypot(tx - this.x, ty - this.y);
+                if (before - after < 0.15) this.routeStuck += dt;
+                else this.routeStuck = Math.max(0, this.routeStuck - dt * 0.6);
+            }
+            computeRoute(gx, gy) {
+                const start = nearestRoadNode(this.x, this.y);
+                const goal = nearestRoadNode(gx, gy);
+                if (!start || !goal) { this.route = null; return; }
+                const path = findPath(start.id, goal.id, null);
+                if (!path) { this.route = null; return; }
+                const pts = [];
+                for (const id of path) {
+                    const n = getNode(id);
+                    if (n) pts.push({ x: n.x * TILE, y: n.y * TILE });
+                }
+                pts.push({ x: gx, y: gy });
+                this.route = pts;
+                this.routeIdx = 0;
             }
 
             update(dt) {
@@ -1623,13 +1688,15 @@
                     this.lifeTimer -= dt;
                     if (this.lifeTimer <= 0 && !this.carrying) {
                         this.returningHome = true;
+                        this.route = null;
+                        this.routeStuck = 0;
                     }
                 }
                 if (this.returningHome) {
                     const bx = BASE_TILE_X * TILE, by = BASE_TILE_Y * TILE;
                     const d = Math.hypot(bx - this.x, by - this.y);
                     if (d < TILE * 1.5) { this.alive = false; return; }
-                    steerUnit(this, bx, by, dt, ARREST_OFFICER_SPEED);
+                    this.moveToGoal(bx, by, dt, ARREST_OFFICER_SPEED);
                     return;
                 }
 
@@ -1649,12 +1716,13 @@
                         this.carrying = null;
                         this.state = 'returning';
                         this.carryTimer = 0;
+                        this.route = null;
+                        this.routeStuck = 0;
                         showToast('🔒 Raider arrested!');
                         return;
                     }
                     const bx = BASE_TILE_X * TILE, by = BASE_TILE_Y * TILE;
-                    const dx = bx - this.x, dy = by - this.y;
-                    const d = Math.hypot(dx, dy);
+                    const d = Math.hypot(bx - this.x, by - this.y);
                     if (d < TILE * 1.6) {
                         const r = this.carrying;
                         r.alive = false;
@@ -1666,10 +1734,12 @@
                         this.carrying = null;
                         this.state = 'returning';
                         this.carryTimer = 0;
+                        this.route = null;
+                        this.routeStuck = 0;
                         showToast('🔒 Raider arrested!');
                     } else {
                         this.isMoving = true;
-                        steerUnit(this, bx, by, dt, ARREST_OFFICER_SPEED);
+                        this.moveToGoal(bx, by, dt, ARREST_OFFICER_SPEED);
                         if (this.carrying) {
                             this.carrying.x = this.x + this.dir.x * -TILE * 0.6;
                             this.carrying.y = this.y + this.dir.y * -TILE * 0.6;
@@ -1720,6 +1790,8 @@
                     grabTarget.arrestOfficer = this;
                     this.state = 'grabbing';
                     this.carryTimer = 0;
+                    this.route = null;
+                    this.routeStuck = 0;
                     spawnHitEffect(grabTarget.x, grabTarget.y);
                     showToast('🚔 Arrest team has seized a raider!');
                     return;
@@ -1750,7 +1822,7 @@
                     targetY = anchorY + py * (this.slotOffset * TILE) - fy * back;
                 }
 
-                steerUnit(this, targetX, targetY, dt, ARREST_OFFICER_SPEED);
+                this.moveToGoal(targetX, targetY, dt, ARREST_OFFICER_SPEED);
                 if (this.state === 'returning' && !this.carrying) this.state = 'escort';
             }
 
@@ -2379,6 +2451,14 @@
                 this.targetSpot = null;
                 this.route = null;
                 this.routeIdx = 0;
+
+                // Water cannon state
+                this.waterCannonOn = false;
+                this.waterPhase = 'idle'; // 'idle' | 'burst'
+                this.waterTimer = 0;
+                this.waterTickTimer = 0;
+                this.waterAimAngle = 0;
+                this.waterAimTarget = 0;
             }
             setSpot(spot) {
                 if (!spot || this.targetSpot === spot) return;
@@ -2481,12 +2561,138 @@
                     }
                 }
 
+                this.updateWaterCannon(dt);
                 this.partUnits();
             }
+
+            updateWaterCannon(dt) {
+                if (!this.waterCannonOn) {
+                    this.waterPhase = 'idle';
+                    this.waterTimer = 0;
+                    this.waterTickTimer = 0;
+                    return;
+                }
+
+                // Auto-aim at the nearest valid raider within range.
+                let target = null, bestD = Infinity;
+                for (const r of game.raiders) {
+                    if (!r.alive || r.state === 'fleeing' || r.beingArrested) continue;
+                    const d = Math.hypot(r.x - this.x, r.y - this.y);
+                    if (d > WATER_CANNON_RANGE) continue;
+                    if (d < bestD) { bestD = d; target = r; }
+                }
+                if (target) {
+                    this.waterAimTarget = Math.atan2(target.y - this.y, target.x - this.x);
+                }
+                // Smoothly rotate toward the target
+                let da = this.waterAimTarget - this.waterAimAngle;
+                while (da > Math.PI) da -= Math.PI * 2;
+                while (da < -Math.PI) da += Math.PI * 2;
+                this.waterAimAngle += da * Math.min(1, dt * 8);
+
+                if (this.waterPhase === 'burst') {
+                    this.waterTimer -= dt;
+                    if (this.waterTimer <= 0) {
+                        this.waterPhase = 'idle';
+                        this.waterTimer = WATER_CANNON_IDLE_DURATION;
+                    } else {
+                        this.waterTickTimer -= dt;
+                        if (this.waterTickTimer <= 0) {
+                            this.waterTickTimer = WATER_CANNON_TICK_INTERVAL;
+                            this.applyWaterHit();
+                        }
+                    }
+                } else {
+                    this.waterTimer -= dt;
+                    if (this.waterTimer <= 0 && target) {
+                        this.waterPhase = 'burst';
+                        this.waterTimer = WATER_CANNON_BURST_DURATION;
+                        this.waterTickTimer = 0;
+                    }
+                }
+            }
+
+            applyWaterHit() {
+                const ang = this.waterAimAngle;
+                const half = WATER_CANNON_CONE_HALF;
+                for (const r of game.raiders) {
+                    if (!r.alive || r.state === 'fleeing' || r.beingArrested) continue;
+                    const dx = r.x - this.x, dy = r.y - this.y;
+                    const d = Math.hypot(dx, dy);
+                    if (d > WATER_CANNON_RANGE) continue;
+                    let diff = Math.atan2(dy, dx) - ang;
+                    while (diff > Math.PI) diff -= Math.PI * 2;
+                    while (diff < -Math.PI) diff += Math.PI * 2;
+                    if (Math.abs(diff) > half) continue;
+                    dealDamageToRaider(r, WATER_CANNON_DAMAGE_PER_TICK);
+                    // Shove the raider back along the jet direction.
+                    const pushX = Math.cos(ang) * WATER_CANNON_PUSH_PER_TICK;
+                    const pushY = Math.sin(ang) * WATER_CANNON_PUSH_PER_TICK;
+                    const nx = r.x + pushX, ny = r.y + pushY;
+                    if (isValidPosition(nx, ny)) { r.x = nx; r.y = ny; }
+                    else if (isValidPosition(nx, r.y)) r.x = nx;
+                    else if (isValidPosition(r.x, ny)) r.y = ny;
+                }
+            }
+
+            drawWaterJet(ctx) {
+                if (this.waterPhase !== 'burst') return;
+                const sx = this.x - game.camera.x;
+                const sy = this.y - game.camera.y;
+                if (sx < -200 || sy < -200 || sx > game.width + 200 || sy > game.height + 200) return;
+                const ang = this.waterAimAngle;
+                const half = WATER_CANNON_CONE_HALF;
+                const lifePct = Math.max(0, Math.min(1, this.waterTimer / WATER_CANNON_BURST_DURATION));
+                const ramp = Math.min(1, (1 - lifePct) * 6 + 0.3) * Math.min(1, lifePct * 4 + 0.3);
+                const alpha = 0.6 * ramp;
+                if (alpha < 0.02) return;
+
+                ctx.save();
+                const grad = ctx.createRadialGradient(sx, sy, 0, sx, sy, WATER_CANNON_RANGE);
+                grad.addColorStop(0, `rgba(160, 230, 255, ${alpha})`);
+                grad.addColorStop(0.55, `rgba(90, 180, 240, ${alpha * 0.7})`);
+                grad.addColorStop(1, `rgba(60, 140, 220, 0)`);
+                ctx.fillStyle = grad;
+                ctx.beginPath();
+                ctx.moveTo(sx, sy);
+                ctx.arc(sx, sy, WATER_CANNON_RANGE, ang - half, ang + half);
+                ctx.closePath();
+                ctx.fill();
+
+                // Bright core stream
+                ctx.strokeStyle = `rgba(220, 245, 255, ${alpha * 0.9})`;
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.moveTo(sx, sy);
+                ctx.lineTo(sx + Math.cos(ang) * WATER_CANNON_RANGE * 0.92,
+                           sy + Math.sin(ang) * WATER_CANNON_RANGE * 0.92);
+                ctx.stroke();
+
+                // Droplets flying outward
+                for (let i = 0; i < 12; i++) {
+                    const t = ((WATER_CANNON_BURST_DURATION - this.waterTimer) * 6 + i * 0.73) % 1;
+                    const dist = t * WATER_CANNON_RANGE * 0.95;
+                    const spread = (seedFromXY(this.syndicateIndex * 7.3 + i, t * 13.7) - 0.5) * 2 * half * 0.9;
+                    const a2 = ang + spread;
+                    const px = sx + Math.cos(a2) * dist;
+                    const py = sy + Math.sin(a2) * dist;
+                    ctx.fillStyle = `rgba(200, 240, 255, ${alpha * 0.7})`;
+                    ctx.beginPath();
+                    ctx.arc(px, py, 1.6 + (i % 3) * 0.7, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+                ctx.restore();
+            }
+
             draw(ctx) {
                 if (!this.alive) return;
                 const sx = this.x - game.camera.x, sy = this.y - game.camera.y;
-                if (sx < -160 || sy < -160 || sx > game.width + 160 || sy > game.height + 160) return;
+                if (sx < -200 || sy < -200 || sx > game.width + 200 || sy > game.height + 200) return;
+
+                // Water jet sits under the vehicle body so the truck reads
+                // as the source of the stream.
+                if (this.waterCannonOn) this.drawWaterJet(ctx);
+
                 ctx.save();
                 ctx.translate(sx, sy);
                 ctx.rotate(this.angle);
@@ -2610,6 +2816,12 @@
                 this.goalNodeId = null;
                 this.routeVersion = -1;
                 this.repathTimer = Math.random() * 0.6;
+
+                // Crowd-avoidance jitter to keep the mob from overlapping into
+                // a single blob. Seeded per-unit so the same raider picks the
+                // same bias frame-to-frame.
+                this.sepBiasX = (Math.random() - 0.5) * 0.6;
+                this.sepBiasY = (Math.random() - 0.5) * 0.6;
             }
             moveToward(tx, ty, dt, speed) {
                 return steerUnit(this, tx, ty, dt, speed);
@@ -2689,8 +2901,6 @@
                 if (this.state === 'fleeing') {
                     const dist = this.moveToward(this.fleeExitX, this.fleeExitY, dt, this.def.speed * 2);
                     if (dist < TILE * 1.5) { this.alive = false; return; }
-                    // A runner pinned by the blockade vehicle slips free instead
-                    // of dropping dead — the vehicle is a road block, not a weapon.
                     if (this.stuckTimer > 2) {
                         this.stuckTimer = 0;
                         const a = Math.random() * Math.PI * 2;
@@ -2831,8 +3041,6 @@
                     if (this.surgeTimer <= 0) { spd *= 1.8; if (this.surgeTimer < -0.6) this.surgeTimer = 2 + Math.random() * 3; }
                 }
 
-                // If we're already at the objective base, don't idle in squad
-                // formation — attack the station.
                 const atBaseTarget = (game.raidAI.objective === 'base' &&
                     Math.hypot(BASE_TILE_X * TILE - this.x, BASE_TILE_Y * TILE - this.y) < TILE * 5);
 
@@ -2937,8 +3145,6 @@
                     }
                 }
 
-                // Siege the station. Damage accrues over time so a wave has to
-                // be held off, instead of the base evaporating on contact.
                 const stX = BASE_TILE_X * TILE, stY = BASE_TILE_Y * TILE;
                 const dB = Math.hypot(stX - this.x, stY - this.y);
                 if (dB > TILE * 4.0) {
@@ -3037,6 +3243,42 @@
                 ctx.beginPath(); ctx.arc(H * 0.3, 0, 2, 0, Math.PI * 2); ctx.fill();
             }
             ctx.restore();
+        }
+
+        // Push overlapping raiders apart so a horde reads as a horde
+        // rather than a single blob of stacked sprites.
+        function applyRaiderSeparation(dt) {
+            const list = game.raiders;
+            const n = list.length;
+            if (n < 2) return;
+            const r2 = RAIDER_SEPARATION_RADIUS * RAIDER_SEPARATION_RADIUS;
+            const force = RAIDER_SEPARATION_STRENGTH * dt;
+            for (let i = 0; i < n; i++) {
+                const a = list[i];
+                if (!a.alive || a.beingArrested || a.state === 'fleeing') continue;
+                let fx = 0, fy = 0, count = 0;
+                for (let j = 0; j < n; j++) {
+                    if (i === j) continue;
+                    const b = list[j];
+                    if (!b.alive) continue;
+                    const dx = a.x - b.x, dy = a.y - b.y;
+                    const d2 = dx*dx + dy*dy;
+                    if (d2 > r2 || d2 < 0.0001) continue;
+                    const d = Math.sqrt(d2);
+                    const push = (RAIDER_SEPARATION_RADIUS - d) / RAIDER_SEPARATION_RADIUS;
+                    fx += (dx / d) * push;
+                    fy += (dy / d) * push;
+                    count++;
+                }
+                if (count === 0) continue;
+                // A touch of per-unit jitter keeps exact-overlap cases from
+                // producing symmetric zero-force pairs.
+                const nx = a.x + (fx + a.sepBiasX * 0.15) * force;
+                const ny = a.y + (fy + a.sepBiasY * 0.15) * force;
+                if (isValidPosition(nx, ny)) { a.x = nx; a.y = ny; }
+                else if (isValidPosition(nx, a.y)) a.x = nx;
+                else if (isValidPosition(a.x, ny)) a.y = ny;
+            }
         }
 
         // ========== BUILDING DAMAGE ==========
@@ -3191,9 +3433,6 @@
                 o.targetX = c.x; o.targetY = c.y;
             };
 
-            // Formation spacing is now uniform across all tactics — only the
-            // shape of the arrangement changes. The shield / HUD already
-            // communicates how much resistance a formation provides.
             if (tactic === 'rest') {
                 const perRow = 5; let i = 0, row = 0;
                 while (i < alive.length) {
@@ -3482,6 +3721,7 @@
                     a.state = 'escort';
                     a.lifeTimer = ARREST_TEAM_LIFETIME;
                     a.returningHome = false;
+                    a.route = null; a.routeIdx = 0; a.routeStuck = 0;
                 });
             } else {
                 game.arrestOfficers = game.arrestOfficers.filter(a => a.alive);
@@ -3750,7 +3990,9 @@
             else if (roll < 0.76) ai.objective = 'buildings';
             else ai.objective = 'hunt';
 
-            const raiderCount = 16 + game.waveNumber * 5;
+            // Bigger, hungrier waves — the mob has more bodies to throw at
+            // the line and can actually flank around a single strongpoint.
+            const raiderCount = 20 + game.waveNumber * 6;
             const tactic = chooseWaveTactic();
             const cfg = WAVE_TACTICS[tactic] || WAVE_TACTICS['single'];
             const exits = cfg.exits.slice();
@@ -4187,12 +4429,33 @@
             });
             panel.appendChild(bBlock);
 
+            const cLabel = document.createElement('div');
+            cLabel.className = 'section-label'; cLabel.textContent = 'Vehicle Weapon';
+            panel.appendChild(cLabel);
+
+            const bWater = document.createElement('button');
+            bWater.textContent = '💧 Water Cannon';
+            if (v && v.waterCannonOn) bWater.classList.add('active-choice');
+            bWater.addEventListener('click', () => {
+                if (!v) return;
+                v.waterCannonOn = !v.waterCannonOn;
+                if (v.waterCannonOn) showToast('💧 Water cannon engaged — firing at will.');
+                else showToast('💧 Water cannon off.');
+                renderOptionsPanel(); updateSelectionUI();
+            });
+            panel.appendChild(bWater);
+
             const d = document.createElement('div');
             d.className = 'info-line';
             if (!v) d.textContent = 'Vehicle unavailable.';
-            else if (v.parked) d.textContent = '🚧 Road BLOCKED. Raiders must find another way around.';
-            else if (v.targetSpot) d.textContent = 'Driving to blockade point…';
-            else d.textContent = 'Use the d-pad or tap the map to choose a blockade point.';
+            else {
+                const parts = [];
+                if (v.parked) parts.push('🚧 Road BLOCKED.');
+                else if (v.targetSpot) parts.push('Driving to blockade point…');
+                else parts.push('Mobile — tap the map or d-pad to place a blockade.');
+                if (v.waterCannonOn) parts.push('💧 Water cannon ON — auto-firing at nearby raiders.');
+                d.textContent = parts.join(' ');
+            }
             panel.appendChild(d);
         }
 
@@ -4274,6 +4537,7 @@
                 if (v.parked) txt += 'road blocked';
                 else if (v.targetSpot) txt += 'moving to position';
                 else txt += 'mobile';
+                if (v.waterCannonOn) txt += ' · 💧 cannon ON';
                 el.textContent = txt;
                 return;
             }
@@ -4431,6 +4695,10 @@
             if (game.vehicle && game.vehicle.alive) {
                 ctx.fillStyle = game.vehicle.parked ? '#ff5a30' : '#5ac8ff';
                 ctx.fillRect((game.vehicle.x / TILE) * MINIMAP_SCALE - 1, (game.vehicle.y / TILE) * MINIMAP_SCALE - 1, 4, 4);
+                if (game.vehicle.waterCannonOn && game.vehicle.waterPhase === 'burst') {
+                    ctx.fillStyle = '#a0e8ff';
+                    ctx.fillRect((game.vehicle.x / TILE) * MINIMAP_SCALE - 2, (game.vehicle.y / TILE) * MINIMAP_SCALE - 2, 6, 6);
+                }
             }
             game.raiders.forEach(r => {
                 if (!r.alive || r.state === 'fleeing') return;
@@ -4514,6 +4782,7 @@
                 game.tearGasOfficers.forEach(t => t.update(dt));
                 game.k9s.forEach(k => k.update(dt));
                 game.raiders.forEach(r => r.update(dt));
+                applyRaiderSeparation(dt);
                 if (game.vehicle) game.vehicle.update(dt);
                 updateProjectiles(dt);
 

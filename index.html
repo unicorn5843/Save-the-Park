@@ -492,7 +492,6 @@
         const ROAD_Y_BOTTOM = 38;
         const ROAD_X_START = 8;
         const ROAD_X_END = 98;
-        // Junctions now run the FULL height of the map — every one is an entrance/exit.
         const JUNCTION_XS = [30, 54, 78];
         const ENTRY_XS = [18, 90];
         const BOTTOM_ENTRY_XS = [12, 96];
@@ -504,8 +503,8 @@
         const ROW_SPACING = 1.2;
         const COL_SPACING = 1.1;
         const OFFICERS_PER_SYNDICATE = 15;
-        const OFFICER_SYNDICATES = 3;   // S1 / S2 / S3 are officer syndicates
-        const MAX_SYNDICATES = 4;       // + the blockade vehicle syndicate
+        const OFFICER_SYNDICATES = 3;
+        const MAX_SYNDICATES = 4;
         const VEHICLE_SYNDICATE = 3;
         const BASE_MAX_HP = 900;
 
@@ -525,7 +524,6 @@
         const ARREST_MAX_RANGE_FROM_SYNDICATE = TILE * 10;
         const ARREST_TEAM_LIFETIME = 45;
 
-        // ----- Tear Gas team -----
         const TEAR_GAS_TEAM_SIZE = 2;
         const TEAR_GAS_COOLDOWN = 45;
         const TEAR_GAS_SPRAY_DURATION = 4.0;
@@ -552,12 +550,11 @@
         const K9_MAX_LEASH_FROM_HANDLER = TILE * 12;
 
         // ----- BLOCKADE VEHICLE -----
-        const VEHICLE_SPEED = 2.6;              // tiles per second — deliberately slow
-        const VEHICLE_TURN_RATE = 5.0;
+        // Faster than before, so deployment feels fluid across the road network.
+        const VEHICLE_SPEED = 4.5;
+        const VEHICLE_TURN_RATE = 6.0;
 
         // ===== FORMATIONS =====
-        // Movement / offence modifiers stay as they are, but the *defensive*
-        // side is now a flat percentage of incoming damage that is ignored.
         const FORMATION_MODS = {
             rest:          { speedMult: 1.35, dmgMult: 0.60 },
             wedge:         { speedMult: 1.05, dmgMult: 1.00 },
@@ -572,14 +569,15 @@
         }
 
         // Percentage of raider damage completely ignored, by formation.
+        // Ladder:  rest < stack < wedge < wall ≈ box < staggered wall
         const FORMATION_RESISTANCE = {
             rest:          0.00,
-            stackleft:     0.20,
-            stackright:    0.20,
-            wedge:         0.25,
-            closedwall:    0.45,
+            stackleft:     0.15,
+            stackright:    0.15,
+            wedge:         0.30,
+            closedwall:    0.50,
             box:           0.50,
-            staggeredwall: 0.60,   // most resistant
+            staggeredwall: 0.65,
         };
         function formationResistance(tactic) {
             const r = FORMATION_RESISTANCE[tactic];
@@ -645,7 +643,6 @@
             raiderGroupMorale: 100,
             buildingsDestroyed: 0,
 
-            // ---- road blockade ----
             vehicle: null,
             blockedEdges: new Set(),
             blockadeVersion: 0,
@@ -659,7 +656,7 @@
         let ROAD_ADJ = new Map();
         let BLOCKADE_SPOTS = [];
 
-        const EXIT_NODE_IDS = ['N18', 'N30', 'N78', 'N90', 'S12', 'S30', 'S78', 'S96'];
+        const EXIT_NODE_IDS = ['N18', 'N30', 'N54', 'N78', 'N90', 'S12', 'S96'];
 
         function buildRoadNodes() {
             const nodes = [];
@@ -668,11 +665,10 @@
             [12, 18, 30, 54, 78, 90, 96].forEach(x => push('B' + x, x, ROAD_Y_BOTTOM));
             push('N18', 18, 1.5);
             push('N30', 30, 1.5);
+            push('N54', 54, 1.5);
             push('N78', 78, 1.5);
             push('N90', 90, 1.5);
             push('S12', 12, MAP_H - 1.5);
-            push('S30', 30, MAP_H - 1.5);
-            push('S78', 78, MAP_H - 1.5);
             push('S96', 96, MAP_H - 1.5);
             return nodes;
         }
@@ -728,16 +724,71 @@
             }
         }
 
-        function buildBlockadeSpots() {
-            BLOCKADE_SPOTS = [];
+        function findEdgeForSpot(spot) {
+            const sx = spot.x / TILE, sy = spot.y / TILE;
             for (const e of ROAD_EDGES) {
                 const a = getNode(e.a), b = getNode(e.b);
                 if (!a || !b) continue;
-                BLOCKADE_SPOTS.push({
-                    key: e.key, a: e.a, b: e.b, dir: e.dir,
-                    x: ((a.x + b.x) / 2) * TILE,
-                    y: ((a.y + b.y) / 2) * TILE,
-                });
+                if (e.dir === 'h') {
+                    if (Math.abs(a.y - sy) > 0.6) continue;
+                    const lo = Math.min(a.x, b.x), hi = Math.max(a.x, b.x);
+                    if (sx >= lo - 0.6 && sx <= hi + 0.6) return e.key;
+                } else {
+                    if (Math.abs(a.x - sx) > 0.6) continue;
+                    const lo = Math.min(a.y, b.y), hi = Math.max(a.y, b.y);
+                    if (sy >= lo - 0.6 && sy <= hi + 0.6) return e.key;
+                }
+            }
+            return null;
+        }
+
+        // Blockade spots are now placed on EVERY road tile (tile granularity),
+        // excluding junction interiors. That lets the player park the vehicle
+        // almost anywhere along a road, not just at edge midpoints.
+        function buildBlockadeSpots() {
+            BLOCKADE_SPOTS = [];
+            const hw = ROAD_W / 2;
+            const junctionMargin = hw + 1.5;
+
+            // Horizontal roads
+            for (const roadY of [ROAD_Y_TOP, ROAD_Y_BOTTOM]) {
+                for (let tx = Math.ceil(ROAD_X_START); tx <= Math.floor(ROAD_X_END); tx++) {
+                    if (!tileIsRoad(tx, roadY)) continue;
+                    let nearJunction = false;
+                    for (const jx of JUNCTION_XS) {
+                        if (Math.abs(tx - jx) < junctionMargin) { nearJunction = true; break; }
+                    }
+                    if (nearJunction) continue;
+                    const spot = {
+                        key: 'H' + roadY + '_' + tx,
+                        dir: 'h',
+                        x: tx * TILE + TILE / 2,
+                        y: roadY * TILE + TILE / 2,
+                    };
+                    spot.edgeKey = findEdgeForSpot(spot);
+                    if (spot.edgeKey) BLOCKADE_SPOTS.push(spot);
+                }
+            }
+
+            // Vertical roads
+            const verticalRoads = new Set([...ENTRY_XS, ...JUNCTION_XS, ...BOTTOM_ENTRY_XS]);
+            for (const roadX of verticalRoads) {
+                for (let ty = 1; ty < MAP_H; ty++) {
+                    if (!tileIsRoad(roadX, ty)) continue;
+                    let onHorizontal = false;
+                    for (const roadY of [ROAD_Y_TOP, ROAD_Y_BOTTOM]) {
+                        if (Math.abs(ty - roadY) < junctionMargin) { onHorizontal = true; break; }
+                    }
+                    if (onHorizontal) continue;
+                    const spot = {
+                        key: 'V' + roadX + '_' + ty,
+                        dir: 'v',
+                        x: roadX * TILE + TILE / 2,
+                        y: ty * TILE + TILE / 2,
+                    };
+                    spot.edgeKey = findEdgeForSpot(spot);
+                    if (spot.edgeKey) BLOCKADE_SPOTS.push(spot);
+                }
             }
         }
 
@@ -830,13 +881,14 @@
         }
 
         // ========== MAP GENERATION ==========
+        // Bottom junctions are now closed below the bottom road — the middle
+        // of the southern edge is walled off.
         function tileIsRoad(tx, ty) {
             const hw = ROAD_W / 2;
             if (ty >= ROAD_Y_TOP - hw && ty <= ROAD_Y_TOP + hw && tx >= ROAD_X_START && tx <= ROAD_X_END) return true;
             if (ty >= ROAD_Y_BOTTOM - hw && ty <= ROAD_Y_BOTTOM + hw && tx >= ROAD_X_START && tx <= ROAD_X_END) return true;
-            // full-height vertical roads at the junctions — these are now map exits too
             for (let jx of JUNCTION_XS) {
-                if (tx >= jx - hw && tx <= jx + hw && ty >= 0 && ty <= MAP_H) return true;
+                if (tx >= jx - hw && tx <= jx + hw && ty >= 0 && ty <= ROAD_Y_BOTTOM + hw) return true;
             }
             for (let ex of ENTRY_XS) {
                 if (tx >= ex - hw && tx <= ex + hw && ty >= 0 && ty <= ROAD_Y_BOTTOM + hw) return true;
@@ -853,7 +905,7 @@
             if (ty >= ROAD_Y_TOP - hw && ty <= ROAD_Y_TOP + hw && tx >= ROAD_X_START - pad && tx <= ROAD_X_END + pad) return true;
             if (ty >= ROAD_Y_BOTTOM - hw && ty <= ROAD_Y_BOTTOM + hw && tx >= ROAD_X_START - pad && tx <= ROAD_X_END + pad) return true;
             for (let jx of JUNCTION_XS) {
-                if (tx >= jx - hw && tx <= jx + hw && ty >= -pad && ty <= MAP_H + pad) return true;
+                if (tx >= jx - hw && tx <= jx + hw && ty >= -pad && ty <= ROAD_Y_BOTTOM + hw + pad) return true;
             }
             for (let ex of ENTRY_XS) {
                 if (tx >= ex - hw && tx <= ex + hw && ty >= 0 && ty <= ROAD_Y_BOTTOM + hw) return true;
@@ -1079,7 +1131,7 @@
             t.beginPath();
             for (let jx of JUNCTION_XS) {
                 t.moveTo(jx * TILE, 0);
-                t.lineTo(jx * TILE, MAP_H * TILE);
+                t.lineTo(jx * TILE, (ROAD_Y_BOTTOM + ROAD_W / 2) * TILE);
             }
             t.moveTo(ROAD_X_START * TILE, ROAD_Y_TOP * TILE);
             t.lineTo(ROAD_X_END * TILE, ROAD_Y_TOP * TILE);
@@ -2281,11 +2333,13 @@
         }
 
         // ========== BLOCKADE VEHICLE ==========
+        // An impossible object. It cannot be destroyed, it pushes units aside
+        // as it moves, and when parked it physically seals the road.
         class BlockadeVehicle {
             constructor(syndicateIndex) {
                 this.syndicateIndex = syndicateIndex;
-                this.x = 58 * TILE;
-                this.y = ROAD_Y_BOTTOM * TILE;
+                this.x = 44 * TILE + TILE / 2;
+                this.y = ROAD_Y_BOTTOM * TILE + TILE / 2;
                 this.angle = 0;
                 this.targetAngle = 0;
                 this.lightPhase = Math.random() * 10;
@@ -2294,7 +2348,6 @@
                 this.targetSpot = null;
                 this.route = null;
                 this.routeIdx = 0;
-                this.speed = VEHICLE_SPEED;
             }
             setSpot(spot) {
                 if (!spot || this.targetSpot === spot) return;
@@ -2313,13 +2366,11 @@
                 if (!this.targetSpot) { this.route = null; return; }
                 const start = nearestRoadNode(this.x, this.y);
                 if (!start) { this.route = null; return; }
-                const pa = findPath(start.id, this.targetSpot.a, null);
-                const pb = findPath(start.id, this.targetSpot.b, null);
-                let path = null;
-                if (pa && pb) path = (pa.length <= pb.length) ? pa.concat([this.targetSpot.b]) : pb.concat([this.targetSpot.a]);
-                else if (pa) path = pa.concat([this.targetSpot.b]);
-                else if (pb) path = pb.concat([this.targetSpot.a]);
-                else path = [start.id];
+                // The vehicle doesn't care about the raider blockade set — it
+                // can drive freely along any road.
+                const path = findPath(start.id, this.targetSpot.a || start.id, null)
+                    || findPath(start.id, this.targetSpot.b || start.id, null)
+                    || [start.id];
                 const pts = [];
                 for (const id of path) {
                     const n = getNode(id);
@@ -2328,6 +2379,37 @@
                 pts.push({ x: this.targetSpot.x, y: this.targetSpot.y });
                 this.route = pts;
                 this.routeIdx = 1;
+            }
+            partUnits() {
+                // Push every unit out of the vehicle's oriented bounding box.
+                const cosA = Math.cos(this.angle), sinA = Math.sin(this.angle);
+                const halfL = (ROAD_W + 1) * TILE * 0.94 / 2 + TILE * 0.25;
+                const halfW = TILE * 2.05 / 2 + TILE * 0.35;
+
+                const push = (u) => {
+                    const dx = u.x - this.x, dy = u.y - this.y;
+                    const lx = dx * cosA + dy * sinA;
+                    const ly = -dx * sinA + dy * cosA;
+                    if (Math.abs(lx) > halfL || Math.abs(ly) > halfW) return;
+                    const sign = ly >= 0 ? 1 : -1;
+                    const newLy = sign * halfW;
+                    const wx = this.x + lx * cosA - newLy * sinA;
+                    const wy = this.y + lx * sinA + newLy * cosA;
+                    if (isValidPosition(wx, wy)) { u.x = wx; u.y = wy; return; }
+                    if (isValidPosition(wx, u.y)) { u.x = wx; return; }
+                    if (isValidPosition(u.x, wy)) { u.y = wy; return; }
+                    const r = Math.hypot(dx, dy) || 1;
+                    const nx = u.x + dx / r * TILE * 1.6;
+                    const ny = u.y + dy / r * TILE * 1.6;
+                    if (isValidPosition(nx, ny)) { u.x = nx; u.y = ny; }
+                };
+
+                for (const o of game.officers) if (o.alive && !o.isAllOut) push(o);
+                for (const r of game.raiders) if (r.alive && !r.beingArrested) push(r);
+                for (const a of game.arrestOfficers) if (a.alive) push(a);
+                for (const h of game.handlers) if (h.alive) push(h);
+                for (const t of game.tearGasOfficers) if (t.alive) push(t);
+                for (const k of game.k9s) if (k.alive) push(k);
             }
             update(dt) {
                 if (!this.alive) return;
@@ -2338,46 +2420,46 @@
                 while (da < -Math.PI) da += Math.PI * 2;
                 this.angle += da * Math.min(1, dt * VEHICLE_TURN_RATE);
 
-                if (!this.targetSpot) { return; }
-
-                let tx = this.targetSpot.x, ty = this.targetSpot.y;
-                if (this.route && this.routeIdx < this.route.length) {
-                    const n = this.route[this.routeIdx];
-                    const dn = Math.hypot(n.x - this.x, n.y - this.y);
-                    if (dn < 8) this.routeIdx++;
-                    tx = n.x; ty = n.y;
-                }
-                const dx = tx - this.x, dy = ty - this.y;
-                const dist = Math.hypot(dx, dy);
-                if (dist < 3) {
-                    this.parked = true;
-                    this.targetAngle = (this.targetSpot.dir === 'h') ? Math.PI / 2 : 0;
-                    if (!game.blockedEdges.has(this.targetSpot.key)) {
-                        game.blockedEdges.clear();
-                        game.blockedEdges.add(this.targetSpot.key);
-                        game.blockadeVersion++;
-                        showToast('🚧 Road blocked — raiders are rerouting!');
-                        renderOptionsPanel(); updateSelectionUI();
+                if (this.targetSpot) {
+                    let tx = this.targetSpot.x, ty = this.targetSpot.y;
+                    if (this.route && this.routeIdx < this.route.length) {
+                        const n = this.route[this.routeIdx];
+                        const dn = Math.hypot(n.x - this.x, n.y - this.y);
+                        if (dn < 8) this.routeIdx++;
+                        tx = n.x; ty = n.y;
                     }
-                    return;
+                    const dx = tx - this.x, dy = ty - this.y;
+                    const dist = Math.hypot(dx, dy);
+                    if (dist < 3) {
+                        this.parked = true;
+                        this.targetAngle = (this.targetSpot.dir === 'h') ? Math.PI / 2 : 0;
+                        if (this.targetSpot.edgeKey && !game.blockedEdges.has(this.targetSpot.edgeKey)) {
+                            game.blockedEdges.clear();
+                            game.blockedEdges.add(this.targetSpot.edgeKey);
+                            game.blockadeVersion++;
+                            showToast('🚧 Road blocked — raiders are rerouting!');
+                            renderOptionsPanel(); updateSelectionUI();
+                        }
+                    } else {
+                        if (this.parked) { this.parked = false; clearBlockades(); }
+                        const step = Math.min(dist, VEHICLE_SPEED * TILE * dt);
+                        const ux = dx / dist, uy = dy / dist;
+                        const nx = this.x + ux * step, ny = this.y + uy * step;
+                        if (isValidPosition(nx, ny) && isRoadAt(nx, ny)) { this.x = nx; this.y = ny; }
+                        else if (isValidPosition(nx, this.y) && isRoadAt(nx, this.y)) { this.x = nx; }
+                        else if (isValidPosition(this.x, ny) && isRoadAt(this.x, ny)) { this.y = ny; }
+                        else { this.routeIdx++; }
+                        this.targetAngle = Math.atan2(uy, ux);
+                    }
                 }
-                if (this.parked) {
-                    this.parked = false;
-                    clearBlockades();
-                }
-                const step = Math.min(dist, this.speed * TILE * dt);
-                const ux = dx / dist, uy = dy / dist;
-                const nx = this.x + ux * step, ny = this.y + uy * step;
-                if (isValidPosition(nx, ny) && isRoadAt(nx, ny)) { this.x = nx; this.y = ny; }
-                else if (isValidPosition(nx, this.y) && isRoadAt(nx, this.y)) { this.x = nx; }
-                else if (isValidPosition(this.x, ny) && isRoadAt(this.x, ny)) { this.y = ny; }
-                else { this.routeIdx++; }
-                this.targetAngle = Math.atan2(uy, ux);
+
+                // The "impossible object" — everything else is shoved aside.
+                this.partUnits();
             }
             draw(ctx) {
                 if (!this.alive) return;
                 const sx = this.x - game.camera.x, sy = this.y - game.camera.y;
-                if (sx < -140 || sy < -140 || sx > game.width + 140 || sy > game.height + 140) return;
+                if (sx < -160 || sy < -160 || sx > game.width + 160 || sy > game.height + 160) return;
                 ctx.save();
                 ctx.translate(sx, sy);
                 ctx.rotate(this.angle);
@@ -2386,26 +2468,24 @@
             }
         }
         function drawBlockadeVehicleFigure(ctx, v) {
-            const L = ROAD_W * TILE * 0.86;
+            // Long axis spans the full road width when parked.
+            const L = (ROAD_W + 1) * TILE * 0.94;
             const W = TILE * 2.05;
             const halfL = L / 2, halfW = W / 2;
             const flash = Math.sin(v.lightPhase * 9) > 0;
 
-            // beacon glow
             const glow = ctx.createRadialGradient(0, 0, 0, 0, 0, L * 0.62);
-            glow.addColorStop(0, `rgba(90,180,255,${flash ? 0.28 : 0.16})`);
+            glow.addColorStop(0, `rgba(90,180,255,${flash ? 0.30 : 0.18})`);
             glow.addColorStop(1, 'rgba(90,180,255,0)');
             ctx.fillStyle = glow;
             ctx.beginPath(); ctx.arc(0, 0, L * 0.62, 0, Math.PI * 2); ctx.fill();
 
-            // shadow
             ctx.fillStyle = 'rgba(0,0,0,0.42)';
             ctx.beginPath();
             if (ctx.roundRect) ctx.roundRect(-halfL + 4, -halfW + 5, L, W, 5);
             else ctx.rect(-halfL + 4, -halfW + 5, L, W);
             ctx.fill();
 
-            // wheels
             ctx.fillStyle = '#0b0b0e';
             const wheelW = L * 0.15;
             ctx.fillRect(-L * 0.36 - wheelW / 2, -halfW - 2.5, wheelW, 7);
@@ -2413,7 +2493,6 @@
             ctx.fillRect(-L * 0.36 - wheelW / 2, halfW - 4.5, wheelW, 7);
             ctx.fillRect(L * 0.24 - wheelW / 2, halfW - 4.5, wheelW, 7);
 
-            // body
             const g = ctx.createLinearGradient(0, -halfW, 0, halfW);
             g.addColorStop(0, '#2b4f74');
             g.addColorStop(0.5, '#1d3a58');
@@ -2425,7 +2504,6 @@
             ctx.fill();
             ctx.strokeStyle = '#08131f'; ctx.lineWidth = 1.5; ctx.stroke();
 
-            // roof / cabin
             ctx.fillStyle = '#26496c';
             ctx.beginPath();
             if (ctx.roundRect) ctx.roundRect(-halfL * 0.60, -halfW * 0.80, L * 0.96, W * 0.80, 3);
@@ -2433,7 +2511,6 @@
             ctx.fill();
             ctx.strokeStyle = '#14293f'; ctx.lineWidth = 1; ctx.stroke();
 
-            // windshield / windows
             ctx.fillStyle = '#8ec8f0';
             ctx.fillRect(L * 0.26, -halfW * 0.70, L * 0.085, W * 0.70);
             ctx.fillStyle = '#6fa8d0';
@@ -2441,12 +2518,10 @@
             ctx.fillRect(-L * 0.16, -halfW * 0.84, L * 0.34, 4.5);
             ctx.fillRect(-L * 0.16, halfW * 0.84 - 4.5, L * 0.34, 4.5);
 
-            // hi-vis battenburg stripes
             ctx.fillStyle = '#ffcc33';
             ctx.fillRect(-halfL * 0.58, -halfW * 0.88, L * 0.94, 3);
             ctx.fillRect(-halfL * 0.58, halfW * 0.88 - 3, L * 0.94, 3);
 
-            // light bar (perpendicular to travel, two halves flash alternately)
             ctx.fillStyle = '#0d1218';
             ctx.fillRect(-L * 0.035, -halfW * 0.86, L * 0.07, W * 0.86);
             ctx.fillStyle = flash ? '#59c8ff' : '#17415f';
@@ -2454,17 +2529,17 @@
             ctx.fillStyle = flash ? '#17415f' : '#59c8ff';
             ctx.fillRect(-L * 0.035, -halfW * 0.43, L * 0.07, W * 0.43);
 
-            // spotlight nubs
             ctx.fillStyle = '#ffd98a';
             ctx.beginPath(); ctx.arc(L * 0.46, -halfW * 0.62, 2.4, 0, Math.PI * 2); ctx.fill();
             ctx.beginPath(); ctx.arc(L * 0.46, halfW * 0.62, 2.4, 0, Math.PI * 2); ctx.fill();
         }
 
         // ========== RAIDER ==========
+        // Raider robustness has been raised across the board.
         const RAIDER_TYPES = {
-            standard:     { name: 'Raider',       hp: 38, damage: 5,  meleeRange: 1.2,  atkCooldown: 1.15, speed: 1.7, weight: 60, color: '#8a4a34', dark: '#4a2418' },
-            bruiser:      { name: 'Bruiser',      hp: 80, damage: 10, meleeRange: 1.35, atkCooldown: 1.35, speed: 1.4, weight: 25, color: '#7a2c2c', dark: '#3f1616' },
-            brickthrower: { name: 'Brick Thrower',hp: 62, damage: 4,  meleeRange: 1.1,  atkCooldown: 1.9,  speed: 1.2, weight: 10, color: '#a0704a', dark: '#4a2a18' },
+            standard:     { name: 'Raider',       hp: 52, damage: 5,  meleeRange: 1.2,  atkCooldown: 1.15, speed: 1.7, weight: 60, color: '#8a4a34', dark: '#4a2418' },
+            bruiser:      { name: 'Bruiser',      hp: 105, damage: 10, meleeRange: 1.35, atkCooldown: 1.35, speed: 1.4, weight: 25, color: '#7a2c2c', dark: '#3f1616' },
+            brickthrower: { name: 'Brick Thrower',hp: 82, damage: 4,  meleeRange: 1.1,  atkCooldown: 1.9,  speed: 1.2, weight: 10, color: '#a0704a', dark: '#4a2a18' },
         };
         const MAX_ATTACKERS_PER_OFFICER = 3;
         let raiderIdSeq = 1;
@@ -2505,7 +2580,6 @@
                 this.fleeExitX = 0;
                 this.fleeExitY = 0;
 
-                // dynamic pathing
                 this.route = null;
                 this.routeIdx = 0;
                 this.goalNodeId = null;
@@ -2764,7 +2838,6 @@
                     }
                 }
 
-                // ---- dynamic pathing along the road graph ----
                 this.repathTimer -= dt;
                 if (this.repathTimer <= 0 || this.routeVersion !== game.blockadeVersion || !this.route) {
                     this.repathTimer = 1.4 + Math.random() * 1.2;
@@ -2789,7 +2862,6 @@
                     } else this.routeIdx++;
                 }
 
-                // ---- reached the end of the path: execute the objective ----
                 const ai = game.raidAI;
 
                 if (ai.objective === 'buildings') {
@@ -2827,7 +2899,6 @@
                     }
                 }
 
-                // default — smash into the station
                 game.baseHp = Math.max(0, game.baseHp - this.def.damage * 3);
                 spawnHitEffect(this.x, this.y);
                 this.alive = false;
@@ -2950,7 +3021,7 @@
             }
         }
         function dealDamageToOfficer(o, dmg) {
-            // Shield up = half damage; formations then ignore a flat percentage on top.
+            // Shield up halves; formation resistance then ignores a flat percent.
             const shieldMult = o.shieldUp ? 0.5 : 1.15;
             const sy = game.syndicates[o.syndicateIndex];
             const resist = sy ? formationResistance(sy.tactic) : 0;
@@ -3188,8 +3259,8 @@
         function ensureVehicleSyndicate() {
             game.syndicates[VEHICLE_SYNDICATE] = {
                 tactic: 'blockade',
-                commandX: 58 * TILE,
-                commandY: ROAD_Y_BOTTOM * TILE,
+                commandX: 44 * TILE + TILE / 2,
+                commandY: ROAD_Y_BOTTOM * TILE + TILE / 2,
                 facingX: -1, facingY: 0, disperseTimer: 0, autoDisperse: false,
             };
         }
@@ -3221,18 +3292,17 @@
         function commandMoveVehicle(dx, dy) {
             const v = game.vehicle;
             if (!v) return;
-            const cx = v.targetSpot ? v.targetSpot.x : v.x;
-            const cy = v.targetSpot ? v.targetSpot.y : v.y;
+            const cur = v.targetSpot || { x: v.x, y: v.y };
             let best = null, bestScore = Infinity;
             for (const s of BLOCKADE_SPOTS) {
-                if (s === v.targetSpot) continue;
-                const ddx = s.x - cx, ddy = s.y - cy;
-                if (dx !== 0 && Math.sign(ddx) !== dx) continue;
-                if (dy !== 0 && Math.sign(ddy) !== dy) continue;
-                const along = dx !== 0 ? Math.abs(ddx) : Math.abs(ddy);
-                const across = dx !== 0 ? Math.abs(ddy) : Math.abs(ddx);
-                if (along < TILE * 2) continue;
-                const score = along + across * 3.5;
+                const ddx = s.x - cur.x;
+                const ddy = s.y - cur.y;
+                const dist = Math.hypot(ddx, ddy);
+                if (dist < TILE * 0.8) continue;
+                const dot = ddx * dx + ddy * dy;
+                if (dot <= 0) continue;
+                const perp = Math.abs(ddx * (-dy) + ddy * dx);
+                const score = perp * 8 + dist * 0.08;
                 if (score < bestScore) { bestScore = score; best = s; }
             }
             if (best) setVehicleTarget(best);
@@ -3518,7 +3588,7 @@
             if (game.syndicatesDeployed >= OFFICER_SYNDICATES) return;
             const idx = game.syndicatesDeployed;
             game.syndicatesDeployed++;
-            const sy = ensureSyndicateState(idx);
+            ensureSyndicateState(idx);
             const cx = BASE_TILE_X * TILE, cy = BASE_TILE_Y * TILE;
             for (let i = 0; i < OFFICERS_PER_SYNDICATE; i++) {
                 let spawnX = cx, spawnY = cy;
@@ -3554,7 +3624,6 @@
         function spawnVehicleSyndicate() {
             ensureVehicleSyndicate();
             const v = new BlockadeVehicle(VEHICLE_SYNDICATE);
-            v.x = 58 * TILE; v.y = ROAD_Y_BOTTOM * TILE;
             game.vehicle = v;
             const sy = game.syndicates[VEHICLE_SYNDICATE];
             if (sy) { sy.commandX = v.x; sy.commandY = v.y; }
@@ -3564,20 +3633,20 @@
         const OBJECTIVE_LABELS = { base: 'Reach the Station', buildings: 'Vandalize the City', hunt: 'Attack the Officers' };
         const OBJECTIVE_SHORT = { base: 'Station', buildings: 'Vandalism', hunt: 'Hunt Officers' };
 
-        // Every entrance/exit is a potential raider origin.
+        // Available exits: 5 top gates + 2 bottom gates (bottom middle is closed).
         const WAVE_TACTICS = {
             'single':        { exits: ['N18'], tone: 'Massed Assault' },
             'pincer':        { exits: ['N18', 'N90'], tone: 'Pincer Movement' },
             'multi_front':   { exits: ['N18', 'N90', 'S12'], tone: 'Multi-Pronged Attack' },
             'flank':         { exits: ['N30', 'N78'], tone: 'Flanking Manoeuvre' },
             'ambush':        { exits: ['N18', 'S96'], tone: 'Ambush & Probe' },
-            'mass_charge':   { exits: ['N30'], tone: 'Massing For Charge' },
+            'mass_charge':   { exits: ['N54'], tone: 'Massing For Charge' },
             'bottom_pincer': { exits: ['S12', 'S96'], tone: 'Rear Pincer' },
             'surround':      { exits: ['N18', 'N90', 'S12', 'S96'], tone: 'Surround & Close' },
-            'four_ways':     { exits: ['N30', 'N78', 'S30', 'S78'], tone: 'Four-Pronged Assault' },
-            'top_and_bottom':{ exits: ['N18', 'N90', 'S30'], tone: 'Top And Bottom Push' },
-            'north_south':   { exits: ['N30', 'S30', 'S78'], tone: 'North-South Squeeze' },
-            'all_gates':     { exits: ['N18', 'N30', 'N78', 'N90', 'S12', 'S30', 'S78', 'S96'], tone: 'All Gates Open' },
+            'four_ways':     { exits: ['N30', 'N78', 'S12', 'S96'], tone: 'Four-Pronged Assault' },
+            'top_and_bottom':{ exits: ['N18', 'N90', 'S12'], tone: 'Top And Bottom Push' },
+            'north_south':   { exits: ['N54', 'S12', 'S96'], tone: 'North-South Squeeze' },
+            'all_gates':     { exits: ['N18', 'N30', 'N54', 'N78', 'N90', 'S12', 'S96'], tone: 'All Gates Open' },
         };
 
         function chooseWaveTactic() {
@@ -3688,7 +3757,6 @@
                             sy = startNode.y * TILE;
                         }
                         const r = new Raider(entry.kind, squad.spawnNodeId, squad.id, sx, sy);
-                        // Immediately push inwards so the player can watch them arrive.
                         r.goalNodeId = r.pickGoalNode();
                         r.recomputeRoute();
                         r.routeIdx = Math.min(1, r.route.length - 1);
@@ -3798,7 +3866,6 @@
                 const spawnNode = getNode(squad.spawnNodeId);
                 const spawnDist = spawnNode ? Math.hypot(spawnNode.x * TILE - c.x, spawnNode.y * TILE - c.y) : 999;
 
-                // Never idle near the entrance — always make visible progress into the map.
                 if (squad.role === 'distraction' && !inContact && spawnDist > TILE * 14 &&
                     officerDistTiles < 12 && officerDistTiles > 4) {
                     squad.state = 'ambush';
@@ -3891,8 +3958,8 @@
                 const d = Math.hypot(s.x - wx, s.y - wy);
                 if (d < bestD) { bestD = d; best = s; }
             }
-            if (best && bestD < TILE * 9) setVehicleTarget(best);
-            else showToast('Tap a green road marker to position the blockade.');
+            if (best && bestD < TILE * 5) setVehicleTarget(best);
+            else showToast('Tap near a road to position the blockade.');
         }
         function jumpCameraFromMinimap(x, y) {
             const rect = document.getElementById('minimap').getBoundingClientRect();
@@ -3963,16 +4030,16 @@
 
         // ========== LEFT PANEL UI ==========
         const FORMATION_DEFS = [
-            { key: 'rest', label: '😌 Rest', desc: 'Shields down, spaced out, FASTEST movement but weakest attack. No damage resistance. Auto-shifts to Staggered Wall if a raider approaches.' },
-            { key: 'wedge', label: '🔺 Wedge', desc: 'Spearhead. The healthiest officer forms the point and rows widen behind. Balanced all-rounder. 25% damage resistance.' },
-            { key: 'closedwall', label: '🧱 Closed Wall', desc: 'Fills the ENTIRE road width. Extra officers backfill behind. Slower but sturdier. 45% damage resistance.' },
-            { key: 'staggeredwall', label: '🧱 Staggered Wall', desc: 'Full-width line with alternate rows offset. SLOWEST but 55% extra damage. 60% damage resistance — the toughest formation.' },
-            { key: 'stackleft', label: '⬅️ Stack Left', desc: 'Press up against the left kerb, fast lateral movement. 20% damage resistance.' },
-            { key: 'stackright', label: '➡️ Stack Right', desc: 'Press up against the right kerb, fast lateral movement. 20% damage resistance.' },
-            { key: 'box', label: '📦 Box', desc: 'Three-sided box. ARREST TEAM + K9 STAY INSIDE. 50% damage resistance.' },
+            { key: 'rest', label: '😌 Rest' },
+            { key: 'wedge', label: '🔺 Wedge' },
+            { key: 'closedwall', label: '🧱 Closed Wall' },
+            { key: 'staggeredwall', label: '🧱 Staggered Wall' },
+            { key: 'stackleft', label: '⬅️ Stack Left' },
+            { key: 'stackright', label: '➡️ Stack Right' },
+            { key: 'box', label: '📦 Box' },
         ];
         const ORDER_DEFS = [
-            { key: 'autoDisperse', label: '⚡ Auto-Disperse', desc: 'When ON, Disperse (10s, triple damage) triggers automatically the instant any officer in this syndicate is hit.' },
+            { key: 'autoDisperse', label: '⚡ Auto-Disperse' },
         ];
 
         function renderOptionsPanel() {
@@ -3996,12 +4063,6 @@
                 b.addEventListener('click', () => applyTactic(t.key));
                 panel.appendChild(b);
             });
-            const found = FORMATION_DEFS.find(t => t.key === sy.tactic);
-            if (found) {
-                const d = document.createElement('div');
-                d.className = 'info-line'; d.textContent = found.desc;
-                panel.appendChild(d);
-            }
 
             const olabel = document.createElement('div');
             olabel.className = 'section-label'; olabel.textContent = 'Standing Orders';
@@ -4013,12 +4074,6 @@
                 b.addEventListener('click', () => applyOrder(o.key));
                 panel.appendChild(b);
             });
-            const od = ORDER_DEFS.find(o => o.key === 'autoDisperse');
-            if (od) {
-                const d = document.createElement('div');
-                d.className = 'info-line'; d.textContent = od.desc;
-                panel.appendChild(d);
-            }
 
             if (sy.disperseTimer > 0) {
                 const d = document.createElement('div');
@@ -4057,7 +4112,6 @@
             bBlock.addEventListener('click', () => {
                 if (!v) return;
                 if (!v.targetSpot) {
-                    // choose the closest blockade spot to the vehicle
                     let best = null, bestD = Infinity;
                     for (const s of BLOCKADE_SPOTS) {
                         const d = Math.hypot(s.x - v.x, s.y - v.y);
@@ -4075,14 +4129,9 @@
             d.className = 'info-line';
             if (!v) d.textContent = 'Vehicle unavailable.';
             else if (v.parked) d.textContent = '🚧 Road BLOCKED. Raiders must find another way around.';
-            else if (v.targetSpot) d.textContent = 'Driving to blockade point… ' + (v.route ? '' : '');
-            else d.textContent = 'Tap a green road marker (or use the d-pad) to choose a blockade point. Only the short span of a road can be blocked — never a junction.';
+            else if (v.targetSpot) d.textContent = 'Driving to blockade point…';
+            else d.textContent = 'Use the d-pad or tap the map to choose a blockade point.';
             panel.appendChild(d);
-
-            const d2 = document.createElement('div');
-            d2.className = 'info-line'; d2.style.color = '#6e8fa8';
-            d2.textContent = 'The vehicle ignores all damage — it is the only one of its kind.';
-            panel.appendChild(d2);
         }
 
         // ========== BOTTOM-RIGHT UI ==========
@@ -4231,36 +4280,38 @@
             game.tearGasOfficers.forEach(t => { if (t.alive) all.push(t); });
             game.raiders.forEach(r => { if (r.alive) all.push(r); });
             game.k9s.forEach(k => { if (k.alive) all.push(k); });
-            if (game.vehicle && game.vehicle.alive) all.push(game.vehicle);
             all.sort((a, b) => a.y - b.y);
             all.forEach(u => u.draw(ctx));
+
+            // The blockade vehicle renders on top of everything else, so its
+            // "impossible object" nature is visually apparent.
+            if (game.vehicle && game.vehicle.alive) game.vehicle.draw(ctx);
+
             drawProjectiles(ctx);
             drawEffects(ctx);
 
             game.tearGasOfficers.forEach(t => { if (t.alive) t.drawGasCloud(ctx); });
 
-            // ---- blockade spot markers (only while the vehicle tab is selected) ----
             if (game.selectedSyndicate === VEHICLE_SYNDICATE && game.vehicle) {
                 for (const s of BLOCKADE_SPOTS) {
                     const sx = s.x - game.camera.x, sy = s.y - game.camera.y;
                     if (sx < -20 || sy < -20 || sx > game.width + 20 || sy > game.height + 20) continue;
                     const isTarget = game.vehicle.targetSpot === s;
-                    const isBlocked = game.blockedEdges.has(s.key);
+                    const isBlocked = game.blockedEdges.has(s.edgeKey);
                     ctx.beginPath();
-                    ctx.arc(sx, sy, isTarget ? 7 : 4, 0, Math.PI * 2);
-                    ctx.fillStyle = isBlocked ? 'rgba(255,90,60,0.85)'
-                        : isTarget ? 'rgba(255,204,51,0.9)'
-                        : 'rgba(110,230,140,0.5)';
+                    ctx.arc(sx, sy, isTarget ? 7 : 3, 0, Math.PI * 2);
+                    ctx.fillStyle = isBlocked ? 'rgba(255,90,60,0.9)'
+                        : isTarget ? 'rgba(255,204,51,0.95)'
+                        : 'rgba(110,230,140,0.55)';
                     ctx.fill();
                     ctx.strokeStyle = 'rgba(0,0,0,0.55)'; ctx.lineWidth = 1; ctx.stroke();
                     if (isBlocked) {
                         ctx.strokeStyle = 'rgba(255,90,60,0.9)'; ctx.lineWidth = 2;
-                        ctx.beginPath(); ctx.arc(sx, sy, 10, 0, Math.PI * 2); ctx.stroke();
+                        ctx.beginPath(); ctx.arc(sx, sy, 9, 0, Math.PI * 2); ctx.stroke();
                     }
                 }
             }
 
-            // ---- command marker ----
             if (game.selectedSyndicate === VEHICLE_SYNDICATE) {
                 const v = game.vehicle;
                 if (v) {
@@ -4491,7 +4542,6 @@
             rebuildRoadNetwork();
             generateMap(); buildTerrainCanvas(); buildMinimapTerrainCanvas();
 
-            // re-anchor the vehicle to an equivalent blockade spot after a resize
             if (game.vehicle) {
                 const oldKey = game.vehicle.targetSpot ? game.vehicle.targetSpot.key : null;
                 if (oldKey) {
@@ -4504,7 +4554,7 @@
                         game.vehicle.targetAngle = game.vehicle.angle;
                         game.vehicle.route = null;
                         game.blockedEdges.clear();
-                        game.blockedEdges.add(s.key);
+                        if (s.edgeKey) game.blockedEdges.add(s.edgeKey);
                     } else {
                         game.vehicle.clearTarget();
                     }

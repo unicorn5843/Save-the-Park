@@ -2366,9 +2366,6 @@
                 this.routeIdx = 1;
             }
             partUnits() {
-                // Push every unit out of the vehicle's oriented bounding box.
-                // Fleeing raiders are excluded — the vehicle must never be able
-                // to trap a runner against its hull.
                 const cosA = Math.cos(this.angle), sinA = Math.sin(this.angle);
                 const halfL = (ROAD_W + 1) * TILE * 0.94 / 2 + TILE * 0.25;
                 const halfW = TILE * 2.05 / 2 + TILE * 0.35;
@@ -2790,8 +2787,13 @@
                     if (this.surgeTimer <= 0) { spd *= 1.8; if (this.surgeTimer < -0.6) this.surgeTimer = 2 + Math.random() * 3; }
                 }
 
+                // If we're already at the objective base, don't idle in squad
+                // formation — attack the station.
+                const atBaseTarget = (game.raidAI.objective === 'base' &&
+                    Math.hypot(BASE_TILE_X * TILE - this.x, BASE_TILE_Y * TILE - this.y) < TILE * 5);
+
                 const squad = game.squads.get(this.squadId);
-                if (squad) {
+                if (squad && !atBaseTarget) {
                     const sState = squad.state;
 
                     if (sState === 'wall') {
@@ -3171,54 +3173,35 @@
                 }
                 return;
             }
-
-            // ── Continuous wall ──────────────────────────────────────────────
-            // One unbroken shoulder-to-shoulder line that keeps growing outward
-            // from the command point for as long as there is walkable ground.
-            // Only when the line runs into a building face (or the map edge)
-            // does the surplus step back into the next rank. No artificial
-            // per-row cap — a thin squad becomes a single long line.
-            if (tactic === 'closedwall' || tactic === 'staggeredwall') {
-                const spacing = TILE;
-                const rankDepth = ROW_SPACING * (tactic === 'closedwall' ? 1.05 : 0.8) * TILE;
-                const staggered = (tactic === 'staggeredwall');
+            if (tactic === 'closedwall') {
+                const perRow = OFFICERS_PER_ROW, spacing = TILE;
                 let i = 0, row = 0;
-                const MAX_RANKS = 14;
-                while (i < alive.length && row < MAX_RANKS) {
-                    const stagger = (staggered && (row % 2 === 1)) ? spacing * 0.5 : 0;
-                    const back = row * rankDepth;
-                    const slots = [];
-                    const maxK = alive.length + 2;
-                    for (let k = 0; k <= maxK; k++) {
-                        const probes = (k === 0) ? [0] : [k, -k];
-                        let anyValid = false;
-                        for (const m of probes) {
-                            const off = m * spacing + stagger;
-                            const x = cx + px * off - fx * back;
-                            const y = cy + py * off - fy * back;
-                            if (isValidOfficerPosition(x, y)) {
-                                slots.push({ off, x, y });
-                                anyValid = true;
-                            }
-                        }
-                        if (!anyValid && k > 0) break;
-                    }
-                    if (slots.length === 0) break;
-                    slots.sort((a, b) => a.off - b.off);
-                    for (const s of slots) {
-                        if (i >= alive.length) break;
-                        setSlot(alive[i++], s.x, s.y);
-                    }
-                    row++;
-                }
                 while (i < alive.length) {
-                    const back = row * rankDepth;
-                    setSlot(alive[i++], cx - fx * back, cy - fy * back);
+                    const countThisRow = Math.min(perRow, alive.length - i);
+                    for (let c = 0; c < countThisRow; c++) {
+                        const off = (c - (countThisRow - 1) / 2) * spacing;
+                        const back = row * ROW_SPACING * 1.05 * TILE;
+                        setSlot(alive[i++], cx + px * off - fx * back, cy + py * off - fy * back);
+                    }
                     row++;
                 }
                 return;
             }
-
+            if (tactic === 'staggeredwall') {
+                const perRow = OFFICERS_PER_ROW, spacing = TILE;
+                let i = 0, row = 0;
+                while (i < alive.length) {
+                    const countThisRow = Math.min(perRow, alive.length - i);
+                    const stagger = (row % 2 === 0) ? -spacing * 0.25 : spacing * 0.25;
+                    for (let c = 0; c < countThisRow; c++) {
+                        const off = (c - (countThisRow - 1) / 2) * spacing + stagger;
+                        const back = row * ROW_SPACING * 0.8 * TILE;
+                        setSlot(alive[i++], cx + px * off - fx * back, cy + py * off - fy * back);
+                    }
+                    row++;
+                }
+                return;
+            }
             if (tactic === 'stackleft' || tactic === 'stackright') {
                 const sign = tactic === 'stackleft' ? -1 : 1;
                 const files = 3;

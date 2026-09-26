@@ -552,6 +552,7 @@
         // ----- BLOCKADE VEHICLE -----
         const VEHICLE_SPEED = 4.5;
         const VEHICLE_TURN_RATE = 6.0;
+        const VEHICLE_STEP_RANGE = TILE * 9;
 
         // ===== FORMATIONS =====
         const FORMATION_MODS = {
@@ -1271,7 +1272,7 @@
                     if (isValidPosition(e.x, ty2)) { e.y = ty2; e.stuckTimer = 0; break; }
                 }
             }
-            if (e.stuckTimer > 1.0) {
+            if (e.stuckTimer > 1.0 && !e.noTeleport) {
                 let bestPos = null, bestDist = Infinity;
                 for (let radius = 1; radius <= 6; radius++) {
                     for (let a = 0; a < 16; a++) {
@@ -1338,6 +1339,26 @@
                 this.baseX = BASE_TILE_X * TILE;
                 this.baseY = BASE_TILE_Y * TILE;
                 this.stuckTimer = 0;
+                this.noTeleport = false;
+                this.retreatRoute = null;
+                this.retreatIdx = 0;
+                this.retreatStuck = 0;
+                this.lastWpDist = Infinity;
+            }
+            computeRetreatRoute() {
+                this.retreatRoute = [];
+                this.retreatIdx = 0;
+                const start = nearestRoadNode(this.x, this.y);
+                if (start) {
+                    const path = findPath(start.id, 'B54', null);
+                    if (path) {
+                        for (const id of path) {
+                            const n = getNode(id);
+                            if (n) this.retreatRoute.push({ x: n.x * TILE, y: n.y * TILE });
+                        }
+                    }
+                }
+                this.retreatRoute.push({ x: this.baseX, y: this.baseY });
             }
             mySyndicate() {
                 if (game.mergedMode) return game.syndicates[game.mergedIntoIndex] || game.syndicates[0];
@@ -1353,25 +1374,48 @@
                 if (this.state === 'active' && this.hp <= this.maxHp * OFFICER.retreatHpPct) {
                     this.state = 'retreating';
                     this.shieldUp = false;
+                    this.noTeleport = true;
+                    this.retreatRoute = null;
+                    this.retreatIdx = 0;
+                    this.retreatStuck = 0;
+                    this.lastWpDist = Infinity;
                 }
                 if (this.state === 'retreating') {
-                    const dx = this.baseX - this.x, dy = this.baseY - this.y;
-                    const dist = Math.hypot(dx, dy);
-                    this.isMoving = dist > 4;
-                    if (dist > 4) {
-                        steerUnit(this, this.baseX, this.baseY, dt, OFFICER.sprintSpeed);
-                    } else {
+                    const distHome = Math.hypot(this.baseX - this.x, this.baseY - this.y);
+                    if (distHome <= 4 || this.retreatStuck > 2.5) {
+                        // Home, or hopelessly boxed in — stand down and patch up
+                        // on the spot instead of jittering against the blockage.
                         this.state = 'cooldown';
                         this.cooldownTimer = OFFICER.cooldownTime;
                         this.shieldUp = true;
+                        this.isMoving = false;
+                        this.retreatRoute = null;
+                        this.noTeleport = false;
+                        return;
                     }
+                    if (!this.retreatRoute) this.computeRetreatRoute();
+                    let tx = this.baseX, ty = this.baseY;
+                    while (this.retreatIdx < this.retreatRoute.length) {
+                        const wp = this.retreatRoute[this.retreatIdx];
+                        if (Math.hypot(wp.x - this.x, wp.y - this.y) < TILE * 1.1) {
+                            this.retreatIdx++;
+                            this.lastWpDist = Infinity;
+                            continue;
+                        }
+                        tx = wp.x; ty = wp.y; break;
+                    }
+                    this.isMoving = true;
+                    steerUnit(this, tx, ty, dt, OFFICER.sprintSpeed);
+                    const wpDist = Math.hypot(tx - this.x, ty - this.y);
+                    if (wpDist < this.lastWpDist - 0.05) { this.lastWpDist = wpDist; this.retreatStuck = 0; }
+                    else this.retreatStuck += dt;
                     return;
                 }
                 if (this.state === 'cooldown') {
                     this.cooldownTimer -= dt;
                     this.isMoving = false;
                     this.hp = Math.min(this.maxHp, this.hp + OFFICER.restRegen * dt * 0.5);
-                    if (this.cooldownTimer <= 0) { this.state = 'active'; }
+                    if (this.cooldownTimer <= 0) { this.state = 'active'; this.noTeleport = false; }
                     return;
                 }
 
@@ -3147,13 +3191,16 @@
                 o.targetX = c.x; o.targetY = c.y;
             };
 
+            // Formation spacing is now uniform across all tactics — only the
+            // shape of the arrangement changes. The shield / HUD already
+            // communicates how much resistance a formation provides.
             if (tactic === 'rest') {
                 const perRow = 5; let i = 0, row = 0;
                 while (i < alive.length) {
                     const countThisRow = Math.min(perRow, alive.length - i);
                     for (let c = 0; c < countThisRow; c++) {
-                        const off = (c - (countThisRow - 1) / 2) * COL_SPACING * 1.4 * TILE;
-                        const back = row * ROW_SPACING * 1.6 * TILE;
+                        const off = (c - (countThisRow - 1) / 2) * COL_SPACING * TILE;
+                        const back = row * ROW_SPACING * TILE;
                         setSlot(alive[i++], cx + px * off - fx * back, cy + py * off - fy * back);
                     }
                     row++;
@@ -3174,13 +3221,13 @@
                 return;
             }
             if (tactic === 'closedwall') {
-                const perRow = OFFICERS_PER_ROW, spacing = TILE;
+                const perRow = OFFICERS_PER_ROW, spacing = COL_SPACING * TILE;
                 let i = 0, row = 0;
                 while (i < alive.length) {
                     const countThisRow = Math.min(perRow, alive.length - i);
                     for (let c = 0; c < countThisRow; c++) {
                         const off = (c - (countThisRow - 1) / 2) * spacing;
-                        const back = row * ROW_SPACING * 1.05 * TILE;
+                        const back = row * ROW_SPACING * TILE;
                         setSlot(alive[i++], cx + px * off - fx * back, cy + py * off - fy * back);
                     }
                     row++;
@@ -3188,14 +3235,14 @@
                 return;
             }
             if (tactic === 'staggeredwall') {
-                const perRow = OFFICERS_PER_ROW, spacing = TILE;
+                const perRow = OFFICERS_PER_ROW, spacing = COL_SPACING * TILE;
                 let i = 0, row = 0;
                 while (i < alive.length) {
                     const countThisRow = Math.min(perRow, alive.length - i);
                     const stagger = (row % 2 === 0) ? -spacing * 0.25 : spacing * 0.25;
                     for (let c = 0; c < countThisRow; c++) {
                         const off = (c - (countThisRow - 1) / 2) * spacing + stagger;
-                        const back = row * ROW_SPACING * 0.8 * TILE;
+                        const back = row * ROW_SPACING * TILE;
                         setSlot(alive[i++], cx + px * off - fx * back, cy + py * off - fy * back);
                     }
                     row++;
@@ -3210,7 +3257,7 @@
                 while (i < alive.length) {
                     for (let f = 0; f < files && i < alive.length; f++) {
                         const off = edgeOffset - sign * f * COL_SPACING * TILE;
-                        const back = rank * ROW_SPACING * 0.9 * TILE;
+                        const back = rank * ROW_SPACING * TILE;
                         setSlot(alive[i++], cx + px * off - fx * back, cy + py * off - fy * back);
                     }
                     rank++;
@@ -3223,17 +3270,17 @@
                 const leftCount = Math.ceil(remaining / 2), rightCount = remaining - leftCount;
                 let i = 0;
                 for (let c = 0; c < frontCount; c++) {
-                    const off = (c - (frontCount - 1) / 2) * TILE;
+                    const off = (c - (frontCount - 1) / 2) * COL_SPACING * TILE;
                     setSlot(alive[i++], cx + px * off, cy + py * off);
                 }
-                const leftEndX = cx + px * ((frontCount - 1) / 2) * TILE;
-                const leftEndY = cy + py * ((frontCount - 1) / 2) * TILE;
+                const leftEndX = cx + px * ((frontCount - 1) / 2) * COL_SPACING * TILE;
+                const leftEndY = cy + py * ((frontCount - 1) / 2) * COL_SPACING * TILE;
                 for (let r = 1; r <= leftCount; r++) {
                     const back = r * ROW_SPACING * TILE;
                     setSlot(alive[i++], leftEndX - fx * back, leftEndY - fy * back);
                 }
-                const rightEndX = cx - px * ((frontCount - 1) / 2) * TILE;
-                const rightEndY = cy - py * ((frontCount - 1) / 2) * TILE;
+                const rightEndX = cx - px * ((frontCount - 1) / 2) * COL_SPACING * TILE;
+                const rightEndY = cy - py * ((frontCount - 1) / 2) * COL_SPACING * TILE;
                 for (let r = 1; r <= rightCount; r++) {
                     const back = r * ROW_SPACING * TILE;
                     setSlot(alive[i++], rightEndX - fx * back, rightEndY - fy * back);
@@ -3303,23 +3350,25 @@
                 assignFormation(); updateSelectionUI();
             }
         }
+        // Stepping behaviour for the blockade vehicle: one press = one
+        // blockade point hop in that direction, just like a syndicate tile
+        // move. Picks the *nearest* valid point roughly in the pressed
+        // direction so the truck doesn't sprint across the map.
         function commandMoveVehicle(dx, dy) {
             const v = game.vehicle;
             if (!v) return;
             const cur = v.targetSpot || { x: v.x, y: v.y };
-            let best = null, bestScore = Infinity;
+            let best = null, bestD = Infinity;
             for (const s of BLOCKADE_SPOTS) {
-                const ddx = s.x - cur.x;
-                const ddy = s.y - cur.y;
+                const ddx = s.x - cur.x, ddy = s.y - cur.y;
                 const dist = Math.hypot(ddx, ddy);
-                if (dist < TILE * 0.8) continue;
-                const dot = ddx * dx + ddy * dy;
-                if (dot <= 0) continue;
-                const perp = Math.abs(ddx * (-dy) + ddy * dx);
-                const score = perp * 8 + dist * 0.08;
-                if (score < bestScore) { bestScore = score; best = s; }
+                if (dist < TILE * 0.7 || dist > VEHICLE_STEP_RANGE) continue;
+                const dot = (ddx * dx + ddy * dy) / dist;   // must be roughly that way
+                if (dot < 0.55) continue;
+                if (dist < bestD) { bestD = dist; best = s; }
             }
             if (best) setVehicleTarget(best);
+            else showToast('No blockade point that way.');
         }
         function canMove(dx, dy) {
             if (game.selectedSyndicate === VEHICLE_SYNDICATE) return !!game.vehicle;

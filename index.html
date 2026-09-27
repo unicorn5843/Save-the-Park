@@ -115,6 +115,9 @@
             background: rgba(13, 16, 23, 0.82); border: 1px solid #2e3a4f;
             border-radius: 7px; padding: 5px 7px; display: flex; flex-direction: column; gap: 4px;
             backdrop-filter: blur(5px); box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+            width: 210px;
+            box-sizing: border-box;
+            flex: 0 0 auto;
         }
         .stat-line { display: flex; align-items: center; gap: 5px; }
         .stat-icon { font-size: 11px; width: 15px; text-align: center; flex: 0 0 auto; }
@@ -271,6 +274,22 @@
             50% { box-shadow: 0 0 20px rgba(255, 120, 80, 0.85); }
         }
 
+        #station-btn {
+            padding: 9px 12px;
+            background: linear-gradient(180deg, #2e3a4f, #212a3a);
+            border: 1px solid #47597a; border-radius: 8px;
+            color: #dbe5f2; font-size: 11px; font-weight: 800;
+            cursor: pointer; letter-spacing: 0.4px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+            width: 100%; text-shadow: 0 1px 1px rgba(0,0,0,0.5);
+        }
+        #station-btn:active { transform: scale(0.97); }
+        #station-btn.active {
+            background: linear-gradient(180deg, #ffcc33, #cc9922);
+            border-color: #ffe27a; color: #1a1508;
+            box-shadow: 0 0 12px rgba(255,204,51,0.55); text-shadow: none;
+        }
+
         #syndicate-tabs {
             display: flex; gap: 4px; background: rgba(13, 16, 23, 0.85);
             border: 1px solid #2e3a4f; border-radius: 8px; padding: 4px;
@@ -411,7 +430,6 @@
             <div class="stat">🌊 <span id="wave">1</span></div>
             <div class="stat">🚫 <span id="routed">0</span></div>
             <div class="stat">🔒 <span id="arrested">0</span></div>
-            <div class="stat" style="flex:1 1 100%">🎯 <span id="objective">Base</span></div>
         </div>
     </div>
 
@@ -439,6 +457,7 @@
     <div id="bottom-right-ui">
         <button id="all-out-btn">🚨 ALL OUT</button>
         <button id="all-units-btn">🪖 All Units On Me</button>
+        <button id="station-btn">🏢 Station</button>
         <div id="syndicate-tabs">
             <button class="syn-btn" data-idx="0">S1</button>
             <button class="syn-btn" data-idx="1">S2</button>
@@ -506,6 +525,7 @@
         const OFFICER_SYNDICATES = 3;
         const MAX_SYNDICATES = 4;
         const VEHICLE_SYNDICATE = 3;
+        const STATION_INDEX = 4;
         const BASE_MAX_HP = 900;
 
         const SYNDICATE_START_X = [46, 54, 62];
@@ -567,12 +587,15 @@
         const RAIDER_SEPARATION_RADIUS = TILE * 0.85;
         const RAIDER_SEPARATION_STRENGTH = 55;
 
+        // ----- REPAIR TEAM -----
+        const REPAIR_UNIT_HP = 150;
+        const REPAIR_UNIT_SPEED = 3.5;
+        const REPAIR_LIFETIME = 60;
+        const REPAIR_COOLDOWN = 120;
+        const REPAIR_RATE = BUILDING_MAX_HP / 20;   // 20 s to fully repair
+        const REPAIR_PROTECTION_RANGE = TILE * 10;
+
         // ===== FORMATIONS =====
-        // Formations change the *shape* of the line and how quickly it
-        // marches. Damage output is never scaled by formation — a syndicate
-        // always hits for the same amount regardless of what shape it's in.
-        // Damage RESISTANCE (incoming damage reduction) is still driven by
-        // formation, and is surfaced in the HUD via the 🛡 icon.
         const FORMATION_MODS = {
             rest:          { speedMult: 1.35, dmgMult: 1.00 },
             wedge:         { speedMult: 1.05, dmgMult: 1.00 },
@@ -644,6 +667,10 @@
             arrestCooldown: [0, 0, 0, 0],
             tearGasCooldown: [0, 0, 0, 0],
             manualDisperseCooldown: [0, 0, 0, 0],
+
+            repairOfficers: [],
+            repairCooldown: 0,
+            repairWasActive: false,
 
             squads: new Map(),
             nextSquadId: 1,
@@ -839,8 +866,6 @@
             return null;
         }
 
-        // Distance-weighted shortest path (Dijkstra). The road graph is tiny,
-        // so a linear-scan priority queue is plenty.
         function findPathWeighted(startId, goalId, blockedSet) {
             if (!startId || !goalId) return null;
             if (startId === goalId) return [startId];
@@ -883,6 +908,48 @@
                 }
             }
             return null;
+        }
+
+        // ---- Path smoothing helpers ----
+        // Sample a straight line to see if officers can walk it directly.
+        function lineClearForOfficers(x1, y1, x2, y2) {
+            const dx = x2 - x1, dy = y2 - y1;
+            const dist = Math.hypot(dx, dy);
+            if (dist < TILE * 0.5) return true;
+            const steps = Math.ceil(dist / (TILE * 0.4));
+            for (let i = 1; i <= steps; i++) {
+                const t = i / steps;
+                if (!isValidOfficerPosition(x1 + dx * t, y1 + dy * t)) return false;
+            }
+            return true;
+        }
+
+        // "String-pull" a waypoint list: from each point, jump to the furthest
+        // later waypoint we can see. Kills both the initial backward hop to the
+        // nearest node and the overshoot-then-come-back at the destination.
+        function smoothPath(startX, startY, points) {
+            const clean = [];
+            let px = startX, py = startY;
+            for (const p of points) {
+                if (Math.hypot(p.x - px, p.y - py) > TILE * 0.5) {
+                    clean.push(p); px = p.x; py = p.y;
+                }
+            }
+            if (clean.length === 0) return [];
+            const result = [];
+            let curX = startX, curY = startY, i = 0;
+            while (i < clean.length) {
+                let bestJ = i;
+                for (let j = clean.length - 1; j >= i; j--) {
+                    if (lineClearForOfficers(curX, curY, clean[j].x, clean[j].y)) {
+                        bestJ = j; break;
+                    }
+                }
+                result.push(clean[bestJ]);
+                curX = clean[bestJ].x; curY = clean[bestJ].y;
+                i = bestJ + 1;
+            }
+            return result;
         }
 
         function nearestRoadNode(x, y) {
@@ -1452,8 +1519,6 @@
                 if (this.state === 'retreating') {
                     const distHome = Math.hypot(this.baseX - this.x, this.baseY - this.y);
                     if (distHome <= 4 || this.retreatStuck > 2.5) {
-                        // Home, or hopelessly boxed in — stand down and patch up
-                        // on the spot instead of jittering against the blockage.
                         this.state = 'cooldown';
                         this.cooldownTimer = OFFICER.cooldownTime;
                         this.shieldUp = true;
@@ -1681,19 +1746,16 @@
                 this.carryTimer = 0;
                 this.lifeTimer = ARREST_TEAM_LIFETIME;
                 this.returningHome = false;
-                // Route following for the return trip / long chases.
                 this.route = null;
                 this.routeIdx = 0;
                 this.routeStuck = 0;
+                this._lastReturnDist = undefined;
+                this._returnStuckTime = 0;
             }
 
-            // Road-graph routing helper — used so arrest teams can navigate
-            // around buildings and the blockade vehicle instead of grinding
-            // against them forever. Falls back to direct steering once the
-            // goal is close by.
             moveToGoal(gx, gy, dt, speed) {
                 const directDist = Math.hypot(gx - this.x, gy - this.y);
-                if (directDist < TILE * 3) {
+                if (directDist < TILE * 3 || lineClearForOfficers(this.x, this.y, gx, gy)) {
                     this.route = null;
                     this.routeStuck = 0;
                     return steerUnit(this, gx, gy, dt, speed);
@@ -1725,13 +1787,13 @@
                 if (!start || !goal) { this.route = null; return; }
                 const path = findPathWeighted(start.id, goal.id, null);
                 if (!path) { this.route = null; return; }
-                const pts = [];
+                const rawPts = [];
                 for (const id of path) {
                     const n = getNode(id);
-                    if (n) pts.push({ x: n.x * TILE, y: n.y * TILE });
+                    if (n) rawPts.push({ x: n.x * TILE, y: n.y * TILE });
                 }
-                pts.push({ x: gx, y: gy });
-                this.route = pts;
+                rawPts.push({ x: gx, y: gy });
+                this.route = smoothPath(this.x, this.y, rawPts);
                 this.routeIdx = 0;
             }
 
@@ -1746,12 +1808,23 @@
                         this.returningHome = true;
                         this.route = null;
                         this.routeStuck = 0;
+                        this._lastReturnDist = undefined;
+                        this._returnStuckTime = 0;
                     }
                 }
                 if (this.returningHome) {
                     const bx = BASE_TILE_X * TILE, by = BASE_TILE_Y * TILE;
                     const d = Math.hypot(bx - this.x, by - this.y);
                     if (d < TILE * 1.5) { this.alive = false; return; }
+                    // Runaway guard: if we're not making progress for 6 s, despawn
+                    // rather than loop forever against a blocked path.
+                    if (this._lastReturnDist !== undefined && this._lastReturnDist - d < 0.05) {
+                        this._returnStuckTime = (this._returnStuckTime || 0) + dt;
+                    } else {
+                        this._returnStuckTime = Math.max(0, (this._returnStuckTime || 0) - dt * 0.5);
+                    }
+                    this._lastReturnDist = d;
+                    if (this._returnStuckTime > 6) { this.alive = false; return; }
                     this.moveToGoal(bx, by, dt, ARREST_OFFICER_SPEED);
                     return;
                 }
@@ -1932,6 +2005,197 @@
             ctx.strokeStyle = pal.cuff; ctx.lineWidth = 1.6;
             ctx.beginPath(); ctx.arc(0, 0, 2.2, 0, Math.PI * 2); ctx.stroke();
             ctx.beginPath(); ctx.arc(4, 0, 2.2, 0, Math.PI * 2); ctx.stroke();
+            ctx.restore();
+        }
+
+        // ========== REPAIR OFFICER ==========
+        const REPAIR_PALETTE = { cloth: '#e8a020', dark: '#8a5a10', hat: '#ffcc33', vest: '#ff8800' };
+        let repairIdSeq = 1;
+        class RepairOfficer {
+            constructor(x, y) {
+                this.id = repairIdSeq++;
+                this.x = x; this.y = y;
+                this.hp = REPAIR_UNIT_HP; this.maxHp = REPAIR_UNIT_HP;
+                this.syndicateIndex = -1;
+                this.shieldUp = false;
+                this.dir = { x: 1, y: 0 };
+                this.animTimer = Math.random() * 10;
+                this.isMoving = false;
+                this.alive = true;
+                this.state = 'seek';
+                this.targetBuilding = null;
+                this.lifeTimer = REPAIR_LIFETIME;
+                this.stuckTimer = 0;
+                this.route = null; this.routeIdx = 0; this.routeStuck = 0;
+                this.unprotectedTimer = 0;
+            }
+            findNearestDamaged() {
+                let best = null, bestD = Infinity;
+                for (const b of sceneryBuildings) {
+                    if (b.hp >= b.maxHp) continue;
+                    if (b.frontX === undefined) continue;
+                    const d = Math.hypot(b.frontX - this.x, b.frontY - this.y);
+                    if (d < bestD) { bestD = d; best = b; }
+                }
+                return best;
+            }
+            isProtected() {
+                for (const o of game.officers) {
+                    if (!o.alive || o.isAllOut || o.state !== 'active') continue;
+                    if (Math.hypot(o.x - this.x, o.y - this.y) < REPAIR_PROTECTION_RANGE) return true;
+                }
+                return false;
+            }
+            headHome() {
+                this.state = 'return';
+                this.targetBuilding = null;
+                this.route = null; this.routeIdx = 0; this.routeStuck = 0;
+            }
+            moveToGoal(gx, gy, dt, speed) {
+                const directDist = Math.hypot(gx - this.x, gy - this.y);
+                if (directDist < TILE * 3 || lineClearForOfficers(this.x, this.y, gx, gy)) {
+                    this.route = null; this.routeStuck = 0;
+                    return steerUnit(this, gx, gy, dt, speed);
+                }
+                if (!this.route || this.routeStuck > 1.2) {
+                    this.computeRoute(gx, gy); this.routeStuck = 0;
+                }
+                let tx = gx, ty = gy;
+                if (this.route && this.routeIdx < this.route.length) {
+                    const wp = this.route[this.routeIdx];
+                    if (Math.hypot(wp.x - this.x, wp.y - this.y) < TILE * 1.1) this.routeIdx++;
+                    if (this.routeIdx < this.route.length) {
+                        tx = this.route[this.routeIdx].x;
+                        ty = this.route[this.routeIdx].y;
+                    }
+                }
+                const before = Math.hypot(tx - this.x, ty - this.y);
+                steerUnit(this, tx, ty, dt, speed);
+                const after = Math.hypot(tx - this.x, ty - this.y);
+                if (before - after < 0.15) this.routeStuck += dt;
+                else this.routeStuck = Math.max(0, this.routeStuck - dt * 0.6);
+            }
+            computeRoute(gx, gy) {
+                const start = nearestRoadNode(this.x, this.y);
+                const goal  = nearestRoadNode(gx, gy);
+                if (!start || !goal) { this.route = null; return; }
+                const path = findPathWeighted(start.id, goal.id, null);
+                if (!path) { this.route = null; return; }
+                const raw = [];
+                for (const id of path) {
+                    const n = getNode(id);
+                    if (n) raw.push({ x: n.x * TILE, y: n.y * TILE });
+                }
+                raw.push({ x: gx, y: gy });
+                this.route = smoothPath(this.x, this.y, raw);
+                this.routeIdx = 0;
+            }
+            update(dt) {
+                if (!this.alive) return;
+                this.animTimer += dt;
+                this.lifeTimer -= dt;
+
+                if (this.lifeTimer <= 0 && this.state !== 'return') {
+                    this.headHome();
+                }
+                if (!this.isProtected()) this.unprotectedTimer += dt;
+                else this.unprotectedTimer = Math.max(0, this.unprotectedTimer - dt * 2);
+                if (this.unprotectedTimer > 3.0 && this.state !== 'return') {
+                    this.headHome();
+                    showToast('👷 Repair worker retreating — no protection!');
+                }
+
+                if (this.state === 'return') {
+                    const bx = BASE_TILE_X * TILE, by = BASE_TILE_Y * TILE;
+                    const d = Math.hypot(bx - this.x, by - this.y);
+                    if (d < TILE * 1.5) { this.alive = false; return; }
+                    this.moveToGoal(bx, by, dt, REPAIR_UNIT_SPEED);
+                    return;
+                }
+
+                if (!this.targetBuilding || this.targetBuilding.hp >= this.targetBuilding.maxHp) {
+                    this.targetBuilding = this.findNearestDamaged();
+                    if (!this.targetBuilding) { this.headHome(); return; }
+                    this.state = 'seek';
+                    this.route = null; this.routeIdx = 0; this.routeStuck = 0;
+                }
+
+                const tx = this.targetBuilding.frontX !== undefined ? this.targetBuilding.frontX : this.targetBuilding.tx * TILE;
+                const ty = this.targetBuilding.frontY !== undefined ? this.targetBuilding.frontY : this.targetBuilding.ty * TILE;
+                const d = Math.hypot(tx - this.x, ty - this.y);
+                if (d < TILE * 1.8) {
+                    this.state = 'repair';
+                    this.isMoving = false;
+                    const bdx = this.targetBuilding.tx * TILE - this.x;
+                    const bdy = this.targetBuilding.ty * TILE - this.y;
+                    const bdd = Math.hypot(bdx, bdy) || 1;
+                    this.dir = { x: bdx/bdd, y: bdy/bdd };
+                    const wasAlive = this.targetBuilding.alive;
+                    this.targetBuilding.hp = Math.min(this.targetBuilding.maxHp, this.targetBuilding.hp + REPAIR_RATE * dt);
+                    if (!this.targetBuilding.alive) this.targetBuilding.alive = true;
+                    if (wasAlive && this.targetBuilding.hp >= this.targetBuilding.maxHp) {
+                        buildTerrainCanvas();
+                    }
+                } else {
+                    this.state = 'seek';
+                    this.moveToGoal(tx, ty, dt, REPAIR_UNIT_SPEED);
+                }
+            }
+            draw(ctx) {
+                if (!this.alive) return;
+                const sx = this.x - game.camera.x, sy = this.y - game.camera.y;
+                if (sx < -40 || sy < -40 || sx > game.width + 40 || sy > game.height + 40) return;
+                ctx.save();
+                ctx.translate(sx, sy);
+                if (this.dir.x < -0.05) ctx.scale(-1, 1);
+                drawRepairFigure(ctx, this);
+                ctx.restore();
+                drawHpBar(ctx, sx, sy - 23, this.hp, this.maxHp, '#ffcc33');
+                if (this.state === 'repair') {
+                    ctx.fillStyle = '#ffcc33'; ctx.font = 'bold 9px monospace'; ctx.textAlign = 'center';
+                    ctx.fillText('🔧', sx, sy - 28);
+                } else if (this.state === 'return') {
+                    ctx.fillStyle = '#a0d0ff'; ctx.font = '8px monospace'; ctx.textAlign = 'center';
+                    ctx.fillText('↩', sx, sy - 28);
+                }
+                if (this.lifeTimer > 0 && this.state !== 'return') {
+                    ctx.fillStyle = '#9fb0c7'; ctx.font = '7px monospace'; ctx.textAlign = 'center';
+                    ctx.fillText(Math.ceil(this.lifeTimer) + 's', sx, sy - 34);
+                }
+            }
+        }
+        function drawRepairFigure(ctx, u) {
+            const pal = REPAIR_PALETTE;
+            const walking = u.isMoving;
+            const phase = u.animTimer * (walking ? 7 : 1.2);
+            const amp = walking ? 1 : 0.12;
+            const legSwing = Math.sin(phase) * amp;
+            const H = 20;
+            const legReach = H * 0.34;
+            ctx.lineCap = 'round';
+            ctx.strokeStyle = pal.dark; ctx.lineWidth = 2.6;
+            ctx.beginPath(); ctx.moveTo(-1, -2); ctx.lineTo(-1 - legSwing * legReach * 0.6, legReach); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(-1, -2); ctx.lineTo(-1 + legSwing * legReach, legReach); ctx.stroke();
+            ctx.strokeStyle = pal.cloth; ctx.lineWidth = 5;
+            ctx.beginPath(); ctx.moveTo(-1, -2); ctx.lineTo(-1, -H * 0.62); ctx.stroke();
+            ctx.strokeStyle = pal.vest; ctx.lineWidth = 1.6;
+            ctx.beginPath(); ctx.moveTo(-1, -H * 0.2); ctx.lineTo(-1, -H * 0.6); ctx.stroke();
+            ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1;
+            ctx.beginPath(); ctx.moveTo(-1, -H * 0.32); ctx.lineTo(-1, -H * 0.5); ctx.stroke();
+            ctx.fillStyle = '#caa27a';
+            ctx.beginPath(); ctx.arc(0, -H * 0.72, H * 0.17, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = pal.hat;
+            ctx.beginPath(); ctx.arc(0, -H * 0.78, H * 0.19, Math.PI, Math.PI * 2); ctx.fill();
+            ctx.fillRect(-H * 0.24, -H * 0.78, H * 0.48, 2);
+            const repairing = u.state === 'repair';
+            const swing = repairing ? Math.sin(u.animTimer * 8) * 0.4 : 0;
+            ctx.save();
+            ctx.translate(H * 0.15, -H * 0.35);
+            ctx.rotate(0.5 + swing);
+            ctx.strokeStyle = '#6a5030'; ctx.lineWidth = 1.8;
+            ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(H * 0.35, 0); ctx.stroke();
+            ctx.fillStyle = '#a0a0a0';
+            ctx.fillRect(H * 0.35, -2, 4, 4);
             ctx.restore();
         }
 
@@ -2509,9 +2773,8 @@
                 this.routeIdx = 0;
                 this.stuckTimer = 0;
 
-                // Water cannon state
                 this.waterCannonOn = false;
-                this.waterPhase = 'idle'; // 'idle' | 'burst'
+                this.waterPhase = 'idle';
                 this.waterTimer = 0;
                 this.waterTickTimer = 0;
                 this.waterAimAngle = 0;
@@ -2537,15 +2800,12 @@
                 if (!this.targetSpot) { this.route = null; this.routeIdx = 0; return; }
                 const spot = this.targetSpot;
 
-                // Already basically on top of it — no route needed.
                 if (Math.hypot(spot.x - this.x, spot.y - this.y) < TILE * 2) {
                     this.route = [{ x: spot.x, y: spot.y }];
                     this.routeIdx = 0;
                     return;
                 }
 
-                // The spot lives on a specific road edge. Its two endpoint
-                // nodes are the only sane graph goals.
                 const edge = ROAD_EDGES.find(e => e.key === spot.edgeKey);
                 const goalIds = edge ? [edge.a, edge.b] : [];
                 if (goalIds.length === 0) {
@@ -2554,9 +2814,6 @@
                     return;
                 }
 
-                // Candidate starts: the nearest node, plus both ends of the
-                // edge we're currently sitting on (the truck can be halfway
-                // down a long road).
                 const starts = [];
                 const near = nearestRoadNode(this.x, this.y);
                 if (near) starts.push(near.id);
@@ -2570,8 +2827,6 @@
                 }
                 if (starts.length === 0) starts.push('B54');
 
-                // Score every (start, goal) pair by real distance and take
-                // the cheapest — this is what stops the truck doubling back.
                 let bestPath = null, bestCost = Infinity;
                 for (const sId of starts) {
                     const sNode = getNode(sId);
@@ -2604,7 +2859,6 @@
                     const n = getNode(id);
                     if (n) pts.push({ x: n.x * TILE, y: n.y * TILE });
                 }
-                // Final leg runs down the target edge to the exact tapped spot.
                 pts.push({ x: spot.x, y: spot.y });
                 this.route = pts;
                 this.routeIdx = 0;
@@ -2638,6 +2892,7 @@
                 for (const h of game.handlers) if (h.alive) push(h);
                 for (const t of game.tearGasOfficers) if (t.alive) push(t);
                 for (const k of game.k9s) if (k.alive) push(k);
+                for (const rp of game.repairOfficers) if (rp.alive) push(rp);
             }
             update(dt) {
                 if (!this.alive) return;
@@ -2649,7 +2904,6 @@
                 this.angle += da * Math.min(1, dt * VEHICLE_TURN_RATE);
 
                 if (this.targetSpot) {
-                    // Consume every waypoint we've already rolled over.
                     if (this.route) {
                         while (this.routeIdx < this.route.length &&
                                Math.hypot(this.route[this.routeIdx].x - this.x,
@@ -2696,9 +2950,6 @@
                             this.stuckTimer += dt;
                         }
 
-                        // Shoved into a corner / wrong side of a junction:
-                        // drop the offending waypoint, and if there's nothing
-                        // left to drop, abandon the order instead of grinding.
                         if (this.stuckTimer > 1.0) {
                             this.stuckTimer = 0;
                             if (this.route && this.routeIdx < this.route.length) {
@@ -2723,7 +2974,6 @@
                     return;
                 }
 
-                // Auto-aim at the nearest valid raider within range.
                 let target = null, bestD = Infinity;
                 for (const r of game.raiders) {
                     if (!r.alive || r.state === 'fleeing' || r.beingArrested) continue;
@@ -2734,7 +2984,6 @@
                 if (target) {
                     this.waterAimTarget = Math.atan2(target.y - this.y, target.x - this.x);
                 }
-                // Smoothly rotate toward the target
                 let da = this.waterAimTarget - this.waterAimAngle;
                 while (da > Math.PI) da -= Math.PI * 2;
                 while (da < -Math.PI) da += Math.PI * 2;
@@ -2775,7 +3024,6 @@
                     while (diff < -Math.PI) diff += Math.PI * 2;
                     if (Math.abs(diff) > half) continue;
                     dealDamageToRaider(r, WATER_CANNON_DAMAGE_PER_TICK);
-                    // Shove the raider back along the jet direction.
                     const pushX = Math.cos(ang) * WATER_CANNON_PUSH_PER_TICK;
                     const pushY = Math.sin(ang) * WATER_CANNON_PUSH_PER_TICK;
                     const nx = r.x + pushX, ny = r.y + pushY;
@@ -2809,7 +3057,6 @@
                 ctx.closePath();
                 ctx.fill();
 
-                // Bright core stream
                 ctx.strokeStyle = `rgba(220, 245, 255, ${alpha * 0.9})`;
                 ctx.lineWidth = 3;
                 ctx.beginPath();
@@ -2818,7 +3065,6 @@
                            sy + Math.sin(ang) * WATER_CANNON_RANGE * 0.92);
                 ctx.stroke();
 
-                // Droplets flying outward
                 for (let i = 0; i < 12; i++) {
                     const t = ((WATER_CANNON_BURST_DURATION - this.waterTimer) * 6 + i * 0.73) % 1;
                     const dist = t * WATER_CANNON_RANGE * 0.95;
@@ -2839,8 +3085,6 @@
                 const sx = this.x - game.camera.x, sy = this.y - game.camera.y;
                 if (sx < -200 || sy < -200 || sx > game.width + 200 || sy > game.height + 200) return;
 
-                // Water jet sits under the vehicle body so the truck reads
-                // as the source of the stream.
                 if (this.waterCannonOn) this.drawWaterJet(ctx);
 
                 ctx.save();
@@ -2918,9 +3162,9 @@
 
         // ========== RAIDER ==========
         const RAIDER_TYPES = {
-            standard:     { name: 'Raider',       hp: 52, damage: 5,  meleeRange: 1.2,  atkCooldown: 1.15, speed: 1.7, weight: 60, color: '#8a4a34', dark: '#4a2418' },
-            bruiser:      { name: 'Bruiser',      hp: 105, damage: 10, meleeRange: 1.35, atkCooldown: 1.35, speed: 1.4, weight: 25, color: '#7a2c2c', dark: '#3f1616' },
-            brickthrower: { name: 'Brick Thrower',hp: 82, damage: 4,  meleeRange: 1.1,  atkCooldown: 1.9,  speed: 1.2, weight: 10, color: '#a0704a', dark: '#4a2a18' },
+            standard:     { name: 'Raider',        hp: 66,  damage: 6,  meleeRange: 1.2,  atkCooldown: 1.10, speed: 1.7, weight: 60, color: '#8a4a34', dark: '#4a2418' },
+            bruiser:      { name: 'Bruiser',       hp: 132, damage: 12, meleeRange: 1.35, atkCooldown: 1.30, speed: 1.4, weight: 25, color: '#7a2c2c', dark: '#3f1616' },
+            brickthrower: { name: 'Brick Thrower', hp: 100, damage: 5,  meleeRange: 1.1,  atkCooldown: 1.85, speed: 1.2, weight: 10, color: '#a0704a', dark: '#4a2a18' },
         };
         const MAX_ATTACKERS_PER_OFFICER = 3;
         let raiderIdSeq = 1;
@@ -2967,9 +3211,6 @@
                 this.routeVersion = -1;
                 this.repathTimer = Math.random() * 0.6;
 
-                // Crowd-avoidance jitter to keep the mob from overlapping into
-                // a single blob. Seeded per-unit so the same raider picks the
-                // same bias frame-to-frame.
                 this.sepBiasX = (Math.random() - 0.5) * 0.6;
                 this.sepBiasY = (Math.random() - 0.5) * 0.6;
             }
@@ -3111,12 +3352,12 @@
                     if (this.fleeTimer <= 0) {
                         this.fleeTimer = 1.5;
                         const hpPct = this.hp / this.maxHp;
-                        if (game.raiderGroupMorale < 10 && hpPct < 0.4) {
-                            const fleeChance = (10 - game.raiderGroupMorale) * 0.02;
+                        if (game.raiderGroupMorale < 8 && hpPct < 0.30) {
+                            const fleeChance = (8 - game.raiderGroupMorale) * 0.015;
                             if (Math.random() < fleeChance) {
                                 this.startFleeing(); game.routed++;
                             }
-                        } else if (hpPct < 0.15 && Math.random() < 0.30) {
+                        } else if (hpPct < 0.08 && Math.random() < 0.15) {
                             this.startFleeing(); game.routed++;
                         }
                     }
@@ -3132,6 +3373,17 @@
                     const count = game.attackerCounts.get(o.id) || 0;
                     if (count >= MAX_ATTACKERS_PER_OFFICER) continue;
                     if (d < bestD) { bestD = d; target = o; }
+                }
+                // Repair workers are opportunistic targets.
+                if (game.repairOfficers.length > 0) {
+                    for (const rp of game.repairOfficers) {
+                        if (!rp.alive) continue;
+                        const d = Math.hypot(rp.x - this.x, rp.y - this.y);
+                        if (d > TILE * 8) continue;
+                        const dPenalty = d + TILE * 3;
+                        if (dPenalty < bestD) { bestD = dPenalty; target = rp; }
+                        if (d < fallbackD) { fallbackD = d; fallbackTarget = rp; }
+                    }
                 }
                 if (!target) { target = fallbackTarget; bestD = fallbackD; }
 
@@ -3155,7 +3407,9 @@
                 }
 
                 this.engaged = !!(target && bestD < engageRange + TILE * 0.4);
-                if (this.engaged) game.attackerCounts.set(target.id, (game.attackerCounts.get(target.id) || 0) + 1);
+                if (this.engaged && target.id !== undefined) {
+                    game.attackerCounts.set(target.id, (game.attackerCounts.get(target.id) || 0) + 1);
+                }
 
                 let nearbyOfficers = 0;
                 for (const o of game.officers) {
@@ -3395,8 +3649,6 @@
             ctx.restore();
         }
 
-        // Push overlapping raiders apart so a horde reads as a horde
-        // rather than a single blob of stacked sprites.
         function applyRaiderSeparation(dt) {
             const list = game.raiders;
             const n = list.length;
@@ -3421,8 +3673,6 @@
                     count++;
                 }
                 if (count === 0) continue;
-                // A touch of per-unit jitter keeps exact-overlap cases from
-                // producing symmetric zero-force pairs.
                 const nx = a.x + (fx + a.sepBiasX * 0.15) * force;
                 const ny = a.y + (fy + a.sepBiasY * 0.15) * force;
                 if (isValidPosition(nx, ny)) { a.x = nx; a.y = ny; }
@@ -3736,6 +3986,7 @@
         }
         function commandMove(dx, dy) {
             if (game.selectedSyndicate === VEHICLE_SYNDICATE) { commandMoveVehicle(dx, dy); return; }
+            if (game.selectedSyndicate === STATION_INDEX) return;
             const sy = ensureSyndicateState(game.selectedSyndicate);
             sy.path = null;
             sy.pathIdx = 0;
@@ -3749,10 +4000,6 @@
                 assignFormation(); updateSelectionUI();
             }
         }
-        // Stepping behaviour for the blockade vehicle: one press = one
-        // blockade point hop in that direction, just like a syndicate tile
-        // move. Picks the *nearest* valid point roughly in the pressed
-        // direction so the truck doesn't sprint across the map.
         function commandMoveVehicle(dx, dy) {
             const v = game.vehicle;
             if (!v) return;
@@ -3762,7 +4009,7 @@
                 const ddx = s.x - cur.x, ddy = s.y - cur.y;
                 const dist = Math.hypot(ddx, ddy);
                 if (dist < TILE * 0.7 || dist > VEHICLE_STEP_RANGE) continue;
-                const dot = (ddx * dx + ddy * dy) / dist;   // must be roughly that way
+                const dot = (ddx * dx + ddy * dy) / dist;
                 if (dot < 0.55) continue;
                 if (dist < bestD) { bestD = dist; best = s; }
             }
@@ -3771,6 +4018,7 @@
         }
         function canMove(dx, dy) {
             if (game.selectedSyndicate === VEHICLE_SYNDICATE) return !!game.vehicle;
+            if (game.selectedSyndicate === STATION_INDEX) return false;
             const sy = game.syndicates[game.selectedSyndicate];
             if (!sy) return false;
             return isValidOfficerPosition(sy.commandX + dx * TILE, sy.commandY + dy * TILE);
@@ -3785,18 +4033,15 @@
         }
 
         // ===== SYNDICATE ROAD MARCH =====
-        const SYNDICATE_MARCH_SPEED = 3.0;   // tiles / second
+        const SYNDICATE_MARCH_SPEED = 3.0;
 
-        // Build a road-graph route for a syndicate's command point, exactly
-        // like the blockade truck does — this is what stops officers piling
-        // into the side of a building when you tap across the map.
         function pathSyndicateTo(sy, worldX, worldY) {
             if (!sy) return;
             const clamped = clampOfficerTarget(worldX, worldY);
             const goalX = clamped.x, goalY = clamped.y;
             sy.goalX = goalX; sy.goalY = goalY;
 
-            const pts = [{ x: sy.commandX, y: sy.commandY }];
+            const rawPts = [];
             const start = nearestRoadNode(sy.commandX, sy.commandY);
             const goal = nearestRoadNode(goalX, goalY);
             if (start && goal) {
@@ -3805,33 +4050,34 @@
                 if (path) {
                     for (const id of path) {
                         const n = getNode(id);
-                        if (n) pts.push({ x: n.x * TILE, y: n.y * TILE });
+                        if (n) rawPts.push({ x: n.x * TILE, y: n.y * TILE });
                     }
                 }
             }
-            pts.push({ x: goalX, y: goalY });
+            rawPts.push({ x: goalX, y: goalY });
 
-            sy.path = pts;
+            // String-pull the path so officers take the most direct walkable
+            // route rather than hopping node-to-node (which used to make them
+            // back up to the nearest node and then overshoot into the
+            // destination).
+            sy.path = smoothPath(sy.commandX, sy.commandY, rawPts);
             sy.pathIdx = 0;
             sy.pathVersion = game.blockadeVersion;
         }
 
         function commandSyndicateTo(worldX, worldY) {
             if (game.selectedSyndicate === VEHICLE_SYNDICATE) return;
+            if (game.selectedSyndicate === STATION_INDEX) return;
             const sy = ensureSyndicateState(game.selectedSyndicate);
             pathSyndicateTo(sy, worldX, worldY);
             updateSelectionUI();
         }
 
-        // Walks every syndicate's command point along its route. Formation
-        // slots are derived from the command point each frame, so the whole
-        // block tracks the route without any extra per-officer pathfinding.
         function updateSyndicateMovement(dt) {
             for (let i = 0; i < OFFICER_SYNDICATES; i++) {
                 const sy = game.syndicates[i];
                 if (!sy) continue;
 
-                // Re-route if the blockade vehicle just changed the graph.
                 if (sy.path && sy.pathVersion !== game.blockadeVersion) {
                     pathSyndicateTo(sy, sy.goalX, sy.goalY);
                 }
@@ -3852,8 +4098,6 @@
                     sy.commandY += uy * step;
                     budget -= step;
 
-                    // Face the cardinal direction of travel so the wall
-                    // leads with its shields.
                     if (Math.abs(ux) > Math.abs(uy)) {
                         const sx = Math.sign(ux) || 1;
                         if (sy.facingX !== sx || sy.facingY !== 0) { sy.facingX = sx; sy.facingY = 0; }
@@ -3966,6 +4210,8 @@
                     a.lifeTimer = ARREST_TEAM_LIFETIME;
                     a.returningHome = false;
                     a.route = null; a.routeIdx = 0; a.routeStuck = 0;
+                    a._lastReturnDist = undefined;
+                    a._returnStuckTime = 0;
                 });
             } else {
                 game.arrestOfficers = game.arrestOfficers.filter(a => a.alive);
@@ -4130,6 +4376,38 @@
             }
         }
 
+        // ========== REPAIR TEAM ==========
+        function deployRepairTeam() {
+            if (game.repairCooldown > 0) {
+                showToast('Repair team recharging — ' + Math.ceil(game.repairCooldown) + 's.');
+                return;
+            }
+            if (game.repairOfficers.some(r => r.alive)) {
+                showToast('Repair worker already deployed.');
+                return;
+            }
+            const sx = BASE_TILE_X * TILE, sy = BASE_TILE_Y * TILE;
+            const r = new RepairOfficer(sx, sy);
+            if (!isValidOfficerPosition(r.x, r.y)) {
+                const s = clampOfficerTarget(r.x, r.y);
+                r.x = s.x; r.y = s.y;
+            }
+            game.repairOfficers.push(r);
+            game.repairWasActive = true;
+            showToast('👷 Repair worker deployed!');
+            renderOptionsPanel(); updateSelectionUI(); updateStationButton();
+        }
+        function updateStationButton() {
+            const btn = document.getElementById('station-btn');
+            if (!btn) return;
+            const active = game.selectedSyndicate === STATION_INDEX;
+            btn.classList.toggle('active', active);
+            const any = game.repairOfficers.some(r => r.alive);
+            if (any) btn.textContent = '🏢 Station (👷 out)';
+            else if (game.repairCooldown > 0) btn.textContent = '🏢 Station (' + Math.ceil(game.repairCooldown) + 's)';
+            else btn.textContent = '🏢 Station';
+        }
+
         // ========== SPAWN ==========
         function spawnSyndicate() {
             if (game.syndicatesDeployed >= OFFICER_SYNDICATES) return;
@@ -4234,12 +4512,21 @@
             else if (roll < 0.76) ai.objective = 'buildings';
             else ai.objective = 'hunt';
 
-            // Bigger, hungrier waves — the mob has more bodies to throw at
-            // the line and can actually flank around a single strongpoint.
             const raiderCount = 20 + game.waveNumber * 6;
             const tactic = chooseWaveTactic();
             const cfg = WAVE_TACTICS[tactic] || WAVE_TACTICS['single'];
             const exits = cfg.exits.slice();
+
+            // Extra random entrances so later waves fan out across the map
+            // and the player can't just camp a single choke point forever.
+            const ALL_EXITS = ['N18','N30','N54','N78','N90','S12','S96'];
+            const extraTries = Math.min(3, Math.floor(game.waveNumber / 2));
+            for (let i = 0; i < extraTries; i++) {
+                if (Math.random() < 0.55) {
+                    const e = ALL_EXITS[Math.floor(Math.random() * ALL_EXITS.length)];
+                    if (!exits.includes(e)) exits.push(e);
+                }
+            }
 
             game.squads = new Map();
             game.nextSquadId = 1;
@@ -4511,6 +4798,7 @@
                 else showToast('Tap near a road to position the blockade.');
                 return;
             }
+            if (game.selectedSyndicate === STATION_INDEX) return;
 
             commandSyndicateTo(wx, wy);
         }
@@ -4548,24 +4836,35 @@
 
             for (const o of game.officers) {
                 if (!o.alive || o.isAllOut) continue;
+                if (idx === STATION_INDEX) continue;
                 if (!game.mergedMode && o.syndicateIndex !== idx) continue;
                 const w = (o.state === 'active') ? 1 : 0.3;
                 cx += o.x * w; cy += o.y * w; n += w;
             }
             for (const a of game.arrestOfficers) {
                 if (!a.alive) continue;
+                if (idx === STATION_INDEX) continue;
                 if (!game.mergedMode && a.syndicateIndex !== idx) continue;
                 cx += a.x; cy += a.y; n += 1;
             }
             for (const h of game.handlers) {
                 if (!h.alive) continue;
+                if (idx === STATION_INDEX) continue;
                 if (!game.mergedMode && h.syndicateIndex !== idx) continue;
                 cx += h.x; cy += h.y; n += 1;
             }
             for (const t of game.tearGasOfficers) {
                 if (!t.alive) continue;
+                if (idx === STATION_INDEX) continue;
                 if (!game.mergedMode && t.syndicateIndex !== idx) continue;
                 cx += t.x; cy += t.y; n += 1;
+            }
+            if (idx === STATION_INDEX) {
+                // Camera focuses on the repair worker if one is out.
+                for (const rp of game.repairOfficers) {
+                    if (!rp.alive) continue;
+                    cx += rp.x; cy += rp.y; n += 1;
+                }
             }
 
             if (n <= 0) {
@@ -4598,6 +4897,37 @@
         function renderOptionsPanel() {
             const panel = document.getElementById('options-panel');
             panel.innerHTML = '';
+
+            if (game.selectedSyndicate === STATION_INDEX) {
+                const lbl = document.createElement('div');
+                lbl.className = 'section-label'; lbl.textContent = 'Station Support';
+                panel.appendChild(lbl);
+
+                const b = document.createElement('button');
+                const any = game.repairOfficers.some(r => r.alive);
+                if (any) {
+                    b.textContent = '👷 Repair Team (out)';
+                    b.classList.add('active-choice');
+                    b.disabled = true;
+                } else if (game.repairCooldown > 0) {
+                    b.textContent = '👷 Repair Team (' + Math.ceil(game.repairCooldown) + 's)';
+                    b.disabled = true;
+                } else {
+                    b.textContent = '👷 Repair Team';
+                }
+                b.addEventListener('click', deployRepairTeam);
+                panel.appendChild(b);
+
+                const info = document.createElement('div');
+                info.className = 'info-line';
+                info.textContent = any
+                    ? 'Worker repairing damaged buildings — keep a syndicate nearby.'
+                    : game.repairCooldown > 0
+                        ? 'Repair team recharging.'
+                        : 'Send a construction worker to patch damaged buildings.';
+                panel.appendChild(info);
+                return;
+            }
 
             if (game.selectedSyndicate === VEHICLE_SYNDICATE) {
                 renderVehiclePanel(panel);
@@ -4732,6 +5062,7 @@
                 b.textContent = 'S' + (idx + 1) + (exists ? ' (' + count + ')' : '');
                 b.classList.toggle('active', idx === game.selectedSyndicate && exists);
             });
+            updateStationButton();
         }
         function setupBottomRightUI() {
             document.querySelectorAll('#syndicate-tabs .syn-btn').forEach(b => {
@@ -4753,6 +5084,15 @@
             if (mergeBtn) mergeBtn.addEventListener('click', toggleMergedMode);
             const allOutBtn = document.getElementById('all-out-btn');
             if (allOutBtn) allOutBtn.addEventListener('click', triggerAllOut);
+            const stationBtn = document.getElementById('station-btn');
+            if (stationBtn) stationBtn.addEventListener('click', () => {
+                if (game.mergedMode) { game.mergedMode = false; updateMergedButton(); }
+                game.selectedSyndicate = STATION_INDEX;
+                renderSyndicateTabs(); renderOptionsPanel(); updateSelectionUI();
+                updateArrestButton(); updateTearGasButton(); updateK9Button(); updateDisperseButton();
+                updateStationButton();
+                game.cameraUserLock = 0;
+            });
             const arrestBtn = document.getElementById('send-arrest');
             if (arrestBtn) arrestBtn.addEventListener('click', sendInArrestTeam);
             const gasBtn = document.getElementById('deploy-gas');
@@ -4777,7 +5117,16 @@
             const el = document.getElementById('selection-info');
 
             const topBar = document.getElementById('top-bar');
-            if (topBar) topBar.style.display = (idx === VEHICLE_SYNDICATE) ? 'none' : 'flex';
+            if (topBar) topBar.style.display = (idx === VEHICLE_SYNDICATE || idx === STATION_INDEX) ? 'none' : 'flex';
+
+            if (idx === STATION_INDEX) {
+                const any = game.repairOfficers.some(r => r.alive);
+                if (any) el.textContent = '🏢 Station — repair worker deployed';
+                else if (game.repairCooldown > 0) el.textContent = '🏢 Station — repair team recharging (' + Math.ceil(game.repairCooldown) + 's)';
+                else el.textContent = '🏢 Station — ready to deploy repair team';
+                updateStationButton();
+                return;
+            }
 
             if (idx === VEHICLE_SYNDICATE) {
                 const v = game.vehicle;
@@ -4816,8 +5165,6 @@
             document.getElementById('wave').textContent = game.waveNumber;
             document.getElementById('routed').textContent = game.routed;
             document.getElementById('arrested').textContent = game.arrested;
-            const objEl = document.getElementById('objective');
-            if (objEl) objEl.textContent = OBJECTIVE_SHORT[game.raidAI.objective] || '—';
 
             const baseFill = document.getElementById('base-hp-fill');
             const basePct = game.baseHp / BASE_MAX_HP;
@@ -4837,6 +5184,7 @@
 
             renderSyndicateTabs(); updateMoveButtons(); updateMergedButton(); updateAllOutButton();
             updateArrestButton(); updateTearGasButton(); updateK9Button(); updateDisperseButton();
+            updateStationButton();
         }
 
         // ========== RENDER ==========
@@ -4854,6 +5202,7 @@
             game.arrestOfficers.forEach(a => { if (a.alive) all.push(a); });
             game.handlers.forEach(h => { if (h.alive) all.push(h); });
             game.tearGasOfficers.forEach(t => { if (t.alive) all.push(t); });
+            game.repairOfficers.forEach(r => { if (r.alive) all.push(r); });
             game.raiders.forEach(r => { if (r.alive) all.push(r); });
             game.k9s.forEach(k => { if (k.alive) all.push(k); });
             all.sort((a, b) => a.y - b.y);
@@ -4905,6 +5254,29 @@
                     ctx.lineWidth = 2; ctx.setLineDash([4, 4]);
                     ctx.beginPath(); ctx.arc(sx, sy, 14, 0, Math.PI * 2); ctx.stroke();
                     ctx.setLineDash([]);
+                }
+            } else if (game.selectedSyndicate === STATION_INDEX) {
+                // Draw a path from the repair worker to its current target
+                // building so the player can see what it's heading for.
+                for (const r of game.repairOfficers) {
+                    if (!r.alive) continue;
+                    if (r.route && r.routeIdx < r.route.length) {
+                        ctx.strokeStyle = 'rgba(255, 200, 80, 0.55)';
+                        ctx.lineWidth = 2; ctx.setLineDash([5, 5]);
+                        ctx.beginPath();
+                        ctx.moveTo(r.x - game.camera.x, r.y - game.camera.y);
+                        for (let i = r.routeIdx; i < r.route.length; i++) {
+                            ctx.lineTo(r.route[i].x - game.camera.x, r.route[i].y - game.camera.y);
+                        }
+                        ctx.stroke(); ctx.setLineDash([]);
+                    }
+                    if (r.targetBuilding && r.targetBuilding.hp < r.targetBuilding.maxHp) {
+                        const bx = r.targetBuilding.tx * TILE - game.camera.x;
+                        const by = r.targetBuilding.ty * TILE - game.camera.y;
+                        ctx.strokeStyle = 'rgba(255,200,80,0.9)';
+                        ctx.lineWidth = 2;
+                        ctx.beginPath(); ctx.arc(bx, by, 18, 0, Math.PI * 2); ctx.stroke();
+                    }
                 }
             } else {
                 const sy = game.syndicates[game.selectedSyndicate];
@@ -4965,6 +5337,11 @@
                 ctx.fillStyle = t.state === 'spraying' ? '#f0f080' : '#c8d040';
                 ctx.fillRect((t.x / TILE) * MINIMAP_SCALE, (t.y / TILE) * MINIMAP_SCALE, 2, 2);
             });
+            game.repairOfficers.forEach(r => {
+                if (!r.alive) return;
+                ctx.fillStyle = r.state === 'repair' ? '#ffcc33' : '#e8a020';
+                ctx.fillRect((r.x / TILE) * MINIMAP_SCALE, (r.y / TILE) * MINIMAP_SCALE, 2, 2);
+            });
             game.k9s.forEach(k => {
                 if (!k.alive) return;
                 ctx.fillStyle = k.deployTimer > 0 ? '#ff5a30' : '#c08040';
@@ -4990,7 +5367,8 @@
             });
             sceneryBuildings.forEach(b => {
                 if (!b.alive || b.hp >= b.maxHp) return;
-                ctx.fillStyle = '#e86858';
+                // Pure orange is visually distinct from raider salmon.
+                ctx.fillStyle = '#ff8000';
                 ctx.fillRect((b.tx) * MINIMAP_SCALE - 1, (b.ty) * MINIMAP_SCALE - 1, 3, 3);
             });
             ctx.strokeStyle = 'rgba(255,204,51,0.8)'; ctx.lineWidth = 1;
@@ -5022,6 +5400,7 @@
             renderSyndicateTabs(); renderOptionsPanel(); updateSelectionUI();
             updateMergedButton(); updateAllOutButton();
             updateArrestButton(); updateTearGasButton(); updateK9Button(); updateDisperseButton();
+            updateStationButton();
         }
 
         // ========== MAIN LOOP ==========
@@ -5042,6 +5421,10 @@
                 for (let i = 0; i < game.manualDisperseCooldown.length; i++) {
                     if (game.manualDisperseCooldown[i] > 0) game.manualDisperseCooldown[i] = Math.max(0, game.manualDisperseCooldown[i] - dt);
                 }
+                if (game.repairCooldown > 0) game.repairCooldown = Math.max(0, game.repairCooldown - dt);
+                const anyRepair = game.repairOfficers.some(r => r.alive);
+                if (game.repairWasActive && !anyRepair) game.repairCooldown = REPAIR_COOLDOWN;
+                game.repairWasActive = anyRepair;
 
                 game.syndicates.forEach(sy => {
                     if (sy && sy.disperseTimer > 0) {
@@ -5060,6 +5443,7 @@
                 game.arrestOfficers.forEach(a => a.update(dt));
                 game.handlers.forEach(h => h.update(dt));
                 game.tearGasOfficers.forEach(t => t.update(dt));
+                game.repairOfficers.forEach(r => r.update(dt));
                 game.k9s.forEach(k => k.update(dt));
                 game.raiders.forEach(r => r.update(dt));
                 applyRaiderSeparation(dt);
@@ -5080,6 +5464,9 @@
                 }
                 if (game.tearGasOfficers.length > 0 && game.tearGasOfficers.some(t => !t.alive)) {
                     game.tearGasOfficers = game.tearGasOfficers.filter(t => t.alive);
+                }
+                if (game.repairOfficers.length > 0 && game.repairOfficers.some(r => !r.alive)) {
+                    game.repairOfficers = game.repairOfficers.filter(r => r.alive);
                 }
 
                 updateEffects(dt);
@@ -5108,6 +5495,9 @@
             game.arrestCooldown = [0, 0, 0, 0];
             game.tearGasCooldown = [0, 0, 0, 0];
             game.manualDisperseCooldown = [0, 0, 0, 0];
+            game.repairOfficers = [];
+            game.repairCooldown = 0;
+            game.repairWasActive = false;
             game.squads = new Map();
             game.nextSquadId = 1;
             game.waveNumber = 1;
@@ -5206,6 +5596,7 @@
                 renderSyndicateTabs(); renderOptionsPanel(); updateSelectionUI();
                 updateMergedButton(); updateAllOutButton();
                 updateArrestButton(); updateTearGasButton(); updateK9Button(); updateDisperseButton();
+                updateStationButton();
                 requestAnimationFrame(loop);
             });
         }

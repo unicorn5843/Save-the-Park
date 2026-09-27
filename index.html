@@ -535,6 +535,26 @@
         const ALL_OUT_DURATION = 20;
         const ALL_OUT_COOLDOWN = 55;
         const ALL_OUT_RADIUS = TILE * 15;
+        const ALL_OUT_HOLD_RADIUS = TILE * 6;
+
+        // Three-sided shield box around the station (left, right, top).
+        // Values are TILE indices; the box is built from tile centres.
+        const ALL_OUT_BOX_TILES = (() => {
+            const slots = [];
+            const cy = BASE_TILE_Y;          // 38
+            const cx = BASE_TILE_X;          // 54
+            const topY = cy - 5;             // 33
+            const bottomY = cy + 2;          // 40
+            const leftX = cx - 4;            // 50
+            const rightX = cx + 3;           // 57
+            // Left column (7)
+            for (let y = topY + 1; y <= bottomY; y++) slots.push({ tx: leftX, ty: y });
+            // Right column (7)
+            for (let y = topY + 1; y <= bottomY; y++) slots.push({ tx: rightX, ty: y });
+            // Top row (6)
+            for (let x = leftX + 1; x <= rightX - 1; x++) slots.push({ tx: x, ty: topY });
+            return slots;
+        })();
 
         const ARREST_TEAM_SIZE = 3;
         const ARREST_COOLDOWN = 40;
@@ -592,12 +612,41 @@
         const BUILDING_DRAW_H = TILE * 2.6;
 
         // ----- REPAIR TEAM -----
-        const REPAIR_UNIT_HP = 150;
+        const REPAIR_UNIT_HP = 420;                 // tougher than a line officer
         const REPAIR_UNIT_SPEED = 3.5;
         const REPAIR_LIFETIME = 60;
         const REPAIR_COOLDOWN = 120;
         const REPAIR_RATE = BUILDING_MAX_HP / 20;   // 20 s to fully repair
         const REPAIR_PROTECTION_RANGE = TILE * 10;
+
+        // ----- REPAIR ESCORT -----
+        const REPAIR_ESCORT_COUNT = 10;
+        const REPAIR_ESCORT_HP = 120;               // same as a line officer
+        const REPAIR_ESCORT_SPEED = 3.4;
+        const REPAIR_ESCORT_DAMAGE = 15;            // same as a line officer
+        const REPAIR_ESCORT_ATK_COOLDOWN = 0.85;
+        const REPAIR_ESCORT_MELEE_RANGE = 1.35;
+        const REPAIR_ESCORT_ENGAGE_RANGE = 1.95;
+        const REPAIR_ESCORT_RESIST = 0.50;          // box-formation resistance
+        const REPAIR_ESCORT_PALETTE = {
+            cloth: '#3c4a2c', dark: '#1c2412', visor: '#ffd08a',
+            shield: '#d6ddc4', shieldEdge: '#8a9478'
+        };
+
+        // Slot layout while the escort is on the move — a full box around the worker.
+        // f = forward (tiles), p = perpendicular (tiles).
+        const ESCORT_BOX_SLOTS = [
+            { f:  1.25, p: -1.65 }, { f:  1.25, p: -0.55 }, { f:  1.25, p: 0.55 }, { f:  1.25, p: 1.65 },
+            { f: -1.25, p: -1.65 }, { f: -1.25, p: -0.55 }, { f: -1.25, p: 0.55 }, { f: -1.25, p: 1.65 },
+            { f:  0.00, p: -2.25 }, { f:  0.00, p:  2.25 },
+        ];
+        // Slot layout while the worker is repairing — a three-sided box that
+        // opens toward the building being repaired (forward = toward building).
+        const ESCORT_U_SLOTS = [
+            { f: -1.45, p: -1.70 }, { f:  0.00, p: -1.70 }, { f:  1.45, p: -1.70 },
+            { f: -1.45, p:  1.70 }, { f:  0.00, p:  1.70 }, { f:  1.45, p:  1.70 },
+            { f: -2.55, p: -1.65 }, { f: -2.55, p: -0.55 }, { f: -2.55, p: 0.55 }, { f: -2.55, p: 1.65 },
+        ];
 
         // ===== FORMATIONS =====
         const FORMATION_MODS = {
@@ -673,6 +722,7 @@
             manualDisperseCooldown: [0, 0, 0, 0],
 
             repairOfficers: [],
+            repairEscorts: [],
             repairCooldown: 0,
             repairWasActive: false,
 
@@ -915,7 +965,6 @@
         }
 
         // ---- Path smoothing helpers ----
-        // Sample a straight line to see if officers can walk it directly.
         function lineClearForOfficers(x1, y1, x2, y2) {
             const dx = x2 - x1, dy = y2 - y1;
             const dist = Math.hypot(dx, dy);
@@ -928,9 +977,6 @@
             return true;
         }
 
-        // "String-pull" a waypoint list: from each point, jump to the furthest
-        // later waypoint we can see. Kills both the initial backward hop to the
-        // nearest node and the overshoot-then-come-back at the destination.
         function smoothPath(startX, startY, points) {
             const clean = [];
             let px = startX, py = startY;
@@ -1615,12 +1661,13 @@
                 this.allOutTimer -= dt;
                 if (this.allOutTimer <= 0) { this.alive = false; return; }
 
-                const bx = BASE_TILE_X * TILE, by = BASE_TILE_Y * TILE;
+                // Hold the shield-box post. Only engage raiders that come
+                // close to this officer's own post, so the box stays intact.
                 let target = null, bestD = Infinity;
                 for (const r of game.raiders) {
                     if (!r.alive || r.state === 'fleeing' || r.beingArrested) continue;
-                    const dSt = Math.hypot(r.x - bx, r.y - by);
-                    if (dSt > ALL_OUT_RADIUS) continue;
+                    const dPost = Math.hypot(r.x - this.homeX, r.y - this.homeY);
+                    if (dPost > ALL_OUT_HOLD_RADIUS) continue;
                     const d = Math.hypot(r.x - this.x, r.y - this.y);
                     if (d < bestD) { bestD = d; target = r; }
                 }
@@ -1646,11 +1693,12 @@
                     }
                     return;
                 }
+                // Return to the assigned post.
                 const dx = this.homeX - this.x, dy = this.homeY - this.y;
                 const d = Math.hypot(dx, dy);
-                this.isMoving = d > TILE * 1.5;
-                if (d > TILE * 1.5) {
-                    const step = Math.min(d, OFFICER.walkSpeed * TILE * dt);
+                this.isMoving = d > TILE * 0.9;
+                if (d > TILE * 0.9) {
+                    const step = Math.min(d, OFFICER.sprintSpeed * TILE * dt);
                     const nx = this.x + (dx/d) * step, ny = this.y + (dy/d) * step;
                     if (isValidPosition(nx, ny)) { this.x = nx; this.y = ny; }
                     else if (isValidPosition(nx, this.y)) this.x = nx;
@@ -1678,8 +1726,8 @@
                 }
             }
         }
-        function drawOfficerFigure(ctx, u) {
-            const pal = u.isAllOut ? ALL_OUT_PALETTE : OFFICER_PALETTE;
+        function drawOfficerFigure(ctx, u, forcedPalette) {
+            const pal = forcedPalette || (u.isAllOut ? ALL_OUT_PALETTE : OFFICER_PALETTE);
             const walking = u.isMoving;
             const phase = u.animTimer * (walking ? 7 : 1.2);
             const amp = walking ? 1 : 0.12;
@@ -1818,8 +1866,6 @@
                     const bx = BASE_TILE_X * TILE, by = BASE_TILE_Y * TILE;
                     const d = Math.hypot(bx - this.x, by - this.y);
                     if (d < TILE * 1.5) { this.alive = false; return; }
-                    // Runaway guard: if we're not making progress for 6 s, despawn
-                    // rather than loop forever against a blocked path.
                     if (this._lastReturnDist !== undefined && this._lastReturnDist - d < 0.05) {
                         this._returnStuckTime = (this._returnStuckTime || 0) + dt;
                     } else {
@@ -2010,6 +2056,101 @@
             ctx.restore();
         }
 
+        // ========== REPAIR ESCORT ==========
+        let escortIdSeq = 100000;
+
+        class RepairEscort {
+            constructor(x, y, slotIndex, leader) {
+                this.id = escortIdSeq++;
+                this.slotIndex = slotIndex;
+                this.leader = leader;
+                this.x = x; this.y = y;
+                this.slotX = x; this.slotY = y;
+                this.hp = REPAIR_ESCORT_HP;
+                this.maxHp = REPAIR_ESCORT_HP;
+                this.syndicateIndex = -1;
+                this.formationResist = REPAIR_ESCORT_RESIST;
+                this.shieldUp = true;
+                this.dir = { x: 1, y: 0 };
+                this.animTimer = Math.random() * 10;
+                this.isMoving = false;
+                this.attackFlash = 0;
+                this.atkTimer = Math.random() * REPAIR_ESCORT_ATK_COOLDOWN;
+                this.alive = true;
+                this.stuckTimer = 0;
+                this.retreating = false;
+            }
+
+            update(dt) {
+                if (!this.alive) return;
+                this.animTimer += dt;
+                if (this.attackFlash > 0) this.attackFlash = Math.max(0, this.attackFlash - dt);
+                this.atkTimer = Math.max(0, this.atkTimer - dt);
+                this.shieldUp = true;
+
+                if (!this.leader || !this.leader.alive) this.retreating = true;
+
+                if (this.retreating) {
+                    const bx = BASE_TILE_X * TILE, by = BASE_TILE_Y * TILE;
+                    const d = Math.hypot(bx - this.x, by - this.y);
+                    if (d < TILE * 1.6) { this.alive = false; return; }
+                    steerUnit(this, bx, by, dt, REPAIR_ESCORT_SPEED);
+                    return;
+                }
+
+                // Engage raiders that come near this escort's post, or near
+                // the worker it is guarding.
+                const guardX = this.leader.x, guardY = this.leader.y;
+                let target = null, bestD = Infinity;
+                for (const r of game.raiders) {
+                    if (!r.alive || r.state === 'fleeing' || r.beingArrested) continue;
+                    const dGuard = Math.hypot(r.x - guardX, r.y - guardY);
+                    if (dGuard > TILE * 5) continue;
+                    const d = Math.hypot(r.x - this.x, r.y - this.y);
+                    if (d < bestD) { bestD = d; target = r; }
+                }
+
+                if (target) {
+                    const dx = target.x - this.x, dy = target.y - this.y;
+                    const d = Math.hypot(dx, dy) || 1;
+                    this.dir = { x: dx / d, y: dy / d };
+                    const reach = REPAIR_ESCORT_MELEE_RANGE * TILE;
+                    if (d > reach * 0.8) {
+                        this.isMoving = true;
+                        steerUnit(this, target.x, target.y, dt, REPAIR_ESCORT_SPEED * 0.9);
+                    } else {
+                        this.isMoving = false;
+                    }
+                    if (d < REPAIR_ESCORT_ENGAGE_RANGE * TILE && this.atkTimer <= 0) {
+                        this.atkTimer = REPAIR_ESCORT_ATK_COOLDOWN;
+                        this.attackFlash = 0.22;
+                        dealDamageToRaider(target, REPAIR_ESCORT_DAMAGE);
+                    }
+                    return;
+                }
+
+                // Hold formation slot.
+                const dSlot = Math.hypot(this.slotX - this.x, this.slotY - this.y);
+                if (dSlot > 3) {
+                    steerUnit(this, this.slotX, this.slotY, dt, REPAIR_ESCORT_SPEED * 1.15);
+                } else {
+                    this.isMoving = false;
+                }
+            }
+
+            draw(ctx) {
+                if (!this.alive) return;
+                const sx = this.x - game.camera.x, sy = this.y - game.camera.y;
+                if (sx < -30 || sy < -30 || sx > game.width + 30 || sy > game.height + 30) return;
+                ctx.save();
+                ctx.translate(sx, sy);
+                if (this.dir.x < -0.05) ctx.scale(-1, 1);
+                drawOfficerFigure(ctx, this, REPAIR_ESCORT_PALETTE);
+                ctx.restore();
+                drawHpBar(ctx, sx, sy - 23, this.hp, this.maxHp, '#a8d060');
+            }
+        }
+
         // ========== REPAIR OFFICER ==========
         const REPAIR_PALETTE = { cloth: '#e8a020', dark: '#8a5a10', hat: '#ffcc33', vest: '#ff8800' };
         let repairIdSeq = 1;
@@ -2030,7 +2171,71 @@
                 this.stuckTimer = 0;
                 this.route = null; this.routeIdx = 0; this.routeStuck = 0;
                 this.unprotectedTimer = 0;
+                this.escorts = [];
+                this.goalX = x; this.goalY = y;
+                this.escortBoxMode = 'box';
             }
+
+            spawnEscorts() {
+                this.escorts = [];
+                for (let i = 0; i < REPAIR_ESCORT_COUNT; i++) {
+                    const s = ESCORT_BOX_SLOTS[i % ESCORT_BOX_SLOTS.length];
+                    let sx = this.x + s.f * TILE;
+                    let sy = this.y + s.p * TILE;
+                    if (!isValidPosition(sx, sy)) {
+                        const c = clampOfficerTarget(sx, sy);
+                        sx = c.x; sy = c.y;
+                    }
+                    const e = new RepairEscort(sx, sy, i, this);
+                    this.escorts.push(e);
+                    game.repairEscorts.push(e);
+                }
+                this.escortBoxMode = 'box';
+            }
+
+            escortsAlive() {
+                let n = 0;
+                for (const e of this.escorts) if (e.alive) n++;
+                return n;
+            }
+
+            updateEscortFormation() {
+                if (this.escorts.length === 0) return;
+                let fx, fy;
+                if (this.state === 'repair' && this.targetBuilding) {
+                    const bdx = this.targetBuilding.tx * TILE - this.x;
+                    const bdy = this.targetBuilding.ty * TILE - this.y;
+                    const d = Math.hypot(bdx, bdy) || 1;
+                    fx = bdx / d; fy = bdy / d;
+                } else {
+                    const gdx = this.goalX - this.x, gdy = this.goalY - this.y;
+                    const gl = Math.hypot(gdx, gdy);
+                    if (gl > 2) { fx = gdx / gl; fy = gdy / gl; }
+                    else {
+                        const dl = Math.hypot(this.dir.x, this.dir.y) || 1;
+                        fx = this.dir.x / dl; fy = this.dir.y / dl;
+                    }
+                }
+                const px = fy, py = -fx;
+
+                const repairing = (this.state === 'repair');
+                this.escortBoxMode = repairing ? 'u' : 'box';
+                const slots = repairing ? ESCORT_U_SLOTS : ESCORT_BOX_SLOTS;
+
+                for (let i = 0; i < this.escorts.length; i++) {
+                    const e = this.escorts[i];
+                    if (!e.alive) continue;
+                    const s = slots[i % slots.length];
+                    let sx = this.x + fx * s.f * TILE + px * s.p * TILE;
+                    let sy = this.y + fy * s.f * TILE + py * s.p * TILE;
+                    if (!isValidPosition(sx, sy)) {
+                        const c = clampOfficerTarget(sx, sy);
+                        sx = c.x; sy = c.y;
+                    }
+                    e.slotX = sx; e.slotY = sy;
+                }
+            }
+
             findNearestDamaged() {
                 let best = null, bestD = Infinity;
                 for (const b of sceneryBuildings) {
@@ -2042,6 +2247,10 @@
                 return best;
             }
             isProtected() {
+                for (const e of this.escorts) {
+                    if (!e.alive) continue;
+                    if (Math.hypot(e.x - this.x, e.y - this.y) < REPAIR_PROTECTION_RANGE) return true;
+                }
                 for (const o of game.officers) {
                     if (!o.alive || o.isAllOut || o.state !== 'active') continue;
                     if (Math.hypot(o.x - this.x, o.y - this.y) < REPAIR_PROTECTION_RANGE) return true;
@@ -2052,8 +2261,11 @@
                 this.state = 'return';
                 this.targetBuilding = null;
                 this.route = null; this.routeIdx = 0; this.routeStuck = 0;
+                this.goalX = BASE_TILE_X * TILE;
+                this.goalY = BASE_TILE_Y * TILE;
             }
             moveToGoal(gx, gy, dt, speed) {
+                this.goalX = gx; this.goalY = gy;
                 const directDist = Math.hypot(gx - this.x, gy - this.y);
                 if (directDist < TILE * 3 || lineClearForOfficers(this.x, this.y, gx, gy)) {
                     this.route = null; this.routeStuck = 0;
@@ -2099,7 +2311,15 @@
 
                 if (this.lifeTimer <= 0 && this.state !== 'return') {
                     this.headHome();
+                    showToast('👷 Repair shift over — worker returning to station.');
                 }
+
+                // Escort wiped out → worker falls back.
+                if (this.escorts.length > 0 && this.escortsAlive() === 0 && this.state !== 'return') {
+                    this.headHome();
+                    showToast('👷 Escort wiped out — repair worker retreating!');
+                }
+
                 if (!this.isProtected()) this.unprotectedTimer += dt;
                 else this.unprotectedTimer = Math.max(0, this.unprotectedTimer - dt * 2);
                 if (this.unprotectedTimer > 3.0 && this.state !== 'return') {
@@ -2132,6 +2352,7 @@
                     const bdy = this.targetBuilding.ty * TILE - this.y;
                     const bdd = Math.hypot(bdx, bdy) || 1;
                     this.dir = { x: bdx/bdd, y: bdy/bdd };
+                    this.goalX = this.x; this.goalY = this.y;
                     const wasAlive = this.targetBuilding.alive;
                     this.targetBuilding.hp = Math.min(this.targetBuilding.maxHp, this.targetBuilding.hp + REPAIR_RATE * dt);
                     if (!this.targetBuilding.alive) this.targetBuilding.alive = true;
@@ -2895,6 +3116,7 @@
                 for (const t of game.tearGasOfficers) if (t.alive) push(t);
                 for (const k of game.k9s) if (k.alive) push(k);
                 for (const rp of game.repairOfficers) if (rp.alive) push(rp);
+                for (const re of game.repairEscorts) if (re.alive) push(re);
             }
             update(dt) {
                 if (!this.alive) return;
@@ -3376,6 +3598,15 @@
                     if (count >= MAX_ATTACKERS_PER_OFFICER) continue;
                     if (d < bestD) { bestD = d; target = o; }
                 }
+                // Repair escorts are valid targets too.
+                for (const e of game.repairEscorts) {
+                    if (!e.alive) continue;
+                    const d = Math.hypot(e.x - this.x, e.y - this.y);
+                    if (d < fallbackD) { fallbackD = d; fallbackTarget = e; }
+                    const count = game.attackerCounts.get(e.id) || 0;
+                    if (count >= MAX_ATTACKERS_PER_OFFICER) continue;
+                    if (d < bestD) { bestD = d; target = e; }
+                }
                 // Repair workers are opportunistic targets.
                 if (game.repairOfficers.length > 0) {
                     for (const rp of game.repairOfficers) {
@@ -3725,14 +3956,20 @@
         }
         function dealDamageToOfficer(o, dmg) {
             const shieldMult = o.shieldUp ? 0.5 : 1.15;
-            const sy = game.syndicates[o.syndicateIndex];
-            const resist = sy ? formationResistance(sy.tactic) : 0;
+            let resist;
+            if (o.formationResist !== undefined) {
+                resist = o.formationResist;
+            } else {
+                const sy = game.syndicates[o.syndicateIndex];
+                resist = sy ? formationResistance(sy.tactic) : 0;
+            }
             const finalDmg = dmg * shieldMult * (1 - resist);
             o.hp -= finalDmg;
 
             spawnHitEffect(o.x, o.y);
             if (o.hp <= 0 && o.alive) o.alive = false;
             if (!o.isAllOut && o.syndicateIndex >= 0) {
+                const sy = game.syndicates[o.syndicateIndex];
                 if (sy && sy.autoDisperse && sy.disperseTimer <= 0) {
                     sy.disperseTimer = MANUAL_DISPERSE_DURATION;
                     showToast('⚡ Auto-disperse! Triple damage for 10s.');
@@ -3766,6 +4003,12 @@
                         if (!o.alive) continue;
                         if (Math.hypot(o.x - p.tx, o.y - p.ty) < p.aoe) {
                             dealDamageToOfficer(o, p.dmg);
+                        }
+                    }
+                    for (const e of game.repairEscorts) {
+                        if (!e.alive) continue;
+                        if (Math.hypot(e.x - p.tx, e.y - p.ty) < p.aoe) {
+                            dealDamageToOfficer(e, p.dmg);
                         }
                     }
                     spawnHitEffect(p.tx, p.ty);
@@ -4058,10 +4301,6 @@
             }
             rawPts.push({ x: goalX, y: goalY });
 
-            // String-pull the path so officers take the most direct walkable
-            // route rather than hopping node-to-node (which used to make them
-            // back up to the nearest node and then overshoot into the
-            // destination).
             sy.path = smoothPath(sy.commandX, sy.commandY, rawPts);
             sy.pathIdx = 0;
             sy.pathVersion = game.blockadeVersion;
@@ -4139,26 +4378,22 @@
             if (game.allOutCooldown > 0 || game.gameOver) return;
             game.allOutCooldown = ALL_OUT_COOLDOWN;
             game.allOutActive = ALL_OUT_DURATION;
-            const bx = BASE_TILE_X * TILE, by = BASE_TILE_Y * TILE;
-            const placed = [];
-            for (let i = 0; i < ALL_OUT_COUNT; i++) {
-                let sx = bx, sy = by, ok = false;
-                for (let tries = 0; tries < 80; tries++) {
-                    const a = Math.random() * Math.PI * 2;
-                    const r = TILE * (5 + Math.random() * 8);
-                    const tx = bx + Math.cos(a) * r, ty = by + Math.sin(a) * r;
-                    if (!isValidPosition(tx, ty)) continue;
-                    let tooClose = false;
-                    for (const p of placed) if (Math.hypot(p.x - tx, p.y - ty) < TILE * 1.8) { tooClose = true; break; }
-                    if (tooClose) continue;
-                    sx = tx; sy = ty; ok = true; break;
+
+            for (const slot of ALL_OUT_BOX_TILES) {
+                const sx = slot.tx * TILE + TILE / 2;
+                const sy = slot.ty * TILE + TILE / 2;
+                if (!isValidPosition(sx, sy)) {
+                    const c = clampOfficerTarget(sx, sy);
+                    const o = new Officer(c.x, c.y, -1, { allOut: true });
+                    o.homeX = c.x; o.homeY = c.y;
+                    game.officers.push(o);
+                } else {
+                    const o = new Officer(sx, sy, -1, { allOut: true });
+                    o.homeX = sx; o.homeY = sy;
+                    game.officers.push(o);
                 }
-                placed.push({ x: sx, y: sy });
-                const o = new Officer(sx, sy, -1, { allOut: true });
-                o.homeX = sx; o.homeY = sy;
-                game.officers.push(o);
             }
-            showToast('🚨 ALL OUT! Riot squads holding the station for 20 seconds!');
+            showToast('🚨 ALL OUT! Shield box formed around the station!');
             updateAllOutButton();
         }
         function updateAllOutButton() {
@@ -4395,8 +4630,9 @@
                 r.x = s.x; r.y = s.y;
             }
             game.repairOfficers.push(r);
+            r.spawnEscorts();
             game.repairWasActive = true;
-            showToast('👷 Repair worker deployed!');
+            showToast('👷 Repair worker deployed with a 10-officer escort!');
             renderOptionsPanel(); updateSelectionUI(); updateStationButton();
         }
         function updateStationButton() {
@@ -4519,8 +4755,6 @@
             const cfg = WAVE_TACTICS[tactic] || WAVE_TACTICS['single'];
             const exits = cfg.exits.slice();
 
-            // Extra random entrances so later waves fan out across the map
-            // and the player can't just camp a single choke point forever.
             const ALL_EXITS = ['N18','N30','N54','N78','N90','S12','S96'];
             const extraTries = Math.min(3, Math.floor(game.waveNumber / 2));
             for (let i = 0; i < extraTries; i++) {
@@ -4862,10 +5096,13 @@
                 cx += t.x; cy += t.y; n += 1;
             }
             if (idx === STATION_INDEX) {
-                // Camera focuses on the repair worker if one is out.
                 for (const rp of game.repairOfficers) {
                     if (!rp.alive) continue;
                     cx += rp.x; cy += rp.y; n += 1;
+                }
+                for (const re of game.repairEscorts) {
+                    if (!re.alive) continue;
+                    cx += re.x; cy += re.y; n += 1;
                 }
             }
 
@@ -4923,10 +5160,10 @@
                 const info = document.createElement('div');
                 info.className = 'info-line';
                 info.textContent = any
-                    ? 'Worker repairing damaged buildings — keep a syndicate nearby.'
+                    ? 'Worker + 10-officer escort patching damaged buildings. They hold a shield box while moving and a three-sided box while working.'
                     : game.repairCooldown > 0
                         ? 'Repair team recharging.'
-                        : 'Send a construction worker to patch damaged buildings.';
+                        : 'Send a construction worker with a 10-officer escort to patch damaged buildings.';
                 panel.appendChild(info);
                 return;
             }
@@ -5123,9 +5360,14 @@
 
             if (idx === STATION_INDEX) {
                 const any = game.repairOfficers.some(r => r.alive);
-                if (any) el.textContent = '🏢 Station — repair worker deployed';
+                if (any) {
+                    const rp = game.repairOfficers.find(r => r.alive);
+                    let escorts = 0;
+                    if (rp) for (const e of rp.escorts) if (e.alive) escorts++;
+                    el.textContent = '🏢 Station — repair worker deployed (escort ' + escorts + '/' + REPAIR_ESCORT_COUNT + ')';
+                }
                 else if (game.repairCooldown > 0) el.textContent = '🏢 Station — repair team recharging (' + Math.ceil(game.repairCooldown) + 's)';
-                else el.textContent = '🏢 Station — ready to deploy repair team';
+                else el.textContent = '🏢 Station — ready to deploy repair team + escort';
                 updateStationButton();
                 return;
             }
@@ -5205,6 +5447,7 @@
             game.handlers.forEach(h => { if (h.alive) all.push(h); });
             game.tearGasOfficers.forEach(t => { if (t.alive) all.push(t); });
             game.repairOfficers.forEach(r => { if (r.alive) all.push(r); });
+            game.repairEscorts.forEach(r => { if (r.alive) all.push(r); });
             game.raiders.forEach(r => { if (r.alive) all.push(r); });
             game.k9s.forEach(k => { if (k.alive) all.push(k); });
             all.sort((a, b) => a.y - b.y);
@@ -5258,8 +5501,6 @@
                     ctx.setLineDash([]);
                 }
             } else if (game.selectedSyndicate === STATION_INDEX) {
-                // Draw a path from the repair worker to its current target
-                // building so the player can see what it's heading for.
                 for (const r of game.repairOfficers) {
                     if (!r.alive) continue;
                     if (r.route && r.routeIdx < r.route.length) {
@@ -5278,6 +5519,14 @@
                         ctx.strokeStyle = 'rgba(255,200,80,0.9)';
                         ctx.lineWidth = 2;
                         ctx.beginPath(); ctx.arc(bx, by, 18, 0, Math.PI * 2); ctx.stroke();
+                    }
+                    // Draw the escort's assigned slots so the player can see the box.
+                    for (const e of r.escorts) {
+                        if (!e.alive) continue;
+                        const sx = e.slotX - game.camera.x, sy = e.slotY - game.camera.y;
+                        ctx.strokeStyle = 'rgba(168,208,96,0.30)';
+                        ctx.lineWidth = 1;
+                        ctx.beginPath(); ctx.arc(sx, sy, 4, 0, Math.PI * 2); ctx.stroke();
                     }
                 }
             } else {
@@ -5344,6 +5593,11 @@
                 ctx.fillStyle = r.state === 'repair' ? '#ffcc33' : '#e8a020';
                 ctx.fillRect((r.x / TILE) * MINIMAP_SCALE, (r.y / TILE) * MINIMAP_SCALE, 2, 2);
             });
+            game.repairEscorts.forEach(e => {
+                if (!e.alive) return;
+                ctx.fillStyle = '#a8d060';
+                ctx.fillRect((e.x / TILE) * MINIMAP_SCALE, (e.y / TILE) * MINIMAP_SCALE, 2, 2);
+            });
             game.k9s.forEach(k => {
                 if (!k.alive) return;
                 ctx.fillStyle = k.deployTimer > 0 ? '#ff5a30' : '#c08040';
@@ -5369,7 +5623,6 @@
             });
             sceneryBuildings.forEach(b => {
                 if (!b.alive || b.hp >= b.maxHp) return;
-                // Pure orange is visually distinct from raider salmon.
                 ctx.fillStyle = '#ff8000';
                 ctx.fillRect((b.tx) * MINIMAP_SCALE - 1, (b.ty) * MINIMAP_SCALE - 1, 3, 3);
             });
@@ -5445,7 +5698,8 @@
                 game.arrestOfficers.forEach(a => a.update(dt));
                 game.handlers.forEach(h => h.update(dt));
                 game.tearGasOfficers.forEach(t => t.update(dt));
-                game.repairOfficers.forEach(r => r.update(dt));
+                game.repairOfficers.forEach(r => { r.update(dt); r.updateEscortFormation(); });
+                game.repairEscorts.forEach(e => e.update(dt));
                 game.k9s.forEach(k => k.update(dt));
                 game.raiders.forEach(r => r.update(dt));
                 applyRaiderSeparation(dt);
@@ -5469,6 +5723,9 @@
                 }
                 if (game.repairOfficers.length > 0 && game.repairOfficers.some(r => !r.alive)) {
                     game.repairOfficers = game.repairOfficers.filter(r => r.alive);
+                }
+                if (game.repairEscorts.length > 0 && game.repairEscorts.some(e => !e.alive)) {
+                    game.repairEscorts = game.repairEscorts.filter(e => e.alive);
                 }
 
                 updateEffects(dt);
@@ -5498,6 +5755,7 @@
             game.tearGasCooldown = [0, 0, 0, 0];
             game.manualDisperseCooldown = [0, 0, 0, 0];
             game.repairOfficers = [];
+            game.repairEscorts = [];
             game.repairCooldown = 0;
             game.repairWasActive = false;
             game.squads = new Map();

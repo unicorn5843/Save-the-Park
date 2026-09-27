@@ -587,6 +587,10 @@
         const RAIDER_SEPARATION_RADIUS = TILE * 0.85;
         const RAIDER_SEPARATION_STRENGTH = 55;
 
+        // ----- BUILDINGS -----
+        const BUILDING_MAX_HP = 1800;
+        const BUILDING_DRAW_H = TILE * 2.6;
+
         // ----- REPAIR TEAM -----
         const REPAIR_UNIT_HP = 150;
         const REPAIR_UNIT_SPEED = 3.5;
@@ -1082,8 +1086,6 @@
             });
         }
 
-        const BUILDING_MAX_HP = 1800;
-        const BUILDING_DRAW_H = TILE * 2.6;
         let sceneryBuildings = [];
         function seedFromXY(x, y) {
             const n = Math.sin(x * 127.1 + y * 311.7) * 43758.5453;

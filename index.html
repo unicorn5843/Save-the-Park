@@ -573,14 +573,14 @@
         // =====================================================================
 
         // ========== CONSTANTS ==========
-        let MAP_W = 108, MAP_H = 50;
+        let MAP_W = 108, MAP_H = 77;
         const TILE = 16;
-        const MIN_PLAY_W = 108, MIN_PLAY_H = 50;
+        const MIN_PLAY_W = 108, MIN_PLAY_H = 77;
         function computeMapSize() {
             MAP_W = Math.max(MIN_PLAY_W, Math.ceil(game.width / TILE) + 20);
             MAP_H = Math.max(MIN_PLAY_H, Math.ceil(game.height / TILE) + 16);
         }
-        const TILE_ROAD = 0, TILE_SIDEWALK = 1, TILE_BLOCK = 2, TILE_BASE = 3;
+        const TILE_ROAD = 0, TILE_SIDEWALK = 1, TILE_BLOCK = 2, TILE_BASE = 3, TILE_STATION = 4;
         const MINIMAP_MAX_W = 112, MINIMAP_MAX_H = 76;
         let MINIMAP_SCALE = 1, MINIMAP_W = 100, MINIMAP_H = 70;
         function computeMinimapSize() {
@@ -597,6 +597,13 @@
         const JUNCTION_XS = [30, 54, 78];
         const ENTRY_XS = [18, 90];
         const BOTTOM_ENTRY_XS = [12, 96];
+        // ---- southern district (added below the station; the original layout above is unchanged) ----
+        const ROAD_Y_SOUTH = 62;                       // new east-west street
+        const SOUTH_LINK_XS = [30, 78];                // the old junction roads continue south to it
+        const SOUTH_GATE_XS = [54];                    // brand-new raider gate straight below the station
+        const SOUTH_JUNCTION_XS = [12, 30, 54, 78, 96];
+        // ---- police station building (sits just south of the road so traffic can pass) ----
+        const STATION_TX0 = 48, STATION_TY0 = 43, STATION_TW = 12, STATION_TH = 9;
 
         const BASE_TILE_X = 54;
         const BASE_TILE_Y = ROAD_Y_BOTTOM;
@@ -922,7 +929,8 @@
             projectiles: [],
             terrainCanvas: null, minimapTerrainCanvas: null,
             camera: { x: 0, y: 0 },
-            cameraUserLock: 0,
+            cameraUserLock: 0, camGlide: 1.4,
+            ambulance: null, ambulanceCooldown: 0,
             mouse: { down: false, startX: 0, startY: 0, curX: 0, curY: 0, moved: false },
             lastTime: 0,
             gameOver: false,
@@ -989,7 +997,7 @@
         let ROAD_ADJ = new Map();
         let BLOCKADE_SPOTS = [];
 
-        const EXIT_NODE_IDS = ['N18', 'N30', 'N54', 'N78', 'N90', 'S12', 'S96'];
+        const EXIT_NODE_IDS = ['N18', 'N30', 'N54', 'N78', 'N90', 'S12', 'S54', 'S96'];
 
         function buildRoadNodes() {
             const nodes = [];
@@ -1003,6 +1011,8 @@
             push('N90', 90, 1.5);
             push('S12', 12, MAP_H - 1.5);
             push('S96', 96, MAP_H - 1.5);
+            SOUTH_JUNCTION_XS.forEach(x => push('C' + x, x, ROAD_Y_SOUTH));
+            push('S54', 54, MAP_H - 1.5);
             return nodes;
         }
         function getNode(id) { return ROAD_NODES.find(n => n.id === id); }
@@ -1080,11 +1090,11 @@
             const hw = ROAD_W / 2;
             const junctionMargin = hw + 1.5;
 
-            for (const roadY of [ROAD_Y_TOP, ROAD_Y_BOTTOM]) {
+            for (const roadY of [ROAD_Y_TOP, ROAD_Y_BOTTOM, ROAD_Y_SOUTH]) {
                 for (let tx = Math.ceil(ROAD_X_START); tx <= Math.floor(ROAD_X_END); tx++) {
                     if (!tileIsRoad(tx, roadY)) continue;
                     let nearJunction = false;
-                    for (const jx of JUNCTION_XS) {
+                    for (const jx of (roadY === ROAD_Y_SOUTH ? SOUTH_JUNCTION_XS : JUNCTION_XS)) {
                         if (Math.abs(tx - jx) < junctionMargin) { nearJunction = true; break; }
                     }
                     if (nearJunction) continue;
@@ -1099,12 +1109,12 @@
                 }
             }
 
-            const verticalRoads = new Set([...ENTRY_XS, ...JUNCTION_XS, ...BOTTOM_ENTRY_XS]);
+            const verticalRoads = new Set([...ENTRY_XS, ...JUNCTION_XS, ...BOTTOM_ENTRY_XS, ...SOUTH_GATE_XS]);
             for (const roadX of verticalRoads) {
                 for (let ty = 1; ty < MAP_H; ty++) {
                     if (!tileIsRoad(roadX, ty)) continue;
                     let onHorizontal = false;
-                    for (const roadY of [ROAD_Y_TOP, ROAD_Y_BOTTOM]) {
+                    for (const roadY of [ROAD_Y_TOP, ROAD_Y_BOTTOM, ROAD_Y_SOUTH]) {
                         if (Math.abs(ty - roadY) < junctionMargin) { onHorizontal = true; break; }
                     }
                     if (onHorizontal) continue;
@@ -1380,6 +1390,9 @@
             for (let ex of BOTTOM_ENTRY_XS) {
                 if (tx >= ex - hw && tx <= ex + hw && ty >= ROAD_Y_BOTTOM - hw && ty <= MAP_H) return true;
             }
+            if (ty >= ROAD_Y_SOUTH - hw && ty <= ROAD_Y_SOUTH + hw && tx >= ROAD_X_START && tx <= ROAD_X_END) return true;
+            for (let jx of SOUTH_LINK_XS) if (tx >= jx - hw && tx <= jx + hw && ty >= ROAD_Y_BOTTOM && ty <= ROAD_Y_SOUTH + hw) return true;
+            for (let gx of SOUTH_GATE_XS) if (tx >= gx - hw && tx <= gx + hw && ty >= ROAD_Y_SOUTH - hw && ty <= MAP_H) return true;
             return false;
         }
         function tileIsSidewalk(tx, ty) {
@@ -1397,6 +1410,9 @@
             for (let ex of BOTTOM_ENTRY_XS) {
                 if (tx >= ex - hw && tx <= ex + hw && ty >= ROAD_Y_BOTTOM - hw && ty <= MAP_H) return true;
             }
+            if (ty >= ROAD_Y_SOUTH - hw && ty <= ROAD_Y_SOUTH + hw && tx >= ROAD_X_START - pad && tx <= ROAD_X_END + pad) return true;
+            for (let jx of SOUTH_LINK_XS) if (tx >= jx - hw && tx <= jx + hw && ty >= ROAD_Y_BOTTOM && ty <= ROAD_Y_SOUTH + hw) return true;
+            for (let gx of SOUTH_GATE_XS) if (tx >= gx - hw && tx <= gx + hw && ty >= ROAD_Y_SOUTH - hw && ty <= MAP_H) return true;
             return false;
         }
         function generateMap() {
@@ -1411,9 +1427,9 @@
                 }
                 map.push(row);
             }
-            for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 1; dx++) {
-                const tx = BASE_TILE_X + dx, ty = BASE_TILE_Y + dy;
-                if (tx >= 0 && ty >= 0 && tx < MAP_W && ty < MAP_H) map[ty][tx] = TILE_BASE;
+            for (let dy = 0; dy < STATION_TH; dy++) for (let dx = 0; dx < STATION_TW; dx++) {
+                const tx = STATION_TX0 + dx, ty = STATION_TY0 + dy;
+                if (tx >= 0 && ty >= 0 && tx < MAP_W && ty < MAP_H) map[ty][tx] = TILE_STATION;
             }
             placeSceneryBuildings();
             placeSceneryProps();
@@ -1507,6 +1523,8 @@
         ];
         ASSET_PATHS['units_sheet'] = 'assets/units/units_sheet.png';
         ASSET_PATHS['k9_sheet'] = 'assets/units/k9_gsd_sheet.png';
+        ASSET_PATHS['station_img'] = 'assets/map/station/police_station.png';
+        ASSET_PATHS['amb_sheet'] = 'assets/map/vehicles/ambulance_sheet.png';
         ASSET_PATHS['gas_sheet'] = 'assets/fx/gas_plume_sheet.png';
         ASSET_PATHS['water_sheet'] = 'assets/fx/water_jet_sheet.png';
         ASSET_PATHS['parked_atlas'] = 'assets/map/vehicles/parked_atlas.png';
@@ -2102,11 +2120,13 @@
         let roadLayout = null;
         function computeRoadLayout() {
             const half = (ROAD_W + 1) * TILE / 2;
-            const H = [ROAD_Y_TOP, ROAD_Y_BOTTOM].map(ty => ({ c: (ty + 0.5) * TILE, a: ROAD_X_START * TILE, b: (ROAD_X_END + 1) * TILE }));
+            const H = [ROAD_Y_TOP, ROAD_Y_BOTTOM, ROAD_Y_SOUTH].map(ty => ({ c: (ty + 0.5) * TILE, a: ROAD_X_START * TILE, b: (ROAD_X_END + 1) * TILE }));
             const V = [];
-            [...ENTRY_XS, ...JUNCTION_XS].forEach(tx => V.push({ c: (tx + 0.5) * TILE, a: 0, b: (ROAD_Y_BOTTOM + ROAD_W / 2 + 1) * TILE, tx }));
+            [...ENTRY_XS, ...JUNCTION_XS].forEach(tx => V.push({ c: (tx + 0.5) * TILE, a: 0, b: ((SOUTH_LINK_XS.includes(tx) ? ROAD_Y_SOUTH : ROAD_Y_BOTTOM) + ROAD_W / 2 + 1) * TILE, tx }));
+            SOUTH_GATE_XS.forEach(tx => V.push({ c: (tx + 0.5) * TILE, a: (ROAD_Y_SOUTH - ROAD_W / 2) * TILE, b: MAP_H * TILE, tx, bottomEntry: true }));
             BOTTOM_ENTRY_XS.forEach(tx => V.push({ c: (tx + 0.5) * TILE, a: (ROAD_Y_BOTTOM - ROAD_W / 2) * TILE, b: MAP_H * TILE, tx, bottomEntry: true }));
             const base = { x0: (BASE_TILE_X - 2) * TILE, x1: (BASE_TILE_X + 2) * TILE, y0: (BASE_TILE_Y - 2) * TILE, y1: (BASE_TILE_Y + 3) * TILE };
+            const stationRect = { x0: STATION_TX0 * TILE, x1: (STATION_TX0 + STATION_TW) * TILE, y0: STATION_TY0 * TILE, y1: (STATION_TY0 + STATION_TH) * TILE };
             const junctions = [];
             V.forEach(v => H.forEach((h, hi) => {
                 if (h.c < v.a || h.c > v.b) return;
@@ -2140,7 +2160,7 @@
                     if (r) { r.dir = d; r.j = j; zebras.push(r); j.zebra[d] = true; }
                 });
             });
-            return { half, H, V, junctions, zebras, base };
+            return { half, H, V, junctions, zebras, base, stationRect };
         }
 
         function placeUkRoadFurniture() {
@@ -2222,6 +2242,8 @@
                 for (const j of L.junctions) if (Math.abs(x - j.x) < half + rx + 8 && Math.abs(y - j.y) < half + ry + 8) return true;
                 for (const z of L.zebras) if (x + rx > z.x - 8 && x - rx < z.x + z.w + 8 && y + ry > z.y - 8 && y - ry < z.y + z.h + 8) return true;
                 if (x + rx > base.x0 - 24 && x - rx < base.x1 + 24 && y + ry > base.y0 - 30 && y - ry < base.y1 + 30) return true;
+                const sr = L.stationRect;
+                if (x + rx > sr.x0 - 16 && x - rx < sr.x1 + 16 && y + ry > sr.y0 - 24 && y - ry < sr.y1 + 24) return true;
                 if (y - ry < 7 * TILE || y + ry > (MAP_H - 7) * TILE) return true;      // keep raider gates clear
                 return false;
             };
@@ -2308,6 +2330,7 @@
             if (tile === TILE_ROAD) paintRoad(t, px, py, tx, ty);
             else if (tile === TILE_SIDEWALK) paintSidewalk(t, px, py, tx, ty);
             else if (tile === TILE_BASE) paintBase(t, px, py);
+            else if (tile === TILE_STATION) paintSidewalk(t, px, py, tx, ty);
             else paintBlock(t, px, py, tx, ty);
         }
         function roadish(tx, ty) {
@@ -2392,29 +2415,33 @@
             });
         }
         function drawStation(t) {
-            const x0 = (BASE_TILE_X - 2) * TILE;
-            const y0 = (BASE_TILE_Y - 3) * TILE;
-            const w = 4 * TILE, h = 5 * TILE;
-            t.fillStyle = 'rgba(0,0,0,0.4)';
-            t.fillRect(x0 + 5, y0 + 7, w, h);
-            const g = t.createLinearGradient(x0, y0, x0, y0 + h);
-            g.addColorStop(0, '#3b5f8a'); g.addColorStop(1, '#1f3a56');
-            t.fillStyle = g;
-            t.fillRect(x0, y0, w, h);
-            t.fillStyle = '#7fb3e0';
-            t.fillRect(x0, y0, w, 6);
-            t.fillStyle = 'rgba(180, 225, 255, 0.85)';
-            for (let i = 0; i < 3; i++) t.fillRect(x0 + 8 + i * 15, y0 + 14, 9, 8);
-            for (let i = 0; i < 3; i++) t.fillRect(x0 + 8 + i * 15, y0 + 30, 9, 8);
-            t.fillStyle = '#101c28';
-            t.fillRect(x0 + w / 2 - 9, y0 + h - 18, 18, 18);
-            t.fillStyle = '#ffcc33';
-            t.fillRect(x0 + 5, y0 + h - 34, w - 10, 12);
-            t.fillStyle = '#1a1508';
-            t.font = 'bold 9px monospace';
-            t.textAlign = 'center';
-            t.fillText('STATION', x0 + w / 2, y0 + h - 25);
+            const x0 = STATION_TX0 * TILE, y0 = STATION_TY0 * TILE;
+            const img = assets['station_img'];
+            if (img) { t.drawImage(img, x0, y0); return; }
+            const w = STATION_TW * TILE, h = STATION_TH * TILE;
+            t.fillStyle = '#a8533b'; t.fillRect(x0, y0 + 30, w, h - 30);
+            t.fillStyle = '#14409a'; t.fillRect(x0, y0 + 30, w, 10);
         }
+        // the blue lamp + POLICE plaque on the pavement outside the station (animated, drawn in the depth-sorted pass)
+        const STATION_LAMP = {
+            x: BASE_TILE_X * TILE + 8, y: (STATION_TY0 - 0.35) * TILE,
+            draw(ctx) {
+                const sx = this.x - game.camera.x, sy = this.y - game.camera.y;
+                if (sx < -40 || sy < -60 || sx > game.width + 40 || sy > game.height + 60) return;
+                const pulse = 0.65 + 0.35 * Math.sin((game.lastTime || 0) / 1000 * 3);
+                ctx.fillStyle = 'rgba(0,0,0,0.25)'; ctx.beginPath(); ctx.ellipse(sx, sy, 7, 2.5, 0, 0, Math.PI * 2); ctx.fill();
+                ctx.fillStyle = '#2a2f38'; ctx.fillRect(sx - 1, sy - 24, 2, 24);
+                ctx.fillStyle = '#14409a'; ctx.fillRect(sx - 12, sy - 28, 24, 8);
+                ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1; ctx.strokeRect(sx - 11.5, sy - 27.5, 23, 7);
+                ctx.fillStyle = '#ffffff'; ctx.font = 'bold 6px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+                ctx.fillText('POLICE', sx, sy - 23.5);
+                const g = ctx.createRadialGradient(sx, sy - 35, 0, sx, sy - 35, 15);
+                g.addColorStop(0, 'rgba(110,170,255,' + (0.7 * pulse).toFixed(2) + ')'); g.addColorStop(1, 'rgba(40,100,255,0)');
+                ctx.fillStyle = g; ctx.fillRect(sx - 16, sy - 52, 32, 32);
+                ctx.fillStyle = '#3b82ff'; ctx.fillRect(sx - 3, sy - 38, 6, 7);
+                ctx.fillStyle = 'rgba(255,255,255,0.8)'; ctx.fillRect(sx - 2, sy - 37, 2, 2);
+            }
+        };
         function buildTerrainCanvas() {
             const c = document.createElement('canvas');
             c.width = MAP_W * TILE; c.height = MAP_H * TILE;
@@ -2454,7 +2481,7 @@
             t.fillStyle = '#1c2028'; t.fillRect(0, 0, MINIMAP_W, MINIMAP_H);
             for (let y = 0; y < MAP_H; y++) for (let x = 0; x < MAP_W; x++) {
                 const tile = map[y][x];
-                t.fillStyle = tile === TILE_ROAD ? '#3a3f47' : tile === TILE_BASE ? '#3a4a68' : tile === TILE_SIDEWALK ? '#4a4f57' : ((cityKind && cityKind[y * MAP_W + x] === 1) ? ZONES[zoneAt(x)].minimapBld : ZONES[zoneAt(x)].minimap);
+                t.fillStyle = tile === TILE_ROAD ? '#3a3f47' : (tile === TILE_BASE || tile === TILE_STATION) ? '#3a4a68' : tile === TILE_SIDEWALK ? '#4a4f57' : ((cityKind && cityKind[y * MAP_W + x] === 1) ? ZONES[zoneAt(x)].minimapBld : ZONES[zoneAt(x)].minimap);
                 t.fillRect(x * MINIMAP_SCALE, y * MINIMAP_SCALE, Math.ceil(MINIMAP_SCALE), Math.ceil(MINIMAP_SCALE));
             }
             game.minimapTerrainCanvas = c;
@@ -3013,7 +3040,7 @@
             if (u.dir.x < -0.3) u._fl = true; else if (u.dir.x > 0.3) u._fl = false;
             return !!u._fl;
         }
-        const UNIT_ROWS = { officer: 0, arrest: 1, handler: 2, allout: 3, commander: 4 };
+        const UNIT_ROWS = { officer: 0, arrest: 1, handler: 2, allout: 3, commander: 4, gas: 5 };
         function drawUnitSprite(ctx, u, row) {
             const img = assets['units_sheet'];
             if (!img) return false;
@@ -3901,8 +3928,9 @@
                     ctx.restore();
                 }
                 if (this.state !== 'spraying') return;
-                const sx = this.x - game.camera.x;
-                const sy = this.y - game.camera.y;
+                const mz = gasMuzzle(this);                                  // the gas leaves the canister nozzle
+                const sx = this.x + mz.x - game.camera.x;
+                const sy = this.y + mz.y - game.camera.y;
                 const aimAngle = Math.atan2(this.sprayDirY, this.sprayDirX);
                 const lifePct = Math.max(0, Math.min(1, this.sprayTimer / TEAR_GAS_SPRAY_DURATION));
                 const ramp = Math.min(1, lifePct * 4) * Math.min(1, (1 - lifePct) * 4 + 0.3);
@@ -3954,7 +3982,38 @@
                 ctx.restore();
             }
         }
+        // Gas officer: sprite body + a gas canister held in the hand. The arm raises it to spray, and the gas comes out of its nozzle.
+        function gasPose(raise) {
+            const hx = 4.5 + 2.0 * raise, hy = -7.5 - 6.5 * raise;
+            const a = -1.45 + 1.15 * raise;                       // canister swings from upright to pointing forward
+            return { hx, hy, a, mx: hx + Math.cos(a) * 7.6, my: hy + Math.sin(a) * 7.6 };
+        }
+        function gasMuzzle(u) {
+            const p = gasPose(u.state === 'spraying' ? 1 : (u.raise || 0));
+            return { x: (facesLeft(u) ? -1 : 1) * p.mx, y: p.my };
+        }
         function drawTearGasFigure(ctx, u) {
+            if (!assets['units_sheet']) { drawTearGasFigureLegacy(ctx, u); return; }
+            const target = u.state === 'spraying' ? 1 : (u.state === 'advancing' ? 0.55 : 0);
+            u.raise = (u.raise || 0) + (target - (u.raise || 0)) * 0.12;
+            const p = gasPose(u.raise);
+            drawUnitSprite(ctx, u, UNIT_ROWS.gas);
+            // arm from the shoulder to the hand holding the canister
+            ctx.lineCap = 'round';
+            ctx.strokeStyle = '#2f3b22'; ctx.lineWidth = 2.6;
+            ctx.beginPath(); ctx.moveTo(2.5, -12); ctx.lineTo(p.hx, p.hy); ctx.stroke();
+            ctx.save();
+            ctx.translate(p.hx, p.hy); ctx.rotate(p.a);
+            ctx.fillStyle = '#b7bec4'; ctx.fillRect(-1.6, -1.8, 7.2, 3.6);          // canister body
+            ctx.fillStyle = '#7a8288'; ctx.fillRect(-1.6, 0.6, 7.2, 1.2);            // shading
+            ctx.fillStyle = '#c0322b'; ctx.fillRect(2.4, -1.8, 1.4, 3.6);            // red CS band
+            ctx.fillStyle = '#23272b'; ctx.fillRect(5.6, -1.1, 1.5, 2.2);            // nozzle
+            ctx.strokeStyle = '#1b1f23'; ctx.lineWidth = 0.6; ctx.strokeRect(-1.6, -1.8, 7.2, 3.6);
+            ctx.fillStyle = '#15181b'; ctx.beginPath(); ctx.arc(0.6, 1.6, 1.6, 0, Math.PI * 2); ctx.fill();   // gloved hand
+            if (u.state === 'spraying') { ctx.fillStyle = 'rgba(255,255,255,0.85)'; ctx.beginPath(); ctx.arc(7.6, 0, 1.8, 0, Math.PI * 2); ctx.fill(); }
+            ctx.restore();
+        }
+        function drawTearGasFigureLegacy(ctx, u) {
             const pal = TEAR_GAS_PALETTE;
             const anim = walkAnim(u);
             const legSwing = Math.sin(anim.phase) * anim.amp;
@@ -4178,6 +4237,132 @@
                 if (isValidOfficerPosition(tx, ty)) { hx = tx; hy = ty; break; }
             }
             game.commanders.push(new Commander(hx, hy, idx));
+        }
+
+        // ========== AMBULANCE (station support vehicle) ==========
+        const AMB_CELL = 140, AMB_SCALE = (TILE * 3.3) / 103;
+        const AMB_COOLDOWN = 90, AMB_STAY = 35, AMB_HEAL = 16, AMB_RADIUS = TILE * 7, AMB_SPEED = 5.0;
+        class AmbulanceVehicle {
+            constructor() {
+                this.x = (BASE_TILE_X - 3) * TILE; this.y = (ROAD_Y_BOTTOM + 1.2) * TILE;
+                this.dir = { x: 1, y: 0 }; this.angle = 0;
+                this.alive = true; this.state = 'waiting'; this.timer = 0; this.waitTimer = 25;
+                this.target = -1; this.pick = 0; this.lightPhase = Math.random() * 10; this.healed = 0;
+                this.moving = false;
+            }
+            missing(idx) {
+                let m = 0;
+                for (const o of game.officers) if (o.alive && !o.isAllOut && o.syndicateIndex === idx) m += Math.max(0, o.maxHp - o.hp);
+                for (const a of game.arrestOfficers) if (a.alive && a.syndicateIndex === idx) m += Math.max(0, a.maxHp - a.hp);
+                return m;
+            }
+            centre(idx) {
+                let cx = 0, cy = 0, n = 0;
+                for (const o of game.officers) if (o.alive && !o.isAllOut && o.syndicateIndex === idx) { cx += o.x; cy += o.y; n++; }
+                if (!n) return null;
+                return { x: cx / n, y: cy / n };
+            }
+            update(dt) {
+                if (!this.alive) return;
+                this.lightPhase += dt;
+                const px = this.x, py = this.y;
+                const base = { x: (BASE_TILE_X - 3) * TILE, y: (ROAD_Y_BOTTOM + 1.2) * TILE };
+                if (this.state === 'waiting' || this.state === 'responding' || this.state === 'treating') {
+                    this.pick -= dt;
+                    if (this.pick <= 0 || this.state === 'waiting') {
+                        this.pick = 1.2;
+                        let best = -1, bestM = 120;
+                        for (let i = 0; i < OFFICER_SYNDICATES; i++) { const m = this.missing(i); if (m > bestM) { bestM = m; best = i; } }
+                        if (this.state !== 'treating' || (best >= 0 && best !== this.target && bestM > this.missing(this.target) * 1.6)) this.target = best;
+                    }
+                }
+                if (this.state === 'waiting') {
+                    this.waitTimer -= dt;
+                    routedMove(this, base.x, base.y, dt, AMB_SPEED);
+                    if (this.target >= 0) this.state = 'responding';
+                    else if (this.waitTimer <= 0) { this.state = 'returning'; }
+                } else if (this.state === 'responding') {
+                    const c = this.target >= 0 ? this.centre(this.target) : null;
+                    if (!c) { this.state = 'returning'; }
+                    else {
+                        const sy = game.syndicates[this.target];
+                        let fx = (sy && sy.facingX) || 1, fy = (sy && sy.facingY) || 0;
+                        if (Math.abs(fx) > Math.abs(fy)) { fx = Math.sign(fx) || 1; fy = 0; } else { fx = 0; fy = Math.sign(fy) || 1; }
+                        const g = clampOfficerTarget(c.x - fx * TILE * 6, c.y - fy * TILE * 6);
+                        routedMove(this, g.x, g.y, dt, AMB_SPEED);
+                        if (Math.hypot(c.x - this.x, c.y - this.y) < AMB_RADIUS * 0.8) { this.state = 'treating'; this.timer = AMB_STAY; }
+                    }
+                } else if (this.state === 'treating') {
+                    this.timer -= dt;
+                    const c = this.target >= 0 ? this.centre(this.target) : null;
+                    if (c && Math.hypot(c.x - this.x, c.y - this.y) > AMB_RADIUS * 1.1) this.state = 'responding';
+                    let any = false;
+                    const heal = (u) => {
+                        if (!u.alive || u.hp >= u.maxHp) return;
+                        if (Math.hypot(u.x - this.x, u.y - this.y) > AMB_RADIUS) return;
+                        u.hp = Math.min(u.maxHp, u.hp + AMB_HEAL * dt); any = true;
+                    };
+                    game.officers.forEach(heal); game.arrestOfficers.forEach(heal); game.handlers.forEach(heal); game.tearGasOfficers.forEach(heal);
+                    this.healed = any ? 0 : this.healed + dt;
+                    if (this.timer <= 0 || this.healed > 5) this.state = 'returning';
+                } else if (this.state === 'returning') {
+                    routedMove(this, base.x, base.y, dt, AMB_SPEED);
+                    if (Math.hypot(base.x - this.x, base.y - this.y) < TILE * 2.5) {
+                        this.alive = false; game.ambulanceCooldown = AMB_COOLDOWN;
+                        showToast('🚑 Ambulance back at the station.'); renderOptionsPanel();
+                    }
+                }
+                this.moving = Math.hypot(this.x - px, this.y - py) > 0.05;
+                if (this.moving) {
+                    const want = Math.atan2(this.dir.y, this.dir.x);
+                    let diff = want - this.angle; while (diff > Math.PI) diff -= 2 * Math.PI; while (diff < -Math.PI) diff += 2 * Math.PI;
+                    this.angle += diff * Math.min(1, dt * 8);
+                }
+            }
+            draw(ctx) {
+                if (!this.alive) return;
+                const sx = this.x - game.camera.x, sy = this.y - game.camera.y;
+                if (sx < -120 || sy < -120 || sx > game.width + 120 || sy > game.height + 120) return;
+                if (this.state === 'treating') {                              // healing zone
+                    const pulse = 0.5 + 0.5 * Math.sin(this.lightPhase * 3);
+                    ctx.save(); ctx.strokeStyle = 'rgba(80,230,120,' + (0.35 + 0.25 * pulse).toFixed(2) + ')'; ctx.lineWidth = 2; ctx.setLineDash([6, 5]);
+                    ctx.beginPath(); ctx.arc(sx, sy, AMB_RADIUS, 0, Math.PI * 2); ctx.stroke(); ctx.setLineDash([]);
+                    ctx.fillStyle = 'rgba(80,230,120,0.07)'; ctx.fill(); ctx.restore();
+                }
+                const sheet = assets['amb_sheet'];
+                ctx.fillStyle = 'rgba(0,0,0,0.28)';
+                ctx.beginPath(); ctx.ellipse(sx, sy + 7, TILE * 1.5, TILE * 0.8, 0, 0, Math.PI * 2); ctx.fill();
+                if (sheet) {
+                    let deg = (this.angle * 180 / Math.PI) % 360; if (deg < 0) deg += 360;
+                    const fi = Math.round(deg / 7.5) % 48, col = fi % 7, row = (fi / 7) | 0;
+                    const smooth = ctx.imageSmoothingEnabled; ctx.imageSmoothingEnabled = false;
+                    ctx.drawImage(sheet, col * AMB_CELL, row * AMB_CELL, AMB_CELL, AMB_CELL, sx - AMB_CELL / 2 * AMB_SCALE, sy - AMB_CELL / 2 * AMB_SCALE, AMB_CELL * AMB_SCALE, AMB_CELL * AMB_SCALE);
+                    ctx.imageSmoothingEnabled = smooth;
+                }
+                const flash = Math.sin(this.lightPhase * 11) > 0;
+                const fx = Math.cos(this.angle), fy = Math.sin(this.angle), px = -fy, py = fx;
+                [[flash ? 1 : -1]].forEach(([side]) => {
+                    const lx = sx + fx * TILE * 0.55 + px * side * 4, ly = sy - 5 + fy * TILE * 0.55 + py * side * 4;
+                    const g = ctx.createRadialGradient(lx, ly, 0, lx, ly, TILE * 1.4);
+                    g.addColorStop(0, 'rgba(140,195,255,0.95)'); g.addColorStop(0.35, 'rgba(40,110,255,0.45)'); g.addColorStop(1, 'rgba(0,60,255,0)');
+                    ctx.fillStyle = g; ctx.fillRect(lx - TILE * 1.4, ly - TILE * 1.4, TILE * 2.8, TILE * 2.8);
+                });
+            }
+        }
+        function deployAmbulance() {
+            if (game.ambulance && game.ambulance.alive) { showToast('🚑 The ambulance is already out.'); return; }
+            if ((game.ambulanceCooldown || 0) > 0) { showToast('🚑 Ambulance restocking — ' + Math.ceil(game.ambulanceCooldown) + 's.'); return; }
+            game.ambulance = new AmbulanceVehicle();
+            showToast('🚑 Ambulance dispatched — it will treat the most injured syndicate.');
+            renderOptionsPanel();
+        }
+        function updateAmbulance(dt) {
+            if (game.ambulanceCooldown > 0) {
+                game.ambulanceCooldown = Math.max(0, game.ambulanceCooldown - dt);
+                game._ambPanel = (game._ambPanel || 0) + dt;
+                if (game.selectedSyndicate === STATION_INDEX && game._ambPanel > 1) { game._ambPanel = 0; renderOptionsPanel(); }
+            }
+            if (game.ambulance && game.ambulance.alive) game.ambulance.update(dt);
         }
 
         // ========== K9 ==========
@@ -6446,7 +6631,7 @@
 
         // Every gate is a valid way in. Tactics are now built around *how many* entrances
         // are used and *where the pressure is applied*, not a fixed list.
-        const ALL_EXITS = ['N18', 'N30', 'N54', 'N78', 'N90', 'S12', 'S96'];
+        const ALL_EXITS = ['N18', 'N30', 'N54', 'N78', 'N90', 'S12', 'S54', 'S96'];
 
         const WAVE_TONES = {
             1: 'Probing Advance',
@@ -6936,6 +7121,7 @@
             const dx = x - game.mouse.curX, dy = y - game.mouse.curY;
             if (Math.abs(x - game.mouse.startX) > 4 || Math.abs(y - game.mouse.startY) > 4) game.mouse.moved = true;
             game.camera.x -= dx; game.camera.y -= dy;
+            game.camGlide = 0;
             game.cameraUserLock = 2.5;
             clampCamera();
             const tc = tightCamera(game.camera.x, game.camera.y);
@@ -7016,11 +7202,12 @@
 
         // ========== CAMERA FOLLOW ==========
         function updateCamera(dt) {
-            if (game.cameraUserLock > 0) { game.cameraUserLock -= dt; return; }
-            if (game.mouse.down) return;
+            if (game.mouse.down) { game.camGlide = 0; return; }
+            if (!(game.camGlide > 0)) return;       // free look: the camera only glides when a syndicate was just selected
+            game.camGlide -= dt;
 
             const idx = game.selectedSyndicate;
-            const k = Math.min(1, dt * 3.2);
+            const k = Math.min(1, dt * 9);
 
             if (idx === VEHICLE_SYNDICATE && game.vehicle) {
                 followCameraTo(game.vehicle.x, game.vehicle.y, k);
@@ -7107,6 +7294,14 @@
                     panel.appendChild(b);
                 }
 
+                const ab = document.createElement('button');
+                const ambOut = game.ambulance && game.ambulance.alive, acd = game.ambulanceCooldown || 0;
+                if (ambOut) { ab.textContent = '🚑 Ambulance (out)'; ab.disabled = true; ab.classList.add('active-choice'); }
+                else if (acd > 0) { ab.textContent = '🚑 Ambulance (' + Math.ceil(acd) + 's)'; ab.disabled = true; }
+                else ab.textContent = '🚑 Send Ambulance';
+                ab.addEventListener('click', deployAmbulance);
+                panel.appendChild(ab);
+
                 const auto = document.createElement('button');
                 auto.textContent = '🔁 Auto-Repair: ' + (game.autoRepair ? 'ON' : 'OFF');
                 if (game.autoRepair) auto.classList.add('active-choice');
@@ -7124,7 +7319,7 @@
                 info.textContent =
                     'Two worker teams, each with a 10-officer escort. Auto-repair dispatches a team as soon as a ' +
                     'building drops below 50% health. Damaged buildings right now: ' + damaged + '. ' +
-                    'Low public morale slows the crews down.';
+                    'Low public morale slows the crews down. The ambulance drives to the most injured syndicate and heals everyone nearby (90s restock).';
                 panel.appendChild(info);
                 return;
             }
@@ -7289,7 +7484,7 @@
                     game.selectedSyndicate = idx;
                     renderSyndicateTabs(); renderOptionsPanel(); updateSelectionUI();
                     updateArrestButton(); updateTearGasButton(); updateK9Button(); updateDisperseButton();
-                    game.cameraUserLock = 0;
+                    game.cameraUserLock = 0; game.camGlide = 0.8;      // snap to the syndicate you just clicked
                 });
             });
             const mergeBtn = document.getElementById('all-units-btn');
@@ -7303,7 +7498,7 @@
                 renderSyndicateTabs(); renderOptionsPanel(); updateSelectionUI();
                 updateArrestButton(); updateTearGasButton(); updateK9Button(); updateDisperseButton();
                 updateStationButton();
-                game.cameraUserLock = 0;
+                game.cameraUserLock = 0; game.camGlide = 0.8;
             });
             const arrestBtn = document.getElementById('send-arrest');
             if (arrestBtn) arrestBtn.addEventListener('click', sendInArrestTeam);
@@ -7543,6 +7738,9 @@
             game.k9s.forEach(k => { if (k.alive) all.push(k); });
             game.commanders.forEach(c => { if (c.alive) all.push(c); });
             for (const pv of parkedVehicles) all.push(pv);
+            if (game.ambulance && game.ambulance.alive) all.push(game.ambulance);
+            STATION_LAMP.y = (STATION_TY0 - 0.35) * TILE;
+            all.push(STATION_LAMP);
             all.sort((a, b) => a.y - b.y);
             all.forEach(u => u.draw(ctx));
 
@@ -7677,6 +7875,10 @@
                 ctx.fillStyle = '#7fd3a0';
                 ctx.fillRect((h.x / TILE) * MINIMAP_SCALE, (h.y / TILE) * MINIMAP_SCALE, 2, 2);
             });
+            if (game.ambulance && game.ambulance.alive) {
+                ctx.fillStyle = '#5dff8a';
+                ctx.fillRect((game.ambulance.x / TILE) * MINIMAP_SCALE - 1, (game.ambulance.y / TILE) * MINIMAP_SCALE - 1, 3, 3);
+            }
             game.commanders.forEach(c => {
                 if (!c.alive) return;
                 ctx.fillStyle = '#ffe066';
@@ -7869,6 +8071,7 @@
                 game.raiders.forEach(r => r.update(dt));
                 applyRaiderSeparation(dt);
                 if (game.vehicle) game.vehicle.update(dt);
+                updateAmbulance(dt);
                 updateProjectiles(dt);
 
                 if (game.raiders.length > 0 && game.raiders.some(r => !r.alive)) {
@@ -7914,6 +8117,7 @@
             game.arrestOfficers = []; game.k9s = []; game.handlers = [];
             game.tearGasOfficers = [];
             game.commanders = [];
+            game.ambulance = null; game.ambulanceCooldown = 0; game.camGlide = 1.4;
             game.townSeed = (Math.random() * 0x7fffffff) | 0;   // new town layout every game
             game.projectiles = [];
             game.syndicates = [];

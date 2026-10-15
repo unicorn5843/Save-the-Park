@@ -1,0 +1,817 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Outbreak Mode — Save the Park</title>
+<style>
+    :root{
+        --bg:#14161a; --panel:#1b1e24cc; --panel-border:#3a4048; --text:#d8dde3; --accent:#9fb0c0;
+        --danger:#c0493f; --ok:#4caf6a;
+    }
+    *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+    html,body{margin:0; padding:0; width:100%; height:100%; overflow:hidden; background:#0c0d10; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; touch-action:none;}
+    #canvas{position:absolute; top:0; left:0; width:100%; height:100%; display:block; background:#1a1c1a;}
+
+    #top-bar{
+        position:absolute; top:0; left:0; right:0; padding:8px 10px;
+        padding-top:calc(8px + env(safe-area-inset-top,0px));
+        display:flex; gap:10px; align-items:center; flex-wrap:wrap;
+        background:linear-gradient(180deg, rgba(10,11,13,0.88), rgba(10,11,13,0));
+        color:var(--text); font-size:12px; font-weight:600; z-index:5; pointer-events:none;
+    }
+    #top-bar span{background:var(--panel); border:1px solid var(--panel-border); border-radius:6px; padding:4px 8px;}
+    #back-btn{
+        position:absolute; top:calc(8px + env(safe-area-inset-top,0px)); right:8px; z-index:6;
+        background:#2a1414; border:1px solid #6a3030; color:#e8c8c0; border-radius:6px;
+        padding:6px 10px; font-size:12px; font-weight:700; pointer-events:auto;
+    }
+
+    #bottom-bar{
+        position:absolute; left:0; right:0; bottom:0; z-index:5;
+        padding:8px; padding-bottom:calc(8px + env(safe-area-inset-bottom,0px));
+        display:flex; gap:6px; flex-wrap:wrap; justify-content:center;
+        background:linear-gradient(0deg, rgba(10,11,13,0.9), rgba(10,11,13,0));
+    }
+    #bottom-bar button{
+        flex:1 1 30%; min-width:92px; max-width:160px;
+        background:linear-gradient(180deg,#262a30,#1a1d22); border:1px solid #454c55; color:var(--text);
+        border-radius:8px; padding:9px 4px; font-size:11px; font-weight:700; line-height:1.25;
+    }
+    #bottom-bar button:disabled{opacity:0.35;}
+    #bottom-bar button.active-choice{ background:linear-gradient(180deg,#3a5a3a,#243a24); border-color:#6a9a6a; }
+
+    #toast{
+        position:absolute; left:50%; top:54px; transform:translateX(-50%);
+        background:rgba(15,16,19,0.92); border:1px solid #454c55; color:var(--text);
+        padding:7px 14px; border-radius:8px; font-size:12px; font-weight:600; z-index:8;
+        opacity:0; transition:opacity .25s; pointer-events:none; max-width:86%; text-align:center;
+    }
+    #toast.show{opacity:1;}
+
+    #start-screen, #gameover-screen{
+        position:absolute; inset:0; z-index:20; background:rgba(8,9,11,0.94);
+        display:flex; align-items:center; justify-content:center; padding:20px;
+    }
+    #start-screen.hidden, #gameover-screen.hidden{display:none;}
+    .modal{ max-width:360px; width:100%; background:#1b1e24; border:1px solid #3a4048; border-radius:12px; padding:20px; color:var(--text); text-align:center;}
+    .modal h1{font-size:19px; margin:0 0 10px; color:#c9d4dc; letter-spacing:0.5px;}
+    .modal p{font-size:12.5px; line-height:1.55; color:#aab3bd; text-align:left; margin:8px 0;}
+    .modal button{
+        margin-top:14px; width:100%; padding:12px; font-size:14px; font-weight:800;
+        background:linear-gradient(180deg,#3a5a3a,#24361f); border:1px solid #6a9a5a; color:#eaf3e6; border-radius:8px;
+    }
+    .modal .stat{font-size:13px; color:#d8dde3; margin:4px 0;}
+
+    #hint{
+        position:absolute; left:50%; bottom:74px; transform:translateX(-50%);
+        color:#9aa3ad; font-size:11px; background:rgba(10,11,13,0.7); padding:4px 10px; border-radius:6px;
+        z-index:4; pointer-events:none;
+    }
+</style>
+</head>
+<body>
+<canvas id="canvas"></canvas>
+<div id="top-bar">
+    <span id="hud-wave">Wave 1</span>
+    <span id="hud-supplies">📦 0</span>
+    <span id="hud-bunker">🏚️ Bunker 100%</span>
+    <span id="hud-squad">👥 0</span>
+</div>
+<button id="back-btn">⬅ Main Game</button>
+<div id="hint">Tap the ground to move your squad · tap a crate to send them to it</div>
+<div id="bottom-bar">
+    <button id="train-btn">👮 Train Officer<br><span style="font-weight:400">cost 20</span></button>
+    <button id="heal-btn">💊 Heal Squad<br><span style="font-weight:400">cost 15</span></button>
+    <button id="van-btn">🚐 Deploy Van<br><span style="font-weight:400">cost 30</span></button>
+    <button id="repair-btn">🔧 Repair Van<br><span style="font-weight:400">cost 15</span></button>
+    <button id="fortify-btn">🧱 Fortify Bunker<br><span style="font-weight:400">cost 25</span></button>
+</div>
+<div id="toast"></div>
+
+<div id="start-screen">
+    <div class="modal">
+        <h1>🧟 OUTBREAK MODE</h1>
+        <p>The town's gone quiet. Buildings are overrun, the clouds hang grey, and whatever's left out there doesn't stop coming.</p>
+        <p>Hold the bunker. Send your squad out to collect supply crates — you'll need them to heal up, repair the van, and fortify the bunker. The more ground you hold, the more crates you can reach.</p>
+        <p>Zombies are slow and never retreat, but there's always more of them. They ignore buildings and head straight for your people or the bunker door.</p>
+        <button id="start-btn">Begin</button>
+    </div>
+</div>
+
+<div id="gameover-screen" class="hidden">
+    <div class="modal">
+        <h1>🏚️ BUNKER OVERRUN</h1>
+        <div class="stat" id="go-wave">Reached wave 1</div>
+        <div class="stat" id="go-kills">0 zombies put down</div>
+        <button id="retry-btn">Try Again</button>
+    </div>
+</div>
+
+<script>
+(function(){
+'use strict';
+
+// ============================================================
+// This is a fully standalone game, separate from the main
+// riot-control game in index.html - its own map, its own
+// entities, its own loop. It shares nothing at runtime with the
+// main game, so nothing here can break it (and vice versa). It
+// reuses a handful of the same source images (buildings, the
+// police station, a van) purely as a time-saver, but runs them
+// through its own "overrun / reinforced" look on load rather
+// than needing a whole second art pack.
+// ============================================================
+
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+let DPR = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
+let VW = 0, VH = 0;
+
+function resize() {
+    VW = window.innerWidth; VH = window.innerHeight;
+    canvas.width = VW * DPR; canvas.height = VH * DPR;
+    canvas.style.width = VW + 'px'; canvas.style.height = VH + 'px';
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+}
+window.addEventListener('resize', resize);
+resize();
+
+const TILE = 34;
+const WORLD_TW = 46, WORLD_TH = 34;
+const WORLD_W = WORLD_TW * TILE, WORLD_H = WORLD_TH * TILE;
+
+function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
+function dist(a, b) { return Math.hypot(a.x - b.x, a.y - b.y); }
+function rand(a, b) { return a + Math.random() * (b - a); }
+function pick(arr) { return arr[(Math.random() * arr.length) | 0]; }
+
+// ---------- camera ----------
+const camera = { x: 0, y: 0 };
+function clampCamera() {
+    camera.x = clamp(camera.x, -200, WORLD_W - VW + 200);
+    camera.y = clamp(camera.y, -200, WORLD_H - VH + 200);
+}
+
+// ============================================================
+// ASSET LOADING + "overrun" / "reinforced" look
+// ============================================================
+const RAW = {};
+const LOOK = {}; // filtered/cached canvases, same keys as RAW
+let assetsToLoad = 0, assetsLoaded = 0;
+
+function applyOverrunFilter(img, opts) {
+    opts = opts || {};
+    const c = document.createElement('canvas');
+    c.width = img.width; c.height = img.height;
+    const g = c.getContext('2d');
+    g.drawImage(img, 0, 0);
+    // desaturate + darken + green-grey tint
+    const id = g.getImageData(0, 0, c.width, c.height);
+    const d = id.data;
+    const tint = opts.tint || [92, 102, 78]; // dingy olive-grey
+    const mix = opts.mix == null ? 0.38 : opts.mix;
+    const darken = opts.darken == null ? 0.78 : opts.darken;
+    for (let i = 0; i < d.length; i += 4) {
+        if (d[i + 3] < 8) continue;
+        const l = (d[i] * 0.299 + d[i + 1] * 0.587 + d[i + 2] * 0.114);
+        let r = l * (1 - mix) + tint[0] * mix;
+        let gg = l * (1 - mix) + tint[1] * mix;
+        let b = l * (1 - mix) + tint[2] * mix;
+        d[i] = r * darken; d[i + 1] = gg * darken; d[i + 2] = b * darken;
+    }
+    g.putImageData(id, 0, 0);
+    // overgrowth / grime speckle
+    if (!opts.noGrunge) {
+        const n = Math.floor(c.width * c.height * 0.05);
+        for (let i = 0; i < n; i++) {
+            const x = (Math.random() * c.width) | 0, y = (Math.random() * c.height) | 0;
+            const px = g.getImageData(x, y, 1, 1).data;
+            if (px[3] < 40) continue;
+            const ivy = Math.random() < 0.65;
+            g.fillStyle = ivy ? `rgba(${40 + Math.random() * 30},${70 + Math.random() * 40},${30 + Math.random() * 20},0.5)`
+                              : `rgba(20,18,14,${0.15 + Math.random() * 0.25})`;
+            const r = 1 + Math.random() * (ivy ? 3.2 : 1.6);
+            g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fill();
+        }
+    }
+    return c;
+}
+
+function loadImg(key, path, filterOpts) {
+    assetsToLoad++;
+    const img = new Image();
+    img.onload = () => { RAW[key] = img; LOOK[key] = applyOverrunFilter(img, filterOpts); assetsLoaded++; };
+    img.onerror = () => { assetsLoaded++; };
+    img.src = path;
+}
+
+const BUILDING_KEYS = ['ukb_terrace', 'ukb_redhouse', 'ukb_shop', 'ukb_pub', 'ukb_tudor',
+                        'ukb_georgian', 'ukb_museum', 'ukb_townhall', 'ukb_firestation', 'ukb_factory'];
+BUILDING_KEYS.forEach(k => loadImg(k, 'assets/buildings/uk/' + k + '.png', { mix: 0.4, darken: 0.74 }));
+loadImg('station', 'assets/map/station/police_station.png', { mix: 0.3, darken: 0.8, tint: [86, 94, 86] });
+loadImg('van', 'assets/map/vehicles/veh_van.png', { mix: 0.5, darken: 0.72, tint: [96, 98, 88], noGrunge: true });
+
+const BUILDING_SIZE = {
+    ukb_terrace: [64, 64], ukb_redhouse: [48, 64], ukb_shop: [64, 64], ukb_pub: [64, 64], ukb_tudor: [64, 64],
+    ukb_georgian: [128, 128], ukb_museum: [128, 128], ukb_townhall: [128, 128], ukb_firestation: [128, 128], ukb_factory: [160, 160],
+};
+
+// ============================================================
+// MAP: scattered overrun buildings + overgrowth, obstacles for steering
+// ============================================================
+const bunker = { x: 4.5 * TILE, y: WORLD_TH * TILE * 0.5, w: 192 * 0.85, h: 144 * 0.85, hp: 100, maxHp: 100 };
+const buildings = []; // {key,x,y,w,h} world-space top-left + size, used as steering obstacles
+const overgrowth = []; // decorative patches, non-blocking
+
+function rectsOverlap(a, b, pad) {
+    pad = pad || 0;
+    return a.x < b.x + b.w + pad && a.x + a.w + pad > b.x && a.y < b.y + b.h + pad && a.y + a.h + pad > b.y;
+}
+function generateMap() {
+    const bunkerFootprint = { x: bunker.x - bunker.w * 0.7, y: bunker.y - bunker.h * 0.9, w: bunker.w * 2.2, h: bunker.h * 2.0 };
+    let attempts = 0;
+    while (buildings.length < 26 && attempts < 600) {
+        attempts++;
+        const key = pick(BUILDING_KEYS);
+        const [bw, bh] = BUILDING_SIZE[key];
+        const scale = rand(0.85, 1.15);
+        const w = bw * scale, h = bh * scale;
+        const x = rand(TILE * 2, WORLD_W - w - TILE * 2);
+        const y = rand(TILE * 2, WORLD_H - h - TILE * 2);
+        const rect = { x, y, w, h };
+        if (rectsOverlap(rect, bunkerFootprint, TILE * 2)) continue;
+        if (buildings.some(b => rectsOverlap(rect, b, TILE * 1.1))) continue;
+        buildings.push({ key, x, y, w, h });
+    }
+    for (let i = 0; i < 140; i++) {
+        overgrowth.push({ x: rand(0, WORLD_W), y: rand(0, WORLD_H), r: rand(6, 20), a: rand(0.12, 0.3) });
+    }
+}
+generateMap();
+
+// steering: push a moving point away from any building it is inside/near
+function avoidBuildings(x, y, pushScale) {
+    let fx = 0, fy = 0;
+    for (const b of buildings) {
+        const cx = clamp(x, b.x, b.x + b.w), cy = clamp(y, b.y, b.y + b.h);
+        const dx = x - cx, dy = y - cy;
+        const d = Math.hypot(dx, dy);
+        const margin = 14;
+        if (d < margin) {
+            const push = (margin - d + 2) * (pushScale || 1);
+            if (d < 0.001) { fx += (Math.random() - 0.5) * push; fy += (Math.random() - 0.5) * push; }
+            else { fx += (dx / d) * push; fy += (dy / d) * push; }
+        }
+    }
+    return { x: fx, y: fy };
+}
+
+// ============================================================
+// RESOURCES / HUD STATE
+// ============================================================
+const state = {
+    supplies: 40,
+    wave: 1,
+    waveTimer: 14,
+    kills: 0,
+    gameOver: false,
+    squadTarget: null,
+};
+
+function showToast(msg) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    clearTimeout(showToast._t);
+    showToast._t = setTimeout(() => t.classList.remove('show'), 2000);
+}
+
+// ============================================================
+// ENTITIES
+// ============================================================
+let idSeq = 1;
+const officers = [];
+const zombies = [];
+const crates = [];
+let van = null;
+
+function spawnOfficer(x, y) {
+    officers.push({
+        id: idSeq++, x: x + rand(-14, 14), y: y + rand(-14, 14),
+        hp: 100, maxHp: 100, animT: Math.random() * 10,
+        dirx: 1, diry: 0, moving: false, atkT: rand(0, 1),
+    });
+}
+for (let i = 0; i < 5; i++) spawnOfficer(bunker.x + 60, bunker.y);
+
+function spawnCrate() {
+    let x, y, tries = 0;
+    do {
+        x = rand(TILE * 2, WORLD_W - TILE * 2);
+        y = rand(TILE * 2, WORLD_H - TILE * 2);
+        tries++;
+    } while (tries < 40 && (dist({ x, y }, bunker) < TILE * 5 || buildings.some(b => x > b.x - 10 && x < b.x + b.w + 10 && y > b.y - 10 && y < b.y + b.h + 10)));
+    crates.push({ id: idSeq++, x, y, amount: Math.floor(rand(12, 26)), bob: Math.random() * 10 });
+}
+for (let i = 0; i < 4; i++) spawnCrate();
+let crateTimer = 9;
+
+function edgeSpawnPoint() {
+    const side = (Math.random() * 4) | 0;
+    if (side === 0) return { x: rand(0, WORLD_W), y: -20 };
+    if (side === 1) return { x: rand(0, WORLD_W), y: WORLD_H + 20 };
+    if (side === 2) return { x: -20, y: rand(0, WORLD_H) };
+    return { x: WORLD_W + 20, y: rand(0, WORLD_H) };
+}
+function spawnZombieWave() {
+    const count = 4 + Math.floor(state.wave * 1.6);
+    for (let i = 0; i < count; i++) {
+        const p = edgeSpawnPoint();
+        zombies.push({
+            id: idSeq++, x: p.x, y: p.y, hp: 40 + state.wave * 4, maxHp: 40 + state.wave * 4,
+            speed: rand(16, 24), animT: Math.random() * 10, dirx: -1, diry: 0,
+            atkT: rand(0, 1), moaning: Math.random() < 0.5, hue: rand(-8, 8),
+        });
+    }
+    showToast('🧟 Wave ' + state.wave + ' — ' + count + ' incoming');
+}
+spawnZombieWave();
+
+// ============================================================
+// INPUT — tap to move squad / tap a crate to head to it, drag to pan
+// ============================================================
+let drag = { active: false, moved: false, sx: 0, sy: 0, cx: 0, cy: 0, pid: null };
+canvas.addEventListener('pointerdown', (e) => {
+    drag.active = true; drag.moved = false; drag.pid = e.pointerId;
+    drag.sx = e.clientX; drag.sy = e.clientY; drag.cx = camera.x; drag.cy = camera.y;
+});
+canvas.addEventListener('pointermove', (e) => {
+    if (!drag.active || e.pointerId !== drag.pid) return;
+    const dx = e.clientX - drag.sx, dy = e.clientY - drag.sy;
+    if (Math.hypot(dx, dy) > 6) drag.moved = true;
+    if (drag.moved) { camera.x = drag.cx - dx; camera.y = drag.cy - dy; clampCamera(); }
+});
+function endDrag(e) {
+    if (!drag.active || e.pointerId !== drag.pid) return;
+    drag.active = false;
+    if (!drag.moved && !state.gameOver) {
+        const wx = e.clientX + camera.x, wy = e.clientY + camera.y;
+        handleTap(wx, wy);
+    }
+}
+canvas.addEventListener('pointerup', endDrag);
+canvas.addEventListener('pointercancel', endDrag);
+
+function handleTap(wx, wy) {
+    // crate first (bigger hit radius, feels better on mobile)
+    for (const c of crates) {
+        if (dist({ x: wx, y: wy }, c) < 26) { state.squadTarget = { x: c.x, y: c.y }; showToast('Squad moving to the crate.'); return; }
+    }
+    state.squadTarget = { x: clamp(wx, TILE, WORLD_W - TILE), y: clamp(wy, TILE, WORLD_H - TILE) };
+}
+
+// center camera on bunker initially
+camera.x = bunker.x - VW / 2; camera.y = bunker.y - VH / 2; clampCamera();
+
+// ============================================================
+// UPDATE
+// ============================================================
+const OFFICER_RANGE = 26, OFFICER_DMG = 14, OFFICER_HIT_EVERY = 0.7;
+const ZOMBIE_RANGE = 22, ZOMBIE_DMG = 7, ZOMBIE_HIT_EVERY = 1.0;
+const ZOMBIE_AGGRO = TILE * 5.5;
+
+function officersCentroid() {
+    if (!officers.length) return { x: bunker.x, y: bunker.y };
+    let sx = 0, sy = 0; for (const o of officers) { sx += o.x; sy += o.y; }
+    return { x: sx / officers.length, y: sy / officers.length };
+}
+
+function update(dt) {
+    if (state.gameOver) return;
+
+    // squad movement toward shared target, formation-spread, obstacle avoidance
+    if (state.squadTarget) {
+        const t = state.squadTarget;
+        const c = officersCentroid();
+        if (dist(c, t) < 10) state.squadTarget = null;
+    }
+    officers.forEach((o, i) => {
+        let moving = false;
+        if (state.squadTarget) {
+            const slot = officers.length > 1 ? {
+                x: state.squadTarget.x + Math.cos(i * 2.4) * Math.min(14, officers.length * 2),
+                y: state.squadTarget.y + Math.sin(i * 2.4) * Math.min(14, officers.length * 2),
+            } : state.squadTarget;
+            const dx = slot.x - o.x, dy = slot.y - o.y, d = Math.hypot(dx, dy);
+            if (d > 6) {
+                const sp = 62;
+                o.x += (dx / d) * sp * dt; o.y += (dy / d) * sp * dt;
+                o.dirx = dx >= 0 ? 1 : -1; o.diry = dy;
+                moving = true;
+            }
+        }
+        const av = avoidBuildings(o.x, o.y, 2.4);
+        o.x += av.x * dt * 30; o.y += av.y * dt * 30;
+        o.x = clamp(o.x, TILE, WORLD_W - TILE); o.y = clamp(o.y, TILE, WORLD_H - TILE);
+        o.moving = moving;
+        o.animT += dt * (moving ? 6 : 1.3);
+        o.atkT -= dt;
+    });
+
+    // crate pickup (officers or van)
+    for (let i = crates.length - 1; i >= 0; i--) {
+        const c = crates[i];
+        c.bob += dt;
+        const grabbed = officers.some(o => dist(o, c) < 20) || (van && van.deployed && dist(van, c) < 26);
+        if (grabbed) {
+            state.supplies += c.amount;
+            showToast('📦 +' + c.amount + ' supplies');
+            crates.splice(i, 1);
+        }
+    }
+    crateTimer -= dt;
+    if (crateTimer <= 0) { crateTimer = rand(16, 24); if (crates.length < 6) spawnCrate(); }
+
+    // wave timer
+    state.waveTimer -= dt;
+    if (state.waveTimer <= 0) { state.wave++; state.waveTimer = Math.max(10, 20 - state.wave * 0.4); spawnZombieWave(); }
+
+    // zombies: shamble toward nearest officer within aggro range, else the bunker; never retreat
+    for (const z of zombies) {
+        let tx = bunker.x, ty = bunker.y, bestD = dist(z, bunker);
+        for (const o of officers) {
+            const d = dist(z, o);
+            if (d < ZOMBIE_AGGRO && d < bestD) { bestD = d; tx = o.x; ty = o.y; }
+        }
+        const dx = tx - z.x, dy = ty - z.y, d = Math.hypot(dx, dy) || 1;
+        let moving = true;
+        if (d > ZOMBIE_RANGE) {
+            z.x += (dx / d) * z.speed * dt; z.y += (dy / d) * z.speed * dt;
+            z.dirx = dx >= 0 ? 1 : -1;
+        } else { moving = false; }
+        // zombies ignore buildings as targets but still shove past them physically
+        const av = avoidBuildings(z.x, z.y, 1.4);
+        z.x += av.x * dt * 20; z.y += av.y * dt * 20;
+        z.x = clamp(z.x, -10, WORLD_W + 10); z.y = clamp(z.y, -10, WORLD_H + 10);
+        z.animT += dt * (moving ? 3.2 : 1.6);
+        z.atkT -= dt;
+    }
+
+    // combat: officers vs nearby zombies
+    for (const o of officers) {
+        if (o.atkT > 0) continue;
+        const target = zombies.find(z => dist(o, z) < OFFICER_RANGE);
+        if (target) { target.hp -= OFFICER_DMG; o.atkT = OFFICER_HIT_EVERY; spawnHit(target.x, target.y); }
+    }
+    // combat: zombies vs officers and the bunker (buildings are never a target)
+    for (const z of zombies) {
+        if (z.atkT > 0) continue;
+        const o = officers.find(o => dist(o, z) < ZOMBIE_RANGE);
+        if (o) { o.hp -= ZOMBIE_DMG; z.atkT = ZOMBIE_HIT_EVERY; spawnHit(o.x, o.y); continue; }
+        if (dist(z, bunker) < 50) { bunker.hp = Math.max(0, bunker.hp - ZOMBIE_DMG * 0.6); z.atkT = ZOMBIE_HIT_EVERY; }
+    }
+    // van: simple ram - damages zombies it touches, zombies can wear it down
+    if (van && van.deployed) {
+        if (state.squadTarget) {
+            const dx = state.squadTarget.x - van.x, dy = state.squadTarget.y - van.y, d = Math.hypot(dx, dy);
+            if (d > 10) { van.x += (dx / d) * 80 * dt; van.y += (dy / d) * 80 * dt; van.dirx = dx >= 0 ? 1 : -1; }
+        }
+        for (const z of zombies) {
+            if (dist(van, z) < 24) { z.hp -= 50 * dt; }
+        }
+        const hitting = zombies.some(z => dist(van, z) < 20);
+        if (hitting) van.hp = Math.max(0, van.hp - 6 * dt);
+    }
+
+    // cull the dead
+    for (let i = zombies.length - 1; i >= 0; i--) {
+        if (zombies[i].hp <= 0) { spawnHit(zombies[i].x, zombies[i].y, true); zombies.splice(i, 1); state.kills++; }
+    }
+    for (let i = officers.length - 1; i >= 0; i--) {
+        if (officers[i].hp <= 0) officers.splice(i, 1);
+    }
+
+    if (bunker.hp <= 0) endGame();
+    updateHits(dt);
+    updateHud();
+}
+
+// quick hit-spark effect pool
+const hits = [];
+function spawnHit(x, y, big) { hits.push({ x, y, t: 0, big: !!big }); }
+function updateHits(dt) { for (let i = hits.length - 1; i >= 0; i--) { hits[i].t += dt; if (hits[i].t > 0.35) hits.splice(i, 1); } }
+
+function endGame() {
+    state.gameOver = true;
+    document.getElementById('go-wave').textContent = 'Reached wave ' + state.wave;
+    document.getElementById('go-kills').textContent = state.kills + ' zombies put down';
+    document.getElementById('gameover-screen').classList.remove('hidden');
+}
+
+function updateHud() {
+    document.getElementById('hud-wave').textContent = 'Wave ' + state.wave;
+    document.getElementById('hud-supplies').textContent = '📦 ' + Math.floor(state.supplies);
+    document.getElementById('hud-bunker').textContent = '🏚️ Bunker ' + Math.round(bunker.hp) + '%';
+    document.getElementById('hud-squad').textContent = '👥 ' + officers.length;
+    document.getElementById('heal-btn').disabled = state.supplies < 15;
+    document.getElementById('train-btn').disabled = state.supplies < 20;
+    document.getElementById('fortify-btn').disabled = state.supplies < 25 || bunker.hp >= bunker.maxHp;
+    document.getElementById('repair-btn').disabled = !van || !van.deployed || state.supplies < 15 || van.hp >= van.maxHp;
+    document.getElementById('van-btn').textContent = (van && van.deployed) ? '🚐 Recall Van' : '🚐 Deploy Van';
+}
+
+// ============================================================
+// RENDER
+// ============================================================
+function groundColor(gx, gy) {
+    const n = Math.sin(gx * 12.9898 + gy * 78.233) * 43758.5453;
+    const f = n - Math.floor(n);
+    return f > 0.88 ? '#262a1f' : (f > 0.76 ? '#2c2f24' : '#23251e');
+}
+function drawGround() {
+    const x0 = Math.max(0, Math.floor(camera.x / TILE) - 1);
+    const y0 = Math.max(0, Math.floor(camera.y / TILE) - 1);
+    const x1 = Math.min(WORLD_TW, Math.ceil((camera.x + VW) / TILE) + 1);
+    const y1 = Math.min(WORLD_TH, Math.ceil((camera.y + VH) / TILE) + 1);
+    for (let gy = y0; gy < y1; gy++) {
+        for (let gx = x0; gx < x1; gx++) {
+            ctx.fillStyle = groundColor(gx, gy);
+            ctx.fillRect(gx * TILE - camera.x, gy * TILE - camera.y, TILE + 1, TILE + 1);
+        }
+    }
+    ctx.save();
+    for (const p of overgrowth) {
+        const sx = p.x - camera.x, sy = p.y - camera.y;
+        if (sx < -30 || sy < -30 || sx > VW + 30 || sy > VH + 30) continue;
+        ctx.fillStyle = `rgba(50,70,40,${p.a})`;
+        ctx.beginPath(); ctx.arc(sx, sy, p.r, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.restore();
+}
+
+function drawBuildings() {
+    for (const b of buildings) {
+        const sx = b.x - camera.x, sy = b.y - camera.y;
+        if (sx < -b.w - 20 || sy < -b.h - 20 || sx > VW + 20 || sy > VH + 20) continue;
+        const img = LOOK[b.key];
+        ctx.fillStyle = 'rgba(0,0,0,0.3)';
+        ctx.beginPath(); ctx.ellipse(sx + b.w / 2, sy + b.h - 4, b.w * 0.4, 8, 0, 0, Math.PI * 2); ctx.fill();
+        if (img) ctx.drawImage(img, sx, sy, b.w, b.h);
+    }
+}
+
+function drawFloodlight(sx, sy, radius) {
+    const g = ctx.createRadialGradient(sx, sy, 0, sx, sy, radius);
+    g.addColorStop(0, 'rgba(255,255,250,0.5)');
+    g.addColorStop(0.4, 'rgba(230,235,230,0.18)');
+    g.addColorStop(1, 'rgba(230,235,230,0)');
+    ctx.fillStyle = g;
+    ctx.beginPath(); ctx.arc(sx, sy, radius, 0, Math.PI * 2); ctx.fill();
+}
+
+function drawBunker() {
+    const sx = bunker.x - camera.x, sy = bunker.y - camera.y;
+    drawFloodlight(sx - bunker.w * 0.3, sy, TILE * 3.2);
+    drawFloodlight(sx + bunker.w * 0.3, sy, TILE * 3.2);
+    const img = LOOK['station'];
+    if (img) ctx.drawImage(img, sx - bunker.w / 2, sy - bunker.h / 2, bunker.w, bunker.h);
+    // scrap/sandbag barricade along the front
+    ctx.fillStyle = '#6b5a3e';
+    for (let i = -3; i <= 3; i++) {
+        ctx.beginPath();
+        ctx.ellipse(sx + i * 11, sy + bunker.h / 2 - 2, 7, 4.5, 0, 0, Math.PI * 2);
+        ctx.fill();
+    }
+    ctx.fillStyle = 'rgba(0,0,0,0.5)';
+    ctx.fillRect(sx - bunker.w / 2, sy + bunker.h / 2 - 5, bunker.w, 5);
+    // bunker hp bar
+    const bw = 60;
+    ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.fillRect(sx - bw / 2, sy - bunker.h / 2 - 12, bw, 6);
+    ctx.fillStyle = bunker.hp > 40 ? '#5aa05a' : '#b04a3a';
+    ctx.fillRect(sx - bw / 2, sy - bunker.h / 2 - 12, bw * (bunker.hp / bunker.maxHp), 6);
+}
+
+function drawVan() {
+    if (!van) return;
+    const sx = van.x - camera.x, sy = van.y - camera.y;
+    if (van.deployed) drawFloodlight(sx, sy, TILE * 2.4);
+    const img = LOOK['van'];
+    ctx.save();
+    ctx.translate(sx, sy);
+    if (van.dirx < 0) ctx.scale(-1, 1);
+    if (img) ctx.drawImage(img, -img.width * 0.22, -img.height * 0.22, img.width * 0.44, img.height * 0.44);
+    ctx.restore();
+    if (van.deployed) {
+        const bw = 40;
+        ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.fillRect(sx - bw / 2, sy - 34, bw, 5);
+        ctx.fillStyle = van.hp > 40 ? '#5aa05a' : '#b04a3a';
+        ctx.fillRect(sx - bw / 2, sy - 34, bw * (van.hp / van.maxHp), 5);
+    }
+}
+
+function drawCrate(c) {
+    const sx = c.x - camera.x, sy = c.y - camera.y + Math.sin(c.bob * 2) * 2;
+    ctx.fillStyle = 'rgba(0,0,0,0.35)';
+    ctx.beginPath(); ctx.ellipse(sx, sy + 9, 11, 4, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#7a5a34';
+    ctx.fillRect(sx - 9, sy - 7, 18, 14);
+    ctx.strokeStyle = '#4a3420'; ctx.lineWidth = 1.4;
+    ctx.strokeRect(sx - 9, sy - 7, 18, 14);
+    ctx.beginPath(); ctx.moveTo(sx - 9, sy); ctx.lineTo(sx + 9, sy); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(sx, sy - 7); ctx.lineTo(sx, sy + 7); ctx.stroke();
+    ctx.fillStyle = '#d8c030';
+    ctx.font = '9px sans-serif'; ctx.textAlign = 'center';
+    ctx.fillText('+' + c.amount, sx, sy - 11);
+}
+
+function drawOfficer(o) {
+    const sx = o.x - camera.x, sy = o.y - camera.y;
+    const phase = o.animT * (o.moving ? 7 : 1.4);
+    const swing = Math.sin(phase) * (o.moving ? 3.2 : 0.5);
+    ctx.save();
+    ctx.translate(sx, sy);
+    ctx.fillStyle = 'rgba(0,0,0,0.35)';
+    ctx.beginPath(); ctx.ellipse(0, 8, 7, 3, 0, 0, Math.PI * 2); ctx.fill();
+    // legs
+    ctx.strokeStyle = '#2b2e26'; ctx.lineWidth = 2.6; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(-1, -1); ctx.lineTo(-2 - swing, 8); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(-1, -1); ctx.lineTo(0 + swing, 8); ctx.stroke();
+    // reinforced/patched torso
+    ctx.fillStyle = '#3c4a3a';
+    ctx.beginPath();
+    ctx.moveTo(-4, -1); ctx.lineTo(4, -1); ctx.lineTo(3, -13); ctx.lineTo(-3, -13);
+    ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = '#242a20'; ctx.lineWidth = 0.8; ctx.stroke();
+    // duct-taped scrap plate
+    ctx.fillStyle = '#8a8a7a'; ctx.fillRect(-3, -9, 3.4, 4);
+    ctx.strokeStyle = '#4a4a3a'; ctx.lineWidth = 0.6; ctx.strokeRect(-3, -9, 3.4, 4);
+    // head
+    ctx.fillStyle = '#c99a6e';
+    ctx.beginPath(); ctx.arc(0, -16, 3.4, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#2b2e26';
+    ctx.beginPath(); ctx.arc(0, -17.4, 3.5, Math.PI, 0); ctx.fill();
+    // weapon arm
+    ctx.save(); ctx.translate(2, -8); ctx.rotate(o.atkT < 0.2 ? -1.1 : -0.3);
+    ctx.strokeStyle = '#1c1c1c'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(7, 0); ctx.stroke();
+    ctx.restore();
+    ctx.restore();
+    // hp bar if hurt
+    if (o.hp < o.maxHp) {
+        ctx.fillStyle = 'rgba(0,0,0,0.55)'; ctx.fillRect(sx - 9, sy - 24, 18, 3);
+        ctx.fillStyle = '#5aa05a'; ctx.fillRect(sx - 9, sy - 24, 18 * (o.hp / o.maxHp), 3);
+    }
+}
+
+function drawZombie(z) {
+    const sx = z.x - camera.x, sy = z.y - camera.y;
+    const phase = z.animT;
+    const sway = Math.sin(phase) * 2.6;
+    const stagger = Math.sin(phase * 0.5) * 1.4;
+    ctx.save();
+    ctx.translate(sx + stagger, sy);
+    ctx.fillStyle = 'rgba(0,0,0,0.35)';
+    ctx.beginPath(); ctx.ellipse(0, 8, 7, 3, 0, 0, Math.PI * 2); ctx.fill();
+    // shambling legs - uneven gait
+    ctx.strokeStyle = '#2a241c'; ctx.lineWidth = 2.6; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(-1, -1); ctx.lineTo(-3 - sway * 0.4, 8); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(-1, -1); ctx.lineTo(1 + sway * 0.6, 7); ctx.stroke();
+    // torn grey-green torso, tilted
+    ctx.rotate(sway * 0.03);
+    ctx.fillStyle = `hsl(${96 + z.hue}, 18%, 26%)`;
+    ctx.beginPath();
+    ctx.moveTo(-4, -1); ctx.lineTo(4, -1); ctx.lineTo(3.4, -13); ctx.lineTo(-3.4, -13);
+    ctx.closePath(); ctx.fill();
+    ctx.fillStyle = 'rgba(10,10,8,0.35)'; ctx.fillRect(-3.4, -9, 2, 5); // tattered patch
+    // head, slack jaw, grey-green skin
+    ctx.fillStyle = `hsl(${100 + z.hue}, 20%, 36%)`;
+    ctx.beginPath(); ctx.arc(0, -16, 3.4, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = 'rgba(80,20,20,0.5)';
+    ctx.fillRect(-2.4, -14.5, 4.8, 1.3);
+    // arms reaching forward/out
+    ctx.strokeStyle = `hsl(${100 + z.hue}, 18%, 30%)`; ctx.lineWidth = 2.2;
+    ctx.beginPath(); ctx.moveTo(-3, -10); ctx.lineTo(-8 - sway * 0.5, -6 + sway); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(3, -10); ctx.lineTo(8 + sway * 0.5, -6 - sway); ctx.stroke();
+    ctx.restore();
+    if (z.hp < z.maxHp) {
+        ctx.fillStyle = 'rgba(0,0,0,0.55)'; ctx.fillRect(sx - 9, sy - 24, 18, 3);
+        ctx.fillStyle = '#8a3a3a'; ctx.fillRect(sx - 9, sy - 24, 18 * (z.hp / z.maxHp), 3);
+    }
+}
+
+function drawHits() {
+    for (const h of hits) {
+        const sx = h.x - camera.x, sy = h.y - camera.y;
+        const k = 1 - h.t / 0.35;
+        ctx.strokeStyle = h.big ? `rgba(180,60,50,${k})` : `rgba(230,220,180,${k})`;
+        ctx.lineWidth = 1.6;
+        const r = (h.big ? 14 : 8) * (1 - k) + 3;
+        for (let i = 0; i < (h.big ? 6 : 4); i++) {
+            const a = (i / (h.big ? 6 : 4)) * Math.PI * 2;
+            ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(sx + Math.cos(a) * r, sy + Math.sin(a) * r); ctx.stroke();
+        }
+    }
+}
+
+function drawGreyClouds() {
+    // soft grey vignette at the map edges - overcast, dingy atmosphere
+    const g = ctx.createRadialGradient(VW / 2, VH / 2, Math.min(VW, VH) * 0.35, VW / 2, VH / 2, Math.max(VW, VH) * 0.75);
+    g.addColorStop(0, 'rgba(60,64,62,0)');
+    g.addColorStop(1, 'rgba(50,52,50,0.55)');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, VW, VH);
+    ctx.fillStyle = 'rgba(120,124,120,0.05)';
+    ctx.fillRect(0, 0, VW, VH);
+}
+
+function render() {
+    ctx.clearRect(0, 0, VW, VH);
+    drawGround();
+    drawBuildings();
+    // y-sorted pass for station/van/officers/zombies so things lower on screen draw in
+    // front, same depth trick the main game uses
+    const entities = [
+        { y: bunker.y + bunker.h / 2, kind: 'bunker' },
+        ...(van ? [{ y: van.y, kind: 'van' }] : []),
+        ...officers.map(o => ({ y: o.y, kind: 'officer', o })),
+        ...zombies.map(z => ({ y: z.y, kind: 'zombie', z })),
+    ];
+    entities.sort((a, b) => a.y - b.y).forEach(e => {
+        if (e.kind === 'bunker') drawBunker();
+        else if (e.kind === 'van') drawVan();
+        else if (e.kind === 'officer') drawOfficer(e.o);
+        else if (e.kind === 'zombie') drawZombie(e.z);
+    });
+    crates.forEach(drawCrate);
+    drawHits();
+    drawGreyClouds();
+}
+
+// ============================================================
+// BUTTONS
+// ============================================================
+document.getElementById('train-btn').addEventListener('click', () => {
+    if (state.supplies < 20) return;
+    state.supplies -= 20;
+    spawnOfficer(bunker.x + 50, bunker.y);
+    showToast('👮 Officer trained up and sent out.');
+    updateHud();
+});
+document.getElementById('heal-btn').addEventListener('click', () => {
+    if (state.supplies < 15) return;
+    state.supplies -= 15;
+    officers.forEach(o => o.hp = o.maxHp);
+    showToast('💊 Squad patched up.');
+    updateHud();
+});
+document.getElementById('fortify-btn').addEventListener('click', () => {
+    if (state.supplies < 25 || bunker.hp >= bunker.maxHp) return;
+    state.supplies -= 25;
+    bunker.hp = Math.min(bunker.maxHp, bunker.hp + 40);
+    showToast('🧱 Bunker reinforced.');
+    updateHud();
+});
+document.getElementById('van-btn').addEventListener('click', () => {
+    if (!van) {
+        if (state.supplies < 30) return;
+        state.supplies -= 30;
+        van = { x: bunker.x + 70, y: bunker.y + 40, hp: 100, maxHp: 100, deployed: true, dirx: 1 };
+        showToast('🚐 Reinforced van deployed.');
+    } else {
+        van.deployed = !van.deployed;
+        showToast(van.deployed ? '🚐 Van redeployed.' : '🚐 Van recalled to the bunker.');
+        if (!van.deployed) { van.x = bunker.x + 70; van.y = bunker.y + 40; }
+    }
+    updateHud();
+});
+document.getElementById('repair-btn').addEventListener('click', () => {
+    if (!van || !van.deployed || state.supplies < 15 || van.hp >= van.maxHp) return;
+    state.supplies -= 15;
+    van.hp = van.maxHp;
+    showToast('🔧 Van repaired.');
+    updateHud();
+});
+document.getElementById('back-btn').addEventListener('click', () => { window.location.href = 'index.html'; });
+document.getElementById('retry-btn').addEventListener('click', () => window.location.reload());
+document.getElementById('start-btn').addEventListener('click', () => {
+    document.getElementById('start-screen').classList.add('hidden');
+    lastT = performance.now();
+    requestAnimationFrame(loop);
+});
+
+// ============================================================
+// LOOP
+// ============================================================
+let lastT = 0;
+function loop(t) {
+    const dt = Math.min(0.05, (t - lastT) / 1000);
+    lastT = t;
+    update(dt);
+    render();
+    requestAnimationFrame(loop);
+}
+})();
+</script>
+</body>
+</html>

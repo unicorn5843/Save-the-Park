@@ -509,6 +509,7 @@
             <button class="syn-btn" data-idx="1">S2</button>
             <button class="syn-btn" data-idx="2">S3</button>
             <button class="syn-btn vehicle" data-idx="3">🚔</button>
+            <button class="syn-btn vehicle" data-idx="5">🚐</button>
         </div>
         <div id="dpad-container">
             <button class="dpad-btn dpad-up" id="btn-up">▲</button>
@@ -617,6 +618,10 @@
         const MAX_SYNDICATES = 4;
         const VEHICLE_SYNDICATE = 3;
         const STATION_INDEX = 4;
+        const VEHICLE_SYNDICATE_2 = 5;   // second deployable vehicle: the rubber bullet response van
+        function isVehicleIdx(idx) { return idx === VEHICLE_SYNDICATE || idx === VEHICLE_SYNDICATE_2; }
+        function vehicleAt(idx) { return idx === VEHICLE_SYNDICATE ? game.vehicle : (idx === VEHICLE_SYNDICATE_2 ? game.vehicle2 : null); }
+        function setVehicleAt(idx, v) { if (idx === VEHICLE_SYNDICATE) game.vehicle = v; else if (idx === VEHICLE_SYNDICATE_2) game.vehicle2 = v; }
         const BASE_MAX_HP = 900;
 
         const SYNDICATE_START_X = [46, 54, 62];
@@ -692,6 +697,11 @@
         const WATER_CANNON_TICK_INTERVAL = 0.1;
         const WATER_CANNON_DAMAGE_PER_TICK = 18;
         const WATER_CANNON_PUSH_PER_TICK = TILE * 0.32;
+
+        const RUBBER_BULLET_RANGE = TILE * 7.5;
+        const RUBBER_BULLET_COOLDOWN = 2.0;     // "fire a round every two seconds" per gunner
+        const RUBBER_BULLET_DAMAGE = 9;
+        const RUBBER_BULLET_STUN = 0.6;
 
         const RAIDER_SEPARATION_RADIUS = TILE * 0.85;
         const RAIDER_SEPARATION_STRENGTH = 55;
@@ -985,6 +995,7 @@
             waveIntensity: 1,
 
             vehicle: null,
+            vehicle2: null,
             blockedEdges: new Set(),
             blockadeVersion: 0,
 
@@ -1439,7 +1450,8 @@
         }
 
         const ASSET_PATHS = {};
-        ASSET_PATHS['city_atlas'] = 'assets/map/city_atlas.png';
+        ASSET_PATHS['city_atlas'] = 'assets/buildings/city_atlas.png';
+        ASSET_PATHS['response_van_sheet'] = 'assets/map/vehicles/response_van_sheet.png';
 
         const PROP_KEYS = ['prop_tree', 'prop_tree_tall', 'prop_bench', 'prop_streetlight', 'prop_hydrant',
             'prop_postbox', 'prop_bikerack', 'prop_foodcart', 'prop_bin', 'prop_cones'];
@@ -1529,7 +1541,7 @@
         ASSET_PATHS['water_sheet'] = 'assets/fx/water_jet_sheet.png';
         ASSET_PATHS['parked_atlas'] = 'assets/map/vehicles/parked_atlas.png';
         UK_BUILDINGS.forEach(u => {
-            ASSET_PATHS[u.id] = 'assets/map/buildings_uk/' + u.id + '.png';
+            ASSET_PATHS[u.id] = 'assets/buildings/uk/' + u.id + '.png';
             ATLAS_TABLE[u.id] = { kind: 'b', zone: u.zones[0], zones: u.zones, wT: u.wT, hT: u.hT, src: u.id,
                 noflip: false, x: 0, y: 0, w: u.wT * 16, h: u.hT * 16, file: u.id, max: u.max, min: u.min, boost: u.boost };
         });
@@ -4246,7 +4258,7 @@
             constructor() {
                 this.x = (BASE_TILE_X - 3) * TILE; this.y = (ROAD_Y_BOTTOM + 1.2) * TILE;
                 this.dir = { x: 1, y: 0 }; this.angle = 0;
-                this.alive = true; this.state = 'waiting'; this.timer = 0; this.waitTimer = 25;
+                this.alive = true; this.state = 'waiting'; this.timer = 0; this.waitTimer = 12;
                 this.target = -1; this.pick = 0; this.lightPhase = Math.random() * 10; this.healed = 0;
                 this.moving = false;
             }
@@ -4271,9 +4283,12 @@
                     this.pick -= dt;
                     if (this.pick <= 0 || this.state === 'waiting') {
                         this.pick = 1.2;
-                        let best = -1, bestM = 120;
+                        // Any real injury is worth a trip - previously this needed >120 missing HP
+                        // before the ambulance would bother moving, which meant it usually just
+                        // sat at the station until its wait timer ran out and looked "broken".
+                        let best = -1, bestM = 2;
                         for (let i = 0; i < OFFICER_SYNDICATES; i++) { const m = this.missing(i); if (m > bestM) { bestM = m; best = i; } }
-                        if (this.state !== 'treating' || (best >= 0 && best !== this.target && bestM > this.missing(this.target) * 1.6)) this.target = best;
+                        if (this.state !== 'treating' || (best >= 0 && best !== this.target && bestM > this.missing(this.target) * 1.3)) this.target = best;
                     }
                 }
                 if (this.state === 'waiting') {
@@ -4352,8 +4367,12 @@
         function deployAmbulance() {
             if (game.ambulance && game.ambulance.alive) { showToast('🚑 The ambulance is already out.'); return; }
             if ((game.ambulanceCooldown || 0) > 0) { showToast('🚑 Ambulance restocking — ' + Math.ceil(game.ambulanceCooldown) + 's.'); return; }
-            game.ambulance = new AmbulanceVehicle();
-            showToast('🚑 Ambulance dispatched — it will treat the most injured syndicate.');
+            const amb = new AmbulanceVehicle();
+            let anyHurt = false;
+            for (let i = 0; i < OFFICER_SYNDICATES; i++) if (amb.missing(i) > 2) { anyHurt = true; break; }
+            game.ambulance = amb;
+            if (anyHurt) showToast('🚑 UK ambulance dispatched — it will treat the most injured syndicate.');
+            else showToast('🚑 Ambulance dispatched — nobody is hurt yet, so it will hold at the station until someone is.');
             renderOptionsPanel();
         }
         function updateAmbulance(dt) {
@@ -4527,6 +4546,19 @@
                 ctx.save();
                 ctx.translate(sx, sy);
                 if (facesLeft(this)) ctx.scale(-1, 1);
+                // The art is a side-on walk/run/bite cycle, so a dog travelling mostly up or
+                // down the screen used to just slide along still showing its full side profile.
+                // Squash it horizontally toward that travel direction, and add a small gait bob,
+                // so it reads as actually moving rather than a flat image sliding around.
+                const k9dx = Math.abs(this.dir.x), k9dy = Math.abs(this.dir.y);
+                const faceRatio = Math.max(0.58, k9dx / (k9dx + k9dy + 0.0001));
+                const k9now = (game.lastTime || 0) / 1000 + this.id * 0.37;
+                const k9Speed = this.curSpeed || 0;
+                const gaitHz = this.atkTimer > 0.15 && this.atkTimer <= K9_ATTACK_COOLDOWN ? 0
+                    : k9Speed > TILE * 2.6 ? 13 : k9Speed > 6 ? 8 : 2.2;
+                const bobAmp = this.isMoving ? 1.15 : 0.3;
+                ctx.scale(faceRatio, 1);
+                ctx.translate(0, Math.sin(k9now * gaitHz) * bobAmp);
                 drawK9Figure(ctx, this);
                 ctx.restore();
                 drawHpBar(ctx, sx, sy - 16, this.hp, this.maxHp, '#ffcc33');
@@ -4620,9 +4652,10 @@
 
         // ========== BLOCKADE VEHICLE ==========
         class WaterCannonVehicle {
-            constructor(syndicateIndex) {
+            constructor(syndicateIndex, kind) {
                 this.syndicateIndex = syndicateIndex;
-                this.x = 44 * TILE + TILE / 2;
+                this.kind = kind || 'watercannon';   // 'watercannon' or 'rubberbullet'
+                this.x = this.kind === 'rubberbullet' ? 40 * TILE + TILE / 2 : 44 * TILE + TILE / 2;
                 this.y = ROAD_Y_BOTTOM * TILE + TILE / 2;
                 this.angle = 0;
                 this.targetAngle = 0;
@@ -4640,6 +4673,11 @@
                 this.waterTickTimer = 0;
                 this.waterAimAngle = 0;
                 this.waterAimTarget = 0;
+
+                // rubber-bullet response van: a two-man team that steps out either side once parked
+                this.gunnerFireTimer = [1.0, 1.9];
+                this.gunnersOut = false;
+                this.gunnerDeployT = 0;
             }
             setSpot(spot) {
                 if (!spot || this.targetSpot === spot) return;
@@ -4816,8 +4854,70 @@
                     }
                 }
 
-                this.updateWaterCannon(dt);
+                if (this.kind === 'rubberbullet') this.updateRubberBulletTeam(dt);
+                else this.updateWaterCannon(dt);
                 this.partUnits();
+            }
+            // ---- rubber bullet response team (second vehicle) ----
+            gunnerPositions() {
+                const cosA = Math.cos(this.angle), sinA = Math.sin(this.angle);
+                const side = TILE * 1.05, back = -TILE * 0.05;
+                const pts = [];
+                for (const s of [-1, 1]) {
+                    pts.push({
+                        x: this.x + back * cosA - (side * s) * sinA,
+                        y: this.y + back * sinA + (side * s) * cosA,
+                        side: s
+                    });
+                }
+                return pts;
+            }
+            updateRubberBulletTeam(dt) {
+                const wasOut = this.gunnersOut;
+                this.gunnersOut = this.parked;
+                if (!this.gunnersOut) {
+                    this.gunnerDeployT = Math.max(0, this.gunnerDeployT - dt * 3);
+                    return;
+                }
+                if (!wasOut) { this.gunnerFireTimer = [0.8, 1.5]; }
+                this.gunnerDeployT = Math.min(1, this.gunnerDeployT + dt * 3);
+                const positions = this.gunnerPositions();
+                for (let i = 0; i < 2; i++) {
+                    this.gunnerFireTimer[i] -= dt;
+                    if (this.gunnerFireTimer[i] <= 0) {
+                        this.gunnerFireTimer[i] = RUBBER_BULLET_COOLDOWN;
+                        this.fireRubberRound(positions[i]);
+                    }
+                }
+            }
+            fireRubberRound(pos) {
+                let target = null, bestD = Infinity;
+                for (const r of game.raiders) {
+                    if (!r.alive || r.state === 'fleeing' || r.beingArrested) continue;
+                    if (r.kind === 'crowd') continue;
+                    const d = Math.hypot(r.x - pos.x, r.y - pos.y);
+                    if (d > RUBBER_BULLET_RANGE) continue;
+                    if (d < bestD) { bestD = d; target = r; }
+                }
+                if (!target) return;
+                dealDamageToRaider(target, RUBBER_BULLET_DAMAGE);
+                target.gasStunTimer = Math.max(target.gasStunTimer || 0, RUBBER_BULLET_STUN);
+                game.rubberTracers = game.rubberTracers || [];
+                game.rubberTracers.push({ x0: pos.x, y0: pos.y, y1: target.y, x1: target.x, t: 0.14 });
+            }
+            drawGunners(ctx) {
+                if (this.gunnerDeployT <= 0.01) return;
+                const positions = this.gunnerPositions();
+                const scale = Math.min(1, this.gunnerDeployT * 1.4);
+                for (const p of positions) {
+                    const sx = p.x - game.camera.x, sy = p.y - game.camera.y;
+                    ctx.save();
+                    ctx.translate(sx, sy);
+                    ctx.scale(scale, scale);
+                    if (p.side < 0) ctx.scale(-1, 1);
+                    drawRubberGunnerFigure(ctx, this, p);
+                    ctx.restore();
+                }
             }
 
             frameIndex() {
@@ -4970,13 +5070,16 @@
                 const sx = this.x - game.camera.x, sy = this.y - game.camera.y;
                 if (sx < -200 || sy < -200 || sx > game.width + 200 || sy > game.height + 200) return;
 
-                if (this.waterCannonOn) this.drawWaterJet(ctx);
+                const isRubber = this.kind === 'rubberbullet';
+                if (!isRubber && this.waterCannonOn) this.drawWaterJet(ctx);
 
-                const sheet = assets['wc_sheet'], turret = assets['wc_turret'];
+                const sheet = assets[isRubber ? 'response_van_sheet' : 'wc_sheet'];
+                const turret = isRubber ? null : assets['wc_turret'];
                 if (!sheet) {
                     ctx.save(); ctx.translate(sx, sy); ctx.rotate(this.angle);
                     drawBlockadeVehicleFigure(ctx, this);
                     ctx.restore();
+                    if (isRubber) this.drawGunners(ctx);
                     return;
                 }
                 const fi = this.frameIndex(), col = fi % 7, row = (fi / 7) | 0;
@@ -5003,18 +5106,75 @@
 
                 const f = WC_FRAMES[fi];
                 const leftOn = Math.sin(this.lightPhase * 11) > 0;
+                const lightColor = isRubber
+                    ? { core: '230,235,255', mid: '150,170,255', edge: '60,80,255' }   // white/blue floodlight-style
+                    : { core: '140,195,255', mid: '40,110,255', edge: '0,60,255' };
                 [[f[1], leftOn], [f[2], !leftOn]].forEach(([pt, on]) => {
                     if (!on) return;
                     const lx = sx + (pt[0] - half) * WC_SCALE, ly = sy + (pt[1] - half) * WC_SCALE;
                     const rad = TILE * 1.5;
                     const g = ctx.createRadialGradient(lx, ly, 0, lx, ly, rad);
-                    g.addColorStop(0, 'rgba(140,195,255,0.95)');
-                    g.addColorStop(0.35, 'rgba(40,110,255,0.45)');
-                    g.addColorStop(1, 'rgba(0,60,255,0)');
+                    g.addColorStop(0, `rgba(${lightColor.core},0.95)`);
+                    g.addColorStop(0.35, `rgba(${lightColor.mid},0.45)`);
+                    g.addColorStop(1, `rgba(${lightColor.edge},0)`);
                     ctx.fillStyle = g;
                     ctx.beginPath(); ctx.arc(lx, ly, rad, 0, Math.PI * 2); ctx.fill();
                 });
                 ctx.imageSmoothingEnabled = smooth;
+                if (isRubber) this.drawGunners(ctx);
+            }
+        }
+        function drawRubberGunnerFigure(ctx, vehicle, pos) {
+            // A simple standing officer, using the same uniform colours as the main riot line,
+            // posed aiming a less-lethal baton-round launcher outward from the vehicle.
+            const H = 17;
+            ctx.fillStyle = '#17171c';
+            ctx.beginPath(); ctx.ellipse(0, 1.5, 5, 2.2, 0, 0, Math.PI * 2); ctx.fill();
+            ctx.strokeStyle = OFFICER_PALETTE.dark; ctx.lineWidth = 2.4; ctx.lineCap = 'round';
+            ctx.beginPath(); ctx.moveTo(-1.4, -2); ctx.lineTo(-2.6, H * 0.34); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(0.4, -2); ctx.lineTo(1.6, H * 0.34); ctx.stroke();
+            ctx.fillStyle = OFFICER_PALETTE.cloth;
+            ctx.beginPath();
+            ctx.moveTo(-3, -2); ctx.lineTo(3, -2); ctx.lineTo(2.3, -H * 0.62); ctx.lineTo(-2.3, -H * 0.62);
+            ctx.closePath(); ctx.fill();
+            ctx.strokeStyle = OFFICER_PALETTE.dark; ctx.lineWidth = 0.8; ctx.stroke();
+            ctx.fillStyle = '#1c2230';
+            ctx.beginPath(); ctx.arc(0, -H * 0.74, H * 0.18, 0, Math.PI * 2); ctx.fill();
+            // launcher, held raised and aimed outward
+            const fireGlow = (vehicle.gunnerFireTimer && vehicle.gunnerFireTimer[pos.side < 0 ? 0 : 1] > RUBBER_BULLET_COOLDOWN - 0.12);
+            ctx.save();
+            ctx.translate(2.4, -H * 0.42);
+            ctx.rotate(-0.55);
+            ctx.strokeStyle = '#2a2a2a'; ctx.lineWidth = 2.6;
+            ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(H * 0.55, 0); ctx.stroke();
+            if (fireGlow) {
+                ctx.fillStyle = 'rgba(255,214,140,0.9)';
+                ctx.beginPath(); ctx.arc(H * 0.58, 0, 2.3, 0, Math.PI * 2); ctx.fill();
+            }
+            ctx.restore();
+        }
+        function drawRubberTracers(ctx) {
+            const list = game.rubberTracers;
+            if (!list || !list.length) return;
+            ctx.save();
+            ctx.strokeStyle = 'rgba(230,230,220,0.85)';
+            ctx.lineWidth = 1.4;
+            ctx.lineCap = 'round';
+            for (const t of list) {
+                const x0 = t.x0 - game.camera.x, y0 = t.y0 - game.camera.y;
+                const x1 = t.x1 - game.camera.x, y1 = t.y1 - game.camera.y;
+                const k = Math.max(0, Math.min(1, t.t / 0.14));
+                ctx.globalAlpha = 0.25 + 0.6 * k;
+                ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x0 + (x1 - x0) * (1 - k * 0.15), y0 + (y1 - y0) * (1 - k * 0.15)); ctx.stroke();
+            }
+            ctx.restore();
+        }
+        function updateRubberTracers(dt) {
+            const list = game.rubberTracers;
+            if (!list || !list.length) return;
+            for (let i = list.length - 1; i >= 0; i--) {
+                list[i].t -= dt;
+                if (list[i].t <= 0) list.splice(i, 1);
             }
         }
         function drawBlockadeVehicleFigure(ctx, v) {
@@ -5093,6 +5253,44 @@
         const MAX_ATTACKERS_PER_OFFICER = 3;
         let raiderIdSeq = 1;
 
+        // Varied raider "outfits" - purely visual, generated procedurally (this engine draws every
+        // unit with code rather than fixed PNG sprites, so variety comes from randomising the look
+        // instead of needing dozens of hand-made character images). Each raider's outfit is seeded
+        // off their own id, so it stays the same for their whole life but the crowd as a whole reads
+        // as lots of different individuals in different clothes.
+        const RAIDER_TOPS = [
+            ['#3a3a3f', '#232327'], ['#4a5a3a', '#262e20'], ['#5a4030', '#2e2018'],
+            ['#30425a', '#19222e'], ['#6b2222', '#391212'], ['#555555', '#2b2b2b'],
+            ['#8a8a30', '#46461a'], ['#704a8a', '#392448'], ['#2a6b5a', '#15372e'],
+            ['#d9d2c0', '#8a8370'], ['#c9741f', '#6b3c10'], ['#1f2a33', '#10161c'],
+        ];
+        const RAIDER_HI_VIS = ['#d8d23a', '#e07b1e'];
+        const RAIDER_BOTTOMS = [
+            ['#2a2a30', '#15151a'], ['#3a3530', '#1d1a16'], ['#45413a', '#221f1b'],
+            ['#263040', '#131a24'], ['#4a4a4a', '#252525'],
+        ];
+        const RAIDER_SKIN = ['#c99a6e', '#8f6341', '#e0b48a', '#6e4a30', '#d6a97c'];
+        const RAIDER_HEADWEAR = ['bare', 'cap', 'beanie', 'hood', 'balaclava', 'bandana'];
+        function makeRaiderOutfit(id, looksPeaceful) {
+            const rnd = mulberry32(id * 7919 + 1013);
+            const pick = (arr) => arr[Math.floor(rnd() * arr.length)];
+            const top = pick(RAIDER_TOPS);
+            const out = {
+                top: top[0], topDark: top[1],
+                bottom: pick(RAIDER_BOTTOMS)[0],
+                skin: pick(RAIDER_SKIN),
+                headwear: looksPeaceful ? pick(['bare', 'bare', 'cap', 'beanie']) : pick(RAIDER_HEADWEAR),
+                hiVis: !looksPeaceful && rnd() < 0.16,
+                hiVisColor: pick(RAIDER_HI_VIS),
+                bag: rnd() < 0.3,
+                sign: looksPeaceful && rnd() < 0.7,
+                signColor: pick(['#d8cdb0', '#e8e2cc', '#cfd8c0', '#d0c8d8']),
+                scarf: rnd() < 0.22 ? pick(RAIDER_TOPS)[0] : null,
+                heightMul: 0.92 + rnd() * 0.18,
+            };
+            return out;
+        }
+
         const STUCK_LIMIT_MOVE = 6, STUCK_LIMIT_FLEE = 3.5, STUCK_LIMIT_WAIT = 35, STUCK_FADE_TIME = 1.6;
 
         class Raider {
@@ -5145,6 +5343,15 @@
 
                 this.sepBiasX = (Math.random() - 0.5) * 0.6;
                 this.sepBiasY = (Math.random() - 0.5) * 0.6;
+
+                // A fraction of standard/bruiser raiders dress and carry themselves like the
+                // peaceful crowd so they can't be picked out purely by looks ("some of the bad
+                // ones may also look like peaceful ones too"). Real crowd members always look
+                // peaceful. Seeded on the raider's own id so a given individual's look is stable
+                // for their whole life but the crowd as a whole looks varied.
+                this.disguised = (kind === 'standard' || kind === 'bruiser') && Math.random() < 0.18;
+                this.looksPeaceful = kind === 'crowd' || this.disguised;
+                this.outfit = makeRaiderOutfit(this.id, this.looksPeaceful);
             }
             moveToward(tx, ty, dt, speed) {
                 return steerUnit(this, tx, ty, dt, speed);
@@ -5676,32 +5883,70 @@
         }
         function drawRaiderFigure(ctx, u) {
             const def = u.def;
+            // Every unit in this game is drawn with code rather than a fixed sprite, so raider
+            // "sprites" come from randomising each individual's outfit (seeded on their id) -
+            // lots of different clothing combinations instead of one fixed colour per raider type.
+            const fit = u.outfit || (u.outfit = makeRaiderOutfit(u.id, u.kind === 'crowd'));
             const walking = u.isMoving;
             const phase = u.animTimer * (walking ? 7 : 1.2);
             const amp = walking ? 1 : 0.12;
             const legSwing = Math.sin(phase) * amp;
-            const H = 19;
+            const H = 19 * (fit.heightMul || 1);
             const legReach = H * 0.34;
             ctx.lineCap = 'round';
-            ctx.strokeStyle = def.dark; ctx.lineWidth = 2.4;
+
+            // legs (trousers/joggers colour)
+            ctx.strokeStyle = fit.bottom; ctx.lineWidth = 2.6;
             ctx.beginPath(); ctx.moveTo(-1, -2); ctx.lineTo(-1 - legSwing * legReach * 0.6, legReach); ctx.stroke();
             ctx.beginPath(); ctx.moveTo(-1, -2); ctx.lineTo(-1 + legSwing * legReach, legReach); ctx.stroke();
-            ctx.strokeStyle = def.color; ctx.lineWidth = 4.4;
-            ctx.beginPath(); ctx.moveTo(-1, -2); ctx.lineTo(-1, -H * 0.6); ctx.stroke();
-            ctx.fillStyle = '#caa27a';
-            ctx.beginPath(); ctx.arc(0, -H * 0.72, H * 0.17, 0, Math.PI * 2); ctx.fill();
+            // shoes
+            ctx.fillStyle = '#17140f';
+            ctx.beginPath(); ctx.arc(-1 - legSwing * legReach * 0.6, legReach, 1.3, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.arc(-1 + legSwing * legReach, legReach, 1.3, 0, Math.PI * 2); ctx.fill();
 
-            if (u.kind === 'crowd') {
-                // placard held up high
-                const bob = Math.sin(u.animTimer * 2.2) * 1.2;
-                ctx.strokeStyle = '#6a5030'; ctx.lineWidth = 1.4;
-                ctx.beginPath(); ctx.moveTo(H * 0.15, -H * 0.4); ctx.lineTo(H * 0.15, -H * 1.15 + bob); ctx.stroke();
-                ctx.fillStyle = '#e8dcc0';
-                ctx.fillRect(H * 0.02, -H * 1.3 + bob, H * 0.42, H * 0.2);
-                ctx.strokeStyle = '#8a7a58'; ctx.lineWidth = 0.8;
-                ctx.strokeRect(H * 0.02, -H * 1.3 + bob, H * 0.42, H * 0.2);
-                return;
+            // torso (jacket/top colour, slightly tapered)
+            ctx.fillStyle = fit.top;
+            ctx.beginPath();
+            ctx.moveTo(-2.6, -2);
+            ctx.lineTo(2.2, -2);
+            ctx.lineTo(1.6, -H * 0.62);
+            ctx.lineTo(-2.0, -H * 0.62);
+            ctx.closePath(); ctx.fill();
+            ctx.strokeStyle = fit.topDark; ctx.lineWidth = 0.8; ctx.stroke();
+            if (fit.hiVis) {
+                ctx.strokeStyle = fit.hiVisColor; ctx.lineWidth = 1.1;
+                ctx.beginPath(); ctx.moveTo(-2.3, -H * 0.3); ctx.lineTo(1.9, -H * 0.3); ctx.stroke();
             }
+            if (fit.scarf) {
+                ctx.fillStyle = fit.scarf;
+                ctx.fillRect(-1.6, -H * 0.62, 3.2, H * 0.1);
+            }
+            if (fit.bag) {
+                ctx.fillStyle = fit.topDark;
+                ctx.fillRect(-3.4, -H * 0.5, 1.6, H * 0.28);
+            }
+
+            // head + headwear
+            ctx.fillStyle = fit.skin;
+            ctx.beginPath(); ctx.arc(0, -H * 0.72, H * 0.17, 0, Math.PI * 2); ctx.fill();
+            drawRaiderHeadwear(ctx, fit, H);
+
+            if (fit.sign && u.attackFlash <= 0 && u.state !== 'attacking_base' && u.state !== 'vandal') {
+                // held in the off hand so a disguised troublemaker's weapon arm is still free
+                const bob = Math.sin(u.animTimer * 2.2) * 1.2;
+                ctx.strokeStyle = '#6a5030'; ctx.lineWidth = 1.3;
+                ctx.beginPath(); ctx.moveTo(-H * 0.28, -H * 0.4); ctx.lineTo(-H * 0.28, -H * 1.05 + bob); ctx.stroke();
+                ctx.fillStyle = fit.signColor;
+                ctx.fillRect(-H * 0.5, -H * 1.2 + bob, H * 0.42, H * 0.19);
+                ctx.strokeStyle = '#8a7a58'; ctx.lineWidth = 0.8;
+                ctx.strokeRect(-H * 0.5, -H * 1.2 + bob, H * 0.42, H * 0.19);
+                // a couple of scribble lines so it reads as hand-written, not blank
+                ctx.strokeStyle = 'rgba(60,54,40,0.55)'; ctx.lineWidth = 0.6;
+                ctx.beginPath(); ctx.moveTo(-H * 0.46, -H * 1.13 + bob); ctx.lineTo(-H * 0.14, -H * 1.13 + bob); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(-H * 0.46, -H * 1.07 + bob); ctx.lineTo(-H * 0.2, -H * 1.07 + bob); ctx.stroke();
+            }
+
+            if (u.kind === 'crowd') return; // unarmed - no weapon arm
 
             const attacking = u.attackFlash > 0;
             const swing = attacking ? (1 - u.attackFlash / 0.22) : 0;
@@ -5716,7 +5961,7 @@
                 ctx.strokeStyle = '#4a2a18'; ctx.lineWidth = 1;
                 ctx.beginPath(); ctx.rect(-3, -3, 6, 5); ctx.fill(); ctx.stroke();
             } else {
-                ctx.strokeStyle = def.dark; ctx.lineWidth = 2;
+                ctx.strokeStyle = fit.topDark; ctx.lineWidth = 2;
                 ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(H * 0.22, 0); ctx.stroke();
             }
             if (attacking) {
@@ -5724,6 +5969,38 @@
                 ctx.beginPath(); ctx.arc(H * 0.3, 0, 2, 0, Math.PI * 2); ctx.fill();
             }
             ctx.restore();
+        }
+        function drawRaiderHeadwear(ctx, fit, H) {
+            const r = H * 0.17;
+            switch (fit.headwear) {
+                case 'cap':
+                    ctx.fillStyle = fit.topDark;
+                    ctx.beginPath(); ctx.arc(0, -H * 0.76, r * 0.95, Math.PI, 0); ctx.fill();
+                    ctx.fillRect(-0.5, -H * 0.76 - r * 0.2, r * 1.3, r * 0.35);
+                    break;
+                case 'beanie':
+                    ctx.fillStyle = fit.top;
+                    ctx.beginPath(); ctx.arc(0, -H * 0.78, r * 1.02, Math.PI, 0); ctx.fill();
+                    ctx.fillRect(-r, -H * 0.78 - 0.5, r * 2, 1.4);
+                    break;
+                case 'hood':
+                    ctx.fillStyle = fit.topDark;
+                    ctx.beginPath(); ctx.arc(0, -H * 0.73, r * 1.25, 0, Math.PI * 2); ctx.fill();
+                    ctx.fillStyle = fit.skin;
+                    ctx.beginPath(); ctx.arc(0, -H * 0.72, r * 0.82, 0, Math.PI * 2); ctx.fill();
+                    break;
+                case 'balaclava':
+                    ctx.fillStyle = '#17171a';
+                    ctx.beginPath(); ctx.arc(0, -H * 0.72, r * 1.05, 0, Math.PI * 2); ctx.fill();
+                    ctx.fillStyle = fit.skin;
+                    ctx.fillRect(-r * 0.75, -H * 0.74, r * 1.5, r * 0.5);
+                    break;
+                case 'bandana':
+                    ctx.fillStyle = fit.scarf || '#8a2222';
+                    ctx.fillRect(-r, -H * 0.76, r * 2, r * 0.6);
+                    break;
+                default: break; // bare head
+            }
         }
 
         function applyRaiderSeparation(dt) {
@@ -6125,10 +6402,11 @@
             if (sy.goalY === undefined) sy.goalY = sy.commandY;
             return sy;
         }
-        function ensureVehicleSyndicate() {
-            game.syndicates[VEHICLE_SYNDICATE] = {
+        function ensureVehicleSyndicate(idx) {
+            idx = idx === undefined ? VEHICLE_SYNDICATE : idx;
+            game.syndicates[idx] = {
                 tactic: 'blockade',
-                commandX: 44 * TILE + TILE / 2,
+                commandX: idx === VEHICLE_SYNDICATE_2 ? 40 * TILE + TILE / 2 : 44 * TILE + TILE / 2,
                 commandY: ROAD_Y_BOTTOM * TILE + TILE / 2,
                 facingX: -1, facingY: 0, disperseTimer: 0,
             };
@@ -6158,7 +6436,7 @@
             assignFormation(); updateSelectionUI(); renderOptionsPanel();
         }
         function commandMove(dx, dy) {
-            if (game.selectedSyndicate === VEHICLE_SYNDICATE) { commandMoveVehicle(dx, dy); return; }
+            if (isVehicleIdx(game.selectedSyndicate)) { commandMoveVehicle(dx, dy); return; }
             if (game.selectedSyndicate === STATION_INDEX) return;
             const sy = ensureSyndicateState(game.selectedSyndicate);
             sy.path = null;
@@ -6175,7 +6453,7 @@
             }
         }
         function commandMoveVehicle(dx, dy) {
-            const v = game.vehicle;
+            const v = vehicleAt(game.selectedSyndicate);
             if (!v) return;
             const cur = v.targetSpot || { x: v.x, y: v.y };
             let best = null, bestD = Infinity;
@@ -6191,17 +6469,17 @@
             else showToast('No parking point that way.');
         }
         function canMove(dx, dy) {
-            if (game.selectedSyndicate === VEHICLE_SYNDICATE) return !!game.vehicle;
+            if (isVehicleIdx(game.selectedSyndicate)) return !!vehicleAt(game.selectedSyndicate);
             if (game.selectedSyndicate === STATION_INDEX) return false;
             const sy = game.syndicates[game.selectedSyndicate];
             if (!sy) return false;
             return isValidOfficerPosition(sy.commandX + dx * TILE, sy.commandY + dy * TILE);
         }
         function setVehicleTarget(spot) {
-            const v = game.vehicle;
+            const v = vehicleAt(game.selectedSyndicate);
             if (!v || !spot) return;
             v.setSpot(spot);
-            const sy = game.syndicates[VEHICLE_SYNDICATE];
+            const sy = game.syndicates[game.selectedSyndicate];
             if (sy) { sy.commandX = spot.x; sy.commandY = spot.y; }
             renderOptionsPanel(); updateSelectionUI();
         }
@@ -6235,7 +6513,7 @@
         }
 
         function commandSyndicateTo(worldX, worldY) {
-            if (game.selectedSyndicate === VEHICLE_SYNDICATE) return;
+            if (isVehicleIdx(game.selectedSyndicate)) return;
             if (game.selectedSyndicate === STATION_INDEX) return;
             const sy = ensureSyndicateState(game.selectedSyndicate);
             pathSyndicateTo(sy, worldX, worldY);
@@ -6617,11 +6895,12 @@
             }
             assignFormation();
         }
-        function spawnVehicleSyndicate() {
-            ensureVehicleSyndicate();
-            const v = new WaterCannonVehicle(VEHICLE_SYNDICATE);
-            game.vehicle = v;
-            const sy = game.syndicates[VEHICLE_SYNDICATE];
+        function spawnVehicleSyndicate(idx) {
+            idx = idx === undefined ? VEHICLE_SYNDICATE : idx;
+            ensureVehicleSyndicate(idx);
+            const v = new WaterCannonVehicle(idx, idx === VEHICLE_SYNDICATE_2 ? 'rubberbullet' : 'watercannon');
+            setVehicleAt(idx, v);
+            const sy = game.syndicates[idx];
             if (sy) { sy.commandX = v.x; sy.commandY = v.y; }
         }
 
@@ -6667,9 +6946,10 @@
                     const d = Math.hypot(o.x - p.x, o.y - p.y);
                     if (d < TILE * 16) score += (alert ? 1.8 : 0.5) * (1 - d / (TILE * 16));
                 }
-                // a parked water cannon on the corridor also counts
-                if (game.vehicle && game.vehicle.alive) {
-                    const d = Math.hypot(game.vehicle.x - p.x, game.vehicle.y - p.y);
+                // a parked vehicle on the corridor also counts (water cannon or rubber-bullet van)
+                for (const veh of [game.vehicle, game.vehicle2]) {
+                    if (!veh || !veh.alive) continue;
+                    const d = Math.hypot(veh.x - p.x, veh.y - p.y);
                     if (d < TILE * 12) score += 2.0 * (1 - d / (TILE * 12));
                 }
             }
@@ -7139,14 +7419,14 @@
             const wx = Math.max(TILE, Math.min(MAP_W * TILE - TILE, clientX + game.camera.x));
             const wy = Math.max(TILE, Math.min(MAP_H * TILE - TILE, clientY + game.camera.y));
 
-            if (game.selectedSyndicate === VEHICLE_SYNDICATE) {
+            if (isVehicleIdx(game.selectedSyndicate)) {
                 let best = null, bestD = Infinity;
                 for (const s of BLOCKADE_SPOTS) {
                     const d = Math.hypot(s.x - wx, s.y - wy);
                     if (d < bestD) { bestD = d; best = s; }
                 }
                 if (best && bestD < TILE * 5) setVehicleTarget(best);
-                else showToast('Tap near a road to move the water cannon vehicle.');
+                else showToast('Tap near a road to move the vehicle.');
                 return;
             }
             if (game.selectedSyndicate === STATION_INDEX) return;
@@ -7209,8 +7489,9 @@
             const idx = game.selectedSyndicate;
             const k = Math.min(1, dt * 9);
 
-            if (idx === VEHICLE_SYNDICATE && game.vehicle) {
-                followCameraTo(game.vehicle.x, game.vehicle.y, k);
+            if (isVehicleIdx(idx) && vehicleAt(idx)) {
+                const vv = vehicleAt(idx);
+                followCameraTo(vv.x, vv.y, k);
                 return;
             }
 
@@ -7324,8 +7605,8 @@
                 return;
             }
 
-            if (game.selectedSyndicate === VEHICLE_SYNDICATE) {
-                renderVehiclePanel(panel);
+            if (isVehicleIdx(game.selectedSyndicate)) {
+                renderVehiclePanel(panel, game.selectedSyndicate);
                 return;
             }
 
@@ -7379,11 +7660,13 @@
             }
         }
 
-        function renderVehiclePanel(panel) {
-            const v = game.vehicle;
+        function renderVehiclePanel(panel, idx) {
+            idx = idx === undefined ? VEHICLE_SYNDICATE : idx;
+            const v = vehicleAt(idx);
+            const isRubber = idx === VEHICLE_SYNDICATE_2;
 
             const label = document.createElement('div');
-            label.className = 'section-label'; label.textContent = 'Water Cannon Vehicle';
+            label.className = 'section-label'; label.textContent = isRubber ? 'Rubber Bullet Response Van' : 'Water Cannon Vehicle';
             panel.appendChild(label);
 
             const bMobile = document.createElement('button');
@@ -7397,7 +7680,7 @@
             panel.appendChild(bMobile);
 
             const bBlock = document.createElement('button');
-            bBlock.textContent = '📍 Hold Position';
+            bBlock.textContent = isRubber ? '📍 Hold & Deploy Team' : '📍 Hold Position';
             if (v && (v.parked || v.targetSpot)) bBlock.classList.add('active-choice');
             bBlock.addEventListener('click', () => {
                 if (!v) return;
@@ -7407,13 +7690,28 @@
                         const d = Math.hypot(s.x - v.x, s.y - v.y);
                         if (d < bestD) { bestD = d; best = s; }
                     }
-                    if (best) setVehicleTarget(best);
+                    if (best) { game.selectedSyndicate = idx; setVehicleTarget(best); }
                 } else {
                     v.setSpot(v.targetSpot);
                 }
                 renderOptionsPanel(); updateSelectionUI();
             });
             panel.appendChild(bBlock);
+
+            if (isRubber) {
+                const d = document.createElement('div');
+                d.className = 'info-line';
+                if (!v) d.textContent = 'Vehicle unavailable.';
+                else {
+                    const parts = [];
+                    if (v.parked) parts.push('📍 Holding position — the two-man team is out and firing baton rounds at any raider within range, one round each every 2 seconds.');
+                    else if (v.targetSpot) parts.push('Driving to position…');
+                    else parts.push('Roaming — tap the map or d-pad to send it to a road position. The team only deploys once parked.');
+                    d.textContent = parts.join(' ');
+                }
+                panel.appendChild(d);
+                return;
+            }
 
             const cLabel = document.createElement('div');
             cLabel.className = 'section-label'; cLabel.textContent = 'Vehicle Weapon';
@@ -7448,10 +7746,11 @@
         // ========== BOTTOM-RIGHT UI ==========
         function renderSyndicateTabs() {
             const tabs = document.querySelectorAll('#syndicate-tabs .syn-btn');
-            tabs.forEach((b, idx) => {
-                if (idx === VEHICLE_SYNDICATE) {
+            tabs.forEach((b) => {
+                const idx = parseInt(b.dataset.idx, 10);
+                if (isVehicleIdx(idx)) {
                     b.disabled = false;
-                    b.classList.toggle('active', game.selectedSyndicate === VEHICLE_SYNDICATE);
+                    b.classList.toggle('active', game.selectedSyndicate === idx);
                     return;
                 }
                 const exists = idx < game.syndicatesDeployed;
@@ -7522,7 +7821,7 @@
             const el = document.getElementById('selection-info');
 
             const topBar = document.getElementById('top-bar');
-            if (topBar) topBar.style.display = (idx === VEHICLE_SYNDICATE || idx === STATION_INDEX) ? 'none' : 'flex';
+            if (topBar) topBar.style.display = (isVehicleIdx(idx) || idx === STATION_INDEX) ? 'none' : 'flex';
 
             if (idx === STATION_INDEX) {
                 const alive = game.repairOfficers.filter(r => r.alive);
@@ -7537,14 +7836,16 @@
                 return;
             }
 
-            if (idx === VEHICLE_SYNDICATE) {
-                const v = game.vehicle;
+            if (isVehicleIdx(idx)) {
+                const v = vehicleAt(idx);
                 if (!v) { el.textContent = ''; return; }
-                let txt = '🚔 Water Cannon Vehicle — ';
+                const isRubber = idx === VEHICLE_SYNDICATE_2;
+                let txt = (isRubber ? '🚐 Rubber Bullet Van — ' : '🚔 Water Cannon Vehicle — ');
                 if (v.parked) txt += 'holding position';
                 else if (v.targetSpot) txt += 'moving to position';
                 else txt += 'mobile';
-                if (v.waterCannonOn) txt += ' · 💧 cannon ON';
+                if (!isRubber && v.waterCannonOn) txt += ' · 💧 cannon ON';
+                if (isRubber && v.parked) txt += ' · 🔫 team deployed, firing';
                 el.textContent = txt;
                 return;
             }
@@ -7745,17 +8046,20 @@
             all.forEach(u => u.draw(ctx));
 
             if (game.vehicle && game.vehicle.alive) game.vehicle.draw(ctx);
+            if (game.vehicle2 && game.vehicle2.alive) game.vehicle2.draw(ctx);
 
             drawProjectiles(ctx);
+            drawRubberTracers(ctx);
             drawEffects(ctx);
 
             game.tearGasOfficers.forEach(t => { if (t.alive) t.drawGasCloud(ctx); });
 
-            if (game.selectedSyndicate === VEHICLE_SYNDICATE && game.vehicle) {
+            if (isVehicleIdx(game.selectedSyndicate) && vehicleAt(game.selectedSyndicate)) {
+                const selVeh = vehicleAt(game.selectedSyndicate);
                 for (const s of BLOCKADE_SPOTS) {
                     const sx = s.x - game.camera.x, sy = s.y - game.camera.y;
                     if (sx < -20 || sy < -20 || sx > game.width + 20 || sy > game.height + 20) continue;
-                    const isTarget = game.vehicle.targetSpot === s;
+                    const isTarget = selVeh.targetSpot === s;
                     const isBlocked = game.blockedEdges.has(s.edgeKey);
                     ctx.beginPath();
                     ctx.arc(sx, sy, isTarget ? 7 : 3, 0, Math.PI * 2);
@@ -7771,8 +8075,8 @@
                 }
             }
 
-            if (game.selectedSyndicate === VEHICLE_SYNDICATE) {
-                const v = game.vehicle;
+            if (isVehicleIdx(game.selectedSyndicate)) {
+                const v = vehicleAt(game.selectedSyndicate);
                 if (v) {
                     if (v.route && v.routeIdx < v.route.length) {
                         ctx.strokeStyle = 'rgba(120,200,255,0.55)';
@@ -7912,6 +8216,10 @@
                     ctx.fillRect((game.vehicle.x / TILE) * MINIMAP_SCALE - 2, (game.vehicle.y / TILE) * MINIMAP_SCALE - 2, 6, 6);
                 }
             }
+            if (game.vehicle2 && game.vehicle2.alive) {
+                ctx.fillStyle = game.vehicle2.parked ? '#ff5a30' : '#8a90ff';
+                ctx.fillRect((game.vehicle2.x / TILE) * MINIMAP_SCALE - 1, (game.vehicle2.y / TILE) * MINIMAP_SCALE - 1, 4, 4);
+            }
             game.raiders.forEach(r => {
                 if (!r.alive || r.state === 'fleeing') return;
                 let col = '#ff8a5c';
@@ -7954,7 +8262,8 @@
             rebuildRoadNetwork();
             generateMap(); buildTerrainCanvas(); buildMinimapTerrainCanvas();
             for (let i = 0; i < OFFICER_SYNDICATES; i++) spawnSyndicate();
-            spawnVehicleSyndicate();
+            spawnVehicleSyndicate(VEHICLE_SYNDICATE);
+            spawnVehicleSyndicate(VEHICLE_SYNDICATE_2);
             game.selectedSyndicate = 0;
             game.syndicates.forEach(sy => { if (sy) { sy.path = null; sy.pathIdx = 0; } });
             renderSyndicateTabs(); renderOptionsPanel(); updateSelectionUI();
@@ -8071,8 +8380,10 @@
                 game.raiders.forEach(r => r.update(dt));
                 applyRaiderSeparation(dt);
                 if (game.vehicle) game.vehicle.update(dt);
+                if (game.vehicle2) game.vehicle2.update(dt);
                 updateAmbulance(dt);
                 updateProjectiles(dt);
+                updateRubberTracers(dt);
 
                 if (game.raiders.length > 0 && game.raiders.some(r => !r.alive)) {
                     game.raiders = game.raiders.filter(r => r.alive);
@@ -8166,6 +8477,8 @@
             game.waveIntensity = 1;
             game.raidAI = { objective: 'base' };
             game.vehicle = null;
+            game.vehicle2 = null;
+            game.rubberTracers = [];
             game.blockedEdges = new Set();
             game.blockadeVersion = 0;
         }
@@ -8191,19 +8504,22 @@
             rebuildRoadNetwork();
             generateMap(); buildTerrainCanvas(); buildMinimapTerrainCanvas();
 
-            if (game.vehicle) {
-                const oldKey = game.vehicle.targetSpot ? game.vehicle.targetSpot.key : null;
+            for (const veh of [game.vehicle, game.vehicle2]) {
+                if (!veh) continue;
+                const oldKey = veh.targetSpot ? veh.targetSpot.key : null;
                 if (oldKey) {
                     const s = BLOCKADE_SPOTS.find(sp => sp.key === oldKey);
                     if (s) {
-                        game.vehicle.targetSpot = s;
-                        game.vehicle.x = s.x; game.vehicle.y = s.y;
-                        game.vehicle.parked = true;
-                        game.vehicle.route = null;
+                        veh.targetSpot = s;
+                        veh.x = s.x; veh.y = s.y;
+                        veh.parked = true;
+                        veh.route = null;
                     } else {
-                        game.vehicle.clearTarget();
+                        veh.clearTarget();
                     }
                 }
+            }
+            if (game.vehicle || game.vehicle2) {
                 game.blockadeVersion++;
             }
 
@@ -8238,7 +8554,8 @@
             loadAssets(() => {
                 generateMap(); buildTerrainCanvas(); buildMinimapTerrainCanvas();
                 for (let i = 0; i < OFFICER_SYNDICATES; i++) spawnSyndicate();
-                spawnVehicleSyndicate();
+                spawnVehicleSyndicate(VEHICLE_SYNDICATE);
+                spawnVehicleSyndicate(VEHICLE_SYNDICATE_2);
                 game.selectedSyndicate = 0;
                 renderSyndicateTabs(); renderOptionsPanel(); updateSelectionUI();
                 updateMergedButton(); updateAllOutButton();
@@ -8285,7 +8602,7 @@
             });
             document.getElementById('m-skills').addEventListener('click', () => soon('skills'));
             document.getElementById('m-settings').addEventListener('click', () => soon('settings'));
-            document.getElementById('m-zombie').addEventListener('click', () => soon('zombie'));
+            document.getElementById('m-zombie').addEventListener('click', () => { window.location.href = 'zombie.html'; });
             document.getElementById('m-back').addEventListener('click', () => showMenuScreen('menu-main'));
             document.getElementById('pause-btn').addEventListener('click', () => {
                 if (game.gameOver || game.paused) return;

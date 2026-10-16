@@ -599,11 +599,11 @@
         const ENTRY_XS = [18, 90];
         const BOTTOM_ENTRY_XS = [12, 96];
         // ---- southern district (added below the station; the original layout above is unchanged) ----
-        const ROAD_Y_SOUTH = 62;                       // new east-west street
-        const SOUTH_LINK_XS = [30, 78];                // the old junction roads continue south to it
-        const SOUTH_GATE_XS = [54];                    // brand-new raider gate straight below the station
+        const ROAD_Y_SOUTH = 62;
+        const SOUTH_LINK_XS = [30, 78];
+        const SOUTH_GATE_XS = [54];
         const SOUTH_JUNCTION_XS = [12, 30, 54, 78, 96];
-        // ---- police station building (sits just south of the road so traffic can pass) ----
+        // ---- police station building ----
         const STATION_TX0 = 48, STATION_TY0 = 43, STATION_TW = 12, STATION_TH = 9;
 
         const BASE_TILE_X = 54;
@@ -612,13 +612,13 @@
         const OFFICERS_PER_ROW = ROAD_W + 1;
         const ROW_SPACING = 1.2;
         const COL_SPACING = 1.1;
-        const WALL_COL_SPACING = 1.42;      // the wall now spreads wider across the road
+        const WALL_COL_SPACING = 1.42;
         const OFFICERS_PER_SYNDICATE = 15;
         const OFFICER_SYNDICATES = 3;
         const MAX_SYNDICATES = 4;
         const VEHICLE_SYNDICATE = 3;
         const STATION_INDEX = 4;
-        const VEHICLE_SYNDICATE_2 = 5;   // second deployable vehicle: the rubber bullet response van
+        const VEHICLE_SYNDICATE_2 = 5;
         function isVehicleIdx(idx) { return idx === VEHICLE_SYNDICATE || idx === VEHICLE_SYNDICATE_2; }
         function vehicleAt(idx) { return idx === VEHICLE_SYNDICATE ? game.vehicle : (idx === VEHICLE_SYNDICATE_2 ? game.vehicle2 : null); }
         function setVehicleAt(idx, v) { if (idx === VEHICLE_SYNDICATE) game.vehicle = v; else if (idx === VEHICLE_SYNDICATE_2) game.vehicle2 = v; }
@@ -699,7 +699,7 @@
         const WATER_CANNON_PUSH_PER_TICK = TILE * 0.32;
 
         const RUBBER_BULLET_RANGE = TILE * 7.5;
-        const RUBBER_BULLET_COOLDOWN = 2.0;     // "fire a round every two seconds" per gunner
+        const RUBBER_BULLET_COOLDOWN = 2.0;
         const RUBBER_BULLET_DAMAGE = 9;
         const RUBBER_BULLET_STUN = 0.6;
 
@@ -715,7 +715,7 @@
         const REPAIR_SECONDS_FULL = 20;
         const REPAIR_PROTECTION_RANGE = TILE * 10;
         const REPAIR_TEAM_COUNT = 2;
-        const AUTO_REPAIR_THRESHOLD = 0.50;      // auto-dispatch once a building is this damaged
+        const AUTO_REPAIR_THRESHOLD = 0.50;
 
         const REPAIR_ESCORT_COUNT = 10;
         const REPAIR_ESCORT_HP = 120;
@@ -774,11 +774,10 @@
         }
 
         // Passive postures: they will NOT engage unless provoked.
-        // Raiders know this and will happily walk straight through them.
         function tacticIsPassive(tactic) {
             return tactic === 'rest' || tactic === 'stackleft' || tactic === 'stackright';
         }
-        const PROVOKED_TIME = 15;      // seconds a passive syndicate stays angry after being hit
+        const PROVOKED_TIME = 15;
 
         // ----- AUTO WALL + PULSE -----
         const AUTO_WALL_SECONDS = 10;
@@ -838,12 +837,9 @@
                 if (game.selectedSyndicate === idx) { renderOptionsPanel(); updateSelectionUI(); }
             }
         }
-        // Starts a fresh pulse wave: the previous dashers retire to the rear rank, then an
-        // evenly spaced set of front-rank officers steps out, covered by the rank behind them.
         function pulseNewCycle(p, order) {
             const perRow = OFFICERS_PER_ROW;
             const n = order.length;
-            // 1. retire last wave's dashers to the back of the rotation
             if (p.dashers.length) {
                 const set = new Set(p.dashers);
                 const keep = [], rear = [];
@@ -900,7 +896,7 @@
 
         // ----- PUBLIC MORALE -----
         const MORALE_MAX = 100;
-        const MORALE_RECOVERY_RATE = 0.55;         // points per second when left alone
+        const MORALE_RECOVERY_RATE = 0.55;
         const MORALE_LOW = 40;
         function moraleRegenMult() {
             const m = game.morale;
@@ -914,7 +910,7 @@
         }
         function loseMorale(amount) {
             game.morale = Math.max(0, game.morale - amount);
-            game.moraleHoldTimer = 6;      // pause natural recovery for a moment after a shock
+            game.moraleHoldTimer = 6;
         }
         function raiderIsNonHostile(r) {
             if (r.kind === 'crowd') return true;
@@ -922,8 +918,8 @@
         }
 
         // ----- STATION SELF-REPAIR -----
-        const BASE_REGEN_DELAY = 35;      // seconds without damage before the station starts patching itself
-        const BASE_REGEN_RATE = 3.2;      // hp per second
+        const BASE_REGEN_DELAY = 35;
+        const BASE_REGEN_RATE = 3.2;
 
         // ========== GAME STATE ==========
         let map = [];
@@ -999,6 +995,9 @@
             blockedEdges: new Set(),
             blockadeVersion: 0,
 
+            // ---- attack markers for the minimap ----
+            attackMarkers: [],
+
             raidAI: { objective: 'base' },
         };
 
@@ -1007,6 +1006,7 @@
         let ROAD_EDGES = [];
         let ROAD_ADJ = new Map();
         let BLOCKADE_SPOTS = [];
+        let JUNCTION_POSTS = [];
 
         const EXIT_NODE_IDS = ['N18', 'N30', 'N54', 'N78', 'N90', 'S12', 'S54', 'S96'];
 
@@ -1141,9 +1141,51 @@
             }
         }
 
+        // ========== JUNCTION POSTS (for syndicates) ==========
+        // Each junction gets up to 4 posts (N/S/E/W) - but only for directions where a road
+        // actually leaves the junction. Choosing a post puts the syndicate in a defensive
+        // box covering the chosen road AND the two perpendicular roads (leaving the opposite
+        // road as the "open" direction they can retreat through).
+        const JUNCTION_DIRS = ['N', 'S', 'E', 'W'];
+        const JUNCTION_DIR_VEC = {
+            N: { fx: 0, fy: -1, px: 1,  py: 0 },
+            S: { fx: 0, fy: 1,  px: -1, py: 0 },
+            E: { fx: 1, fy: 0,  px: 0,  py: 1 },
+            W: { fx: -1, fy: 0, px: 0,  py: -1 },
+        };
+        function buildJunctionPosts() {
+            JUNCTION_POSTS = [];
+            if (!roadLayout) return;
+            for (const j of roadLayout.junctions) {
+                if (j.isBase) continue;                 // the station junction has its own defences
+                const armMap = { N: j.arms.n, S: j.arms.s, E: j.arms.e, W: j.arms.w };
+                for (const dir of JUNCTION_DIRS) {
+                    if (!armMap[dir]) continue;
+                    const cover = [dir];
+                    const perps = (dir === 'N' || dir === 'S') ? ['E', 'W'] : ['N', 'S'];
+                    for (const p of perps) if (armMap[p]) cover.push(p);
+                    JUNCTION_POSTS.push({
+                        key: 'J' + Math.round(j.x / TILE) + '_' + Math.round(j.y / TILE) + '_' + dir,
+                        junction: j,
+                        dir,
+                        cover,
+                        x: j.x,
+                        y: j.y,
+                    });
+                }
+            }
+        }
+        // The screen position of a post's "dot" - offset from the junction centre in the
+        // direction of the post, so 4 posts form a small diamond around the junction.
+        function postDotPos(post) {
+            const d = JUNCTION_DIR_VEC[post.dir];
+            return { x: post.junction.x + d.fx * 16, y: post.junction.y + d.fy * 16 };
+        }
+
         function rebuildRoadNetwork() {
             buildRoadGraph();
             buildBlockadeSpots();
+            buildJunctionPosts();
         }
 
         function findPath(startId, goalId, blockedSet) {
@@ -1217,8 +1259,6 @@
             return null;
         }
 
-        // ---- Smart pathfinder for raiders: blockades are a penalty (they will still push through
-        // if there is no alternative), and roads watched by alert officers are avoided. ----
         function findPathSmart(startId, goalId, blockPenalty, dangerScale) {
             if (!startId || !goalId) return null;
             if (startId === goalId) return [startId];
@@ -1318,8 +1358,6 @@
             }
         }
 
-        // Recomputes how "watched" each road junction is. Only alert (non-passive) syndicates
-        // count as dangerous — resting or stacked lines are treated as passable.
         function computeRoadDanger() {
             const danger = new Map();
             for (const n of ROAD_NODES) {
@@ -1379,7 +1417,6 @@
             }
         }
 
-        // Picks how a raider squad behaves: most are aggressive, some hang back or sneak.
         function pickPersonality() {
             const r = Math.random();
             if (r < 0.5) return 'aggressive';
@@ -1539,9 +1576,6 @@
         ASSET_PATHS['gas_sheet'] = 'assets/fx/gas_plume_sheet.png';
         ASSET_PATHS['water_sheet'] = 'assets/fx/water_jet_sheet.png';
         ASSET_PATHS['parked_atlas'] = 'assets/map/vehicles/parked_atlas.png';
-        // All UK building art and the police station now live inside the single city_atlas.png
-        // sheet (same file as every other building) instead of separate image files — this
-        // table just says where on that sheet each one is, in pixels.
         const UK_BUILDING_ATLAS_XY = {
             ukb_factory:     { x: 0,   y: 640 },
             ukb_museum:      { x: 164, y: 640 },
@@ -1900,14 +1934,7 @@
                 }
                 if (!ok) continue;
                 const z = zoneAt(x);
-                continue;   // yard cars replaced by random kerbside parking (placeParkedVehicles)
-                const keys = CAR_MIX[z].filter(propAvailable);
-                if (!keys.length) continue;
-                const key = keys[Math.floor(rnd() * keys.length)];
-                const p = makeProp(x + 1.5, y + 0.15, key);
-                if (!p) continue;
-                sceneryProps.push(p);
-                for (let yy = y - 1; yy <= y; yy++) for (let xx = x; xx <= x + 2; xx++) occ[yy * W + xx] = 1;
+                continue;
             }
             for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
                 if (occ[y * W + x]) continue;
@@ -2228,7 +2255,7 @@
             addDecal(JUNCTION_XS[2] + 2, ROAD_Y_BOTTOM + 1.5, 'tex_manhole2');
         }
 
-        // ========== PARKED VEHICLES (random every game) ==========
+        // ========== PARKED VEHICLES ==========
         const PARKED_ATLAS = {"sedan_blue_N":[0,0,38,65,0.5301],"sedan_blue_E":[40,0,83,40,0.5301],"sedan_blue_S":[125,0,38,65,0.5301],"sedan_blue_W":[165,0,83,40,0.5301],"sedan_red_N":[250,0,38,65,0.5301],"sedan_red_E":[290,0,83,40,0.5301],"sedan_red_S":[375,0,38,65,0.5301],"sedan_red_W":[415,0,83,40,0.5301],"sedan_white_N":[500,0,38,65,0.5301],"sedan_white_E":[540,0,83,40,0.5301],"sedan_white_S":[625,0,38,65,0.5301],"sedan_white_W":[665,0,83,40,0.5301],"sedan_black_N":[750,0,38,65,0.5301],"sedan_black_E":[790,0,83,40,0.5301],"sedan_black_S":[875,0,38,65,0.5301],"sedan_black_W":[915,0,83,40,0.5301],"sedan_brown_N":[0,67,38,65,0.5301],"sedan_brown_E":[40,67,83,40,0.5301],"sedan_brown_S":[125,67,38,65,0.5301],"sedan_brown_W":[165,67,83,40,0.5301],"hatch_red_N":[250,67,42,60,0.5063],"hatch_red_E":[294,67,79,40,0.5063],"hatch_red_S":[375,67,42,64,0.5063],"hatch_red_W":[419,67,79,40,0.5063],"hatch_white_N":[500,67,42,60,0.5063],"hatch_white_E":[544,67,79,40,0.5063],"hatch_white_S":[625,67,42,64,0.5063],"hatch_white_W":[669,67,79,40,0.5063],"hatch_blue_N":[750,67,42,60,0.5063],"hatch_blue_E":[794,67,79,40,0.5063],"hatch_blue_S":[875,67,42,64,0.5063],"hatch_blue_W":[919,67,79,40,0.5063],"hatch_yellow_N":[0,134,42,60,0.5063],"hatch_yellow_E":[44,134,79,40,0.5063],"hatch_yellow_S":[125,134,42,64,0.5063],"hatch_yellow_W":[169,134,79,40,0.5063],"wagon_white_N":[250,134,38,69,0.5349],"wagon_white_E":[290,134,86,44,0.5349],"wagon_white_S":[378,134,38,71,0.5349],"wagon_white_W":[418,134,86,44,0.5349],"wagon_black_N":[506,134,38,69,0.5349],"wagon_black_E":[546,134,86,44,0.5349],"wagon_black_S":[634,134,38,71,0.5349],"wagon_black_W":[674,134,86,44,0.5349],"wagon_blue_N":[762,134,38,69,0.5349],"wagon_blue_E":[802,134,86,44,0.5349],"wagon_blue_S":[890,134,38,71,0.5349],"wagon_blue_W":[930,134,86,44,0.5349],"suv_black_N":[0,207,40,61,0.6104],"suv_black_E":[42,207,77,42,0.6104],"suv_black_S":[121,207,40,68,0.6104],"suv_black_W":[163,207,77,42,0.6104],"suv_white_N":[242,207,40,61,0.6104],"suv_white_E":[284,207,77,42,0.6104],"suv_white_S":[363,207,40,68,0.6104],"suv_white_W":[405,207,77,42,0.6104],"suv_red_N":[484,207,40,61,0.6104],"suv_red_E":[526,207,77,42,0.6104],"suv_red_S":[605,207,40,68,0.6104],"suv_red_W":[647,207,77,42,0.6104],"van_white_N":[726,207,36,60,0.7042],"van_white_E":[764,207,71,44,0.7042],"van_white_S":[837,207,36,65,0.7042],"van_white_W":[875,207,71,44,0.7042],"van_blue_N":[948,207,36,60,0.7042],"van_blue_E":[0,277,71,44,0.7042],"van_blue_S":[73,277,36,65,0.7042],"van_blue_W":[111,277,71,44,0.7042],"van_red_N":[184,277,36,60,0.7042],"van_red_E":[222,277,71,44,0.7042],"van_red_S":[295,277,36,65,0.7042],"van_red_W":[333,277,71,44,0.7042],"minivan_white_N":[406,277,38,67,0.561],"minivan_white_E":[446,277,82,43,0.561],"minivan_white_S":[530,277,38,75,0.561],"minivan_white_W":[570,277,82,43,0.561],"minivan_black_N":[654,277,38,67,0.561],"minivan_black_E":[694,277,82,43,0.561],"minivan_black_S":[778,277,38,75,0.561],"minivan_black_W":[818,277,82,43,0.561],"pickup_blue_N":[902,277,38,66,0.5882],"pickup_blue_E":[0,354,85,40,0.5882],"pickup_blue_S":[87,354,38,67,0.5882],"pickup_blue_W":[127,354,85,40,0.5882],"pickup_white_N":[214,354,38,66,0.5882],"pickup_white_E":[254,354,85,40,0.5882],"pickup_white_S":[341,354,38,67,0.5882],"pickup_white_W":[381,354,85,40,0.5882],"boxtruck_white_N":[468,354,38,81,0.6408],"boxtruck_white_E":[508,354,103,50,0.6408],"boxtruck_white_S":[613,354,38,95,0.6408],"boxtruck_white_W":[653,354,103,50,0.6408],"boxtruck_red_N":[758,354,38,81,0.6408],"boxtruck_red_E":[798,354,103,50,0.6408],"boxtruck_red_S":[903,354,38,95,0.6408],"boxtruck_red_W":[0,451,103,50,0.6408],"truck_white_N":[105,451,44,95,0.5714],"truck_white_E":[151,451,112,59,0.5714],"truck_white_S":[265,451,44,105,0.5714],"truck_white_W":[311,451,112,59,0.5714],"bus_red_N":[425,451,44,123,0.5915],"bus_red_E":[471,451,142,63,0.5915],"bus_red_S":[615,451,44,127,0.5915],"bus_red_W":[661,451,142,63,0.5915],"coupe_black_N":[805,451,42,65,0.4941],"coupe_black_E":[849,451,85,42,0.4941],"coupe_black_S":[936,451,42,69,0.4941],"coupe_black_W":[0,580,85,42,0.4941],"coupe_blue_N":[87,580,42,65,0.4941],"coupe_blue_E":[131,580,85,42,0.4941],"coupe_blue_S":[218,580,42,69,0.4941],"coupe_blue_W":[262,580,85,42,0.4941]};
         const PARKED_POOL = (() => {
             const w = { sedan_blue: 3, sedan_red: 3, sedan_white: 3, sedan_black: 3, sedan_brown: 2,
@@ -2247,7 +2274,7 @@
                 this.e = PARKED_ATLAS[id + '_' + dir];
                 this.cx = cx; this.cy = cy;
                 this.dw = this.e[2] * this.e[4]; this.dh = this.e[3] * this.e[4];
-                this.y = cy + this.dh * 0.3;           // depth-sort key
+                this.y = cy + this.dh * 0.3;
             }
             draw(ctx) {
                 const img = assets['parked_atlas'];
@@ -2271,13 +2298,12 @@
                 if (x + rx > base.x0 - 24 && x - rx < base.x1 + 24 && y + ry > base.y0 - 30 && y - ry < base.y1 + 30) return true;
                 const sr = L.stationRect;
                 if (x + rx > sr.x0 - 16 && x - rx < sr.x1 + 16 && y + ry > sr.y0 - 24 && y - ry < sr.y1 + 24) return true;
-                if (y - ry < 7 * TILE || y + ry > (MAP_H - 7) * TILE) return true;      // keep raider gates clear
+                if (y - ry < 7 * TILE || y + ry > (MAP_H - 7) * TILE) return true;
                 return false;
             };
             const lane = (horizontal, c, a, b, side) => {
-                // UK rules: kerbside cars face the direction of traffic on that side
                 const dir = horizontal ? (side < 0 ? 'E' : 'W') : (side < 0 ? 'N' : 'S');
-                const density = rnd() < 0.18 ? 0.04 : 0.25 + rnd() * 0.6;         // some streets empty, some packed
+                const density = rnd() < 0.18 ? 0.04 : 0.25 + rnd() * 0.6;
                 let p = a + 26 + rnd() * 90;
                 while (p < b - 30) {
                     const id = PARKED_POOL[Math.floor(rnd() * PARKED_POOL.length)];
@@ -2452,7 +2478,6 @@
             t.fillStyle = '#a8533b'; t.fillRect(x0, y0 + 30, w, h - 30);
             t.fillStyle = '#14409a'; t.fillRect(x0, y0 + 30, w, 10);
         }
-        // the blue lamp + POLICE plaque on the pavement outside the station (animated, drawn in the depth-sorted pass)
         const STATION_LAMP = {
             x: BASE_TILE_X * TILE + 8, y: (STATION_TY0 - 0.35) * TILE,
             draw(ctx) {
@@ -2779,6 +2804,8 @@
                 this.retreatIdx = 0;
                 this.retreatStuck = 0;
                 this.lastWpDist = Infinity;
+                // when at a junction post, officers face outward along their road
+                this._postFacing = null;
             }
             computeRetreatRoute() {
                 this.retreatRoute = [];
@@ -2821,7 +2848,6 @@
                     const distHome = Math.hypot(this.baseX - this.x, this.baseY - this.y);
                     if (distHome <= TILE * 1.2 || isAtStation(this.x, this.y) || this.retreatTime > 40) {
                         this.state = 'cooldown';
-                        // Low public morale means officers take longer to be fit for duty again.
                         this.cooldownTimer = OFFICER.cooldownTime;
                         this.shieldUp = true;
                         this.isMoving = false;
@@ -2853,7 +2879,6 @@
                     return;
                 }
                 if (this.state === 'cooldown') {
-                    // The shift back to duty runs on public morale.
                     this.cooldownTimer -= dt * moraleRegenMult();
                     this.isMoving = false;
                     this.hp = Math.min(this.maxHp, this.hp + OFFICER.restRegen * dt * 0.5 * moraleRegenMult());
@@ -2866,7 +2891,6 @@
                 this.shieldUp = tactic !== 'rest';
                 if (tactic === 'rest' && this.hp < this.maxHp) this.hp = Math.min(this.maxHp, this.hp + OFFICER.restRegen * dt * moraleRegenMult());
 
-                // Passive postures hold their ground and will not throw the first punch.
                 const passive = sy ? syndicateIsPassive(sy) : false;
 
                 const engageRange = OFFICER.lungeRange;
@@ -2875,7 +2899,7 @@
                 if (!passive) {
                     for (const r of game.raiders) {
                         if (!r.alive || r.state === 'fleeing' || r.beingArrested) continue;
-                        if (r.kind === 'crowd') continue;              // never auto-attack a peaceful crowd
+                        if (r.kind === 'crowd') continue;
                         const d = Math.hypot(r.x - this.x, r.y - this.y);
                         if (d < engageRange * TILE && d < bestD) { bestD = d; target = r; }
                     }
@@ -2917,6 +2941,8 @@
                     }
                 } else {
                     this.isMoving = false;
+                    // when settled at a junction post, face outward down the road
+                    if (this._postFacing) this.dir = { x: this._postFacing.x, y: this._postFacing.y };
                 }
 
                 if (target && bestD < engageRange * TILE) this.dir = { x: (target.x - this.x)/(bestD||1), y: (target.y - this.y)/(bestD||1) };
@@ -3274,7 +3300,7 @@
                     const maxRangeSq = ARREST_GRAB_RANGE * ARREST_GRAB_RANGE;
                     for (const r of game.raiders) {
                         if (!r.alive || r.state === 'fleeing' || r.beingArrested) continue;
-                        if (r.kind === 'crowd') continue;                     // never arrest peaceful protesters
+                        if (r.kind === 'crowd') continue;
                         if (Math.hypot(r.x - anchorX, r.y - anchorY) > ARREST_MAX_RANGE_FROM_SYNDICATE) continue;
                         const dSq = (r.x - this.x) ** 2 + (r.y - this.y) ** 2;
                         if (dSq > maxRangeSq) continue;
@@ -3666,7 +3692,6 @@
                     const bdd = Math.hypot(bdx, bdy) || 1;
                     this.dir = { x: bdx / bdd, y: bdy / bdd };
                     this.goalX = this.x; this.goalY = this.y;
-                    // Public morale slows the crew right down when it is in the doldrums.
                     b.hp = Math.min(b.maxHp, b.hp + (b.maxHp / REPAIR_SECONDS_FULL) * dt * moraleRepairMult());
                     if (b.hp >= b.maxHp) {
                         b.hp = b.maxHp;
@@ -3911,7 +3936,6 @@
                         r.gasStunTimer = TEAR_GAS_STUN_DURATION;
                         r.state = 'gas_stunned';
                         if (r.kind === 'crowd') {
-                            // Gassing peaceful protesters is exactly what the crowd wants you to do.
                             loseMorale(9);
                         } else {
                             game.raiderGroupMorale = Math.max(0, game.raiderGroupMorale - TEAR_GAS_HIT_MORALE);
@@ -3958,7 +3982,7 @@
                     ctx.restore();
                 }
                 if (this.state !== 'spraying') return;
-                const mz = gasMuzzle(this);                                  // the gas leaves the canister nozzle
+                const mz = gasMuzzle(this);
                 const sx = this.x + mz.x - game.camera.x;
                 const sy = this.y + mz.y - game.camera.y;
                 const aimAngle = Math.atan2(this.sprayDirY, this.sprayDirX);
@@ -4012,10 +4036,9 @@
                 ctx.restore();
             }
         }
-        // Gas officer: sprite body + a gas canister held in the hand. The arm raises it to spray, and the gas comes out of its nozzle.
         function gasPose(raise) {
             const hx = 4.5 + 2.0 * raise, hy = -7.5 - 6.5 * raise;
-            const a = -1.45 + 1.15 * raise;                       // canister swings from upright to pointing forward
+            const a = -1.45 + 1.15 * raise;
             return { hx, hy, a, mx: hx + Math.cos(a) * 7.6, my: hy + Math.sin(a) * 7.6 };
         }
         function gasMuzzle(u) {
@@ -4028,18 +4051,17 @@
             u.raise = (u.raise || 0) + (target - (u.raise || 0)) * 0.12;
             const p = gasPose(u.raise);
             drawUnitSprite(ctx, u, UNIT_ROWS.gas);
-            // arm from the shoulder to the hand holding the canister
             ctx.lineCap = 'round';
             ctx.strokeStyle = '#2f3b22'; ctx.lineWidth = 2.6;
             ctx.beginPath(); ctx.moveTo(2.5, -12); ctx.lineTo(p.hx, p.hy); ctx.stroke();
             ctx.save();
             ctx.translate(p.hx, p.hy); ctx.rotate(p.a);
-            ctx.fillStyle = '#b7bec4'; ctx.fillRect(-1.6, -1.8, 7.2, 3.6);          // canister body
-            ctx.fillStyle = '#7a8288'; ctx.fillRect(-1.6, 0.6, 7.2, 1.2);            // shading
-            ctx.fillStyle = '#c0322b'; ctx.fillRect(2.4, -1.8, 1.4, 3.6);            // red CS band
-            ctx.fillStyle = '#23272b'; ctx.fillRect(5.6, -1.1, 1.5, 2.2);            // nozzle
+            ctx.fillStyle = '#b7bec4'; ctx.fillRect(-1.6, -1.8, 7.2, 3.6);
+            ctx.fillStyle = '#7a8288'; ctx.fillRect(-1.6, 0.6, 7.2, 1.2);
+            ctx.fillStyle = '#c0322b'; ctx.fillRect(2.4, -1.8, 1.4, 3.6);
+            ctx.fillStyle = '#23272b'; ctx.fillRect(5.6, -1.1, 1.5, 2.2);
             ctx.strokeStyle = '#1b1f23'; ctx.lineWidth = 0.6; ctx.strokeRect(-1.6, -1.8, 7.2, 3.6);
-            ctx.fillStyle = '#15181b'; ctx.beginPath(); ctx.arc(0.6, 1.6, 1.6, 0, Math.PI * 2); ctx.fill();   // gloved hand
+            ctx.fillStyle = '#15181b'; ctx.beginPath(); ctx.arc(0.6, 1.6, 1.6, 0, Math.PI * 2); ctx.fill();
             if (u.state === 'spraying') { ctx.fillStyle = 'rgba(255,255,255,0.85)'; ctx.beginPath(); ctx.arc(7.6, 0, 1.8, 0, Math.PI * 2); ctx.fill(); }
             ctx.restore();
         }
@@ -4169,9 +4191,9 @@
             ctx.restore();
         }
 
-        // ========== COMMANDER (one per syndicate) ==========
-        const COMMANDER_BOOST = { dmg: 1.18, speed: 1.08, guard: 0.88 };   // while the commander is with the syndicate
-        const COMMANDER_REGEN = 2.5;            // hp/s given to nearby officers
+        // ========== COMMANDER ==========
+        const COMMANDER_BOOST = { dmg: 1.18, speed: 1.08, guard: 0.88 };
+        const COMMANDER_REGEN = 2.5;
         const COMMANDER_AURA = TILE * 12;
         const TACTIC_SHOUTS = {
             rest: ['Stand easy — shields down!', 'Rest the line!'],
@@ -4213,18 +4235,16 @@
                 let cx = 0, cy = 0;
                 for (const o of mine) { cx += o.x; cy += o.y; }
                 cx /= mine.length; cy /= mine.length;
-                // morale aura: the commander keeps nearby officers going
                 for (const o of mine) {
                     if (o.hp < o.maxHp && Math.hypot(o.x - this.x, o.y - this.y) < COMMANDER_AURA) o.hp = Math.min(o.maxHp, o.hp + COMMANDER_REGEN * dt);
                 }
                 const sy = game.syndicates[this.syndicateIndex];
                 let fx = (sy && sy.facingX) || 1, fy = (sy && sy.facingY) || 0;
                 if (Math.abs(fx) > Math.abs(fy)) { fx = Math.sign(fx) || 1; fy = 0; } else { fx = 0; fy = Math.sign(fy) || 1; }
-                const tx = cx - fx * TILE * 4.2, ty = cy - fy * TILE * 4.2;       // stands behind the line, directing it
+                const tx = cx - fx * TILE * 4.2, ty = cy - fy * TILE * 4.2;
                 const sp = OFFICER.walkSpeed * 1.2;
                 if (Math.hypot(tx - this.x, ty - this.y) > TILE * 4) routedMove(this, tx, ty, dt, sp);
                 else steerUnit(this, tx, ty, dt, sp);
-                // face the same way the line faces once settled
                 if (Math.hypot(tx - this.x, ty - this.y) < TILE * 1.5) this.dir = { x: fx || this.dir.x, y: fy };
             }
             draw(ctx) {
@@ -4269,7 +4289,7 @@
             game.commanders.push(new Commander(hx, hy, idx));
         }
 
-        // ========== AMBULANCE (station support vehicle) ==========
+        // ========== AMBULANCE ==========
         const AMB_CELL = 140, AMB_SCALE = (TILE * 3.3) / 103;
         const AMB_COOLDOWN = 90, AMB_STAY = 35, AMB_HEAL = 16, AMB_RADIUS = TILE * 7, AMB_SPEED = 5.0;
         class AmbulanceVehicle {
@@ -4301,9 +4321,6 @@
                     this.pick -= dt;
                     if (this.pick <= 0 || this.state === 'waiting') {
                         this.pick = 1.2;
-                        // Any real injury is worth a trip - previously this needed >120 missing HP
-                        // before the ambulance would bother moving, which meant it usually just
-                        // sat at the station until its wait timer ran out and looked "broken".
                         let best = -1, bestM = 2;
                         for (let i = 0; i < OFFICER_SYNDICATES; i++) { const m = this.missing(i); if (m > bestM) { bestM = m; best = i; } }
                         if (this.state !== 'treating' || (best >= 0 && best !== this.target && bestM > this.missing(this.target) * 1.3)) this.target = best;
@@ -4356,7 +4373,7 @@
                 if (!this.alive) return;
                 const sx = this.x - game.camera.x, sy = this.y - game.camera.y;
                 if (sx < -120 || sy < -120 || sx > game.width + 120 || sy > game.height + 120) return;
-                if (this.state === 'treating') {                              // healing zone
+                if (this.state === 'treating') {
                     const pulse = 0.5 + 0.5 * Math.sin(this.lightPhase * 3);
                     ctx.save(); ctx.strokeStyle = 'rgba(80,230,120,' + (0.35 + 0.25 * pulse).toFixed(2) + ')'; ctx.lineWidth = 2; ctx.setLineDash([6, 5]);
                     ctx.beginPath(); ctx.arc(sx, sy, AMB_RADIUS, 0, Math.PI * 2); ctx.stroke(); ctx.setLineDash([]);
@@ -4564,10 +4581,6 @@
                 ctx.save();
                 ctx.translate(sx, sy);
                 if (facesLeft(this)) ctx.scale(-1, 1);
-                // The art is a side-on walk/run/bite cycle, so a dog travelling mostly up or
-                // down the screen used to just slide along still showing its full side profile.
-                // Squash it horizontally toward that travel direction, and add a small gait bob,
-                // so it reads as actually moving rather than a flat image sliding around.
                 const k9dx = Math.abs(this.dir.x), k9dy = Math.abs(this.dir.y);
                 const faceRatio = Math.max(0.58, k9dx / (k9dx + k9dy + 0.0001));
                 const k9now = (game.lastTime || 0) / 1000 + this.id * 0.37;
@@ -4615,7 +4628,7 @@
             const now = (game.lastTime || 0) / 1000 + u.id * 0.37;
             const sp = u.curSpeed || 0;
             let row, n, fi;
-            if (u.atkTimer > 0.15 && u.atkTimer <= K9_ATTACK_COOLDOWN) {          // biting
+            if (u.atkTimer > 0.15 && u.atkTimer <= K9_ATTACK_COOLDOWN) {
                 row = 3; n = 8;
                 fi = Math.max(0, Math.min(7, Math.floor(((K9_ATTACK_COOLDOWN - u.atkTimer) / 0.4) * 8)));
             } else if (sp > TILE * 2.6) { row = 2; n = 8; fi = Math.floor(now * Math.min(18, 9 + sp / 12)) % n; }
@@ -4672,7 +4685,7 @@
         class WaterCannonVehicle {
             constructor(syndicateIndex, kind) {
                 this.syndicateIndex = syndicateIndex;
-                this.kind = kind || 'watercannon';   // 'watercannon' or 'rubberbullet'
+                this.kind = kind || 'watercannon';
                 this.x = this.kind === 'rubberbullet' ? 40 * TILE + TILE / 2 : 44 * TILE + TILE / 2;
                 this.y = ROAD_Y_BOTTOM * TILE + TILE / 2;
                 this.angle = 0;
@@ -4692,7 +4705,6 @@
                 this.waterAimAngle = 0;
                 this.waterAimTarget = 0;
 
-                // rubber-bullet response van: a two-man team that steps out either side once parked
                 this.gunnerFireTimer = [1.0, 1.9];
                 this.gunnersOut = false;
                 this.gunnerDeployT = 0;
@@ -4876,7 +4888,6 @@
                 else this.updateWaterCannon(dt);
                 this.partUnits();
             }
-            // ---- rubber bullet response team (second vehicle) ----
             gunnerPositions() {
                 const cosA = Math.cos(this.angle), sinA = Math.sin(this.angle);
                 const side = TILE * 1.05, back = -TILE * 0.05;
@@ -5125,7 +5136,7 @@
                 const f = WC_FRAMES[fi];
                 const leftOn = Math.sin(this.lightPhase * 11) > 0;
                 const lightColor = isRubber
-                    ? { core: '230,235,255', mid: '150,170,255', edge: '60,80,255' }   // white/blue floodlight-style
+                    ? { core: '230,235,255', mid: '150,170,255', edge: '60,80,255' }
                     : { core: '140,195,255', mid: '40,110,255', edge: '0,60,255' };
                 [[f[1], leftOn], [f[2], !leftOn]].forEach(([pt, on]) => {
                     if (!on) return;
@@ -5143,8 +5154,6 @@
             }
         }
         function drawRubberGunnerFigure(ctx, vehicle, pos) {
-            // A simple standing officer, using the same uniform colours as the main riot line,
-            // posed aiming a less-lethal baton-round launcher outward from the vehicle.
             const H = 17;
             ctx.fillStyle = '#17171c';
             ctx.beginPath(); ctx.ellipse(0, 1.5, 5, 2.2, 0, 0, Math.PI * 2); ctx.fill();
@@ -5158,7 +5167,6 @@
             ctx.strokeStyle = OFFICER_PALETTE.dark; ctx.lineWidth = 0.8; ctx.stroke();
             ctx.fillStyle = '#1c2230';
             ctx.beginPath(); ctx.arc(0, -H * 0.74, H * 0.18, 0, Math.PI * 2); ctx.fill();
-            // launcher, held raised and aimed outward
             const fireGlow = (vehicle.gunnerFireTimer && vehicle.gunnerFireTimer[pos.side < 0 ? 0 : 1] > RUBBER_BULLET_COOLDOWN - 0.12);
             ctx.save();
             ctx.translate(2.4, -H * 0.42);
@@ -5271,11 +5279,6 @@
         const MAX_ATTACKERS_PER_OFFICER = 3;
         let raiderIdSeq = 1;
 
-        // Varied raider "outfits" - purely visual, generated procedurally (this engine draws every
-        // unit with code rather than fixed PNG sprites, so variety comes from randomising the look
-        // instead of needing dozens of hand-made character images). Each raider's outfit is seeded
-        // off their own id, so it stays the same for their whole life but the crowd as a whole reads
-        // as lots of different individuals in different clothes.
         const RAIDER_TOPS = [
             ['#3a3a3f', '#232327'], ['#4a5a3a', '#262e20'], ['#5a4030', '#2e2018'],
             ['#30425a', '#19222e'], ['#6b2222', '#391212'], ['#555555', '#2b2b2b'],
@@ -5362,11 +5365,6 @@
                 this.sepBiasX = (Math.random() - 0.5) * 0.6;
                 this.sepBiasY = (Math.random() - 0.5) * 0.6;
 
-                // A fraction of standard/bruiser raiders dress and carry themselves like the
-                // peaceful crowd so they can't be picked out purely by looks ("some of the bad
-                // ones may also look like peaceful ones too"). Real crowd members always look
-                // peaceful. Seeded on the raider's own id so a given individual's look is stable
-                // for their whole life but the crowd as a whole looks varied.
                 this.disguised = (kind === 'standard' || kind === 'bruiser') && Math.random() < 0.18;
                 this.looksPeaceful = kind === 'crowd' || this.disguised;
                 this.outfit = makeRaiderOutfit(this.id, this.looksPeaceful);
@@ -5389,7 +5387,6 @@
                 this.hp = 0;
                 this.assignFleeExit();
             }
-            // Picks the nearest exit and plans a route to it along the roads (so buildings can't trap them).
             assignFleeExit() {
                 const exit = nearestExitTo(this.x, this.y);
                 this.fleeExitX = exit.x;
@@ -5423,8 +5420,6 @@
                 const start = nearestRoadNode(this.x, this.y);
                 if (!start) { this.route = null; return; }
                 const goal = this.goalNodeId || 'B54';
-                // Blockades are a *penalty*, not a wall: if there is a way round, they take it,
-                // otherwise they will push through the barricade. Dangerous roads are avoided.
                 let path = findPathSmart(start.id, goal, 28, 2.4);
                 if (!path) path = findPath(start.id, goal, null);
                 this.route = path || [start.id];
@@ -5468,8 +5463,6 @@
                 return false;
             }
 
-            // ---- Peaceful protesters: they drift toward a passive police line, chant, and
-            // stop dead when a cordon actually blocks their path. They never attack. ----
             updateCrowd(dt) {
                 this.animTimer += dt;
                 this.crowdWander += dt;
@@ -5484,7 +5477,6 @@
                     if (d < bestD) { bestD = d; best = o; }
                 }
 
-                // If the only thing in front of them is an alert line, they keep their distance.
                 if (!best) {
                     for (const o of game.officers) {
                         if (!o.alive || o.isAllOut || o.state !== 'active') continue;
@@ -5496,7 +5488,6 @@
                         }
                     }
                     this.state = 'crowd_wait';
-                    // mill about aimlessly
                     const wob = Math.sin(this.crowdWander * 0.8 + this.id) * TILE * 0.6;
                     const tx = this.crowdHoldX + wob;
                     const ty = this.crowdHoldY + Math.cos(this.crowdWander * 0.6 + this.id) * TILE * 0.6;
@@ -5512,7 +5503,6 @@
                     this.state = 'crowd_move';
                     this.moveToward(best.x, best.y, dt, this.def.speed * 0.85);
                 } else {
-                    // "Encounter a cordon and stop" — they just stand there, staring.
                     this.state = 'crowd_wait';
                     this.isMoving = false;
                     const dx = best.x - this.x, dy = best.y - this.y;
@@ -5901,9 +5891,6 @@
         }
         function drawRaiderFigure(ctx, u) {
             const def = u.def;
-            // Every unit in this game is drawn with code rather than a fixed sprite, so raider
-            // "sprites" come from randomising each individual's outfit (seeded on their id) -
-            // lots of different clothing combinations instead of one fixed colour per raider type.
             const fit = u.outfit || (u.outfit = makeRaiderOutfit(u.id, u.kind === 'crowd'));
             const walking = u.isMoving;
             const phase = u.animTimer * (walking ? 7 : 1.2);
@@ -5913,16 +5900,13 @@
             const legReach = H * 0.34;
             ctx.lineCap = 'round';
 
-            // legs (trousers/joggers colour)
             ctx.strokeStyle = fit.bottom; ctx.lineWidth = 2.6;
             ctx.beginPath(); ctx.moveTo(-1, -2); ctx.lineTo(-1 - legSwing * legReach * 0.6, legReach); ctx.stroke();
             ctx.beginPath(); ctx.moveTo(-1, -2); ctx.lineTo(-1 + legSwing * legReach, legReach); ctx.stroke();
-            // shoes
             ctx.fillStyle = '#17140f';
             ctx.beginPath(); ctx.arc(-1 - legSwing * legReach * 0.6, legReach, 1.3, 0, Math.PI * 2); ctx.fill();
             ctx.beginPath(); ctx.arc(-1 + legSwing * legReach, legReach, 1.3, 0, Math.PI * 2); ctx.fill();
 
-            // torso (jacket/top colour, slightly tapered)
             ctx.fillStyle = fit.top;
             ctx.beginPath();
             ctx.moveTo(-2.6, -2);
@@ -5944,13 +5928,11 @@
                 ctx.fillRect(-3.4, -H * 0.5, 1.6, H * 0.28);
             }
 
-            // head + headwear
             ctx.fillStyle = fit.skin;
             ctx.beginPath(); ctx.arc(0, -H * 0.72, H * 0.17, 0, Math.PI * 2); ctx.fill();
             drawRaiderHeadwear(ctx, fit, H);
 
             if (fit.sign && u.attackFlash <= 0 && u.state !== 'attacking_base' && u.state !== 'vandal') {
-                // held in the off hand so a disguised troublemaker's weapon arm is still free
                 const bob = Math.sin(u.animTimer * 2.2) * 1.2;
                 ctx.strokeStyle = '#6a5030'; ctx.lineWidth = 1.3;
                 ctx.beginPath(); ctx.moveTo(-H * 0.28, -H * 0.4); ctx.lineTo(-H * 0.28, -H * 1.05 + bob); ctx.stroke();
@@ -5958,13 +5940,12 @@
                 ctx.fillRect(-H * 0.5, -H * 1.2 + bob, H * 0.42, H * 0.19);
                 ctx.strokeStyle = '#8a7a58'; ctx.lineWidth = 0.8;
                 ctx.strokeRect(-H * 0.5, -H * 1.2 + bob, H * 0.42, H * 0.19);
-                // a couple of scribble lines so it reads as hand-written, not blank
                 ctx.strokeStyle = 'rgba(60,54,40,0.55)'; ctx.lineWidth = 0.6;
                 ctx.beginPath(); ctx.moveTo(-H * 0.46, -H * 1.13 + bob); ctx.lineTo(-H * 0.14, -H * 1.13 + bob); ctx.stroke();
                 ctx.beginPath(); ctx.moveTo(-H * 0.46, -H * 1.07 + bob); ctx.lineTo(-H * 0.2, -H * 1.07 + bob); ctx.stroke();
             }
 
-            if (u.kind === 'crowd') return; // unarmed - no weapon arm
+            if (u.kind === 'crowd') return;
 
             const attacking = u.attackFlash > 0;
             const swing = attacking ? (1 - u.attackFlash / 0.22) : 0;
@@ -6017,7 +5998,7 @@
                     ctx.fillStyle = fit.scarf || '#8a2222';
                     ctx.fillRect(-r, -H * 0.76, r * 2, r * 0.6);
                     break;
-                default: break; // bare head
+                default: break;
             }
         }
 
@@ -6083,7 +6064,6 @@
         }
         function dealDamageToRaider(r, dmg, moraleMult) {
             if (r.state === 'fleeing' || r.beingArrested) return;
-            // Hitting peaceful people (or raiders who are just standing around) costs public trust.
             if (raiderIsNonHostile(r)) {
                 game.moraleDrain += (r.kind === 'crowd' ? 0.85 : 0.3);
             }
@@ -6249,6 +6229,10 @@
             if (alive.length === 0) return;
             const sy = game.syndicates[idx];
             if (!sy) return;
+
+            // clear post facing by default so officers that leave a post don't keep the outward look
+            for (const o of alive) if (o._postFacing) o._postFacing = null;
+
             const cx = sy.commandX, cy = sy.commandY;
             const tactic = effectiveTactic(sy, idx);
             if (tactic !== 'pulse') alive = orderByFrontStrength(alive, sy, tactic);
@@ -6263,10 +6247,55 @@
                 o.targetX = c.x; o.targetY = c.y; o._snapRaw = { x, y };
             };
 
+            // ---------- JUNCTION POST ----------
+            // When the syndicate is assigned to a junction post, form 1 line per covered road.
+            // Each line sits just outside the junction on that road, spread across the road width,
+            // facing outward along the road. This stops officers from being left loose in the
+            // junction centre where they can be surrounded from multiple directions.
+            if (sy.post) {
+                const post = sy.post;
+                const j = post.junction;
+                const half = roadLayout.half;
+                const covers = post.cover;
+                const perLine = Math.max(1, Math.ceil(alive.length / covers.length));
+                let idx2 = 0;
+                for (let c = 0; c < covers.length; c++) {
+                    const d = JUNCTION_DIR_VEC[covers[c]];
+                    const start = idx2;
+                    const end = Math.min(alive.length, idx2 + perLine);
+                    const count = end - start;
+                    if (count <= 0) continue;
+
+                    const lineDist = half + TILE * 0.5;
+                    const lx = j.x + d.fx * lineDist;
+                    const ly = j.y + d.fy * lineDist;
+
+                    const roadSpan = half * 2 - TILE * 0.5;
+                    const colSpacing = WALL_COL_SPACING * TILE;
+                    const maxPerRow = Math.max(2, Math.floor(roadSpan / colSpacing) + 1);
+                    const rowSpacing = ROW_SPACING * TILE;
+
+                    for (let i = 0; i < count; i++) {
+                        const row = Math.floor(i / maxPerRow);
+                        const col = i % maxPerRow;
+                        const cntInRow = Math.min(maxPerRow, count - row * maxPerRow);
+                        const off = (col - (cntInRow - 1) / 2) * colSpacing;
+                        const ux = lx + d.px * off - d.fx * row * rowSpacing;
+                        const uy = ly + d.py * off - d.fy * row * rowSpacing;
+                        const o = alive[start + i];
+                        setSlot(o, ux, uy);
+                        o._postFacing = { x: d.fx, y: d.fy };
+                    }
+                    idx2 = end;
+                }
+                // primary direction of the post - the syndicate faces that way
+                const pd = JUNCTION_DIR_VEC[post.dir];
+                sy.facingX = pd.fx;
+                sy.facingY = pd.fy;
+                return;
+            }
+
             // ---------- PULSE ----------
-            // Five evenly spaced officers step out of the front rank; the rank behind them
-            // fills the gaps so the line never breaks. When they return they go to the rear,
-            // and the next five step out in their place.
             if (tactic === 'pulse') {
                 const p = ensurePulse(sy);
                 const aliveIds = new Set(alive.map(o => o.id));
@@ -6328,7 +6357,6 @@
                 return;
             }
             if (tactic === 'wall') {
-                // The wall now spreads noticeably wider across the carriageway.
                 const perRow = OFFICERS_PER_ROW, spacing = WALL_COL_SPACING * TILE;
                 let i = 0, row = 0;
                 while (i < alive.length) {
@@ -6405,6 +6433,7 @@
                     pulse: { active: false, used: 0, cooldown: 0, timer: 0, step: 0, shown: -1, order: null, out: [], dashers: [], cycleStep: -1, inited: false },
                     path: null, pathIdx: 0, pathVersion: -1,
                     goalX: startX * TILE, goalY: startY * TILE,
+                    post: null,
                 };
             }
             const sy = game.syndicates[idx];
@@ -6412,6 +6441,7 @@
             if (sy.facingY === undefined) sy.facingY = 0;
             if (sy.disperseTimer === undefined) sy.disperseTimer = 0;
             if (sy.provokedTimer === undefined) sy.provokedTimer = 0;
+            if (sy.post === undefined) sy.post = null;
             ensurePulse(sy);
             if (sy.path === undefined) sy.path = null;
             if (sy.pathIdx === undefined) sy.pathIdx = 0;
@@ -6432,6 +6462,8 @@
         function applyTactic(kind) {
             const sy = ensureSyndicateState(game.selectedSyndicate);
             const p = ensurePulse(sy);
+            // choosing a combat tactic always drops a junction post
+            sy.post = null;
             if (kind === 'pulse') {
                 if (sy.tactic === 'pulse') {
                     stopPulse(sy); sy.tactic = 'wall';
@@ -6457,6 +6489,7 @@
             if (isVehicleIdx(game.selectedSyndicate)) { commandMoveVehicle(dx, dy); return; }
             if (game.selectedSyndicate === STATION_INDEX) return;
             const sy = ensureSyndicateState(game.selectedSyndicate);
+            sy.post = null;
             sy.path = null;
             sy.pathIdx = 0;
             const nx = sy.commandX + dx * TILE, ny = sy.commandY + dy * TILE;
@@ -6534,8 +6567,25 @@
             if (isVehicleIdx(game.selectedSyndicate)) return;
             if (game.selectedSyndicate === STATION_INDEX) return;
             const sy = ensureSyndicateState(game.selectedSyndicate);
+            sy.post = null;                // a normal move clears any junction post
             pathSyndicateTo(sy, worldX, worldY);
             updateSelectionUI();
+        }
+
+        // Send a syndicate to a junction post. They path to the junction and then form up
+        // in a defensive arc across the covered roads.
+        function commandSyndicateToPost(post) {
+            if (isVehicleIdx(game.selectedSyndicate)) return;
+            if (game.selectedSyndicate === STATION_INDEX) return;
+            if (!post) return;
+            const sy = ensureSyndicateState(game.selectedSyndicate);
+            sy.post = post;
+            pathSyndicateTo(sy, post.junction.x, post.junction.y);
+            assignFormation();
+            updateSelectionUI();
+            const dirNames = { N: 'north', S: 'south', E: 'east', W: 'west' };
+            const covered = post.cover.map(d => dirNames[d]).join(', ');
+            showToast('🎯 Syndicate moving to ' + dirNames[post.dir] + ' post — covering ' + covered + '.');
         }
 
         function updateSyndicateMovement(dt) {
@@ -6576,7 +6626,14 @@
 
                     if (step >= d - 0.001) sy.pathIdx++;
                 }
-                if (sy.pathIdx >= sy.path.length) sy.path = null;
+                if (sy.pathIdx >= sy.path.length) {
+                    sy.path = null;
+                    // when arriving at a post, snap the command position exactly onto the junction
+                    if (sy.post) {
+                        sy.commandX = sy.post.junction.x;
+                        sy.commandY = sy.post.junction.y;
+                    }
+                }
             }
         }
 
@@ -6926,8 +6983,6 @@
         const OBJECTIVE_LABELS = { base: 'Reach the Station', buildings: 'Vandalize the City', hunt: 'Attack the Officers' };
         const OBJECTIVE_SHORT = { base: 'Station', buildings: 'Vandalism', hunt: 'Hunt Officers' };
 
-        // Every gate is a valid way in. Tactics are now built around *how many* entrances
-        // are used and *where the pressure is applied*, not a fixed list.
         const ALL_EXITS = ['N18', 'N30', 'N54', 'N78', 'N90', 'S12', 'S54', 'S96'];
 
         const WAVE_TONES = {
@@ -6939,7 +6994,6 @@
             6: 'Rolling Offensive',
         };
 
-        // Scores how heavily a gate's approach corridor is defended.
         function exitDefence(exitId) {
             const n = getNode(exitId);
             if (!n) return 1;
@@ -6964,7 +7018,6 @@
                     const d = Math.hypot(o.x - p.x, o.y - p.y);
                     if (d < TILE * 16) score += (alert ? 1.8 : 0.5) * (1 - d / (TILE * 16));
                 }
-                // a parked vehicle on the corridor also counts (water cannon or rubber-bullet van)
                 for (const veh of [game.vehicle, game.vehicle2]) {
                     if (!veh || !veh.alive) continue;
                     const d = Math.hypot(veh.x - p.x, veh.y - p.y);
@@ -6995,7 +7048,6 @@
             const raiderCount = 20 + wave * 6;
             const crowdCount = wave <= 1 ? 0 : Math.min(24, 5 + wave * 2);
 
-            // ---- Choose how many gates and which ones. More gates as the waves go on. ----
             const maxGates = wave <= 1 ? 1 : wave <= 2 ? 2 : wave <= 4 ? 3 : wave <= 6 ? 4 : wave <= 9 ? 5 : 6;
             const gateCount = Math.max(1, Math.min(ALL_EXITS.length, 1 + Math.floor(Math.random() * maxGates)));
             const shuffled = ALL_EXITS.slice();
@@ -7005,7 +7057,6 @@
             }
             const exits = shuffled.slice(0, gateCount);
 
-            // ---- Weight the allocation toward the least-defended gates. ----
             const weights = exits.map(e => 1 / exitDefence(e));
             const wSum = weights.reduce((a, b) => a + b, 0) || 1;
 
@@ -7042,7 +7093,6 @@
                     totalHp += RAIDER_TYPES[kind].hp;
                 }
             }
-            // ---- Peaceful protesters: their own squads, one per pair of gates. ----
             if (crowdCount > 0) {
                 const crowdSquads = Math.min(2, Math.max(1, Math.floor(gateCount / 2)));
                 for (let c = 0; c < crowdSquads; c++) {
@@ -7068,20 +7118,10 @@
         }
 
         // ========== RAIDER FAILSAFE ==========
-        // A safety net that does not depend on what state a raider thinks it is in.
-        // Raider that stops making progress -> nudged back onto the road -> faded out if still stuck.
-        // Whole wave stalls -> raiders are told to disperse. Wave drags on forever -> hard cap.
         const FS = {
-            KICK_STILL: 25,        // seconds standing/pacing in one spot (not fighting) before a nudge
-            FADE_AFTER_KICK: 15,   // ...and this much longer before they fade away
-            FLEE_KICK: 6, FLEE_FADE: 10, FLEE_MAX: 30,
-            OFFMAP_KICK: 3, OFFMAP_FADE: 8,
-            ARREST_MAX: 45,        // an arrest that never finishes is released
-            WAVE_IDLE: 30,         // every fighting raider idle this long -> disperse them
-            CLEAR_STALL: 25,       // wave is over but raiders are still hanging around -> fade them
-            WAVE_HARD_CAP: 420,    // seconds; after this the whole wave is dispersed
-            HARD_CAP_FADE: 45,     // ...and anyone still left this long after is faded
-            RADIUS: TILE * 3,
+            KICK_STILL: 25, FADE_AFTER_KICK: 15, FLEE_KICK: 6, FLEE_FADE: 10, FLEE_MAX: 30,
+            OFFMAP_KICK: 3, OFFMAP_FADE: 8, ARREST_MAX: 45, WAVE_IDLE: 30, CLEAR_STALL: 25,
+            WAVE_HARD_CAP: 420, HARD_CAP_FADE: 45, RADIUS: TILE * 3,
         };
         function fadeRaider(r) {
             if (!r.alive || r.state === 'fading') return;
@@ -7111,7 +7151,6 @@
                 const isCrowd = r.kind === 'crowd';
                 if (!isCrowd) combatAlive++;
 
-                // An arrest that never completes (arrest team stuck / killed) is released.
                 if (r.beingArrested) {
                     f.arrest += dt;
                     f.still = 0; f.ax = r.x; f.ay = r.y;
@@ -7121,27 +7160,23 @@
                 }
                 f.arrest = 0;
 
-                // Standing outside the street area (in a wall / off the map) for a while.
                 if (f.age > 10 && !isValidPosition(r.x, r.y)) {
                     f.off += dt;
                     if (f.off > FS.OFFMAP_FADE) { fadeRaider(r); continue; }
                     if (f.off > FS.OFFMAP_KICK) hopToRoad(r);
                 } else f.off = 0;
 
-                // Running away for far too long.
                 if (r.state === 'fleeing') {
                     f.flee += dt;
                     if (f.flee > FS.FLEE_MAX) { fadeRaider(r); continue; }
                 } else f.flee = 0;
 
-                // Actively fighting / being gassed counts as progress.
                 if (r.attackFlash > 0 || r.timeSinceDamage < 1.5 || r.gasStunTimer > 0) {
                     f.still = 0; f.ax = r.x; f.ay = r.y; f.kicks = 0;
                     if (!isCrowd) combatActive++;
                     continue;
                 }
 
-                // Peaceful protesters are allowed to stand around watching.
                 if (isCrowd && r.state !== 'fleeing') continue;
 
                 if (Math.hypot(r.x - f.ax, r.y - f.ay) > FS.RADIUS) {
@@ -7150,7 +7185,6 @@
                     f.still += dt;
                     const fleeing = r.state === 'fleeing';
                     if (f.kicks === 0 && f.still > (fleeing ? FS.FLEE_KICK : FS.KICK_STILL)) {
-                        // Stage 1: pick them up, put them back on the road and make them re-plan.
                         f.kicks = 1; f.still = 0;
                         hopToRoad(r);
                         r.route = null; r.routeVersion = -1; r.repathTimer = 0;
@@ -7159,7 +7193,6 @@
                         else if (r.state !== 'advancing') r.state = 'advancing';
                         f.ax = r.x; f.ay = r.y;
                     } else if (f.kicks >= 1 && f.still > (fleeing ? FS.FLEE_FADE : FS.FADE_AFTER_KICK)) {
-                        // Stage 2: still going nowhere -> they give up and fade away.
                         fadeRaider(r);
                         continue;
                     }
@@ -7167,7 +7200,6 @@
                 if (!isCrowd && f.still < 10) combatActive++;
             }
 
-            // ---- Whole wave has gone quiet: every fighting raider is idle ----
             if (combatAlive > 0 && combatActive === 0 && game.waveSpawnQueue.length === 0) {
                 game.fsIdle = (game.fsIdle || 0) + dt;
                 if (game.fsIdle > FS.WAVE_IDLE && !game.fsIdleFired) {
@@ -7179,7 +7211,6 @@
                 game.fsIdle = 0; game.fsIdleFired = false;
             }
 
-            // ---- Wave has dragged on far too long ----
             if (game.waveSpawnQueue.length === 0) {
                 if (game.waveClock > FS.WAVE_HARD_CAP && !game.fsCapFired) {
                     game.fsCapFired = true;
@@ -7188,6 +7219,66 @@
                 }
                 if (game.waveClock > FS.WAVE_HARD_CAP + FS.HARD_CAP_FADE) {
                     for (const r of game.raiders) if (r.alive && !r.beingArrested) fadeRaider(r);
+                }
+            }
+        }
+
+        // ========== ATTACK MARKERS (for the minimap) ==========
+        // Clusters nearby combat raiders into a handful of "hotspots" that the minimap
+        // can draw as pulsing rings. Markers smoothly drift toward the raiders as they
+        // move to attack a new building, and fade out when nothing is left to fight.
+        function updateAttackMarkers(dt) {
+            if (!game.attackMarkers) game.attackMarkers = [];
+            const markers = game.attackMarkers;
+            for (const m of markers) m.matched = false;
+
+            const attackers = [];
+            for (const r of game.raiders) {
+                if (!r.alive || r.kind === 'crowd') continue;
+                const attacking = r.state === 'vandal' || r.state === 'attacking_base' ||
+                                  r.state === 'fighting' || r.state === 'brick_kiting' ||
+                                  r.engaged;
+                if (attacking) attackers.push(r);
+            }
+
+            const CLUSTER_R = TILE * 12;
+            const clusters = [];
+            for (const r of attackers) {
+                let found = null;
+                for (const c of clusters) {
+                    const cx = c.x / c.n, cy = c.y / c.n;
+                    if (Math.hypot(cx - r.x, cy - r.y) < CLUSTER_R) { found = c; break; }
+                }
+                if (found) { found.x += r.x; found.y += r.y; found.n++; }
+                else clusters.push({ x: r.x, y: r.y, n: 1 });
+            }
+            for (const c of clusters) { c.x /= c.n; c.y /= c.n; }
+
+            for (const c of clusters) {
+                let nearest = null, nd = Infinity;
+                for (const m of markers) {
+                    if (m.matched) continue;
+                    const d = Math.hypot(m.x - c.x, m.y - c.y);
+                    if (d < nd) { nd = d; nearest = m; }
+                }
+                if (nearest && nd < CLUSTER_R * 1.5) {
+                    const k = Math.min(1, dt * 4);
+                    nearest.x += (c.x - nearest.x) * k;
+                    nearest.y += (c.y - nearest.y) * k;
+                    nearest.count = c.n;
+                    nearest.matched = true;
+                } else {
+                    markers.push({ x: c.x, y: c.y, count: c.n, pulse: 0, alpha: 0, matched: true });
+                }
+            }
+
+            for (let i = markers.length - 1; i >= 0; i--) {
+                const m = markers[i];
+                m.pulse = (m.pulse || 0) + dt;
+                if (m.matched) m.alpha = Math.min(1, (m.alpha || 0) + dt * 3);
+                else {
+                    m.alpha = (m.alpha || 0) - dt * 2;
+                    if (m.alpha <= 0) markers.splice(i, 1);
                 }
             }
         }
@@ -7227,7 +7318,6 @@
             raiderFailsafe(dt);
 
             const anyCombat = game.raiders.some(r => r.alive && r.kind !== 'crowd');
-            // Once the fighting element is done, the crowd melts away.
             if (!anyCombat) {
                 for (const r of game.raiders) {
                     if (r.alive && r.kind === 'crowd' && r.state !== 'fleeing') r.startFleeing();
@@ -7255,7 +7345,6 @@
                     game.fsClear = 0;
                     showToast('Wave cleared — raiders dispersed!');
                 } else {
-                    // Failsafe: the wave is over but some raiders are still hanging about.
                     game.fsClear = (game.fsClear || 0) + dt;
                     if (game.fsClear > FS.CLEAR_STALL) {
                         for (const r of game.raiders) if (r.alive && !r.beingArrested) fadeRaider(r);
@@ -7366,7 +7455,6 @@
                     squad.rallyX = c.x; squad.rallyY = c.y;
                     continue;
                 }
-                // Later waves press harder and are more willing to form up and push.
                 const wallChance = Math.min(0.85, 0.35 + wave * 0.04);
                 if (!inContact && officerDistTiles < 6 + Math.min(6, wave) && members.length >= 2 && Math.random() < wallChance) {
                     enterWallState(squad);
@@ -7449,6 +7537,15 @@
             }
             if (game.selectedSyndicate === STATION_INDEX) return;
 
+            // Junction post tap - nearest dot wins if the tap is close enough to any post dot
+            let postHit = null, postHitD = TILE * 1.6;
+            for (const post of JUNCTION_POSTS) {
+                const dp = postDotPos(post);
+                const d = Math.hypot(wx - dp.x, wy - dp.y);
+                if (d < postHitD) { postHitD = d; postHit = post; }
+            }
+            if (postHit) { commandSyndicateToPost(postHit); return; }
+
             commandSyndicateTo(wx, wy);
         }
         function jumpCameraFromMinimap(x, y) {
@@ -7501,7 +7598,7 @@
         // ========== CAMERA FOLLOW ==========
         function updateCamera(dt) {
             if (game.mouse.down) { game.camGlide = 0; return; }
-            if (!(game.camGlide > 0)) return;       // free look: the camera only glides when a syndicate was just selected
+            if (!(game.camGlide > 0)) return;
             game.camGlide -= dt;
 
             const idx = game.selectedSyndicate;
@@ -7641,10 +7738,26 @@
                     if (pp.active) b.textContent = '💥 Pulse (' + Math.ceil(PULSE_MAX_ACTIVE - pp.used) + 's left)';
                     else if (pp.cooldown > 0) { b.textContent = '💥 Pulse (' + Math.ceil(pp.cooldown) + 's)'; b.classList.add('on-cooldown'); }
                 }
-                if (sy.tactic === t.key) b.classList.add('active-choice');
+                if (sy.tactic === t.key && !sy.post) b.classList.add('active-choice');
                 b.addEventListener('click', () => applyTactic(t.key));
                 panel.appendChild(b);
             });
+
+            if (sy.post) {
+                const w = document.createElement('div');
+                w.className = 'info-line'; w.style.color = '#8ec8f0';
+                const dirNames = { N: 'north', S: 'south', E: 'east', W: 'west' };
+                const covered = sy.post.cover.map(d => dirNames[d]).join(' + ');
+                w.textContent = '🎯 JUNCTION POST (' + dirNames[sy.post.dir] + ') — line covering ' + covered + ' approaches. Picking a formation clears the post.';
+                panel.appendChild(w);
+                const clearBtn = document.createElement('button');
+                clearBtn.textContent = '✖ Clear post (fall back to formation)';
+                clearBtn.addEventListener('click', () => {
+                    sy.post = null;
+                    assignFormation(); renderOptionsPanel(); updateSelectionUI();
+                });
+                panel.appendChild(clearBtn);
+            }
 
             if (tacticIsPassive(sy.tactic) && sy.provokedTimer <= 0) {
                 const w = document.createElement('div');
@@ -7676,6 +7789,12 @@
                 d.textContent = '⚠ ALL UNITS MERGED';
                 panel.appendChild(d);
             }
+
+            const tip = document.createElement('div');
+            tip.className = 'info-line';
+            tip.style.cssText = 'color:#7fc47f;padding-top:6px;border-top:1px solid #232c3a;margin-top:4px';
+            tip.textContent = '💡 Tap a green dot near a road junction to snap the syndicate to a defensive post covering that road.';
+            panel.appendChild(tip);
         }
 
         function renderVehiclePanel(panel, idx) {
@@ -7801,7 +7920,7 @@
                     game.selectedSyndicate = idx;
                     renderSyndicateTabs(); renderOptionsPanel(); updateSelectionUI();
                     updateArrestButton(); updateTearGasButton(); updateK9Button(); updateDisperseButton();
-                    game.cameraUserLock = 0; game.camGlide = 0.8;      // snap to the syndicate you just clicked
+                    game.cameraUserLock = 0; game.camGlide = 0.8;
                 });
             });
             const mergeBtn = document.getElementById('all-units-btn');
@@ -7879,10 +7998,13 @@
                 prefix = 'Syndicate ' + (idx + 1);
             }
             if (count === 0) { el.textContent = ''; return; }
-            const tacticLabel = (FORMATION_DEFS.find(t => t.key === sy.tactic) || {}).label || sy.tactic;
+            const dirNames = { N: 'north', S: 'south', E: 'east', W: 'west' };
+            const tacticLabel = sy.post
+                ? ('🎯 ' + dirNames[sy.post.dir] + ' post (' + sy.post.cover.map(d => dirNames[d]).join('+') + ')')
+                : ((FORMATION_DEFS.find(t => t.key === sy.tactic) || {}).label || sy.tactic);
             const resist = Math.round(formationResistance(activeTacticOf(sy)) * 100);
             const bits = [prefix + ' — ' + count + ' officers — ' + tacticLabel + ' · 🛡 ' + resist + '%'];
-            if (tacticIsPassive(sy.tactic) && sy.provokedTimer <= 0) bits.push('🕊 holding fire');
+            if (!sy.post && tacticIsPassive(sy.tactic) && sy.provokedTimer <= 0) bits.push('🕊 holding fire');
             if (sy.provokedTimer > 0 && tacticIsPassive(sy.tactic)) bits.push('⚔ provoked ' + Math.ceil(sy.provokedTimer) + 's');
             if (sy.tactic === 'rest' && sy.autoWallTimer > 0) bits.push('🧱 wall ' + Math.ceil(sy.autoWallTimer) + 's');
             if (sy.disperseTimer > 0) bits.push('🔥 ' + Math.ceil(sy.disperseTimer) + 's');
@@ -8038,6 +8160,47 @@
             }
         }
 
+        // Draw the junction post dots (only when a syndicate is selected and the junction is on screen)
+        function drawJunctionPosts(ctx) {
+            if (isVehicleIdx(game.selectedSyndicate) || game.selectedSyndicate === STATION_INDEX) return;
+            const sy = game.syndicates[game.selectedSyndicate];
+            if (!sy) return;
+
+            const pad = 40;
+            for (const post of JUNCTION_POSTS) {
+                const j = post.junction;
+                const sx = j.x - game.camera.x, sy2 = j.y - game.camera.y;
+                if (sx < -pad || sy2 < -pad || sx > game.width + pad || sy2 > game.height + pad) continue;
+                const dp = postDotPos(post);
+                const dx = dp.x - game.camera.x, dy = dp.y - game.camera.y;
+                const isSel = sy.post && sy.post.key === post.key;
+                const isHome = !sy.post && Math.abs(sy.commandX - j.x) < TILE * 1.2 && Math.abs(sy.commandY - j.y) < TILE * 1.2;
+
+                const baseR = isSel ? 6 : 4.2;
+                // green fill for available, brighter when active
+                ctx.beginPath();
+                ctx.arc(dx, dy, baseR, 0, Math.PI * 2);
+                if (isSel) {
+                    ctx.fillStyle = 'rgba(255,204,51,0.95)';
+                } else if (isHome) {
+                    ctx.fillStyle = 'rgba(255,180,80,0.75)';
+                } else {
+                    ctx.fillStyle = 'rgba(120,220,120,0.55)';
+                }
+                ctx.fill();
+                ctx.strokeStyle = isSel ? 'rgba(255,255,255,0.9)' : 'rgba(40,70,40,0.85)';
+                ctx.lineWidth = 1.4;
+                ctx.stroke();
+
+                // subtle inner direction hint
+                ctx.fillStyle = 'rgba(255,255,255,0.85)';
+                ctx.font = 'bold 7px monospace';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(post.dir, dx, dy + 0.5);
+            }
+        }
+
         function render() {
             const ctx = game.ctx;
             ctx.clearRect(0, 0, game.width, game.height);
@@ -8071,6 +8234,9 @@
             drawEffects(ctx);
 
             game.tearGasOfficers.forEach(t => { if (t.alive) t.drawGasCloud(ctx); });
+
+            // junction post dots overlay
+            drawJunctionPosts(ctx);
 
             if (isVehicleIdx(game.selectedSyndicate) && vehicleAt(game.selectedSyndicate)) {
                 const selVeh = vehicleAt(game.selectedSyndicate);
@@ -8166,7 +8332,8 @@
                     }
                     const sx = sy.commandX - game.camera.x, sy_ = sy.commandY - game.camera.y;
                     const passive = syndicateIsPassive(sy);
-                    ctx.strokeStyle = game.mergedMode ? 'rgba(255,138,92,0.9)'
+                    ctx.strokeStyle = sy.post ? 'rgba(120,220,120,0.95)'
+                        : game.mergedMode ? 'rgba(255,138,92,0.9)'
                         : passive ? 'rgba(140,200,255,0.85)' : 'rgba(255, 204, 51, 0.8)';
                     ctx.lineWidth = 2; ctx.setLineDash([4, 4]);
                     ctx.beginPath(); ctx.arc(sx, sy_, 12, 0, Math.PI * 2); ctx.stroke();
@@ -8249,11 +8416,29 @@
                 ctx.fillStyle = col;
                 ctx.fillRect((r.x / TILE) * MINIMAP_SCALE, (r.y / TILE) * MINIMAP_SCALE, 2, 2);
             });
-            sceneryBuildings.forEach(b => {
-                if (b.hp >= b.maxHp) return;
-                ctx.fillStyle = b.alive ? '#ff8000' : '#ff3030';
-                ctx.fillRect((b.tx) * MINIMAP_SCALE - 1, (b.ty) * MINIMAP_SCALE - 1, 3, 3);
-            });
+
+            // ---- pulsing attack rings where raiders are actively attacking ----
+            if (game.attackMarkers && game.attackMarkers.length) {
+                for (const m of game.attackMarkers) {
+                    const mx = (m.x / TILE) * MINIMAP_SCALE;
+                    const my = (m.y / TILE) * MINIMAP_SCALE;
+                    const intensity = Math.min(1, m.count / 10);
+                    const baseRadius = 2.2 + intensity * 2.8;
+                    const maxRadius = 5.5 + intensity * 6.5;
+                    for (let k = 0; k < 2; k++) {
+                        const pulse = ((m.pulse + k * 0.8) % 1.6) / 1.6;
+                        const r = baseRadius + pulse * (maxRadius - baseRadius);
+                        const a = (1 - pulse) * m.alpha * (0.55 + 0.45 * intensity);
+                        if (a <= 0.01) continue;
+                        ctx.strokeStyle = `rgba(255,90,60,${a.toFixed(3)})`;
+                        ctx.lineWidth = 1.3;
+                        ctx.beginPath();
+                        ctx.arc(mx, my, r, 0, Math.PI * 2);
+                        ctx.stroke();
+                    }
+                }
+            }
+
             ctx.strokeStyle = 'rgba(255,204,51,0.8)'; ctx.lineWidth = 1;
             ctx.strokeRect(game.camera.x / TILE * MINIMAP_SCALE, game.camera.y / TILE * MINIMAP_SCALE,
                 game.width / TILE * MINIMAP_SCALE, game.height / TILE * MINIMAP_SCALE);
@@ -8283,7 +8468,7 @@
             spawnVehicleSyndicate(VEHICLE_SYNDICATE);
             spawnVehicleSyndicate(VEHICLE_SYNDICATE_2);
             game.selectedSyndicate = 0;
-            game.syndicates.forEach(sy => { if (sy) { sy.path = null; sy.pathIdx = 0; } });
+            game.syndicates.forEach(sy => { if (sy) { sy.path = null; sy.pathIdx = 0; sy.post = null; } });
             renderSyndicateTabs(); renderOptionsPanel(); updateSelectionUI();
             updateMergedButton(); updateAllOutButton();
             updateArrestButton(); updateTearGasButton(); updateK9Button(); updateDisperseButton();
@@ -8307,7 +8492,6 @@
                 updateWaves(dt);
                 updateSquadAI(dt);
 
-                // road danger is refreshed a few times a second so raiders can spot weak spots
                 game.dangerTimer -= dt;
                 if (game.dangerTimer <= 0) { game.dangerTimer = 0.7; computeRoadDanger(); }
 
@@ -8325,10 +8509,8 @@
                     if (game.repairCooldowns[i] > 0) game.repairCooldowns[i] = Math.max(0, game.repairCooldowns[i] - dt);
                 }
 
-                // ---- repair team bookkeeping & auto-repair ----
                 const anyRepair = game.repairOfficers.some(r => r.alive);
                 if (game.repairWasActive && !anyRepair) {
-                    // any team that just died starts its own cooldown
                     for (let i = 0; i < REPAIR_TEAM_COUNT; i++) {
                         if (!repairTeamActive(i) && game.repairCooldowns[i] <= 0 && game._repairWasOut && game._repairWasOut[i]) {
                             game.repairCooldowns[i] = REPAIR_COOLDOWN;
@@ -8350,7 +8532,6 @@
                     }
                 }
 
-                // ---- public morale ----
                 if (game.moraleHoldTimer > 0) game.moraleHoldTimer -= dt;
                 if (game.moraleDrain > 0) {
                     const applied = Math.min(game.moraleDrain, 30 * dt + 0.05);
@@ -8361,7 +8542,6 @@
                     game.morale = Math.min(MORALE_MAX, game.morale + MORALE_RECOVERY_RATE * dt);
                 }
 
-                // ---- station self-repair ----
                 if (game.baseRegenTimer > 0) game.baseRegenTimer -= dt;
                 else if (game.baseHp < BASE_MAX_HP) {
                     game.baseHp = Math.min(BASE_MAX_HP, game.baseHp + BASE_REGEN_RATE * dt);
@@ -8402,6 +8582,7 @@
                 updateAmbulance(dt);
                 updateProjectiles(dt);
                 updateRubberTracers(dt);
+                updateAttackMarkers(dt);
 
                 if (game.raiders.length > 0 && game.raiders.some(r => !r.alive)) {
                     game.raiders = game.raiders.filter(r => r.alive);
@@ -8447,7 +8628,7 @@
             game.tearGasOfficers = [];
             game.commanders = [];
             game.ambulance = null; game.ambulanceCooldown = 0; game.camGlide = 1.4;
-            game.townSeed = (Math.random() * 0x7fffffff) | 0;   // new town layout every game
+            game.townSeed = (Math.random() * 0x7fffffff) | 0;
             game.projectiles = [];
             game.syndicates = [];
             game.selectedSyndicate = 0;
@@ -8499,6 +8680,7 @@
             game.rubberTracers = [];
             game.blockedEdges = new Set();
             game.blockadeVersion = 0;
+            game.attackMarkers = [];
         }
         function resizeCanvas() {
             const c = game.canvas;
@@ -8547,6 +8729,11 @@
                 sy.commandY = Math.max(0, Math.min(MAP_H * TILE, sy.commandY));
                 if (!isValidOfficerPosition(sy.commandX, sy.commandY)) {
                     sy.commandX = BASE_TILE_X * TILE; sy.commandY = BASE_TILE_Y * TILE;
+                }
+                if (sy.post) {
+                    // if the junction still exists on the new layout keep the post, else clear
+                    const stillThere = JUNCTION_POSTS.find(p => p.key === sy.post.key);
+                    sy.post = stillThere || null;
                 }
             });
             game.syndicates.forEach(sy => { if (sy) { sy.path = null; sy.pathIdx = 0; } });
@@ -8599,7 +8786,7 @@
             game.playRequested = false;
             document.getElementById('menu-root').classList.add('hidden');
             const pb = document.getElementById('m-play'); if (pb) pb.innerHTML = '▶ PLAY';
-            restartGame();                       // fresh town (new random layout) and fresh syndicates
+            restartGame();
             game.paused = false;
             if (!game.loopStarted) { game.loopStarted = true; requestAnimationFrame(loop); }
         }

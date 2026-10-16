@@ -1450,7 +1450,7 @@
         }
 
         const ASSET_PATHS = {};
-        ASSET_PATHS['city_atlas'] = 'assets/buildings/city_atlas.png';
+        ASSET_PATHS['city_atlas'] = 'assets/map/buildings/city_atlas.png';
         ASSET_PATHS['response_van_sheet'] = 'assets/map/vehicles/response_van_sheet.png';
 
         const PROP_KEYS = ['prop_tree', 'prop_tree_tall', 'prop_bench', 'prop_streetlight', 'prop_hydrant',
@@ -1535,15 +1535,30 @@
         ];
         ASSET_PATHS['units_sheet'] = 'assets/units/units_sheet.png';
         ASSET_PATHS['k9_sheet'] = 'assets/units/k9_gsd_sheet.png';
-        ASSET_PATHS['station_img'] = 'assets/map/station/police_station.png';
         ASSET_PATHS['amb_sheet'] = 'assets/map/vehicles/ambulance_sheet.png';
         ASSET_PATHS['gas_sheet'] = 'assets/fx/gas_plume_sheet.png';
         ASSET_PATHS['water_sheet'] = 'assets/fx/water_jet_sheet.png';
         ASSET_PATHS['parked_atlas'] = 'assets/map/vehicles/parked_atlas.png';
+        // All UK building art and the police station now live inside the single city_atlas.png
+        // sheet (same file as every other building) instead of separate image files — this
+        // table just says where on that sheet each one is, in pixels.
+        const UK_BUILDING_ATLAS_XY = {
+            ukb_factory:     { x: 0,   y: 640 },
+            ukb_museum:      { x: 164, y: 640 },
+            ukb_townhall:    { x: 296, y: 640 },
+            ukb_firestation: { x: 428, y: 640 },
+            ukb_georgian:    { x: 560, y: 640 },
+            ukb_shop:        { x: 0,   y: 804 },
+            ukb_terrace:     { x: 68,  y: 804 },
+            ukb_pub:         { x: 136, y: 804 },
+            ukb_tudor:       { x: 204, y: 804 },
+            ukb_redhouse:    { x: 272, y: 804 },
+        };
+        const STATION_ATLAS = { x: 692, y: 640, w: 192, h: 144 };
         UK_BUILDINGS.forEach(u => {
-            ASSET_PATHS[u.id] = 'assets/buildings/uk/' + u.id + '.png';
+            const xy = UK_BUILDING_ATLAS_XY[u.id];
             ATLAS_TABLE[u.id] = { kind: 'b', zone: u.zones[0], zones: u.zones, wT: u.wT, hT: u.hT, src: u.id,
-                noflip: false, x: 0, y: 0, w: u.wT * 16, h: u.hT * 16, file: u.id, max: u.max, min: u.min, boost: u.boost };
+                noflip: false, x: xy.x, y: xy.y, w: u.wT * 16, h: u.hT * 16, max: u.max, min: u.min, boost: u.boost };
         });
 
         function mulberry32(a) {
@@ -2428,8 +2443,11 @@
         }
         function drawStation(t) {
             const x0 = STATION_TX0 * TILE, y0 = STATION_TY0 * TILE;
-            const img = assets['station_img'];
-            if (img) { t.drawImage(img, x0, y0); return; }
+            const img = assets['city_atlas'];
+            if (img) {
+                t.drawImage(img, STATION_ATLAS.x, STATION_ATLAS.y, STATION_ATLAS.w, STATION_ATLAS.h, x0, y0, STATION_ATLAS.w, STATION_ATLAS.h);
+                return;
+            }
             const w = STATION_TW * TILE, h = STATION_TH * TILE;
             t.fillStyle = '#a8533b'; t.fillRect(x0, y0 + 30, w, h - 30);
             t.fillStyle = '#14409a'; t.fillRect(x0, y0 + 30, w, 10);

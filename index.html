@@ -2464,7 +2464,7 @@
             L.junctions.forEach(j => {
                 if (!j.vBottomEntry || !j.arms.s) return;
                 if (gw) t.drawImage(gw, j.x - 56, j.y + half + 3, 112, 40);
-                if (slow && MAP_H * TILE > j.y + half + 140) t.drawImage(slow, j.x - 56 + 10, j.y + half + 62, 70 * 0.8, 64 * 0.8);
+                if (slow && MAP_H * TILE > j.y + half + 140) t.drawImage(slow, j.x - 28, j.y + half + 62, 70 * 0.8, 64 * 0.8);
             });
         }
         function drawStation(t) {

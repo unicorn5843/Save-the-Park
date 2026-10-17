@@ -1063,14 +1063,14 @@ const ATLAS_TABLE = {
 const STATION_ATLAS = { x:692, y:640, w:192, h:144 };
 
 const ASSET_PATHS = {
-    city_atlas: 'assets/map/buildings/city_atlas.png',
+    city_atlas: 'assets/map/buildings/city_atlas_zombie.png',
     road_asphalt: 'assets/map/roads/road_asphalt.png',
     road_paving: 'assets/map/roads/road_paving.png',
     road_zebra_ns: 'assets/map/roads/road_zebra_ns.png',
     road_zebra_ew: 'assets/map/roads/road_zebra_ew.png',
     road_box: 'assets/map/roads/road_box.png',
-    road_giveway: 'assets/map/roads/road_giveway.png',
-    road_slow: 'assets/map/roads/road_slow.png',
+    road_giveway: 'assets/map/roads/road_giveway_zombie.png',
+    road_slow: 'assets/map/roads/road_slow_zombie.png',
     units_sheet: 'assets/units/units_sheet.png',
     k9_sheet: 'assets/units/k9_gsd_sheet.png',
     parked_atlas: 'assets/map/vehicles/parked_atlas.png',
@@ -1134,7 +1134,10 @@ function loadAssets(onDone){
     keys.forEach(key => {
         const img = new Image();
         img.onload = () => {
-            if (key === 'city_atlas' || key === 'parked_atlas') assets[key] = applyZombieFilter(img);
+            // city_atlas_zombie.png is a dedicated hand-decayed sheet (boards, ivy, moss,
+            // grime already baked in) so it is used as-is; only parked_atlas still gets the
+            // runtime tint since vehicles don't have their own zombie sheet yet.
+            if (key === 'parked_atlas') assets[key] = applyZombieFilter(img);
             else assets[key] = img;
             settle();
         };
@@ -1613,6 +1616,13 @@ function drawLaneMarkings(t){
         if (j.top && !j.isBase && JUNCTION_XS.includes(j.tx)) t.drawImage(box, j.x - half, j.y - half, half*2, half*2);
     });
     L.zebras.forEach(z => { const img = assets[z.img]; if (img) t.drawImage(img, z.x, z.y, z.w, z.h); });
+    // worn give-way triangles + cracked/flaking "SLOW" paint (zombie-worn variants)
+    const gw = assets['road_giveway'], slow = assets['road_slow'];
+    L.junctions.forEach(j => {
+        if (!j.vBottomEntry || !j.arms.s) return;
+        if (gw) t.drawImage(gw, j.x - 56, j.y + half + 3, 112, 40);
+        if (slow && MAP_H * TILE > j.y + half + 140) t.drawImage(slow, j.x - 28, j.y + half + 62, 70 * 0.8, 64 * 0.8);
+    });
 }
 function drawBuildingImg(t, b, px, py, alpha){
     const w = b.wT*TILE, h = b.hT*TILE;

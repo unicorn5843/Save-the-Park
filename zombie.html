@@ -117,8 +117,6 @@
     .train-btn.heal.ready { box-shadow: 0 0 10px rgba(120,200,80,.5); }
     .train-btn.fortify { background: linear-gradient(180deg,#5a4a1a,#2e2010); border-color: #a08030; color: #fff0c0; }
     .train-btn.fortify.ready { box-shadow: 0 0 10px rgba(200,170,60,.5); }
-    .train-btn.van { background: linear-gradient(180deg,#1a3a5a,#0e1f30); border-color: #4a7ab0; color: #d0e8ff; }
-    .train-btn.van.ready { box-shadow: 0 0 10px rgba(90,150,220,.5); }
     .train-btn.acid { background: linear-gradient(180deg,#4a6a10,#223a08); border-color: #a8d040; color: #e8ffc0; }
     .train-btn.acid.ready { background: linear-gradient(180deg,#6a9a20,#345a10);
         box-shadow: 0 0 12px rgba(180,230,60,.6); animation: acidPulse 1.7s ease-in-out infinite; }
@@ -139,7 +137,7 @@
 
     #bottom-right-ui { position: fixed; right: 8px; bottom: 48px; z-index: 97;
         display: flex; flex-direction: column; gap: 6px; align-items: stretch; min-width: 190px; }
-    #all-out-btn, #all-units-btn, #station-btn { padding: 9px 12px; border-radius: 8px;
+    #all-out-btn, #all-units-btn { padding: 9px 12px; border-radius: 8px;
         font-size: 11px; font-weight: 800; cursor: pointer; letter-spacing: .4px;
         width: 100%; box-shadow: 0 2px 6px rgba(0,0,0,.5); text-shadow: 0 1px 1px rgba(0,0,0,.5); }
     #all-units-btn { background: linear-gradient(180deg,#1a3a5a,#0e1f30); border: 1px solid #4a7ab0; color: #d0e8ff; }
@@ -149,9 +147,6 @@
         box-shadow: 0 0 14px rgba(255,90,60,.6); animation: allOutPulse 1.6s ease-in-out infinite; }
     @keyframes allOutPulse { 0%,100% { box-shadow: 0 0 10px rgba(255,90,60,.45); }
         50% { box-shadow: 0 0 20px rgba(255,120,80,.85); } }
-    #station-btn { background: linear-gradient(180deg,#1a2a2c,#0f181a); border: 1px solid #2f4a4a; color: #d8e8dc; }
-    #station-btn.active { background: linear-gradient(180deg,#7dffa0,#2a8a50); border-color: #ccffcc;
-        color: #0a1a0a; text-shadow: none; }
 
     #syndicate-tabs { display: flex; gap: 4px; background: rgba(8,14,12,.9);
         border: 1px solid #1d2a2e; border-radius: 8px; padding: 4px; backdrop-filter: blur(5px); }
@@ -323,10 +318,6 @@
             <span class="tlabel">🐕 K9</span>
             <span class="tsub" id="act-k9-sub">S1 ready</span>
         </button>
-        <button id="act-van" class="train-btn van ready">
-            <span class="tlabel">🚐 Acid Van</span>
-            <span class="tsub" id="act-van-sub">30</span>
-        </button>
         <button id="act-amb" class="train-btn amb ready">
             <span class="tlabel">🚑 Ambulance</span>
             <span class="tsub" id="act-amb-sub">ready</span>
@@ -382,12 +373,12 @@
     <div id="bottom-right-ui">
         <button id="all-out-btn">🚨 ALL OUT</button>
         <button id="all-units-btn">🪖 All Units On Me</button>
-        <button id="station-btn">🏢 Station</button>
         <div id="syndicate-tabs">
             <button class="syn-btn" data-idx="0">S1</button>
             <button class="syn-btn" data-idx="1">S2</button>
             <button class="syn-btn" data-idx="2">S3</button>
             <button class="syn-btn acid" data-idx="3">🚐</button>
+            <button class="syn-btn acid" data-idx="5">🚐</button>
         </div>
         <div id="dpad-container">
             <button class="dpad-btn dpad-up" id="btn-up">▲</button>
@@ -441,7 +432,7 @@
                         Zombies stream in from the map edges and head for your officers or the station.<br><br>
                         <b>Supply crates</b> drop onto the road network. Walk any officer over one to bank its contents.<br><br>
                         <b>Test-Subject Grabbers</b> seize live zombies and drag them back to the station for supplies.<br><br>
-                        <b>Acid officers</b> spray a dissolving cone that eats through a crowd. The <b>acid van</b> drives the cordon and drenches anything nearby. <b>K9</b> hunts runners, the <b>ambulance</b> patches up wounded syndicates, and the <b>repair crew</b> tidies up damaged streets.<br><br>
+                        <b>Acid officers</b> spray a dissolving cone that eats through a crowd. The <b>acid van</b> drives the cordon and drenches anything nearby, while the <b>gas van</b> parks and deploys two gas gunners. <b>K9</b> hunts runners and the <b>ambulance</b> patches up wounded syndicates.<br><br>
                         Use <b>formations</b>, <b>junction posts</b>, and <b>ALL OUT</b> to hold the line.
                     </p>
                 </div>
@@ -453,16 +444,19 @@
 /* ============================================================================
  * CORDON: OUTBREAK MODE — Full Toolkit (endless survival)
  *
- * New this build:
- *   - Zombies now stick to their chosen officer target (6s) instead of
- *     rerolling goals on every repath. They will still default to the
- *     station only if every officer is dead.
- *   - Elite zombies unlock as waves progress:
- *       · Spitter  (wave 5+)  — fires bile at range, damaged on impact.
- *       · Screamer (wave 7+)  — periodic AoE morale buff to nearby zombies.
- *       · Tank     (wave 10+) — massive HP pool, surge speed bursts.
- *   - Zombie count scales with wave² so late waves are genuinely dangerous.
- *   - Wave 10+ zombies gain a small speed boost so the horde doesn't stall.
+ * Movement parity with the main Cordon build:
+ *   - Syndicates & vehicles snap to road dots (BLOCKADE_SPOTS).
+ *   - Junction posts still give facing + cover directions.
+ *   - Two vehicles at the start: acid cannon van + gas van.
+ *   - Gas van parks and deploys two gas gunners (formerly rubber-bullet).
+ *
+ * Zombies:
+ *   - Move like raiders with a per-zombie stuck failsafe (kick → fade).
+ *   - Never surrender; always advance until dead or the wave is cleared.
+ *   - Do not damage buildings.
+ *   - Wave clears only when every zombie is dead.
+ *
+ * Repair team system removed.
  * ==========================================================================*/
 (function(){
 'use strict';
@@ -500,8 +494,13 @@ const OFFICERS_PER_ROW = ROAD_W + 1;
 const ROW_SPACING = 1.2, COL_SPACING = 1.1, WALL_COL_SPACING = 1.42;
 const OFFICERS_PER_SYNDICATE = 15;
 const OFFICER_SYNDICATES = 3;
-const VEHICLE_SYNDICATE = 3;
-function isVehicleIdx(idx){ return idx === VEHICLE_SYNDICATE; }
+const VEHICLE_SYNDICATE = 3;      // acid cannon van
+const VEHICLE_SYNDICATE_2 = 5;    // gas van
+function isVehicleIdx(idx){ return idx === VEHICLE_SYNDICATE || idx === VEHICLE_SYNDICATE_2; }
+function vehicleAt(idx){
+    if (!game.vehicles) return null;
+    return game.vehicles[idx] || null;
+}
 const BASE_MAX_HP = 900;
 
 const SYNDICATE_START_X = [46, 54, 62];
@@ -557,26 +556,21 @@ const K9_HP = 90, K9_DEPLOY_TIME = 10, K9_COOLDOWN = 50, K9_SPEED = 5.2,
 const AMB_CELL = 140, AMB_SCALE = (TILE*3.3)/103;
 const AMB_COOLDOWN = 90, AMB_STAY = 35, AMB_HEAL = 16, AMB_RADIUS = TILE*7, AMB_SPEED = 5.0;
 
-// Repair
-const REPAIR_UNIT_HP = 420, REPAIR_UNIT_SPEED = 3.5, REPAIR_LIFETIME = 60,
-      REPAIR_COOLDOWN = 120, REPAIR_SECONDS_FULL = 20, REPAIR_PROTECTION_RANGE = TILE*10,
-      REPAIR_TEAM_COUNT = 2, AUTO_REPAIR_THRESHOLD = 0.50;
-const REPAIR_ESCORT_COUNT = 10, REPAIR_ESCORT_HP = 120, REPAIR_ESCORT_SPEED = 3.4,
-      REPAIR_ESCORT_DAMAGE = 15, REPAIR_ESCORT_ATK_COOLDOWN = 0.85,
-      REPAIR_ESCORT_MELEE_RANGE = 1.35, REPAIR_ESCORT_ENGAGE_RANGE = 1.95,
-      REPAIR_ESCORT_RESIST = 0.50;
-const REPAIR_ESCORT_PALETTE = { cloth: '#3c4a2c', dark: '#1c2412', visor: '#ffd08a',
-    shield: '#d6ddc4', shieldEdge: '#8a9478', flag: '#c53040' };
-const ESCORT_BOX_SLOTS = [
-    { f:  1.25, p: -1.65 }, { f:  1.25, p: -0.55 }, { f:  1.25, p: 0.55 }, { f:  1.25, p: 1.65 },
-    { f: -1.25, p: -1.65 }, { f: -1.25, p: -0.55 }, { f: -1.25, p: 0.55 }, { f: -1.25, p: 1.65 },
-    { f:  0.00, p: -2.25 }, { f:  0.00, p:  2.25 },
-];
-const ESCORT_U_SLOTS = [
-    { f: -1.45, p: -1.70 }, { f:  0.00, p: -1.70 }, { f:  1.45, p: -1.70 },
-    { f: -1.45, p:  1.70 }, { f:  0.00, p:  1.70 }, { f:  1.45, p:  1.70 },
-    { f: -2.55, p: -1.65 }, { f: -2.55, p: -0.55 }, { f: -2.55, p: 0.55 }, { f: -2.55, p: 1.65 },
-];
+// ====== VEHICLES ======
+const ACID_CANNON_RANGE = TILE*9;
+const ACID_CANNON_CONE = Math.PI/4;
+const ACID_CANNON_TICK = 0.1;
+const ACID_CANNON_DMG = 22;
+const ACID_CANNON_SPEED = 4.5;
+const VEHICLE_STEP_RANGE = TILE*9;
+
+const GAS_VAN_RANGE = TILE*8;
+const GAS_VAN_COOLDOWN = 2.0;
+const GAS_VAN_DAMAGE = 16;
+const GAS_VAN_AOE = TILE*1.6;
+const GAS_BURN_DURATION = 3.5;
+const GAS_VAN_SHELL_TIME = 0.7;
+const GAS_VAN_SPEED = 4.5;
 
 // Formations
 const FORMATION_MODS = {
@@ -691,9 +685,7 @@ const MORALE_MAX = 100;
 const MORALE_RECOVERY_RATE = 0.55;
 const MORALE_LOW = 40;
 function moraleRegenMult(){ const m = game.morale; if (m >= 70) return 1; if (m >= MORALE_LOW) return 0.75; if (m >= 20) return 0.5; return 0.3; }
-function moraleRepairMult(){ return game.morale < MORALE_LOW ? 0.55 : 1; }
 function loseMorale(amount){ game.morale = Math.max(0, game.morale - amount); game.moraleHoldTimer = 6; }
-
 const BASE_REGEN_DELAY = 35;
 const BASE_REGEN_RATE = 3.2;
 
@@ -705,7 +697,7 @@ let game = {
     width:0, height:0,
     officers:[], zombies:[], effects:[],
     grabbers:[], k9s:[], handlers:[], acidTeams:[],
-    commanders:[], commanderRespawn:[0,0,0],
+    commanders:[],
     townSeed:1, paused:false, ready:false, playRequested:false, loopStarted:false,
     projectiles:[],
     terrainCanvas:null, minimapTerrainCanvas:null,
@@ -733,13 +725,7 @@ let game = {
 
     acidCooldown: [0,0,0,0],
     grabberCooldown: [0,0,0,0],
-    acidVehicles: {},
-
-    repairOfficers:[],
-    repairEscorts:[],
-    repairCooldowns:[0,0],
-    autoRepair:false,
-    repairWasActive:false,
+    vehicles: {},
 
     morale: MORALE_MAX,
     moraleHoldTimer: 0,
@@ -764,13 +750,17 @@ let game = {
 
     blockedEdges: new Set(),
     blockadeVersion: 0,
-    blockedVersion: 0,
 
     attackMarkers: [],
+
+    gasShells: [],
+    gasTracers: [],
 };
 
 // ============================ ROAD GRAPH ============================
 let ROAD_NODES = [], ROAD_EDGES = [], ROAD_ADJ = new Map();
+let BLOCKADE_SPOTS = [];
+let JUNCTION_POSTS = [];
 const EXIT_NODE_IDS = ['N18','N30','N54','N78','N90','S12','S54','S96'];
 
 function buildRoadNodes(){
@@ -830,6 +820,55 @@ function buildRoadGraph(){
             ROAD_EDGES.push({ key: edgeKey(a.id,b.id), a: a.id, b: b.id, dir: sameY ? 'h' : 'v' });
             ROAD_ADJ.get(a.id).push({ id: b.id });
             ROAD_ADJ.get(b.id).push({ id: a.id });
+        }
+    }
+}
+function findEdgeForSpot(spot){
+    const sx = spot.x / TILE, sy = spot.y / TILE;
+    for (const e of ROAD_EDGES){
+        const a = getNode(e.a), b = getNode(e.b);
+        if (!a || !b) continue;
+        if (e.dir === 'h'){
+            if (Math.abs(a.y - sy) > 0.6) continue;
+            const lo = Math.min(a.x, b.x), hi = Math.max(a.x, b.x);
+            if (sx >= lo - 0.6 && sx <= hi + 0.6) return e.key;
+        } else {
+            if (Math.abs(a.x - sx) > 0.6) continue;
+            const lo = Math.min(a.y, b.y), hi = Math.max(a.y, b.y);
+            if (sy >= lo - 0.6 && sy <= hi + 0.6) return e.key;
+        }
+    }
+    return null;
+}
+function buildBlockadeSpots(){
+    BLOCKADE_SPOTS = [];
+    const hw = ROAD_W / 2;
+    const junctionMargin = hw + 1.5;
+    for (const roadY of [ROAD_Y_TOP, ROAD_Y_BOTTOM, ROAD_Y_SOUTH]){
+        for (let tx = Math.ceil(ROAD_X_START); tx <= Math.floor(ROAD_X_END); tx++){
+            if (!tileIsRoad(tx, roadY)) continue;
+            let nearJunction = false;
+            for (const jx of (roadY === ROAD_Y_SOUTH ? SOUTH_JUNCTION_XS : JUNCTION_XS)){
+                if (Math.abs(tx - jx) < junctionMargin){ nearJunction = true; break; }
+            }
+            if (nearJunction) continue;
+            const spot = { key:'H'+roadY+'_'+tx, dir:'h', x:tx*TILE + TILE/2, y:roadY*TILE + TILE/2 };
+            spot.edgeKey = findEdgeForSpot(spot);
+            if (spot.edgeKey) BLOCKADE_SPOTS.push(spot);
+        }
+    }
+    const verticalRoads = new Set([...ENTRY_XS, ...JUNCTION_XS, ...BOTTOM_ENTRY_XS, ...SOUTH_GATE_XS]);
+    for (const roadX of verticalRoads){
+        for (let ty = 1; ty < MAP_H; ty++){
+            if (!tileIsRoad(roadX, ty)) continue;
+            let onHorizontal = false;
+            for (const roadY of [ROAD_Y_TOP, ROAD_Y_BOTTOM, ROAD_Y_SOUTH]){
+                if (Math.abs(ty - roadY) < junctionMargin){ onHorizontal = true; break; }
+            }
+            if (onHorizontal) continue;
+            const spot = { key:'V'+roadX+'_'+ty, dir:'v', x:roadX*TILE + TILE/2, y:ty*TILE + TILE/2 };
+            spot.edgeKey = findEdgeForSpot(spot);
+            if (spot.edgeKey) BLOCKADE_SPOTS.push(spot);
         }
     }
 }
@@ -1027,7 +1066,44 @@ function tileIsSidewalk(tx, ty){
     return false;
 }
 
-// ============================ MAP ============================
+// ============================ JUNCTION POSTS ============================
+const JUNCTION_DIRS = ['N','S','E','W'];
+const JUNCTION_DIR_VEC = {
+    N:{ fx:0, fy:-1, px:1, py:0 },
+    S:{ fx:0, fy:1, px:-1, py:0 },
+    E:{ fx:1, fy:0, px:0, py:1 },
+    W:{ fx:-1, fy:0, px:0, py:-1 },
+};
+function buildJunctionPosts(){
+    JUNCTION_POSTS = [];
+    if (!roadLayout) return;
+    for (const j of roadLayout.junctions){
+        if (j.isBase) continue;
+        const armMap = { N:j.arms.n, S:j.arms.s, E:j.arms.e, W:j.arms.w };
+        for (const dir of JUNCTION_DIRS){
+            if (!armMap[dir]) continue;
+            const cover = [dir];
+            const perps = (dir === 'N' || dir === 'S') ? ['E','W'] : ['N','S'];
+            for (const p of perps) if (armMap[p]) cover.push(p);
+            JUNCTION_POSTS.push({
+                key: 'J' + Math.round(j.x/TILE) + '_' + Math.round(j.y/TILE) + '_' + dir,
+                junction: j, dir, cover,
+                x: j.x, y: j.y,
+            });
+        }
+    }
+}
+function postDotPos(post){
+    const d = JUNCTION_DIR_VEC[post.dir];
+    return { x: post.junction.x + d.fx*16, y: post.junction.y + d.fy*16 };
+}
+function rebuildRoadNetwork(){
+    buildRoadGraph();
+    buildBlockadeSpots();
+    buildJunctionPosts();
+}
+
+// ============================ MAP GEN (unchanged) ============================
 let cityKind = null;
 let sceneryBuildings = [];
 let sceneryProps = [];
@@ -1063,10 +1139,9 @@ const ASSET_PATHS = {
     k9_sheet: 'assets/units/k9_gsd_sheet.png',
     parked_atlas: 'assets/map/vehicles/parked_atlas.png',
     veh_van: 'assets/map/vehicles/veh_van.png',
-    veh_police_car: 'assets/map/vehicles/veh_police_car.png',
+    veh_van_red: 'assets/map/vehicles/veh_van_red.png',
     amb_sheet: 'assets/map/vehicles/ambulance_sheet.png',
     gas_sheet: 'assets/fx/gas_plume_sheet.png',
-    water_sheet: 'assets/fx/water_jet_sheet.png',
     prop_tree: 'assets/map/props/prop_tree.png',
     prop_tree_tall: 'assets/map/props/prop_tree_tall.png',
     prop_streetlight: 'assets/map/props/prop_streetlight.png',
@@ -1130,7 +1205,6 @@ function loadAssets(onDone){
         img.src = ASSET_PATHS[key];
     });
 }
-
 function mulberry32(a){
     return function(){
         a |= 0; a = a + 0x6D2B79F5 | 0;
@@ -1141,39 +1215,6 @@ function mulberry32(a){
 }
 function seedFromXY(x,y){ const n = Math.sin(x*127.1 + y*311.7) * 43758.5453; return n - Math.floor(n); }
 function clamp(v,a,b){ return Math.max(a, Math.min(b,v)); }
-
-// ============================ JUNCTION POSTS ============================
-const JUNCTION_DIRS = ['N','S','E','W'];
-const JUNCTION_DIR_VEC = {
-    N:{ fx:0, fy:-1, px:1, py:0 },
-    S:{ fx:0, fy:1, px:-1, py:0 },
-    E:{ fx:1, fy:0, px:0, py:1 },
-    W:{ fx:-1, fy:0, px:0, py:-1 },
-};
-let JUNCTION_POSTS = [];
-function buildJunctionPosts(){
-    JUNCTION_POSTS = [];
-    if (!roadLayout) return;
-    for (const j of roadLayout.junctions){
-        if (j.isBase) continue;
-        const armMap = { N:j.arms.n, S:j.arms.s, E:j.arms.e, W:j.arms.w };
-        for (const dir of JUNCTION_DIRS){
-            if (!armMap[dir]) continue;
-            const cover = [dir];
-            const perps = (dir === 'N' || dir === 'S') ? ['E','W'] : ['N','S'];
-            for (const p of perps) if (armMap[p]) cover.push(p);
-            JUNCTION_POSTS.push({
-                key: 'J' + Math.round(j.x/TILE) + '_' + Math.round(j.y/TILE) + '_' + dir,
-                junction: j, dir, cover,
-                x: j.x, y: j.y,
-            });
-        }
-    }
-}
-function postDotPos(post){
-    const d = JUNCTION_DIR_VEC[post.dir];
-    return { x: post.junction.x + d.fx*16, y: post.junction.y + d.fy*16 };
-}
 
 // ============================ MAP GENERATION ============================
 function generateMap(){
@@ -1382,7 +1423,7 @@ function placeSceneryProps(){
         if (rnd() > 0.14) continue;
         const key = availKeys[Math.floor(rnd()*availKeys.length)];
         if (key !== 'prop_tree' && key !== 'prop_tree_tall' && key !== 'prop_bin' && key !== 'prop_bench') continue;
-        const p = addProp(key, x + 0.5 + (rnd()-0.5)*0.3, y + 0.95, rnd() < 0.5);
+        addProp(key, x + 0.5 + (rnd()-0.5)*0.3, y + 0.95, rnd() < 0.5);
     }
 }
 function finalizeScenery(){
@@ -1390,7 +1431,6 @@ function finalizeScenery(){
 }
 
 // ============================ ROAD LAYOUT ============================
-let roadDecals = [];
 function computeRoadLayout(){
     const half = (ROAD_W + 1) * TILE / 2;
     const H = [ROAD_Y_TOP, ROAD_Y_BOTTOM, ROAD_Y_SOUTH].map(ty => ({ c:(ty+0.5)*TILE, a:ROAD_X_START*TILE, b:(ROAD_X_END+1)*TILE }));
@@ -1434,61 +1474,6 @@ function computeRoadLayout(){
         });
     });
     return { half, H, V, junctions, zebras, base, stationRect };
-}
-function buildBlockadeSpots(){
-    BLOCKADE_SPOTS = [];
-    const hw = ROAD_W / 2;
-    const junctionMargin = hw + 1.5;
-    for (const roadY of [ROAD_Y_TOP, ROAD_Y_BOTTOM, ROAD_Y_SOUTH]){
-        for (let tx = Math.ceil(ROAD_X_START); tx <= Math.floor(ROAD_X_END); tx++){
-            if (!tileIsRoad(tx, roadY)) continue;
-            let nearJunction = false;
-            for (const jx of (roadY === ROAD_Y_SOUTH ? SOUTH_JUNCTION_XS : JUNCTION_XS)){
-                if (Math.abs(tx - jx) < junctionMargin){ nearJunction = true; break; }
-            }
-            if (nearJunction) continue;
-            const spot = { key:'H'+roadY+'_'+tx, dir:'h', x:tx*TILE + TILE/2, y:roadY*TILE + TILE/2 };
-            spot.edgeKey = findEdgeForSpot(spot);
-            if (spot.edgeKey) BLOCKADE_SPOTS.push(spot);
-        }
-    }
-    const verticalRoads = new Set([...ENTRY_XS, ...JUNCTION_XS, ...BOTTOM_ENTRY_XS, ...SOUTH_GATE_XS]);
-    for (const roadX of verticalRoads){
-        for (let ty = 1; ty < MAP_H; ty++){
-            if (!tileIsRoad(roadX, ty)) continue;
-            let onHorizontal = false;
-            for (const roadY of [ROAD_Y_TOP, ROAD_Y_BOTTOM, ROAD_Y_SOUTH]){
-                if (Math.abs(ty - roadY) < junctionMargin){ onHorizontal = true; break; }
-            }
-            if (onHorizontal) continue;
-            const spot = { key:'V'+roadX+'_'+ty, dir:'v', x:roadX*TILE + TILE/2, y:ty*TILE + TILE/2 };
-            spot.edgeKey = findEdgeForSpot(spot);
-            if (spot.edgeKey) BLOCKADE_SPOTS.push(spot);
-        }
-    }
-}
-let BLOCKADE_SPOTS = [];
-function findEdgeForSpot(spot){
-    const sx = spot.x / TILE, sy = spot.y / TILE;
-    for (const e of ROAD_EDGES){
-        const a = getNode(e.a), b = getNode(e.b);
-        if (!a || !b) continue;
-        if (e.dir === 'h'){
-            if (Math.abs(a.y - sy) > 0.6) continue;
-            const lo = Math.min(a.x, b.x), hi = Math.max(a.x, b.x);
-            if (sx >= lo - 0.6 && sx <= hi + 0.6) return e.key;
-        } else {
-            if (Math.abs(a.x - sx) > 0.6) continue;
-            const lo = Math.min(a.y, b.y), hi = Math.max(a.y, b.y);
-            if (sy >= lo - 0.6 && sy <= hi + 0.6) return e.key;
-        }
-    }
-    return null;
-}
-function rebuildRoadNetwork(){
-    buildRoadGraph();
-    buildBlockadeSpots();
-    buildJunctionPosts();
 }
 
 // ============================ TERRAIN ============================
@@ -1808,6 +1793,7 @@ function hopToRoad(u){
     if (n){ u.x = n.x*TILE; u.y = n.y*TILE; }
     u._route = null; u._routeIdx = 0; u._progStuck = 0; u.stuckTimer = 0;
     u.route = null; u.routeIdx = 0; u.repathTimer = 0; u.goalNodeId = null;
+    u._fs = null;
 }
 function unitRouteTo(u, gx, gy){
     u._routeGoal = { x:gx, y:gy };
@@ -2224,7 +2210,6 @@ class Zombie {
         this.maxHp = Math.round(def.hp * intensity);
         this.hp = this.maxHp;
         this.dmgMult = 1 + (game.waveNumber - 1) * 0.035;
-        // Late waves get a small speed floor so the horde doesn't stall.
         this._speedBoost = game.waveNumber >= 10 ? Math.min(1.5, 1 + (game.waveNumber - 10) * 0.03) : 1;
         this.x = spawnX; this.y = spawnY;
         this.dir = { x:0, y:1 };
@@ -2237,30 +2222,25 @@ class Zombie {
         this.surgeTimer = 1 + Math.random()*3;
         this.state = 'advancing';
         this.boxedInTimer = 0;
-        this.fleeTimer = 0;
         this.targetBuilding = null;
         this.jitterX = (Math.random() - 0.5)*TILE*1.6;
         this.jitterY = (Math.random() - 0.5)*TILE*1.6;
         this.timeSinceDamage = 0;
         this.stuckTimer = 0;
-        this.wallOffset = 0;
-        this.wallBack = 0;
         this.beingDragged = false;
         this.grabber = null;
         this.acidBurn = 0;
         this.eyePhase = Math.random()*10;
-        this.stagger = Math.random()*6;
         this.hue = (Math.random() - 0.5) * 20;
         this.route = null; this.routeIdx = 0; this.goalNodeId = null; this.routeVersion = -1;
         this.repathTimer = Math.random()*0.6;
         this.sepBiasX = (Math.random() - 0.5)*0.6;
         this.sepBiasY = (Math.random() - 0.5)*0.6;
-        // Sticky target so the horde doesn't zig-zag between officers.
         this._stickyTarget = null;
         this._stickyTimer = 0;
-        // Screamer support buff window.
         this._screamTimer = 4 + Math.random()*4;
         this._screamBuff = 0;
+        this._fs = null;
     }
     moveToward(tx, ty, dt, speed){ return steerUnit(this, tx, ty, dt, speed); }
     nearestActiveOfficer(){
@@ -2273,9 +2253,6 @@ class Zombie {
         return best;
     }
     pickGoalNode(){
-        // Prefer the sticky target if it is still alive, otherwise pick the
-        // nearest active officer. Only fall back to the station if there are
-        // no officers left alive at all.
         if (this._stickyTarget && this._stickyTarget.alive && this._stickyTimer > 0){
             const n = nearestRoadNode(this._stickyTarget.x, this._stickyTarget.y);
             if (n) return n.id;
@@ -2304,7 +2281,6 @@ class Zombie {
     update(dt){
         if (!this.alive) return;
 
-        // If we somehow ended up off the grid, eject to nearest road node.
         if (!isValidPosition(this.x, this.y)){
             const n = nearestRoadNode(this.x, this.y);
             if (n){ this.x = n.x*TILE; this.y = n.y*TILE; }
@@ -2338,7 +2314,6 @@ class Zombie {
         if (this._stickyTarget && (!this._stickyTarget.alive || this._stickyTimer <= 0)) this._stickyTarget = null;
         if (this._screamBuff > 0) this._screamBuff = Math.max(0, this._screamBuff - dt);
 
-        // Screamer pulses a morale/speed buff to nearby zombies.
         if (this.kind === 'screamer'){
             this._screamTimer -= dt;
             if (this._screamTimer <= 0){
@@ -2365,24 +2340,6 @@ class Zombie {
             const count = game.attackerCounts.get(o.id) || 0;
             if (count >= MAX_ATTACKERS_PER_OFFICER) continue;
             if (d < bestD){ bestD = d; target = o; }
-        }
-        for (const e of game.repairEscorts){
-            if (!e.alive) continue;
-            const d = Math.hypot(e.x - this.x, e.y - this.y);
-            if (d < fallbackD){ fallbackD = d; fallbackTarget = e; }
-            const count = game.attackerCounts.get(e.id) || 0;
-            if (count >= MAX_ATTACKERS_PER_OFFICER) continue;
-            if (d < bestD){ bestD = d; target = e; }
-        }
-        if (game.repairOfficers.length > 0){
-            for (const rp of game.repairOfficers){
-                if (!rp.alive) continue;
-                const d = Math.hypot(rp.x - this.x, rp.y - this.y);
-                if (d > TILE*8) continue;
-                const dPenalty = d + TILE*3;
-                if (dPenalty < bestD){ bestD = dPenalty; target = rp; }
-                if (d < fallbackD){ fallbackD = d; fallbackTarget = rp; }
-            }
         }
         if (!target){ target = fallbackTarget; bestD = fallbackD; }
 
@@ -2419,8 +2376,6 @@ class Zombie {
             return;
         }
 
-        // Spitter: stand at range and lob bile. Only fires when there's a target
-        // and the range band is right; otherwise falls through to normal advance.
         if (this.kind === 'spitter' && target){
             const d = Math.hypot(target.x - this.x, target.y - this.y);
             if (d < TILE*7 && d > TILE*2.5){
@@ -2480,8 +2435,6 @@ class Zombie {
             } else this.routeIdx++;
         }
 
-        // Fallback: head straight for the sticky target, else nearest officer,
-        // else the station.
         const nearest = (this._stickyTarget && this._stickyTarget.alive)
             ? this._stickyTarget
             : this.nearestActiveOfficer();
@@ -2546,7 +2499,6 @@ class Zombie {
     }
 }
 function drawZombieFigure(ctx, z){
-    const def = z.def;
     const phase = z.animTimer * (z.isMoving ? 3.5 : 1.3);
     const legSwing = Math.sin(phase) * (z.isMoving ? 1 : 0.15);
     const sway = Math.sin(phase*0.6)*1.4;
@@ -2643,24 +2595,8 @@ function updateEffects(dt){
         if (b.t >= b.life) game.bloodDecals.splice(i, 1);
     }
 }
-function drawEffects(ctx){
-    for (const b of game.bloodDecals){
-        const sx = b.x - game.camera.x, sy = b.y - game.camera.y;
-        if (sx < -30 || sy < -30 || sx > game.width+30 || sy > game.height+30) continue;
-        const fade = Math.min(1, (b.life - b.t)/8);
-        ctx.fillStyle = `rgba(${60 + (b.seed*10|0)%30},14,14,${0.28*fade})`;
-        ctx.beginPath(); ctx.ellipse(sx, sy, 5 + (b.seed%3), 2.5 + (b.seed%2), 0, 0, Math.PI*2); ctx.fill();
-    }
-    for (const e of game.effects){
-        const sx = e.x - game.camera.x, sy = e.y - game.camera.y;
-        if (sx < -40 || sy < -60 || sx > game.width+40 || sy > game.height+40) continue;
-        const p = 1 - e.t/e.life;
-        ctx.fillStyle = `rgba(255,220,120,${p*0.8})`;
-        ctx.beginPath(); ctx.arc(sx, sy, 3 + (1-p)*5, 0, Math.PI*2); ctx.fill();
-    }
-}
 
-// ============================ PROJECTILES ============================
+// ============================ PROJECTILES (SPITTER BILE) ============================
 function updateProjectiles(dt){
     for (let i = game.projectiles.length - 1; i >= 0; i--){
         const p = game.projectiles[i];
@@ -2670,12 +2606,6 @@ function updateProjectiles(dt){
                 if (!o.alive) continue;
                 if (Math.hypot(o.x - p.tx, o.y - p.ty) < p.aoe){
                     damageOfficer(o, p.dmg);
-                }
-            }
-            for (const e of game.repairEscorts){
-                if (!e.alive) continue;
-                if (Math.hypot(e.x - p.tx, e.y - p.ty) < p.aoe){
-                    damageOfficer(e, p.dmg);
                 }
             }
             spawnHitEffect(p.tx, p.ty);
@@ -2698,18 +2628,51 @@ function drawProjectiles(ctx){
             ctx.strokeStyle = 'rgba(180, 240, 90, 0.55)';
             ctx.lineWidth = 1.2;
             ctx.beginPath(); ctx.arc(sx, sy, 6, 0, Math.PI * 2); ctx.stroke();
-        } else {
-            ctx.fillStyle = 'rgba(0,0,0,0.25)';
-            ctx.beginPath(); ctx.ellipse(sx, shadowY + 2, 3, 1.5, 0, 0, Math.PI*2); ctx.fill();
-            ctx.save();
-            ctx.translate(sx, sy);
-            ctx.rotate(t * 8);
-            ctx.fillStyle = '#a0704a';
-            ctx.fillRect(-3, -2, 6, 4);
-            ctx.strokeStyle = '#4a2a18'; ctx.lineWidth = 1;
-            ctx.strokeRect(-3, -2, 6, 4);
-            ctx.restore();
         }
+    }
+}
+
+// ============================ GAS SHELLS (FROM GAS VAN) ============================
+function updateGasShells(dt){
+    for (let i = game.gasShells.length - 1; i >= 0; i--){
+        const s = game.gasShells[i];
+        s.t += dt;
+        if (s.t >= s.duration){
+            for (const z of game.zombies){
+                if (!z.alive || z.beingDragged) continue;
+                if (Math.hypot(z.x - s.tx, z.y - s.ty) < GAS_VAN_AOE){
+                    damageZombie(z, GAS_VAN_DAMAGE);
+                    z.acidBurn = Math.max(z.acidBurn, GAS_BURN_DURATION);
+                }
+            }
+            spawnHitEffect(s.tx, s.ty);
+            game.effects.push({ kind:'gasCloud', x:s.tx, y:s.ty, t:0, life:2.5 });
+            game.gasShells.splice(i, 1);
+        }
+    }
+    for (let i = game.gasTracers.length - 1; i >= 0; i--){
+        game.gasTracers[i].t -= dt;
+        if (game.gasTracers[i].t <= 0) game.gasTracers.splice(i, 1);
+    }
+}
+function drawGasShells(ctx){
+    for (const s of game.gasShells){
+        const t = s.t / s.duration;
+        const px = s.sx + (s.tx - s.sx) * t;
+        const py = s.sy + (s.ty - s.sy) * t - Math.sin(t * Math.PI) * TILE * 4;
+        const sx = px - game.camera.x, sy = py - game.camera.y;
+        ctx.fillStyle = 'rgba(120,255,120,0.95)';
+        ctx.beginPath(); ctx.arc(sx, sy, 4, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = 'rgba(80,220,80,0.6)';
+        ctx.lineWidth = 1.2;
+        ctx.beginPath(); ctx.arc(sx, sy, 7, 0, Math.PI * 2); ctx.stroke();
+    }
+    for (const tr of game.gasTracers){
+        const x0 = tr.x0 - game.camera.x, y0 = tr.y0 - game.camera.y;
+        const x1 = tr.x1 - game.camera.x, y1 = tr.y1 - game.camera.y;
+        ctx.strokeStyle = `rgba(150,255,150,${0.7 * (tr.t/0.15)})`;
+        ctx.lineWidth = 1.4;
+        ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke();
     }
 }
 
@@ -2832,7 +2795,6 @@ class AcidOfficer {
         this.slotOffset = 0;
         this.stuckTimer = 0;
         this.sprayTimer = 0;
-        this.sprayCooldown = 0;
         this.escortX = x; this.escortY = y;
         this.faceX = 1; this.faceY = 0;
         this.sprayDirX = 1; this.sprayDirY = 0;
@@ -3010,18 +2972,6 @@ class AcidOfficer {
         ctx.moveTo(sx, sy);
         ctx.arc(sx, sy, ACID_RANGE, aimAngle - ACID_CONE_HALF, aimAngle + ACID_CONE_HALF);
         ctx.closePath(); ctx.fill();
-        const t = (ACID_SPRAY_DURATION - this.sprayTimer) * 5;
-        for (let i = 0; i < 14; i++){
-            const phase = t + i*1.31;
-            const dist = (Math.sin(phase)*0.5 + 0.5)*ACID_RANGE*0.92;
-            const spread = (seedFromXY(this.id*13.7, i*5.3) - 0.5)*2*ACID_CONE_HALF*1.05;
-            const ang = aimAngle + spread;
-            const px = sx + Math.cos(ang)*dist;
-            const py = sy + Math.sin(ang)*dist;
-            const size = 5 + (Math.sin(phase*0.7 + i)*0.5 + 0.5)*10;
-            ctx.fillStyle = `rgba(210, 255, 90, ${alpha*0.45})`;
-            ctx.beginPath(); ctx.arc(px, py, size, 0, Math.PI*2); ctx.fill();
-        }
         ctx.restore();
     }
 }
@@ -3545,293 +3495,7 @@ function updateAmbulance(dt){
     if (game.ambulance && game.ambulance.alive) game.ambulance.update(dt);
 }
 
-// ============================ REPAIR ============================
-let escortIdSeq = 100000, repairIdSeq = 1;
-class RepairEscort {
-    constructor(x, y, slotIndex, leader){
-        this.id = escortIdSeq++;
-        this.slotIndex = slotIndex;
-        this.leader = leader;
-        this.x = x; this.y = y;
-        this.slotX = x; this.slotY = y;
-        this.hp = REPAIR_ESCORT_HP; this.maxHp = REPAIR_ESCORT_HP;
-        this.syndicateIndex = -1;
-        this.formationResist = REPAIR_ESCORT_RESIST;
-        this.shieldUp = true;
-        this.dir = { x:1, y:0 };
-        this.animTimer = Math.random()*10;
-        this.isMoving = false;
-        this.attackFlash = 0;
-        this.atkTimer = Math.random()*REPAIR_ESCORT_ATK_COOLDOWN;
-        this.alive = true;
-        this.stuckTimer = 0;
-        this.retreating = false;
-        this.retreatTimer = 0;
-        this.gait = 'idle'; this.gaitPhase = 0; this.vphase = 0; this.smSpeed = 0;
-    }
-    update(dt){
-        if (!this.alive) return;
-        this.animTimer += dt;
-        if (this.attackFlash > 0) this.attackFlash = Math.max(0, this.attackFlash - dt);
-        this.atkTimer = Math.max(0, this.atkTimer - dt);
-        this.shieldUp = true;
-        if (!this.leader || !this.leader.alive) this.retreating = true;
-        if (this.retreating){
-            this.retreatTimer += dt;
-            const bx = BASE_TILE_X*TILE, by = BASE_TILE_Y*TILE;
-            if (isAtStation(this.x, this.y) || this.retreatTimer > 25){ this.alive = false; return; }
-            routedMove(this, bx, by, dt, REPAIR_ESCORT_SPEED*1.15);
-            return;
-        }
-        const guardX = this.leader.x, guardY = this.leader.y;
-        let target = null, bestD = Infinity;
-        for (const r of game.zombies){
-            if (!r.alive || r.beingDragged) continue;
-            const dGuard = Math.hypot(r.x - guardX, r.y - guardY);
-            if (dGuard > TILE*5) continue;
-            const d = Math.hypot(r.x - this.x, r.y - this.y);
-            if (d < bestD){ bestD = d; target = r; }
-        }
-        if (target){
-            const dx = target.x - this.x, dy = target.y - this.y;
-            const d = Math.hypot(dx, dy) || 1;
-            this.dir = { x:dx/d, y:dy/d };
-            const reach = REPAIR_ESCORT_MELEE_RANGE*TILE;
-            if (d > reach*0.8){ this.isMoving = true; steerUnit(this, target.x, target.y, dt, REPAIR_ESCORT_SPEED*0.9); }
-            else this.isMoving = false;
-            if (d < REPAIR_ESCORT_ENGAGE_RANGE*TILE && this.atkTimer <= 0){
-                this.atkTimer = REPAIR_ESCORT_ATK_COOLDOWN;
-                this.attackFlash = 0.22;
-                damageZombie(target, REPAIR_ESCORT_DAMAGE);
-            }
-            return;
-        }
-        const dSlot = Math.hypot(this.slotX - this.x, this.slotY - this.y);
-        if (dSlot > TILE*3) routedMove(this, this.slotX, this.slotY, dt, REPAIR_ESCORT_SPEED*1.25);
-        else if (dSlot > 3) steerUnit(this, this.slotX, this.slotY, dt, REPAIR_ESCORT_SPEED*1.15);
-        else this.isMoving = false;
-    }
-    draw(ctx){
-        if (!this.alive) return;
-        const sx = this.x - game.camera.x, sy = this.y - game.camera.y;
-        if (sx < -30 || sy < -30 || sx > game.width+30 || sy > game.height+30) return;
-        ctx.save(); ctx.translate(sx, sy);
-        if (facesLeft(this)) ctx.scale(-1, 1);
-        const drew = drawSpriteUnit(ctx, this, UNIT_ROWS.officer);
-        if (!drew){
-            ctx.fillStyle = REPAIR_ESCORT_PALETTE.cloth;
-            ctx.fillRect(-3, -14, 6, 12);
-        }
-        ctx.restore();
-        drawHpBar(ctx, sx, sy - 23, this.hp, this.maxHp, '#a8d060');
-    }
-}
-class RepairOfficer {
-    constructor(x, y, teamIndex){
-        this.id = repairIdSeq++;
-        this.teamIndex = teamIndex || 0;
-        this.x = x; this.y = y;
-        this.hp = REPAIR_UNIT_HP; this.maxHp = REPAIR_UNIT_HP;
-        this.syndicateIndex = -1;
-        this.shieldUp = false;
-        this.dir = { x:1, y:0 };
-        this.animTimer = Math.random()*10;
-        this.isMoving = false;
-        this.alive = true;
-        this.state = 'seek';
-        this.targetBuilding = null;
-        this.lifeTimer = REPAIR_LIFETIME;
-        this.stuckTimer = 0;
-        this._route = null; this._routeIdx = 0; this._routeGoal = null; this._progStuck = 0;
-        this.unprotectedTimer = 0;
-        this.returnTimer = 0;
-        this.escorts = [];
-        this.goalX = x; this.goalY = y;
-        this.escortBoxMode = 'box';
-    }
-    spawnEscorts(){
-        this.escorts = [];
-        for (let i = 0; i < REPAIR_ESCORT_COUNT; i++){
-            const s = ESCORT_BOX_SLOTS[i % ESCORT_BOX_SLOTS.length];
-            let sx = this.x + s.f*TILE;
-            let sy = this.y + s.p*TILE;
-            if (!isValidPosition(sx, sy)){ const c = clampTarget(sx, sy); sx = c.x; sy = c.y; }
-            const e = new RepairEscort(sx, sy, i, this);
-            this.escorts.push(e);
-            game.repairEscorts.push(e);
-        }
-        this.escortBoxMode = 'box';
-    }
-    escortsAlive(){ let n = 0; for (const e of this.escorts) if (e.alive) n++; return n; }
-    escortsNearby(range){
-        let n = 0;
-        for (const e of this.escorts) if (e.alive && Math.hypot(e.x - this.x, e.y - this.y) < range) n++;
-        return n;
-    }
-    updateEscortFormation(){
-        if (this.escorts.length === 0) return;
-        let fx, fy;
-        if (this.state === 'repair' && this.targetBuilding){
-            const bdx = this.targetBuilding.tx*TILE - this.x;
-            const bdy = this.targetBuilding.ty*TILE - this.y;
-            const d = Math.hypot(bdx, bdy) || 1;
-            fx = bdx/d; fy = bdy/d;
-        } else {
-            const gdx = this.goalX - this.x, gdy = this.goalY - this.y;
-            const gl = Math.hypot(gdx, gdy);
-            if (gl > 2){ fx = gdx/gl; fy = gdy/gl; }
-            else { const dl = Math.hypot(this.dir.x, this.dir.y) || 1; fx = this.dir.x/dl; fy = this.dir.y/dl; }
-        }
-        const px = fy, py = -fx;
-        const repairing = (this.state === 'repair');
-        this.escortBoxMode = repairing ? 'u' : 'box';
-        const slots = repairing ? ESCORT_U_SLOTS : ESCORT_BOX_SLOTS;
-        for (let i = 0; i < this.escorts.length; i++){
-            const e = this.escorts[i];
-            if (!e.alive) continue;
-            const s = slots[i % slots.length];
-            let sx = this.x + fx*s.f*TILE + px*s.p*TILE;
-            let sy = this.y + fy*s.f*TILE + py*s.p*TILE;
-            if (!isValidPosition(sx, sy)){ const c = clampTarget(sx, sy); sx = c.x; sy = c.y; }
-            e.slotX = sx; e.slotY = sy;
-        }
-    }
-    findNearestDamaged(){
-        let best = null, bestD = Infinity;
-        for (const b of sceneryBuildings){
-            if (b.hp >= b.maxHp) continue;
-            if (b.frontX === undefined) continue;
-            if (game.repairOfficers.some(r => r !== this && r.alive && r.targetBuilding === b)) continue;
-            const d = Math.hypot(b.frontX - this.x, b.frontY - this.y);
-            if (d < bestD){ bestD = d; best = b; }
-        }
-        if (!best){
-            for (const b of sceneryBuildings){
-                if (b.hp >= b.maxHp) continue;
-                if (b.frontX === undefined) continue;
-                const d = Math.hypot(b.frontX - this.x, b.frontY - this.y);
-                if (d < bestD){ bestD = d; best = b; }
-            }
-        }
-        return best;
-    }
-    isProtected(){
-        for (const e of this.escorts) if (e.alive && Math.hypot(e.x - this.x, e.y - this.y) < REPAIR_PROTECTION_RANGE) return true;
-        for (const o of game.officers) if (o.alive && !o.isAllOut && o.state === 'active' && Math.hypot(o.x - this.x, o.y - this.y) < REPAIR_PROTECTION_RANGE) return true;
-        return false;
-    }
-    headHome(){
-        this.state = 'return';
-        this.targetBuilding = null;
-        this._route = null; this._routeIdx = 0; this._routeGoal = null; this._progStuck = 0;
-        this.returnTimer = 0;
-        this.goalX = BASE_TILE_X*TILE;
-        this.goalY = BASE_TILE_Y*TILE;
-    }
-    update(dt){
-        if (!this.alive) return;
-        this.animTimer += dt;
-        if (this.state !== 'repair') this.lifeTimer -= dt;
-        if (this.lifeTimer <= 0 && this.state !== 'return'){ this.headHome(); showToast('👷 Repair shift over — worker returning to station.'); }
-        if (this.escorts.length > 0 && this.escortsAlive() === 0 && this.state !== 'return'){ this.headHome(); showToast('👷 Escort wiped out — repair worker retreating!'); }
-        if (!this.isProtected()) this.unprotectedTimer += dt;
-        else this.unprotectedTimer = Math.max(0, this.unprotectedTimer - dt*2);
-        if (this.unprotectedTimer > 5.0 && this.state !== 'return'){ this.headHome(); showToast('👷 Repair worker retreating — no protection!'); }
-        if (this.state === 'return'){
-            this.returnTimer += dt;
-            const bx = BASE_TILE_X*TILE, by = BASE_TILE_Y*TILE;
-            if (isAtStation(this.x, this.y) || this.returnTimer > 30){ this.alive = false; return; }
-            this.goalX = bx; this.goalY = by;
-            routedMove(this, bx, by, dt, REPAIR_UNIT_SPEED*1.1);
-            return;
-        }
-        if (!this.targetBuilding || this.targetBuilding.hp >= this.targetBuilding.maxHp){
-            this.targetBuilding = this.findNearestDamaged();
-            if (!this.targetBuilding){ showToast('👷 Nothing left to repair — worker returning to station.'); this.headHome(); return; }
-            this.state = 'seek';
-            this._route = null; this._routeIdx = 0; this._routeGoal = null; this._progStuck = 0;
-        }
-        const b = this.targetBuilding;
-        const tx = b.frontX, ty = b.frontY;
-        const d = Math.hypot(tx - this.x, ty - this.y);
-        const reach = (this.state === 'repair') ? TILE*2.6 : TILE*1.8;
-        if (d < reach){
-            this.state = 'repair';
-            this.isMoving = false;
-            const bdx = b.tx*TILE - this.x;
-            const bdy = b.ty*TILE - this.y;
-            const bdd = Math.hypot(bdx, bdy) || 1;
-            this.dir = { x:bdx/bdd, y:bdy/bdd };
-            this.goalX = this.x; this.goalY = this.y;
-            b.hp = Math.min(b.maxHp, b.hp + (b.maxHp/REPAIR_SECONDS_FULL)*dt*moraleRepairMult());
-            if (b.hp >= b.maxHp){
-                b.hp = b.maxHp;
-                b.alive = true;
-                this.targetBuilding = null;
-                showToast('🔧 Building repaired!');
-            }
-        } else {
-            this.state = 'seek';
-            this.goalX = tx; this.goalY = ty;
-            let speed = REPAIR_UNIT_SPEED;
-            const total = this.escortsAlive();
-            if (total > 0 && this.escortsNearby(TILE*5) < total*0.5) speed *= 0.35;
-            routedMove(this, tx, ty, dt, speed);
-        }
-    }
-    draw(ctx){
-        if (!this.alive) return;
-        const sx = this.x - game.camera.x, sy = this.y - game.camera.y;
-        if (sx < -40 || sy < -40 || sx > game.width+40 || sy > game.height+40) return;
-        ctx.save(); ctx.translate(sx, sy);
-        if (facesLeft(this)) ctx.scale(-1, 1);
-        ctx.fillStyle = '#e8a020';
-        ctx.fillRect(-3, -14, 6, 12);
-        ctx.fillStyle = '#caa27a';
-        ctx.beginPath(); ctx.arc(0, -16, 3.2, 0, Math.PI*2); ctx.fill();
-        ctx.fillStyle = '#ffcc33';
-        ctx.beginPath(); ctx.arc(0, -17, 3.4, Math.PI, 0); ctx.fill();
-        ctx.restore();
-        drawHpBar(ctx, sx, sy - 23, this.hp, this.maxHp, '#ffcc33');
-        if (this.state === 'repair'){
-            ctx.fillStyle = '#ffcc33'; ctx.font = 'bold 9px monospace'; ctx.textAlign = 'center';
-            ctx.fillText('🔧', sx, sy - 28);
-        }
-    }
-}
-function repairTeamActive(t){ return game.repairOfficers.some(r => r.alive && r.teamIndex === t); }
-function freeRepairTeam(){
-    for (let t = 0; t < REPAIR_TEAM_COUNT; t++){
-        if (!repairTeamActive(t) && (game.repairCooldowns[t] || 0) <= 0) return t;
-    }
-    return -1;
-}
-function deployRepairTeam(teamIdx, silent){
-    const say = m => { if (!silent) showToast(m); };
-    if (teamIdx === undefined || teamIdx < 0) teamIdx = freeRepairTeam();
-    if (teamIdx < 0){ say('👷 All repair teams are out or recharging.'); return; }
-    if ((game.repairCooldowns[teamIdx] || 0) > 0){ say('👷 Repair team ' + (teamIdx+1) + ' recharging — ' + Math.ceil(game.repairCooldowns[teamIdx]) + 's.'); return; }
-    if (repairTeamActive(teamIdx)){ say('👷 Repair team ' + (teamIdx+1) + ' already deployed.'); return; }
-    if (!sceneryBuildings.some(b => b.hp < b.maxHp && b.frontX !== undefined)){ say('👷 No damaged buildings — nothing to repair yet.'); return; }
-    const sx = BASE_TILE_X*TILE, sy = BASE_TILE_Y*TILE;
-    const r = new RepairOfficer(sx, sy, teamIdx);
-    if (!isValidOfficerPosition(r.x, r.y)){ const s = clampTarget(r.x, r.y); r.x = s.x; r.y = s.y; }
-    game.repairOfficers.push(r);
-    r.spawnEscorts();
-    game.repairWasActive = true;
-    showToast('👷 Repair team ' + (teamIdx+1) + ' heading out with escorts!');
-    renderOptionsPanel(); updateSelectionUI(); updateStationButton();
-}
-
-// ============================ ACID CANNON VAN ============================
-const ACID_CANNON_RANGE = TILE*9;
-const ACID_CANNON_CONE = Math.PI/4;
-const ACID_CANNON_TICK = 0.1;
-const ACID_CANNON_DMG = 22;
-const ACID_CANNON_SPEED = 4.5;
-const VEHICLE_STEP_RANGE = TILE*9;
-let acidVehicleIdSeq = 1;
-
+// ============================ ACID CANNON VAN (vehicle idx 3) ============================
 class AcidCannonVehicle {
     constructor(syndicateIndex){
         this.syndicateIndex = syndicateIndex;
@@ -3861,6 +3525,7 @@ class AcidCannonVehicle {
         this.targetSpot = spot;
         this.parked = false;
         this.stuckTimer = 0;
+        game.blockadeVersion++;
         this.recomputeRoute();
     }
     clearTarget(){
@@ -3868,6 +3533,7 @@ class AcidCannonVehicle {
         this.route = null; this.routeIdx = 0;
         this.parked = false;
         this.stuckTimer = 0;
+        game.blockadeVersion++;
     }
     recomputeRoute(){
         if (!this.targetSpot){ this.route = null; this.routeIdx = 0; return; }
@@ -4048,7 +3714,242 @@ class AcidCannonVehicle {
     }
 }
 
-// ============================ SQUAD AI ============================
+// ============================ GAS VAN (vehicle idx 5) ============================
+class GasVanVehicle {
+    constructor(syndicateIndex){
+        this.syndicateIndex = syndicateIndex;
+        this.x = 40*TILE + TILE/2;
+        this.y = ROAD_Y_BOTTOM*TILE + TILE/2;
+        this.angle = 0;
+        this.targetAngle = 0;
+        this.lightPhase = Math.random()*10;
+        this.alive = true;
+        this.parked = false;
+        this.targetSpot = null;
+        this.route = null;
+        this.routeIdx = 0;
+        this.stuckTimer = 0;
+        this.hp = 300;
+        this.maxHp = 300;
+        this.gunnerFireTimer = [1.0, 1.9];
+        this.gunnerDeployT = 0;
+    }
+    setSpot(spot){
+        if (!spot || this.targetSpot === spot) return;
+        this.targetSpot = spot;
+        this.parked = false;
+        this.stuckTimer = 0;
+        game.blockadeVersion++;
+        this.recomputeRoute();
+    }
+    clearTarget(){
+        this.targetSpot = null;
+        this.route = null; this.routeIdx = 0;
+        this.parked = false;
+        this.stuckTimer = 0;
+        game.blockadeVersion++;
+    }
+    recomputeRoute(){
+        if (!this.targetSpot){ this.route = null; this.routeIdx = 0; return; }
+        const spot = this.targetSpot;
+        if (Math.hypot(spot.x - this.x, spot.y - this.y) < TILE*2){ this.route = [{ x:spot.x, y:spot.y }]; this.routeIdx = 0; return; }
+        const edge = ROAD_EDGES.find(e => e.key === spot.edgeKey);
+        const goalIds = edge ? [edge.a, edge.b] : [];
+        if (!goalIds.length){ this.route = [{ x:spot.x, y:spot.y }]; this.routeIdx = 0; return; }
+        const starts = [];
+        const near = nearestRoadNode(this.x, this.y);
+        if (near) starts.push(near.id);
+        const hereEdge = findEdgeForSpot({ x:this.x, y:this.y });
+        if (hereEdge){
+            const e = ROAD_EDGES.find(ed => ed.key === hereEdge);
+            if (e){ if (!starts.includes(e.a)) starts.push(e.a); if (!starts.includes(e.b)) starts.push(e.b); }
+        }
+        if (!starts.length) starts.push('B54');
+        let bestPath = null, bestCost = Infinity;
+        for (const sId of starts){
+            const sNode = getNode(sId);
+            if (!sNode) continue;
+            const toStart = Math.hypot(sNode.x*TILE - this.x, sNode.y*TILE - this.y);
+            for (const gId of goalIds){
+                const gNode = getNode(gId);
+                if (!gNode) continue;
+                const path = findPathWeighted(sId, gId, null);
+                if (!path) continue;
+                let len = 0;
+                for (let i = 1; i < path.length; i++){
+                    const a = getNode(path[i-1]), b = getNode(path[i]);
+                    if (a && b) len += Math.hypot(b.x-a.x, b.y-a.y)*TILE;
+                }
+                const toSpot = Math.hypot(gNode.x*TILE - spot.x, gNode.y*TILE - spot.y);
+                const cost = toStart + len + toSpot;
+                if (cost < bestCost){ bestCost = cost; bestPath = path; }
+            }
+        }
+        if (!bestPath){ this.route = [{ x:spot.x, y:spot.y }]; this.routeIdx = 0; return; }
+        const pts = [{ x:this.x, y:this.y }];
+        for (const id of bestPath){ const n = getNode(id); if (n) pts.push({ x:n.x*TILE, y:n.y*TILE }); }
+        pts.push({ x:spot.x, y:spot.y });
+        this.route = pts;
+        this.routeIdx = 0;
+    }
+    gunnerPositions(){
+        const cosA = Math.cos(this.angle), sinA = Math.sin(this.angle);
+        const side = TILE*1.05, back = -TILE*0.05;
+        const pts = [];
+        for (const s of [-1, 1]){
+            pts.push({
+                x: this.x + back*cosA - (side*s)*sinA,
+                y: this.y + back*sinA + (side*s)*cosA,
+                side: s
+            });
+        }
+        return pts;
+    }
+    fireGasRound(gunnerIdx){
+        const positions = this.gunnerPositions();
+        const pos = positions[gunnerIdx];
+        let target = null, bestD = Infinity;
+        for (const z of game.zombies){
+            if (!z.alive || z.beingDragged) continue;
+            const d = Math.hypot(z.x - pos.x, z.y - pos.y);
+            if (d < GAS_VAN_RANGE && d < bestD){ bestD = d; target = z; }
+        }
+        if (!target) return;
+        game.gasShells.push({
+            sx: pos.x, sy: pos.y,
+            tx: target.x + (Math.random()-0.5)*TILE,
+            ty: target.y + (Math.random()-0.5)*TILE,
+            t: 0, duration: GAS_VAN_SHELL_TIME,
+        });
+        game.gasTracers.push({
+            x0: pos.x, y0: pos.y,
+            x1: target.x, y1: target.y,
+            t: 0.15,
+        });
+    }
+    update(dt){
+        if (!this.alive) return;
+        this.lightPhase += dt;
+        let da = this.targetAngle - this.angle;
+        while (da > Math.PI) da -= Math.PI*2;
+        while (da < -Math.PI) da += Math.PI*2;
+        this.angle += da * Math.min(1, dt*6);
+        if (this.targetSpot){
+            if (this.route){
+                while (this.routeIdx < this.route.length &&
+                       Math.hypot(this.route[this.routeIdx].x - this.x, this.route[this.routeIdx].y - this.y) < TILE*0.7){
+                    this.routeIdx++;
+                }
+            }
+            let tx = this.targetSpot.x, ty = this.targetSpot.y;
+            const routeDone = !this.route || this.routeIdx >= this.route.length;
+            if (!routeDone){ tx = this.route[this.routeIdx].x; ty = this.route[this.routeIdx].y; }
+            const dx = tx - this.x, dy = ty - this.y;
+            const dist = Math.hypot(dx, dy);
+            if (routeDone && dist < 3){ this.parked = true; this.stuckTimer = 0; }
+            else {
+                if (this.parked) this.parked = false;
+                const step = Math.min(dist, GAS_VAN_SPEED*TILE*dt);
+                const ux = dx/(dist||1), uy = dy/(dist||1);
+                const nx = this.x + ux*step, ny = this.y + uy*step;
+                let moved = false;
+                if (isValidPosition(nx, ny) && isRoadAt(nx, ny)){ this.x = nx; this.y = ny; moved = true; }
+                else if (isValidPosition(nx, this.y) && isRoadAt(nx, this.y)){ this.x = nx; moved = true; }
+                else if (isValidPosition(this.x, ny) && isRoadAt(this.x, ny)){ this.y = ny; moved = true; }
+                if (moved){
+                    this.targetAngle = Math.atan2(uy, ux);
+                    const after = Math.hypot(tx - this.x, ty - this.y);
+                    if (dist - after < 0.05) this.stuckTimer += dt; else this.stuckTimer = Math.max(0, this.stuckTimer - dt*2);
+                } else this.stuckTimer += dt;
+                if (this.stuckTimer > 1.0){
+                    this.stuckTimer = 0;
+                    if (this.route && this.routeIdx < this.route.length) this.routeIdx++;
+                    else { this.clearTarget(); showToast('🚐 No clear route to that point.'); }
+                }
+            }
+        }
+        if (!this.parked){
+            this.gunnerDeployT = Math.max(0, this.gunnerDeployT - dt*3);
+            return;
+        }
+        this.gunnerDeployT = Math.min(1, this.gunnerDeployT + dt*3);
+        if (this.gunnerDeployT < 0.4) return;
+        for (let i = 0; i < 2; i++){
+            this.gunnerFireTimer[i] -= dt;
+            if (this.gunnerFireTimer[i] <= 0){
+                this.gunnerFireTimer[i] = GAS_VAN_COOLDOWN * (0.85 + Math.random()*0.3);
+                this.fireGasRound(i);
+            }
+        }
+    }
+    drawGunners(ctx){
+        if (this.gunnerDeployT <= 0.01) return;
+        const positions = this.gunnerPositions();
+        const scale = Math.min(1, this.gunnerDeployT * 1.4);
+        for (const p of positions){
+            const sx = p.x - game.camera.x, sy = p.y - game.camera.y;
+            ctx.save();
+            ctx.translate(sx, sy);
+            ctx.scale(scale, scale);
+            if (p.side < 0) ctx.scale(-1, 1);
+            drawGasGunnerFigure(ctx, this, p);
+            ctx.restore();
+        }
+    }
+    draw(ctx){
+        if (!this.alive) return;
+        const sx = this.x - game.camera.x, sy = this.y - game.camera.y;
+        if (sx < -200 || sy < -200 || sx > game.width+200 || sy > game.height+200) return;
+        ctx.fillStyle = 'rgba(0,0,0,0.28)';
+        ctx.beginPath(); ctx.ellipse(sx, sy + 7, TILE*1.6, TILE*0.9, 0, 0, Math.PI*2); ctx.fill();
+        const img = assets['veh_van_red'] || assets['veh_van'];
+        ctx.save(); ctx.translate(sx, sy);
+        ctx.rotate(this.angle);
+        if (img){
+            const w = TILE*3.2, h = img.height * w / img.width;
+            ctx.drawImage(img, -w/2, -h*0.85, w, h);
+        } else {
+            ctx.fillStyle = '#4a1a1a'; ctx.fillRect(-22, -14, 44, 16);
+            ctx.fillStyle = '#2a0808'; ctx.fillRect(-16, -18, 32, 6);
+        }
+        ctx.restore();
+        const flash = Math.sin(this.lightPhase*11) > 0;
+        if (flash){
+            const g = ctx.createRadialGradient(sx, sy - 12, 0, sx, sy - 12, TILE*1.2);
+            g.addColorStop(0, 'rgba(120, 255, 120, 0.7)');
+            g.addColorStop(1, 'rgba(120, 255, 120, 0)');
+            ctx.fillStyle = g;
+            ctx.fillRect(sx - TILE*1.2, sy - TILE*1.2 - 12, TILE*2.4, TILE*2.4);
+        }
+        this.drawGunners(ctx);
+        if (this.hp < this.maxHp) drawHpBar(ctx, sx, sy - 26, this.hp, this.maxHp, '#5aa05a');
+    }
+}
+function drawGasGunnerFigure(ctx, vehicle, pos){
+    const H = 17;
+    ctx.fillStyle = '#17171c';
+    ctx.beginPath(); ctx.ellipse(0, 1.5, 5, 2.2, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = OFFICER_PALETTE.dark; ctx.lineWidth = 2.4; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(-1.4, -2); ctx.lineTo(-2.6, H * 0.34); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(0.4, -2); ctx.lineTo(1.6, H * 0.34); ctx.stroke();
+    ctx.fillStyle = '#3a5a1e';
+    ctx.beginPath();
+    ctx.moveTo(-3, -2); ctx.lineTo(3, -2); ctx.lineTo(2.3, -H * 0.62); ctx.lineTo(-2.3, -H * 0.62);
+    ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = OFFICER_PALETTE.dark; ctx.lineWidth = 0.8; ctx.stroke();
+    ctx.fillStyle = '#1c2230';
+    ctx.beginPath(); ctx.arc(0, -H * 0.74, H * 0.18, 0, Math.PI * 2); ctx.fill();
+    ctx.save();
+    ctx.translate(2.4, -H * 0.42);
+    ctx.rotate(-0.55);
+    ctx.strokeStyle = '#2a2a2a'; ctx.lineWidth = 2.6;
+    ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(H * 0.55, 0); ctx.stroke();
+    ctx.fillStyle = '#9adc9a';
+    ctx.beginPath(); ctx.arc(H * 0.55, 0, 1.8, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+}
+
+// ============================ SQUAD AI (zombies) ============================
 class ZombieSquad {
     constructor(id, spawnNodeId, personality){
         this.id = id;
@@ -4059,8 +3960,6 @@ class ZombieSquad {
         this.rallyX = 0; this.rallyY = 0;
         this.contactTimer = 0;
         this.centroid = { x:0, y:0, count:0 };
-        this.wallPerpX = 0; this.wallPerpY = 1;
-        this.wallTravelX = 0; this.wallTravelY = 1;
         this.targetSyndicate = 0;
     }
     members(){
@@ -4118,16 +4017,82 @@ function applyZombieSeparation(dt){
     }
 }
 
-// ============================ BUILDING DAMAGE ============================
-function damageBuilding(b, dmg){
-    if (!b || !b.alive) return;
-    b.hp -= dmg;
-    spawnHitEffect(b.tx*TILE, b.ty*TILE);
-    if (b.hp <= 0){
-        b.hp = 0; b.alive = false;
-        game.buildingsDestroyed = (game.buildingsDestroyed||0) + 1;
-        damageBase(6);
-        showToast('🏚️ A building has been wrecked!');
+// ============================ ZOMBIE FAILSAFE (anti-stuck) ============================
+const ZF = {
+    KICK_STILL: 25,
+    FADE_AFTER_KICK: 15,
+    OFFMAP_KICK: 3,
+    OFFMAP_FADE: 8,
+    WAVE_IDLE: 40,
+    WAVE_HARD_CAP: 420,
+    HARD_CAP_FADE: 45,
+    RADIUS: TILE * 3,
+};
+function fadeZombie(z){
+    if (!z.alive) return;
+    z.alive = false;
+    game.kills++;
+    addBloodDecal(z.x, z.y);
+}
+function zombieFailsafe(dt){
+    let combatAlive = 0, combatActive = 0;
+    for (const z of game.zombies){
+        if (!z.alive || z.beingDragged) continue;
+        combatAlive++;
+        let f = z._fs;
+        if (!f) f = z._fs = { ax: z.x, ay: z.y, still: 0, kicks: 0, off: 0, age: 0 };
+        f.age += dt;
+
+        if (f.age > 10 && !isValidPosition(z.x, z.y)){
+            f.off += dt;
+            if (f.off > ZF.OFFMAP_FADE){ fadeZombie(z); continue; }
+            if (f.off > ZF.OFFMAP_KICK) hopToRoad(z);
+        } else f.off = 0;
+
+        const engaging = z.attackFlash > 0 || z.timeSinceDamage < 1.5 ||
+                         z.state === 'fighting' || z.state === 'attacking_base' || z.state === 'ranged';
+
+        if (engaging){
+            f.still = 0; f.ax = z.x; f.ay = z.y; f.kicks = 0;
+            combatActive++;
+            continue;
+        }
+
+        if (Math.hypot(z.x - f.ax, z.y - f.ay) > ZF.RADIUS){
+            f.ax = z.x; f.ay = z.y; f.still = 0; f.kicks = 0;
+        } else {
+            f.still += dt;
+            if (f.kicks === 0 && f.still > ZF.KICK_STILL){
+                f.kicks = 1; f.still = 0;
+                hopToRoad(z);
+                z.repathTimer = 0;
+                if (z.state !== 'advancing') z.state = 'advancing';
+                f.ax = z.x; f.ay = z.y;
+            } else if (f.kicks >= 1 && f.still > ZF.FADE_AFTER_KICK){
+                fadeZombie(z);
+                continue;
+            }
+        }
+        if (f.still < 10) combatActive++;
+    }
+
+    if (combatAlive > 0 && combatActive === 0 && game.waveSpawnQueue.length === 0){
+        game.fsIdle = (game.fsIdle || 0) + dt;
+        if (game.fsIdle > ZF.WAVE_IDLE && !game.fsIdleFired){
+            game.fsIdleFired = true;
+            showToast('The horde is stalling — they stagger off.');
+            for (const z of game.zombies) if (z.alive) fadeZombie(z);
+        }
+    } else { game.fsIdle = 0; game.fsIdleFired = false; }
+
+    if (game.waveSpawnQueue.length === 0){
+        if (game.waveClock > ZF.WAVE_HARD_CAP && !game.fsCapFired){
+            game.fsCapFired = true;
+            showToast('The horde thins out — stragglers wander off.');
+        }
+        if (game.waveClock > ZF.WAVE_HARD_CAP + ZF.HARD_CAP_FADE){
+            for (const z of game.zombies) if (z.alive) fadeZombie(z);
+        }
     }
 }
 
@@ -4365,11 +4330,10 @@ function ensureSyndicateState(idx){
     return sy;
 }
 function ensureVehicleSyndicate(idx){
-    idx = idx === undefined ? VEHICLE_SYNDICATE : idx;
     game.syndicates[idx] = {
-        tactic:'vehicle',
-        commandX: BASE_TILE_X*TILE + TILE*2,
-        commandY: BASE_TILE_Y*TILE + TILE*2,
+        tactic: 'vehicle',
+        commandX: (idx === VEHICLE_SYNDICATE_2 ? 40*TILE + TILE/2 : 44*TILE + TILE/2),
+        commandY: ROAD_Y_BOTTOM*TILE + TILE/2,
         facingX:-1, facingY:0, disperseTimer:0,
     };
 }
@@ -4409,7 +4373,7 @@ function commandMove(dx, dy){
     }
 }
 function commandMoveVehicle(dx, dy){
-    const v = game.acidVehicles[VEHICLE_SYNDICATE];
+    const v = vehicleAt(game.selectedSyndicate);
     if (!v) return;
     const cur = v.targetSpot || { x:v.x, y:v.y };
     let best = null, bestD = Infinity;
@@ -4425,17 +4389,17 @@ function commandMoveVehicle(dx, dy){
     else showToast('No parking point that way.');
 }
 function canMove(dx, dy){
-    if (isVehicleIdx(game.selectedSyndicate)) return !!game.acidVehicles[VEHICLE_SYNDICATE];
+    if (isVehicleIdx(game.selectedSyndicate)) return !!vehicleAt(game.selectedSyndicate);
     if (game.selectedSyndicate >= OFFICER_SYNDICATES) return false;
     const sy = game.syndicates[game.selectedSyndicate];
     if (!sy) return false;
     return isValidOfficerPosition(sy.commandX + dx*TILE, sy.commandY + dy*TILE);
 }
 function setVehicleTarget(spot){
-    const v = game.acidVehicles[VEHICLE_SYNDICATE];
+    const v = vehicleAt(game.selectedSyndicate);
     if (!v || !spot) return;
     v.setSpot(spot);
-    const sy = game.syndicates[VEHICLE_SYNDICATE];
+    const sy = game.syndicates[game.selectedSyndicate];
     if (sy){ sy.commandX = spot.x; sy.commandY = spot.y; }
     renderOptionsPanel(); updateSelectionUI();
 }
@@ -4587,7 +4551,7 @@ function fireNextReady(fn){
 }
 function deployAcidFor(idx, silent){
     const say = m => { if (!silent) showToast(m); };
-    if (idx >= OFFICER_SYNDICATES){ say('The acid van has no spray team.'); return false; }
+    if (idx >= OFFICER_SYNDICATES){ say('The gas van has no acid team.'); return false; }
     if (game.acidCooldown[idx] > 0){ say('Acid team ready in ' + Math.ceil(game.acidCooldown[idx]) + 's.'); return false; }
     const team = game.acidTeams.filter(t => t.alive && t.syndicateIndex === idx);
     if (team.length === 0){ say('No acid team for this syndicate.'); return false; }
@@ -4609,7 +4573,7 @@ function deployAcidFor(idx, silent){
 function deployAcid(){ fireNextReady(deployAcidFor); }
 function deployGrabberFor(idx, silent){
     const say = m => { if (!silent) showToast(m); };
-    if (idx >= OFFICER_SYNDICATES){ say('The van has no grabber team.'); return false; }
+    if (idx >= OFFICER_SYNDICATES){ say('The gas van has no grabber team.'); return false; }
     if (game.grabberCooldown[idx] > 0){ say('Grabber team ready in ' + Math.ceil(game.grabberCooldown[idx]) + 's.'); return false; }
     const sy = ensureSyndicateState(idx);
     if (!sy) return false;
@@ -4653,7 +4617,7 @@ function deployGrabberFor(idx, silent){
 function deployGrabber(){ fireNextReady(deployGrabberFor); }
 function deployK9For(idx, silent){
     const say = m => { if (!silent) showToast(m); };
-    if (idx >= OFFICER_SYNDICATES){ say('The van has no K9.'); return false; }
+    if (idx >= OFFICER_SYNDICATES){ say('The gas van has no K9.'); return false; }
     const k9 = game.k9s.find(k => k.syndicateIndex === idx && k.alive);
     if (!k9){ say('No K9 for this syndicate.'); return false; }
     if (k9.deployTimer > 0){ say('K9 already deployed.'); return false; }
@@ -4731,19 +4695,6 @@ function updateAbilityButtons(){
         else if (!ready && out && list.length === 1){ setAbilityButton(k9Btn, k9Sub, 0, 1, lbl, 0, lbl + ' deployed ' + Math.ceil(minCd) + 's'); }
         else setAbilityButton(k9Btn, k9Sub, ready, list.length, lbl, minCd === Infinity ? 0 : minCd);
     }
-    const vanBtn = document.getElementById('act-van');
-    const vanSub = document.getElementById('act-van-sub');
-    const v = game.acidVehicles[VEHICLE_SYNDICATE];
-    if (v && v.alive){
-        vanBtn.disabled = false;
-        vanBtn.classList.add('ready');
-        vanSub.textContent = Math.round(v.hp) + '/' + v.maxHp + 'HP';
-    } else {
-        const canBuy = game.supplies >= 30;
-        vanBtn.disabled = !canBuy;
-        vanBtn.classList.toggle('ready', canBuy);
-        vanSub.textContent = '30 · deploy';
-    }
     const ambBtn = document.getElementById('act-amb');
     const ambSub = document.getElementById('act-amb-sub');
     if (game.ambulance && game.ambulance.alive){ ambBtn.disabled = true; ambBtn.classList.remove('ready'); ambSub.textContent = 'out'; }
@@ -4755,8 +4706,11 @@ function renderSyndicateTabs(){
     tabs.forEach(b => {
         const idx = parseInt(b.dataset.idx, 10);
         if (isVehicleIdx(idx)){
+            const v = vehicleAt(idx);
             b.disabled = false;
             b.classList.toggle('active', game.selectedSyndicate === idx);
+            if (v) b.textContent = idx === VEHICLE_SYNDICATE ? '🚐' : '🧴';
+            else b.textContent = idx === VEHICLE_SYNDICATE ? '🚐' : '🧴';
             return;
         }
         const exists = idx < game.syndicatesDeployed;
@@ -4770,30 +4724,20 @@ function renderSyndicateTabs(){
         b.textContent = 'S' + (idx+1) + (exists ? ' (' + count + ')' : '');
         b.classList.toggle('active', idx === game.selectedSyndicate && exists);
     });
-    updateStationButton();
-}
-function updateStationButton(){
-    const btn = document.getElementById('station-btn');
-    if (!btn) return;
-    const active = game.selectedSyndicate === 3 && !isVehicleIdx(3);
-    btn.classList.toggle('active', false);
-    const out = game.repairOfficers.filter(r => r.alive).length;
-    if (out > 0) btn.textContent = '🏢 Station (👷×' + out + ')';
-    else if (game.repairCooldowns[0] > 0) btn.textContent = '🏢 Station (' + Math.ceil(game.repairCooldowns[0]) + 's)';
-    else btn.textContent = '🏢 Station';
 }
 function updateSelectionUI(){
     const el = document.getElementById('selection-info');
     if (!el) return;
     const idx = game.selectedSyndicate;
     if (isVehicleIdx(idx)){
-        const v = game.acidVehicles[idx];
+        const v = vehicleAt(idx);
         if (!v){ el.textContent = ''; return; }
-        let txt = '🚐 Acid Cannon Van — ';
+        let txt = (idx === VEHICLE_SYNDICATE ? '🚐 Acid Cannon Van — ' : '🧴 Gas Van — ');
         if (v.parked) txt += 'holding position';
         else if (v.targetSpot) txt += 'moving to position';
         else txt += 'mobile';
-        if (v.acidOn) txt += ' · 🧪 cannon ON';
+        if (idx === VEHICLE_SYNDICATE && v.acidOn) txt += ' · 🧪 cannon ON';
+        if (idx === VEHICLE_SYNDICATE_2 && v.parked) txt += ' · 🔫 gunners deployed';
         el.textContent = txt;
         return;
     }
@@ -4875,17 +4819,18 @@ function renderOptionsPanel(){
     if (!panel) return;
     panel.innerHTML = '';
     if (isVehicleIdx(game.selectedSyndicate)){
+        const isAcid = game.selectedSyndicate === VEHICLE_SYNDICATE;
         const lbl = document.createElement('div');
-        lbl.className = 'section-label'; lbl.textContent = 'Acid Cannon Vehicle';
+        lbl.className = 'section-label'; lbl.textContent = isAcid ? 'Acid Cannon Vehicle' : 'Gas Response Van';
         panel.appendChild(lbl);
-        const v = game.acidVehicles[VEHICLE_SYNDICATE];
+        const v = vehicleAt(game.selectedSyndicate);
         const bMobile = document.createElement('button');
         bMobile.textContent = '🚐 Roam';
         if (v && !v.parked && !v.targetSpot) bMobile.classList.add('active-choice');
         bMobile.addEventListener('click', () => { if (v) v.clearTarget(); showToast('Vehicle released — free to roam.'); renderOptionsPanel(); updateSelectionUI(); });
         panel.appendChild(bMobile);
         const bBlock = document.createElement('button');
-        bBlock.textContent = '📍 Hold Position';
+        bBlock.textContent = isAcid ? '📍 Hold Position' : '📍 Hold & Deploy Team';
         if (v && (v.parked || v.targetSpot)) bBlock.classList.add('active-choice');
         bBlock.addEventListener('click', () => {
             if (!v) return;
@@ -4895,17 +4840,19 @@ function renderOptionsPanel(){
                     const d = Math.hypot(s.x - v.x, s.y - v.y);
                     if (d < bestD){ bestD = d; best = s; }
                 }
-                if (best){ game.selectedSyndicate = VEHICLE_SYNDICATE; setVehicleTarget(best); }
+                if (best){ game.selectedSyndicate = isAcid ? VEHICLE_SYNDICATE : VEHICLE_SYNDICATE_2; setVehicleTarget(best); }
             } else v.setSpot(v.targetSpot);
             renderOptionsPanel(); updateSelectionUI();
         });
         panel.appendChild(bBlock);
         if (v && v.alive){
-            const toggle = document.createElement('button');
-            toggle.textContent = v.acidOn ? '🧪 Acid Cannon: ON' : '🧪 Acid Cannon: OFF';
-            toggle.classList.toggle('active-choice', v.acidOn);
-            toggle.addEventListener('click', () => { v.acidOn = !v.acidOn; showToast(v.acidOn ? '🧪 Acid cannon engaged.' : '🧪 Acid cannon off.'); renderOptionsPanel(); });
-            panel.appendChild(toggle);
+            if (isAcid){
+                const toggle = document.createElement('button');
+                toggle.textContent = v.acidOn ? '🧪 Acid Cannon: ON' : '🧪 Acid Cannon: OFF';
+                toggle.classList.toggle('active-choice', v.acidOn);
+                toggle.addEventListener('click', () => { v.acidOn = !v.acidOn; showToast(v.acidOn ? '🧪 Acid cannon engaged.' : '🧪 Acid cannon off.'); renderOptionsPanel(); });
+                panel.appendChild(toggle);
+            }
             const repair = document.createElement('button');
             const canRepair = game.supplies >= 15 && v.hp < v.maxHp;
             repair.textContent = '🔧 Repair Van (15)';
@@ -4921,7 +4868,9 @@ function renderOptionsPanel(){
         }
         const info = document.createElement('div');
         info.className = 'info-line';
-        info.textContent = 'The van roams the road network spraying dissolving acid at any zombie nearby. Tap the map to send it, or use the d-pad.';
+        info.textContent = isAcid
+            ? 'The acid van roams the road network spraying dissolving acid at any zombie nearby. Tap the map to send it, or use the d-pad.'
+            : 'The gas van drives to a road point, parks, and deploys two gas gunners who fire gas shells at nearby zombies. Tap the map or d-pad to send it.';
         panel.appendChild(info);
         return;
     }
@@ -4980,7 +4929,7 @@ function renderOptionsPanel(){
     const tip = document.createElement('div');
     tip.className = 'info-line';
     tip.style.cssText = 'color:#7fc47f;padding-top:6px;border-top:1px solid #232c3a;margin-top:4px';
-    tip.textContent = '💡 Tap a green dot near a road junction to snap the syndicate to a defensive post.';
+    tip.textContent = '💡 Tap a road dot to move the syndicate there. Tap a junction post dot to give them a facing.';
     panel.appendChild(tip);
 }
 function updateMoveButtons(){
@@ -5026,7 +4975,7 @@ function updateCrates(dt){
             if (Math.hypot(o.x - c.x, o.y - c.y) < TILE*1.2){ got = true; break; }
         }
         if (!got){
-            const v = game.acidVehicles[VEHICLE_SYNDICATE];
+            const v = vehicleAt(VEHICLE_SYNDICATE);
             if (v && v.alive && Math.hypot(v.x - c.x, v.y - c.y) < TILE*1.4) got = true;
         }
         if (!got && game.ambulance && game.ambulance.alive && Math.hypot(game.ambulance.x - c.x, game.ambulance.y - c.y) < TILE*1.4) got = true;
@@ -5060,17 +5009,10 @@ function drawCrate(ctx, c){
     ctx.fillStyle = '#ffe6a0';
     ctx.font = 'bold 10px monospace'; ctx.textAlign = 'center';
     ctx.fillText('+' + c.amount, sx, sy - 14);
-    const topY = sy - 38 - Math.sin(c.bob*2)*2;
-    ctx.strokeStyle = `rgba(255,180,60,${0.35*pulse})`;
-    ctx.lineWidth = 1.4;
-    ctx.beginPath(); ctx.moveTo(sx, sy - 12); ctx.lineTo(sx, topY); ctx.stroke();
-    ctx.fillStyle = `rgba(255,220,120,${0.85*pulse})`;
-    ctx.beginPath(); ctx.arc(sx, topY, 2.5, 0, Math.PI*2); ctx.fill();
 }
 
 // ============================ WAVES ============================
 const OBJECTIVE_LABELS = { base:'Reach the Station', hunt:'Attack the Officers' };
-const OBJECTIVE_SHORT = { base:'Station', hunt:'Hunt Officers' };
 const ALL_EXITS = ['N18','N30','N54','N78','N90','S12','S54','S96'];
 const WAVE_TONES = { 1:'Probing Advance', 2:'Twin Thrust', 3:'Coordinated Push',
     4:'Widening Assault', 5:'Massed Assault', 6:'Rolling Offensive' };
@@ -5098,7 +5040,7 @@ function exitDefence(exitId){
             const d = Math.hypot(o.x - p.x, o.y - p.y);
             if (d < TILE*16) score += (alert ? 1.8 : 0.5)*(1 - d/(TILE*16));
         }
-        const v = game.acidVehicles[VEHICLE_SYNDICATE];
+        const v = vehicleAt(VEHICLE_SYNDICATE);
         if (v && v.alive){
             const d = Math.hypot(v.x - p.x, v.y - p.y);
             if (d < TILE*12) score += 2.0*(1 - d/(TILE*12));
@@ -5117,7 +5059,6 @@ function startWave(){
     else if (roll < 0.55) game.raidAI.objective = 'hunt';
     else game.raidAI.objective = 'base';
 
-    // Scaling: wave 1 ~ 32 zeds; wave 10 ~ 138; wave 20 ~ 340.
     const zombieCount = 22 + wave * 8 + Math.floor(wave * wave * 0.35);
     const maxGates = wave <= 1 ? 1 : wave <= 2 ? 2 : wave <= 4 ? 3 : wave <= 6 ? 4 : wave <= 9 ? 5 : 6;
     const gateCount = Math.max(1, Math.min(ALL_EXITS.length, 1 + Math.floor(Math.random()*maxGates)));
@@ -5182,6 +5123,7 @@ function updateWaves(dt){
         if (game.waveTimer <= 0) startWave();
         return;
     }
+    game.waveClock = (game.waveClock || 0) + dt;
     game.waveSpawnTimer -= dt;
     if (game.waveSpawnQueue.length > 0 && game.waveSpawnTimer <= 0){
         const entry = game.waveSpawnQueue.shift();
@@ -5203,29 +5145,11 @@ function updateWaves(dt){
         }
         game.waveSpawnTimer = 0.10 + Math.random()*0.18;
     }
-    let combatAlive = 0, combatActive = 0;
-    for (const r of game.zombies){
-        if (!r.alive) continue;
-        combatAlive++;
-        if (r.attackFlash > 0 || r.timeSinceDamage < 1.5 || r.acidBurn > 0) combatActive++;
-    }
-    if (combatAlive > 0 && combatActive === 0 && game.waveSpawnQueue.length === 0){
-        game.fsIdle = (game.fsIdle || 0) + dt;
-        if (game.fsIdle > 30 && !game.fsIdleFired){
-            game.fsIdleFired = true;
-            showToast('The horde is stalling — they wander off.');
-            for (const r of game.zombies) if (r.alive) r.alive = false;
-        }
-    } else { game.fsIdle = 0; game.fsIdleFired = false; }
+
+    zombieFailsafe(dt);
+
     const anyLeft = game.zombies.some(r => r.alive) || game.waveSpawnQueue.length > 0;
-    const moraleBroken = game.waveMoralePct <= 0;
-    if (moraleBroken && !game.fsCapFired){
-        game.fsCapFired = true;
-        game.waveSpawnQueue = [];
-        showToast('The horde breaks — the survivors scatter.');
-        for (const r of game.zombies) if (r.alive) r.alive = false;
-    }
-    if (!anyLeft || moraleBroken){
+    if (!anyLeft){
         game.zombies = [];
         game.waveState = 'intermission';
         game.waveNumber++;
@@ -5355,7 +5279,6 @@ function drawWorldAndClouds(ctx){
 }
 
 // ============================ INPUT ============================
-const CLOUD_SKY_COLOR = CLOUD_SKY;
 function setupEvents(){
     const c = game.canvas;
     c.addEventListener('touchstart', e => { const t = e.touches[0]; startInput(t.clientX, t.clientY); }, { passive:true });
@@ -5400,13 +5323,21 @@ function handleTap(clientX, clientY){
         else showToast('Tap near a road to move the vehicle.');
         return;
     }
+    // Junction posts still take priority — they give facing and cover
     let postHit = null, postHitD = TILE*1.6;
     for (const post of JUNCTION_POSTS){
         const dp = postDotPos(post);
         const d = Math.hypot(wx - dp.x, wy - dp.y);
         if (d < postHitD){ postHitD = d; postHit = post; }
     }
-    if (postHit){ commandSyndicateToPost(postHit); return; }
+    // Prefer the nearest road dot (parity with index)
+    let bestSpot = null, bestSpotD = Infinity;
+    for (const s of BLOCKADE_SPOTS){
+        const d = Math.hypot(s.x - wx, s.y - wy);
+        if (d < bestSpotD){ bestSpotD = d; bestSpot = s; }
+    }
+    if (postHit && postHitD < bestSpotD){ commandSyndicateToPost(postHit); return; }
+    if (bestSpot && bestSpotD < TILE*5){ commandSyndicateTo(bestSpot.x, bestSpot.y); return; }
     commandSyndicateTo(wx, wy);
 }
 function jumpCameraFromMinimap(x, y){
@@ -5439,8 +5370,8 @@ function updateCamera(dt){
     game.camGlide -= dt;
     const idx = game.selectedSyndicate;
     const k = Math.min(1, dt*9);
-    if (isVehicleIdx(idx) && game.acidVehicles[idx]){
-        const vv = game.acidVehicles[idx];
+    if (isVehicleIdx(idx) && vehicleAt(idx)){
+        const vv = vehicleAt(idx);
         followCameraTo(vv.x, vv.y, k);
         return;
     }
@@ -5490,15 +5421,6 @@ function setupBottomRightUI(){
     if (mergeBtn) mergeBtn.addEventListener('click', toggleMergedMode);
     const allOutBtn = document.getElementById('all-out-btn');
     if (allOutBtn) allOutBtn.addEventListener('click', triggerAllOut);
-    const stationBtn = document.getElementById('station-btn');
-    if (stationBtn) stationBtn.addEventListener('click', () => {
-        if (game.mergedMode){ game.mergedMode = false; updateMergedButton(); }
-        game.selectedSyndicate = 0;
-        renderSyndicateTabs(); renderOptionsPanel(); updateSelectionUI();
-        game.cameraUserLock = 0; game.camGlide = 0.8;
-        if (game.repairOfficers.some(r => r.alive)) deployRepairTeam();
-        else showToast('Tap "Send Repair Team" or pick a syndicate.');
-    });
     document.getElementById('btn-up').addEventListener('click', () => commandMove(0, -1));
     document.getElementById('btn-down').addEventListener('click', () => commandMove(0, 1));
     document.getElementById('btn-left').addEventListener('click', () => commandMove(-1, 0));
@@ -5539,22 +5461,6 @@ function setupBottomRightUI(){
     document.getElementById('act-acid').addEventListener('click', deployAcid);
     document.getElementById('act-grabber').addEventListener('click', deployGrabber);
     document.getElementById('act-k9').addEventListener('click', deployK9);
-    document.getElementById('act-van').addEventListener('click', () => {
-        let v = game.acidVehicles[VEHICLE_SYNDICATE];
-        if (v && v.alive){
-            game.selectedSyndicate = VEHICLE_SYNDICATE;
-            renderSyndicateTabs(); renderOptionsPanel(); updateSelectionUI();
-            game.camGlide = 0.8;
-            return;
-        }
-        if (game.supplies < 30) return;
-        game.supplies -= 30;
-        v = new AcidCannonVehicle(VEHICLE_SYNDICATE);
-        game.acidVehicles[VEHICLE_SYNDICATE] = v;
-        game.selectedSyndicate = VEHICLE_SYNDICATE;
-        showToast('🚐 Acid van deployed.');
-        renderSyndicateTabs(); renderOptionsPanel(); updateStats();
-    });
     document.getElementById('act-amb').addEventListener('click', deployAmbulance);
     document.getElementById('pause-btn').addEventListener('click', () => {
         if (game.gameOver || game.paused) return;
@@ -5604,6 +5510,46 @@ function drawJunctionPosts(ctx){
         ctx.fillText(post.dir, dx, dy + 0.5);
     }
 }
+function drawSyndicateRoadDots(ctx){
+    if (isVehicleIdx(game.selectedSyndicate)) return;
+    const sy = game.syndicates[game.selectedSyndicate];
+    if (!sy) return;
+    for (const s of BLOCKADE_SPOTS){
+        const sx = s.x - game.camera.x, sy2 = s.y - game.camera.y;
+        if (sx < -20 || sy2 < -20 || sx > game.width + 20 || sy2 > game.height + 20) continue;
+        const here = Math.hypot(s.x - sy.commandX, s.y - sy.commandY) < TILE * 2;
+        const isGoal = sy.goalX !== undefined && Math.hypot(s.x - sy.goalX, s.y - sy.goalY) < TILE * 1.5;
+        ctx.beginPath();
+        ctx.arc(sx, sy2, isGoal ? 6.5 : here ? 5 : 3, 0, Math.PI * 2);
+        ctx.fillStyle = isGoal ? 'rgba(255,204,51,0.95)'
+                     : here   ? 'rgba(120,220,120,0.9)'
+                     : 'rgba(90,170,110,0.55)';
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(0,0,0,0.55)'; ctx.lineWidth = 1; ctx.stroke();
+    }
+}
+function drawAttackRings(ctx){
+    if (!game.attackMarkers) return;
+    for (const m of game.attackMarkers){
+        if (m.alpha < 0.02) continue;
+        const sx = m.x - game.camera.x, sy = m.y - game.camera.y;
+        if (sx < -80 || sy < -80 || sx > game.width + 80 || sy > game.height + 80) continue;
+        const intensity = Math.min(1, m.count / 10);
+        const baseR = TILE * (1.2 + intensity * 2.2);
+        const maxR  = TILE * (3.0 + intensity * 4.5);
+        for (let k = 0; k < 3; k++){
+            const p = ((m.pulse + k * 0.55) % 1.65) / 1.65;
+            const r = baseR + p * (maxR - baseR);
+            const a = (1 - p) * m.alpha * (0.35 + 0.45 * intensity);
+            if (a <= 0.01) continue;
+            ctx.strokeStyle = `rgba(255, 90, 60, ${a.toFixed(3)})`;
+            ctx.lineWidth = 1.5 + intensity * 1.2;
+            ctx.beginPath();
+            ctx.arc(sx, sy, r, 0, Math.PI * 2);
+            ctx.stroke();
+        }
+    }
+}
 function render(){
     ctx = game.ctx;
     ctx.clearRect(0, 0, game.width, game.height);
@@ -5621,41 +5567,53 @@ function render(){
     game.grabbers.forEach(a => { if (a.alive) all.push(a); });
     game.handlers.forEach(h => { if (h.alive) all.push(h); });
     game.acidTeams.forEach(t => { if (t.alive) all.push(t); });
-    game.repairOfficers.forEach(r => { if (r.alive) all.push(r); });
-    game.repairEscorts.forEach(r => { if (r.alive) all.push(r); });
     game.zombies.forEach(z => { if (z.alive) all.push(z); });
     game.k9s.forEach(k => { if (k.alive) all.push(k); });
     game.commanders.forEach(c => { if (c.alive) all.push(c); });
     if (game.ambulance && game.ambulance.alive) all.push(game.ambulance);
-    const v = game.acidVehicles[VEHICLE_SYNDICATE];
-    if (v && v.alive) all.push(v);
+    const v1 = vehicleAt(VEHICLE_SYNDICATE);
+    if (v1 && v1.alive) all.push(v1);
+    const v2 = vehicleAt(VEHICLE_SYNDICATE_2);
+    if (v2 && v2.alive) all.push(v2);
     all.sort((a, b) => a.y - b.y);
     all.forEach(u => u.draw(ctx));
     game.acidTeams.forEach(t => { if (t.alive) t.drawAcidCloud(ctx); });
     for (const e of game.effects){
         const sx = e.x - game.camera.x, sy = e.y - game.camera.y;
         if (sx < -40 || sy < -60 || sx > game.width+40 || sy > game.height+40) continue;
+        if (e.kind === 'gasCloud'){
+            const p = e.t / e.life;
+            ctx.fillStyle = `rgba(140, 255, 140, ${(1-p)*0.35})`;
+            ctx.beginPath(); ctx.arc(sx, sy, 12 + p*14, 0, Math.PI*2); ctx.fill();
+            continue;
+        }
         const p = 1 - e.t/e.life;
         ctx.fillStyle = `rgba(255,220,120,${p*0.8})`;
         ctx.beginPath(); ctx.arc(sx, sy, 3 + (1-p)*5, 0, Math.PI*2); ctx.fill();
     }
     drawProjectiles(ctx);
+    drawGasShells(ctx);
+    drawAttackRings(ctx);
     drawJunctionPosts(ctx);
-    if (isVehicleIdx(game.selectedSyndicate) && game.acidVehicles[VEHICLE_SYNDICATE]){
-        const selVeh = game.acidVehicles[VEHICLE_SYNDICATE];
+    drawSyndicateRoadDots(ctx);
+    if (isVehicleIdx(game.selectedSyndicate) && vehicleAt(game.selectedSyndicate)){
+        const selVeh = vehicleAt(game.selectedSyndicate);
         for (const s of BLOCKADE_SPOTS){
             const sx = s.x - game.camera.x, sy = s.y - game.camera.y;
             if (sx < -20 || sy < -20 || sx > game.width + 20 || sy > game.height + 20) continue;
             const isTarget = selVeh.targetSpot === s;
+            const isBlocked = game.blockedEdges.has(s.edgeKey);
             ctx.beginPath();
             ctx.arc(sx, sy, isTarget ? 7 : 3, 0, Math.PI*2);
-            ctx.fillStyle = isTarget ? 'rgba(255,204,51,0.95)' : 'rgba(110,230,140,0.55)';
+            ctx.fillStyle = isBlocked ? 'rgba(255,90,60,0.9)'
+                : isTarget ? 'rgba(255,204,51,0.95)'
+                : 'rgba(110,230,140,0.55)';
             ctx.fill();
             ctx.strokeStyle = 'rgba(0,0,0,0.55)'; ctx.lineWidth = 1; ctx.stroke();
         }
     }
-    if (isVehicleIdx(game.selectedSyndicate) && game.acidVehicles[VEHICLE_SYNDICATE]){
-        const v2 = game.acidVehicles[VEHICLE_SYNDICATE];
+    if (isVehicleIdx(game.selectedSyndicate) && vehicleAt(game.selectedSyndicate)){
+        const v2 = vehicleAt(game.selectedSyndicate);
         if (v2.route && v2.routeIdx < v2.route.length){
             ctx.strokeStyle = 'rgba(120,200,255,0.55)';
             ctx.lineWidth = 2; ctx.setLineDash([6, 6]);
@@ -5683,10 +5641,6 @@ function render(){
                 ctx.strokeStyle = 'rgba(255, 204, 51, 0.9)';
                 ctx.lineWidth = 2;
                 ctx.beginPath(); ctx.arc(dx2, dy2, 9, 0, Math.PI*2); ctx.stroke();
-                ctx.beginPath();
-                ctx.moveTo(dx2 - 13, dy2); ctx.lineTo(dx2 + 13, dy2);
-                ctx.moveTo(dx2, dy2 - 13); ctx.lineTo(dx2, dy2 + 13);
-                ctx.stroke();
             }
             const sx = sy.commandX - game.camera.x, sy_ = sy.commandY - game.camera.y;
             const passive = syndicateIsPassive(sy);
@@ -5730,54 +5684,46 @@ function drawMinimap(){
     const ctx = game.minimapCtx;
     ctx.clearRect(0, 0, MINIMAP_W, MINIMAP_H);
     if (game.minimapTerrainCanvas) ctx.drawImage(game.minimapTerrainCanvas, 0, 0);
+    const PX = v => (v/TILE)*MINIMAP_SCALE;
     game.officers.forEach(o => {
         if (!o.alive || o.state !== 'active') return;
         ctx.fillStyle = o.isAllOut ? '#ffb45c' : '#6cc4ff';
-        ctx.fillRect((o.x/TILE)*MINIMAP_SCALE, (o.y/TILE)*MINIMAP_SCALE, 2, 2);
+        ctx.fillRect(PX(o.x), PX(o.y), 2, 2);
     });
     game.grabbers.forEach(a => {
         if (!a.alive) return;
         ctx.fillStyle = '#c8a0ff';
-        ctx.fillRect((a.x/TILE)*MINIMAP_SCALE, (a.y/TILE)*MINIMAP_SCALE, 2, 2);
+        ctx.fillRect(PX(a.x), PX(a.y), 2, 2);
     });
     game.k9s.forEach(k => {
         if (!k.alive) return;
         ctx.fillStyle = k.deployTimer > 0 ? '#ff5a30' : '#c08040';
-        ctx.fillRect((k.x/TILE)*MINIMAP_SCALE, (k.y/TILE)*MINIMAP_SCALE, 2, 2);
+        ctx.fillRect(PX(k.x), PX(k.y), 2, 2);
     });
     game.handlers.forEach(h => {
         if (!h.alive) return;
         ctx.fillStyle = '#7fd3a0';
-        ctx.fillRect((h.x/TILE)*MINIMAP_SCALE, (h.y/TILE)*MINIMAP_SCALE, 2, 2);
+        ctx.fillRect(PX(h.x), PX(h.y), 2, 2);
     });
     if (game.ambulance && game.ambulance.alive){
         ctx.fillStyle = '#5dff8a';
-        ctx.fillRect((game.ambulance.x/TILE)*MINIMAP_SCALE - 1, (game.ambulance.y/TILE)*MINIMAP_SCALE - 1, 3, 3);
+        ctx.fillRect(PX(game.ambulance.x) - 1, PX(game.ambulance.y) - 1, 3, 3);
     }
     game.commanders.forEach(c => {
         if (!c.alive) return;
         ctx.fillStyle = '#ffe066';
-        ctx.fillRect((c.x/TILE)*MINIMAP_SCALE - 0.5, (c.y/TILE)*MINIMAP_SCALE - 0.5, 3, 3);
+        ctx.fillRect(PX(c.x) - 0.5, PX(c.y) - 0.5, 3, 3);
     });
     game.acidTeams.forEach(t => {
         if (!t.alive) return;
         ctx.fillStyle = t.state === 'spraying' ? '#f0f080' : '#c8d040';
-        ctx.fillRect((t.x/TILE)*MINIMAP_SCALE, (t.y/TILE)*MINIMAP_SCALE, 2, 2);
+        ctx.fillRect(PX(t.x), PX(t.y), 2, 2);
     });
-    game.repairOfficers.forEach(r => {
-        if (!r.alive) return;
-        ctx.fillStyle = r.state === 'repair' ? '#ffcc33' : '#e8a020';
-        ctx.fillRect((r.x/TILE)*MINIMAP_SCALE, (r.y/TILE)*MINIMAP_SCALE, 2, 2);
-    });
-    game.repairEscorts.forEach(e => {
-        if (!e.alive) return;
-        ctx.fillStyle = '#a8d060';
-        ctx.fillRect((e.x/TILE)*MINIMAP_SCALE, (e.y/TILE)*MINIMAP_SCALE, 2, 2);
-    });
-    const v = game.acidVehicles[VEHICLE_SYNDICATE];
-    if (v && v.alive){
+    for (const k in game.vehicles){
+        const v = game.vehicles[k];
+        if (!v || !v.alive) continue;
         ctx.fillStyle = v.parked ? '#ff5a30' : '#5ac8ff';
-        ctx.fillRect((v.x/TILE)*MINIMAP_SCALE - 1, (v.y/TILE)*MINIMAP_SCALE - 1, 4, 4);
+        ctx.fillRect(PX(v.x) - 1, PX(v.y) - 1, 4, 4);
     }
     game.zombies.forEach(z => {
         if (!z.alive) return;
@@ -5790,12 +5736,11 @@ function drawMinimap(){
         else if (z.kind === 'spitter') col = '#70c040';
         else if (z.kind === 'runner') col = '#c06030';
         ctx.fillStyle = col;
-        ctx.fillRect((z.x/TILE)*MINIMAP_SCALE, (z.y/TILE)*MINIMAP_SCALE, 2, 2);
+        ctx.fillRect(PX(z.x), PX(z.y), 2, 2);
     });
     if (game.attackMarkers && game.attackMarkers.length){
         for (const m of game.attackMarkers){
-            const mx = (m.x/TILE)*MINIMAP_SCALE;
-            const my = (m.y/TILE)*MINIMAP_SCALE;
+            const mx = PX(m.x), my = PX(m.y);
             const intensity = Math.min(1, m.count/10);
             const baseRadius = 2.2 + intensity*2.8;
             const maxRadius = 5.5 + intensity*6.5;
@@ -5813,7 +5758,7 @@ function drawMinimap(){
         }
     }
     ctx.fillStyle = '#6ad46a';
-    ctx.fillRect((BASE_TILE_X)*MINIMAP_SCALE - 1, (BASE_TILE_Y)*MINIMAP_SCALE - 1, 4, 4);
+    ctx.fillRect(PX(BASE_TILE_X*TILE) - 1, PX(BASE_TILE_Y*TILE) - 1, 4, 4);
     ctx.strokeStyle = 'rgba(255,204,51,0.8)'; ctx.lineWidth = 1;
     ctx.strokeRect(game.camera.x/TILE*MINIMAP_SCALE, game.camera.y/TILE*MINIMAP_SCALE,
                    game.width/TILE*MINIMAP_SCALE, game.height/TILE*MINIMAP_SCALE);
@@ -5828,8 +5773,7 @@ function endGame(win){
         `Waves survived: <b>${game.waveNumber - 1}</b><br>` +
         `Zombies put down: <b>${game.kills}</b><br>` +
         `Test subjects processed: <b>${game.subjects}</b><br>` +
-        `Supplies remaining: <b>${Math.floor(game.supplies)}</b><br>` +
-        `Buildings lost: <b>${game.buildingsDestroyed || 0}</b>`;
+        `Supplies remaining: <b>${Math.floor(game.supplies)}</b>`;
     overlay.classList.add('show');
 }
 function restartGame(){
@@ -5840,6 +5784,9 @@ function restartGame(){
     generateMap(); buildTerrainCanvas(); buildMinimapTerrainCanvas();
     for (let i = 0; i < OFFICER_SYNDICATES; i++) spawnSyndicate();
     ensureVehicleSyndicate(VEHICLE_SYNDICATE);
+    ensureVehicleSyndicate(VEHICLE_SYNDICATE_2);
+    game.vehicles[VEHICLE_SYNDICATE] = new AcidCannonVehicle(VEHICLE_SYNDICATE);
+    game.vehicles[VEHICLE_SYNDICATE_2] = new GasVanVehicle(VEHICLE_SYNDICATE_2);
     game.selectedSyndicate = 0;
     game.syndicates.forEach(sy => { if (sy){ sy.path = null; sy.pathIdx = 0; sy.post = null; } });
     renderSyndicateTabs(); renderOptionsPanel(); updateSelectionUI();
@@ -5890,7 +5837,7 @@ function spawnSyndicate(){
 function initGameState(){
     game.officers = []; game.zombies = []; game.effects = [];
     game.grabbers = []; game.k9s = []; game.handlers = []; game.acidTeams = [];
-    game.commanders = []; game.repairOfficers = []; game.repairEscorts = [];
+    game.commanders = [];
     game.ambulance = null; game.ambulanceCooldown = 0; game.camGlide = 1.4;
     game.townSeed = (Math.random()*0x7fffffff)|0;
     game.projectiles = [];
@@ -5904,12 +5851,7 @@ function initGameState(){
     game.acidCooldown = [0,0,0,0];
     game.grabberCooldown = [0,0,0,0];
     game.acidTargets = [null,null,null,null];
-    game.acidVehicles = {};
-    game.repairOfficers = []; game.repairEscorts = [];
-    game.repairCooldowns = [0,0];
-    game.autoRepair = false; game.autoRepairTimer = 0;
-    game.repairWasActive = false;
-    game._repairWasOut = [false, false];
+    game.vehicles = {};
     game.morale = MORALE_MAX;
     game.moraleHoldTimer = 0;
     game.moraleDrain = 0;
@@ -5931,18 +5873,18 @@ function initGameState(){
     game.kills = 0;
     game.totalKilled = 0;
     game.subjects = 0;
-    game.buildingsDestroyed = 0;
     game.gameOver = false;
     game.cameraUserLock = 0;
     game.attackerCounts = new Map();
     game.totalRaidersInWave = 0;
-    game.raidersDefeated = 0;
     game.raidAI = { objective: 'base' };
     game.blockedEdges = new Set();
     game.blockadeVersion = 0;
     game.crates = [];
     game.bloodDecals = [];
     game.attackMarkers = [];
+    game.gasShells = [];
+    game.gasTracers = [];
 }
 function resizeCanvas(){
     const c = game.canvas;
@@ -5963,11 +5905,14 @@ function rebuildWorldForScreenSize(){
     computeMapSize(); computeMinimapSize();
     rebuildRoadNetwork();
     generateMap(); buildTerrainCanvas(); buildMinimapTerrainCanvas();
-    const v = game.acidVehicles[VEHICLE_SYNDICATE];
-    if (v && v.targetSpot){
-        const s = BLOCKADE_SPOTS.find(sp => sp.key === v.targetSpot.key);
-        if (s){ v.targetSpot = s; v.x = s.x; v.y = s.y; v.parked = true; v.route = null; }
-        else v.clearTarget();
+    for (const k in game.vehicles){
+        const v = game.vehicles[k];
+        if (!v) continue;
+        if (v.targetSpot){
+            const s = BLOCKADE_SPOTS.find(sp => sp.key === v.targetSpot.key);
+            if (s){ v.targetSpot = s; v.x = s.x; v.y = s.y; v.parked = true; v.route = null; }
+            else v.clearTarget();
+        }
     }
     game.syndicates.forEach(sy => {
         if (!sy) return;
@@ -6029,30 +5974,7 @@ function loop(t){
                 if (game.acidCooldown[i] > 0) game.acidCooldown[i] = Math.max(0, game.acidCooldown[i] - dt);
                 if (game.grabberCooldown[i] > 0) game.grabberCooldown[i] = Math.max(0, game.grabberCooldown[i] - dt);
             }
-            for (let i = 0; i < REPAIR_TEAM_COUNT; i++){
-                if (game.repairCooldowns[i] > 0) game.repairCooldowns[i] = Math.max(0, game.repairCooldowns[i] - dt);
-            }
             if (game.ambulanceCooldown > 0) game.ambulanceCooldown = Math.max(0, game.ambulanceCooldown - dt);
-            const anyRepair = game.repairOfficers.some(r => r.alive);
-            if (game.repairWasActive && !anyRepair){
-                for (let i = 0; i < REPAIR_TEAM_COUNT; i++){
-                    if (!repairTeamActive(i) && game.repairCooldowns[i] <= 0 && game._repairWasOut && game._repairWasOut[i])
-                        game.repairCooldowns[i] = REPAIR_COOLDOWN;
-                }
-            }
-            game._repairWasOut = [repairTeamActive(0), repairTeamActive(1)];
-            game.repairWasActive = anyRepair;
-            if (game.autoRepair){
-                game.autoRepairTimer = (game.autoRepairTimer || 0) - dt;
-                if (game.autoRepairTimer <= 0){
-                    game.autoRepairTimer = 2.5;
-                    const badly = sceneryBuildings.some(b => b.frontX !== undefined && b.hp < b.maxHp * (1 - AUTO_REPAIR_THRESHOLD));
-                    if (badly){
-                        const t2 = freeRepairTeam();
-                        if (t2 >= 0) deployRepairTeam(t2, true);
-                    }
-                }
-            }
             if (game.moraleHoldTimer > 0) game.moraleHoldTimer -= dt;
             if (game.moraleDrain > 0){
                 const applied = Math.min(game.moraleDrain, 30*dt + 0.05);
@@ -6079,15 +6001,16 @@ function loop(t){
             game.handlers.forEach(withSpeed);
             game.commanders.forEach(withSpeed);
             game.acidTeams.forEach(withSpeed);
-            game.repairOfficers.forEach(r => { withSpeed(r); r.updateEscortFormation(); });
-            game.repairEscorts.forEach(withSpeed);
             game.k9s.forEach(withSpeed);
             game.zombies.forEach(z => z.update(dt));
             applyZombieSeparation(dt);
-            const v = game.acidVehicles[VEHICLE_SYNDICATE];
-            if (v) v.update(dt);
+            for (const k in game.vehicles){
+                const v = game.vehicles[k];
+                if (v) v.update(dt);
+            }
             updateAmbulance(dt);
             updateProjectiles(dt);
+            updateGasShells(dt);
             updateEffects(dt);
             updateCrates(dt);
             updateAttackMarkers(dt);
@@ -6099,11 +6022,9 @@ function loop(t){
             if (game.k9s.some(k => !k.alive)) game.k9s = game.k9s.filter(k => k.alive);
             if (game.commanders.some(c => !c.alive)) game.commanders = game.commanders.filter(c => c.alive);
             if (game.acidTeams.some(t => !t.alive)) game.acidTeams = game.acidTeams.filter(t => t.alive);
-            if (game.repairOfficers.some(r => !r.alive)) game.repairOfficers = game.repairOfficers.filter(r => r.alive);
-            if (game.repairEscorts.some(r => !r.alive)) game.repairEscorts = game.repairEscorts.filter(r => r.alive);
             if (game.officers.some(o => !o.alive)) game.officers = game.officers.filter(o => o.alive);
-            for (const k in game.acidVehicles){
-                if (game.acidVehicles[k] && !game.acidVehicles[k].alive) delete game.acidVehicles[k];
+            for (const k in game.vehicles){
+                if (game.vehicles[k] && !game.vehicles[k].alive) delete game.vehicles[k];
             }
         } catch (err) { reportError(err); }
     }
@@ -6135,6 +6056,9 @@ function init(){
         buildMinimapTerrainCanvas();
         for (let i = 0; i < OFFICER_SYNDICATES; i++) spawnSyndicate();
         ensureVehicleSyndicate(VEHICLE_SYNDICATE);
+        ensureVehicleSyndicate(VEHICLE_SYNDICATE_2);
+        game.vehicles[VEHICLE_SYNDICATE] = new AcidCannonVehicle(VEHICLE_SYNDICATE);
+        game.vehicles[VEHICLE_SYNDICATE_2] = new GasVanVehicle(VEHICLE_SYNDICATE_2);
         game.selectedSyndicate = 0;
         renderSyndicateTabs(); renderOptionsPanel(); updateSelectionUI();
         updateMergedButton(); updateAllOutButton(); updateAbilityButtons();

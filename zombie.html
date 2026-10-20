@@ -451,16 +451,18 @@
 
 <script>
 /* ============================================================================
- * CORDON: OUTBREAK MODE — Full Toolkit
- * Based on the main CORDON game. All tactical systems preserved:
- *   Formations · Junction posts · Pulse · All Units On Me · ALL OUT
- *   Commanders · Public morale · Repair crews · Ambulance · K9 · Grabbers
+ * CORDON: OUTBREAK MODE — Full Toolkit (endless survival)
  *
- * Theme swaps:
- *   Raider arrest teams      -> Test Subject Grabbers (capture zombies for supplies)
- *   Tear gas officers        -> Acid officers (damage-over-time cone)
- *   Water cannon vehicle     -> Acid cannon van
- *   Rubber bullet response   -> (removed; van replaced with acid van)
+ * New this build:
+ *   - Zombies now stick to their chosen officer target (6s) instead of
+ *     rerolling goals on every repath. They will still default to the
+ *     station only if every officer is dead.
+ *   - Elite zombies unlock as waves progress:
+ *       · Spitter  (wave 5+)  — fires bile at range, damaged on impact.
+ *       · Screamer (wave 7+)  — periodic AoE morale buff to nearby zombies.
+ *       · Tank     (wave 10+) — massive HP pool, surge speed bursts.
+ *   - Zombie count scales with wave² so late waves are genuinely dangerous.
+ *   - Wave 10+ zombies gain a small speed boost so the horde doesn't stall.
  * ==========================================================================*/
 (function(){
 'use strict';
@@ -519,7 +521,7 @@ const ALL_OUT_BOX_TILES = (() => {
     return slots;
 })();
 
-// Grabber (replaces arrest team)
+// Grabber
 const GRABBER_TEAM_SIZE = 3;
 const GRABBER_COOLDOWN = 40;
 const GRABBER_HP = 300;
@@ -528,13 +530,13 @@ const GRABBER_RANGE = TILE*4.5;
 const GRABBER_MAX_RANGE_FROM_SYNDICATE = TILE*10;
 const GRABBER_LIFETIME = 45;
 
-// Acid officers (replace tear gas)
+// Acid officers
 const ACID_TEAM_SIZE = 2;
 const ACID_COOLDOWN = 45;
 const ACID_SPRAY_DURATION = 4.0;
 const ACID_RANGE = GRABBER_MAX_RANGE_FROM_SYNDICATE * 0.75;
 const ACID_CONE_HALF = Math.PI/3.5;
-const ACID_STUN_DURATION = 4.5;   // burn duration on zombies
+const ACID_STUN_DURATION = 4.5;
 const ACID_DPS = 60;
 const ACID_HP = 700;
 const ACID_SPEED = 3.6;
@@ -685,7 +687,6 @@ function syndicateIsPassive(sy){
     return tacticIsPassive(activeTacticOf(sy));
 }
 
-// Public morale (in zombie mode: "survivor morale" - drops when civilians are harmed / zombies near)
 const MORALE_MAX = 100;
 const MORALE_RECOVERY_RATE = 0.55;
 const MORALE_LOW = 40;
@@ -693,7 +694,6 @@ function moraleRegenMult(){ const m = game.morale; if (m >= 70) return 1; if (m 
 function moraleRepairMult(){ return game.morale < MORALE_LOW ? 0.55 : 1; }
 function loseMorale(amount){ game.morale = Math.max(0, game.morale - amount); game.moraleHoldTimer = 6; }
 
-// Base regen
 const BASE_REGEN_DELAY = 35;
 const BASE_REGEN_RATE = 3.2;
 
@@ -731,7 +731,6 @@ let game = {
     totalKilled: 0,
     subjects: 0,
 
-    // ability cooldowns (index 0..3, index 3 = vehicle)
     acidCooldown: [0,0,0,0],
     grabberCooldown: [0,0,0,0],
     acidVehicles: {},
@@ -1123,9 +1122,6 @@ function loadAssets(onDone){
     keys.forEach(key => {
         const img = new Image();
         img.onload = () => {
-            // city_atlas_zombie.png is a dedicated hand-decayed sheet (boards, ivy, moss,
-            // grime already baked in) so it is used as-is; only parked_atlas still gets the
-            // runtime tint since vehicles don't have their own zombie sheet yet.
             if (key === 'parked_atlas') assets[key] = applyZombieFilter(img);
             else assets[key] = img;
             settle();
@@ -1605,7 +1601,6 @@ function drawLaneMarkings(t){
         if (j.top && !j.isBase && JUNCTION_XS.includes(j.tx)) t.drawImage(box, j.x - half, j.y - half, half*2, half*2);
     });
     L.zebras.forEach(z => { const img = assets[z.img]; if (img) t.drawImage(img, z.x, z.y, z.w, z.h); });
-    // worn give-way triangles + cracked/flaking "SLOW" paint (zombie-worn variants)
     const gw = assets['road_giveway'], slow = assets['road_slow'];
     L.junctions.forEach(j => {
         if (!j.vBottomEntry || !j.arms.s) return;
@@ -1864,7 +1859,7 @@ function crowdAt(list, x, y){
     for (const r of list){
         const dx = r.x - x, dy = r.y - y;
         if (dx*dx + dy*dy > R2) continue;
-        const w = (r.acidBurn > 0 ? 0.25 : 1) * (r.kind === 'brute' ? 1.5 : 1);
+        const w = (r.acidBurn > 0 ? 0.25 : 1) * (r.kind === 'brute' || r.kind === 'tank' ? 1.5 : 1);
         score += w; sx += r.x * w; sy += r.y * w;
     }
     if (score <= 0) return null;
@@ -2116,12 +2111,13 @@ class Officer {
         if (this._mv){
             const fmods = getFormationMods(tactic);
             const ease = Math.max(0.1, Math.min(1, dist / (TILE*1.25)));
+            const marchBoost = (sy && sy.path && sy.path.length > 0) ? 1.25 : 1.0;
             if (dist > TILE*(this._roadMode ? 3 : 4.5)){
                 this._roadMode = true;
-                routedMove(this, this.targetX, this.targetY, dt, OFFICER.walkSpeed * fmods.speedMult * cmdBoost(this.syndicateIndex, 'speed'));
+                routedMove(this, this.targetX, this.targetY, dt, OFFICER.walkSpeed * fmods.speedMult * cmdBoost(this.syndicateIndex, 'speed') * marchBoost);
             } else {
                 this._roadMode = false;
-                steerUnit(this, this.targetX, this.targetY, dt, OFFICER.walkSpeed * fmods.speedMult * cmdBoost(this.syndicateIndex, 'speed') * ease);
+                steerUnit(this, this.targetX, this.targetY, dt, OFFICER.walkSpeed * fmods.speedMult * cmdBoost(this.syndicateIndex, 'speed') * ease * marchBoost);
             }
         } else {
             this.isMoving = false;
@@ -2207,9 +2203,12 @@ class Officer {
 
 // ============================ ZOMBIE ============================
 const ZOMBIE_TYPES = {
-    walker: { name:'Walker', hp:55,  damage:8,  meleeRange:1.2, atkCooldown:1.10, speed:1.7, weight:60, value:2 },
-    runner: { name:'Runner', hp:40,  damage:6,  meleeRange:1.0, atkCooldown:0.90, speed:2.6, weight:30, value:3 },
-    brute:  { name:'Brute',  hp:180, damage:18, meleeRange:1.4, atkCooldown:1.80, speed:1.2, weight:10, value:6 },
+    walker:  { name:'Walker',  hp: 55,  damage: 8,  meleeRange:1.20, atkCooldown:1.10, speed:1.7, weight:60, value:2 },
+    runner:  { name:'Runner',  hp: 40,  damage: 6,  meleeRange:1.00, atkCooldown:0.90, speed:2.6, weight:30, value:3 },
+    brute:   { name:'Brute',   hp:180,  damage:18,  meleeRange:1.40, atkCooldown:1.80, speed:1.2, weight:10, value:6 },
+    spitter: { name:'Spitter', hp: 70,  damage:11,  meleeRange:3.40, atkCooldown:1.60, speed:1.5, weight: 0, value:5 },
+    screamer:{ name:'Screamer',hp: 90,  damage: 5,  meleeRange:1.10, atkCooldown:1.20, speed:2.0, weight: 0, value:8 },
+    tank:    { name:'Tank',    hp:420,  damage:24,  meleeRange:1.60, atkCooldown:2.00, speed:1.0, weight: 0, value:14 },
 };
 const MAX_ATTACKERS_PER_OFFICER = 3;
 let zombieIdSeq = 1;
@@ -2225,6 +2224,8 @@ class Zombie {
         this.maxHp = Math.round(def.hp * intensity);
         this.hp = this.maxHp;
         this.dmgMult = 1 + (game.waveNumber - 1) * 0.035;
+        // Late waves get a small speed floor so the horde doesn't stall.
+        this._speedBoost = game.waveNumber >= 10 ? Math.min(1.5, 1 + (game.waveNumber - 10) * 0.03) : 1;
         this.x = spawnX; this.y = spawnY;
         this.dir = { x:0, y:1 };
         this.animTimer = Math.random()*10;
@@ -2254,6 +2255,12 @@ class Zombie {
         this.repathTimer = Math.random()*0.6;
         this.sepBiasX = (Math.random() - 0.5)*0.6;
         this.sepBiasY = (Math.random() - 0.5)*0.6;
+        // Sticky target so the horde doesn't zig-zag between officers.
+        this._stickyTarget = null;
+        this._stickyTimer = 0;
+        // Screamer support buff window.
+        this._screamTimer = 4 + Math.random()*4;
+        this._screamBuff = 0;
     }
     moveToward(tx, ty, dt, speed){ return steerUnit(this, tx, ty, dt, speed); }
     nearestActiveOfficer(){
@@ -2266,10 +2273,21 @@ class Zombie {
         return best;
     }
     pickGoalNode(){
-        const o = this.nearestActiveOfficer();
-        if (o && Math.random() < 0.7){
-            const n = nearestRoadNode(o.x, o.y);
+        // Prefer the sticky target if it is still alive, otherwise pick the
+        // nearest active officer. Only fall back to the station if there are
+        // no officers left alive at all.
+        if (this._stickyTarget && this._stickyTarget.alive && this._stickyTimer > 0){
+            const n = nearestRoadNode(this._stickyTarget.x, this._stickyTarget.y);
             if (n) return n.id;
+        }
+        const o = this.nearestActiveOfficer();
+        if (o){
+            const n = nearestRoadNode(o.x, o.y);
+            if (n){
+                this._stickyTarget = o;
+                this._stickyTimer = 6.0;
+                return n.id;
+            }
         }
         return 'B54';
     }
@@ -2285,6 +2303,12 @@ class Zombie {
     }
     update(dt){
         if (!this.alive) return;
+
+        // If we somehow ended up off the grid, eject to nearest road node.
+        if (!isValidPosition(this.x, this.y)){
+            const n = nearestRoadNode(this.x, this.y);
+            if (n){ this.x = n.x*TILE; this.y = n.y*TILE; }
+        }
 
         if (this.acidBurn > 0){
             this.acidBurn -= dt;
@@ -2310,8 +2334,27 @@ class Zombie {
         if (this.attackFlash > 0) this.attackFlash = Math.max(0, this.attackFlash - dt);
         this.atkTimer = Math.max(0, this.atkTimer - dt);
         this.timeSinceDamage += dt;
+        if (this._stickyTimer > 0) this._stickyTimer -= dt;
+        if (this._stickyTarget && (!this._stickyTarget.alive || this._stickyTimer <= 0)) this._stickyTarget = null;
+        if (this._screamBuff > 0) this._screamBuff = Math.max(0, this._screamBuff - dt);
+
+        // Screamer pulses a morale/speed buff to nearby zombies.
+        if (this.kind === 'screamer'){
+            this._screamTimer -= dt;
+            if (this._screamTimer <= 0){
+                this._screamTimer = 10;
+                for (const z of game.zombies){
+                    if (!z.alive || z === this) continue;
+                    if (Math.hypot(z.x - this.x, z.y - this.y) < TILE*8){
+                        z._screamBuff = Math.max(z._screamBuff || 0, 5);
+                    }
+                }
+                spawnHitEffect(this.x, this.y);
+            }
+        }
 
         const isBrute = this.kind === 'brute';
+        const isTank = this.kind === 'tank';
         const engageRange = this.def.meleeRange * TILE;
 
         let target = null, bestD = Infinity, fallbackTarget = null, fallbackD = Infinity;
@@ -2376,11 +2419,42 @@ class Zombie {
             return;
         }
 
-        let spd = this.def.speed;
-        if (isBrute){
-            this.surgeTimer -= dt;
-            if (this.surgeTimer <= 0){ spd *= 1.8; if (this.surgeTimer < -0.6) this.surgeTimer = 2 + Math.random()*3; }
+        // Spitter: stand at range and lob bile. Only fires when there's a target
+        // and the range band is right; otherwise falls through to normal advance.
+        if (this.kind === 'spitter' && target){
+            const d = Math.hypot(target.x - this.x, target.y - this.y);
+            if (d < TILE*7 && d > TILE*2.5){
+                this.state = 'ranged';
+                this.isMoving = false;
+                const dx = target.x - this.x, dy = target.y - this.y;
+                const dd = Math.hypot(dx, dy) || 1;
+                this.dir = { x: dx/dd, y: dy/dd };
+                if (this.atkTimer <= 0){
+                    this.atkTimer = this.def.atkCooldown;
+                    this.attackFlash = 0.25;
+                    game.projectiles.push({
+                        sx: this.x, sy: this.y - 12,
+                        tx: target.x + (Math.random()-0.5)*TILE,
+                        ty: target.y + (Math.random()-0.5)*TILE,
+                        t: 0, duration: 0.8,
+                        dmg: this.def.damage * this.dmgMult,
+                        aoe: TILE * 1.2,
+                        bile: true,
+                    });
+                }
+                return;
+            }
         }
+
+        let spd = this.def.speed * (this._speedBoost || 1);
+        if (isBrute || isTank){
+            this.surgeTimer -= dt;
+            if (this.surgeTimer <= 0){
+                spd *= isTank ? 1.5 : 1.8;
+                if (this.surgeTimer < -0.6) this.surgeTimer = 2 + Math.random()*3;
+            }
+        }
+        if (this._screamBuff > 0) spd *= 1.25;
 
         this.repathTimer -= dt;
         if (this.repathTimer <= 0 || this.routeVersion !== game.blockadeVersion || !this.route){
@@ -2406,10 +2480,14 @@ class Zombie {
             } else this.routeIdx++;
         }
 
-        // Fallback: head straight for the nearest officer or the station
-        if (target){
+        // Fallback: head straight for the sticky target, else nearest officer,
+        // else the station.
+        const nearest = (this._stickyTarget && this._stickyTarget.alive)
+            ? this._stickyTarget
+            : this.nearestActiveOfficer();
+        if (nearest){
             this.state = 'advancing';
-            this.moveToward(target.x, target.y, dt, spd);
+            this.moveToward(nearest.x, nearest.y, dt, spd);
             return;
         }
         const stX = BASE_TILE_X*TILE, stY = BASE_TILE_Y*TILE;
@@ -2450,6 +2528,21 @@ class Zombie {
             ctx.font = 'bold 9px monospace'; ctx.textAlign = 'center';
             ctx.fillText('🔗', sx, sy - 30);
         }
+        if (this.kind === 'screamer'){
+            ctx.fillStyle = 'rgba(255,140,80,0.9)';
+            ctx.font = 'bold 8px monospace'; ctx.textAlign = 'center';
+            ctx.fillText('☠', sx, sy - 30);
+        }
+        if (this.kind === 'spitter'){
+            ctx.fillStyle = 'rgba(180,240,90,0.9)';
+            ctx.font = 'bold 8px monospace'; ctx.textAlign = 'center';
+            ctx.fillText('☣', sx, sy - 30);
+        }
+        if (this.kind === 'tank'){
+            ctx.fillStyle = 'rgba(255,60,60,0.95)';
+            ctx.font = 'bold 10px monospace'; ctx.textAlign = 'center';
+            ctx.fillText('☠', sx, sy - 32);
+        }
     }
 }
 function drawZombieFigure(ctx, z){
@@ -2457,20 +2550,21 @@ function drawZombieFigure(ctx, z){
     const phase = z.animTimer * (z.isMoving ? 3.5 : 1.3);
     const legSwing = Math.sin(phase) * (z.isMoving ? 1 : 0.15);
     const sway = Math.sin(phase*0.6)*1.4;
-    const H = z.kind === 'brute' ? 24 : 20;
+    const H = z.kind === 'brute' ? 24 : (z.kind === 'tank' ? 28 : 20);
     const legReach = H*0.34;
     ctx.lineCap = 'round';
-    ctx.strokeStyle = '#141a12'; ctx.lineWidth = z.kind === 'brute' ? 3.4 : 2.6;
+    ctx.strokeStyle = '#141a12'; ctx.lineWidth = (z.kind === 'brute' || z.kind === 'tank') ? 3.4 : 2.6;
     ctx.beginPath(); ctx.moveTo(-1, -2); ctx.lineTo(-1 - legSwing*legReach*0.6, legReach); ctx.stroke();
     ctx.beginPath(); ctx.moveTo(-1, -2); ctx.lineTo(-1 + legSwing*legReach, legReach); ctx.stroke();
     const tintH = 96 + z.hue;
-    ctx.fillStyle = `hsl(${tintH}, 16%, ${z.kind === 'brute' ? 22 : 26}%)`;
+    const big = (z.kind === 'brute' || z.kind === 'tank');
+    ctx.fillStyle = `hsl(${tintH}, 16%, ${big ? 22 : 26}%)`;
     ctx.beginPath();
     ctx.moveTo(-2.8, -2); ctx.lineTo(2.6, -2); ctx.lineTo(1.8, -H*0.62); ctx.lineTo(-2.2, -H*0.62);
     ctx.closePath(); ctx.fill();
     ctx.fillStyle = 'rgba(6,10,4,0.55)';
     ctx.fillRect(-2.4, -H*0.45, 2.2, H*0.24);
-    ctx.fillStyle = `hsl(${tintH + 4}, 22%, ${z.kind === 'brute' ? 26 : 34}%)`;
+    ctx.fillStyle = `hsl(${tintH + 4}, 22%, ${big ? 26 : 34}%)`;
     ctx.beginPath(); ctx.arc(0, -H*0.73, H*0.20, 0, Math.PI*2); ctx.fill();
     ctx.fillStyle = 'rgba(80,20,20,0.55)';
     ctx.fillRect(-H*0.12, -H*0.67, H*0.24, H*0.05);
@@ -2478,8 +2572,8 @@ function drawZombieFigure(ctx, z){
     ctx.fillStyle = `rgba(255,${60 + 40*glow|0},${20},${0.75 + 0.25*glow})`;
     ctx.fillRect(-H*0.10, -H*0.78, 2, 2);
     ctx.fillRect( H*0.02, -H*0.78, 2, 2);
-    ctx.strokeStyle = `hsl(${tintH}, 18%, ${z.kind === 'brute' ? 18 : 24}%)`;
-    ctx.lineWidth = z.kind === 'brute' ? 3.6 : 2.4;
+    ctx.strokeStyle = `hsl(${tintH}, 18%, ${big ? 18 : 24}%)`;
+    ctx.lineWidth = big ? 3.6 : 2.4;
     const reach = z.isMoving ? 6 : 4;
     ctx.beginPath(); ctx.moveTo(-3, -H*0.5); ctx.lineTo(-3 - reach*0.6, -H*0.25 + sway); ctx.stroke();
     ctx.beginPath(); ctx.moveTo(3, -H*0.5); ctx.lineTo(3 + reach*0.6, -H*0.25 - sway); ctx.stroke();
@@ -2563,6 +2657,59 @@ function drawEffects(ctx){
         const p = 1 - e.t/e.life;
         ctx.fillStyle = `rgba(255,220,120,${p*0.8})`;
         ctx.beginPath(); ctx.arc(sx, sy, 3 + (1-p)*5, 0, Math.PI*2); ctx.fill();
+    }
+}
+
+// ============================ PROJECTILES ============================
+function updateProjectiles(dt){
+    for (let i = game.projectiles.length - 1; i >= 0; i--){
+        const p = game.projectiles[i];
+        p.t += dt;
+        if (p.t >= p.duration){
+            for (const o of game.officers){
+                if (!o.alive) continue;
+                if (Math.hypot(o.x - p.tx, o.y - p.ty) < p.aoe){
+                    damageOfficer(o, p.dmg);
+                }
+            }
+            for (const e of game.repairEscorts){
+                if (!e.alive) continue;
+                if (Math.hypot(e.x - p.tx, e.y - p.ty) < p.aoe){
+                    damageOfficer(e, p.dmg);
+                }
+            }
+            spawnHitEffect(p.tx, p.ty);
+            game.projectiles.splice(i, 1);
+        }
+    }
+}
+function drawProjectiles(ctx){
+    for (const p of game.projectiles){
+        const t = p.t / p.duration;
+        const px = p.sx + (p.tx - p.sx) * t;
+        const py = p.sy + (p.ty - p.sy) * t - Math.sin(t * Math.PI) * TILE * 3;
+        const sx = px - game.camera.x, sy = py - game.camera.y;
+        const shadowY = (p.sy + (p.ty - p.sy) * t) - game.camera.y;
+        if (p.bile){
+            ctx.fillStyle = 'rgba(0,0,0,0.25)';
+            ctx.beginPath(); ctx.ellipse(sx, shadowY + 2, 3, 1.5, 0, 0, Math.PI*2); ctx.fill();
+            ctx.fillStyle = 'rgba(120, 220, 60, 0.95)';
+            ctx.beginPath(); ctx.arc(sx, sy, 3.5, 0, Math.PI * 2); ctx.fill();
+            ctx.strokeStyle = 'rgba(180, 240, 90, 0.55)';
+            ctx.lineWidth = 1.2;
+            ctx.beginPath(); ctx.arc(sx, sy, 6, 0, Math.PI * 2); ctx.stroke();
+        } else {
+            ctx.fillStyle = 'rgba(0,0,0,0.25)';
+            ctx.beginPath(); ctx.ellipse(sx, shadowY + 2, 3, 1.5, 0, 0, Math.PI*2); ctx.fill();
+            ctx.save();
+            ctx.translate(sx, sy);
+            ctx.rotate(t * 8);
+            ctx.fillStyle = '#a0704a';
+            ctx.fillRect(-3, -2, 6, 4);
+            ctx.strokeStyle = '#4a2a18'; ctx.lineWidth = 1;
+            ctx.strokeRect(-3, -2, 6, 4);
+            ctx.restore();
+        }
     }
 }
 
@@ -3706,6 +3853,8 @@ class AcidCannonVehicle {
         this.aimAngle = 0;
         this.aimTarget = 0;
         this.dirx = 1;
+        this.hp = 300;
+        this.maxHp = 300;
     }
     setSpot(spot){
         if (!spot || this.targetSpot === spot) return;
@@ -3899,7 +4048,7 @@ class AcidCannonVehicle {
     }
 }
 
-// ============================ SQUAD AI (for zombies) ============================
+// ============================ SQUAD AI ============================
 class ZombieSquad {
     constructor(id, spawnNodeId, personality){
         this.id = id;
@@ -4436,8 +4585,6 @@ function fireNextReady(fn){
     for (const i of list) if (fn(i, true)) return;
     fn(list[0], false);
 }
-
-// ---- ACID ----
 function deployAcidFor(idx, silent){
     const say = m => { if (!silent) showToast(m); };
     if (idx >= OFFICER_SYNDICATES){ say('The acid van has no spray team.'); return false; }
@@ -4460,8 +4607,6 @@ function deployAcidFor(idx, silent){
     return true;
 }
 function deployAcid(){ fireNextReady(deployAcidFor); }
-
-// ---- GRABBER ----
 function deployGrabberFor(idx, silent){
     const say = m => { if (!silent) showToast(m); };
     if (idx >= OFFICER_SYNDICATES){ say('The van has no grabber team.'); return false; }
@@ -4506,8 +4651,6 @@ function deployGrabberFor(idx, silent){
     return true;
 }
 function deployGrabber(){ fireNextReady(deployGrabberFor); }
-
-// ---- K9 ----
 function deployK9For(idx, silent){
     const say = m => { if (!silent) showToast(m); };
     if (idx >= OFFICER_SYNDICATES){ say('The van has no K9.'); return false; }
@@ -4535,28 +4678,24 @@ function setAbilityButton(btn, sub, readyCount, total, label, nextSecs, note){
     }
 }
 function updateAbilityButtons(){
-    // Train
     const trainBtn = document.getElementById('act-train');
     const trainSub = document.getElementById('act-train-sub');
     const canTrain = game.supplies >= 20;
     trainBtn.disabled = !canTrain;
     trainBtn.classList.toggle('ready', canTrain);
     trainSub.textContent = '20 · ' + Math.floor(game.supplies) + '📦';
-    // Heal
     const healBtn = document.getElementById('act-heal');
     const healSub = document.getElementById('act-heal-sub');
     const canHeal = game.supplies >= 15;
     healBtn.disabled = !canHeal;
     healBtn.classList.toggle('ready', canHeal);
     healSub.textContent = '15 · ' + Math.floor(game.supplies) + '📦';
-    // Fortify
     const fortBtn = document.getElementById('act-fortify');
     const fortSub = document.getElementById('act-fortify-sub');
-    const canFort = game.supplies >= 25 && game.baseHp < game.baseMaxHp;
+    const canFort = game.supplies >= 25 && game.baseHp < BASE_MAX_HP;
     fortBtn.disabled = !canFort;
     fortBtn.classList.toggle('ready', canFort);
     fortSub.textContent = '25 · ' + Math.round(game.baseHp/BASE_MAX_HP*100) + '%';
-    // Acid
     const acidBtn = document.getElementById('act-acid');
     const acidSub = document.getElementById('act-acid-sub');
     const list = abilityIdxs();
@@ -4566,7 +4705,6 @@ function updateAbilityButtons(){
         const ready = cds.filter(c => c <= 0).length;
         setAbilityButton(acidBtn, acidSub, ready, list.length, 'S' + (list[0]+1), Math.min(...cds));
     }
-    // Grabber
     const gBtn = document.getElementById('act-grabber');
     const gSub = document.getElementById('act-grabber-sub');
     if (list[0] >= OFFICER_SYNDICATES){ gBtn.disabled = true; gBtn.classList.remove('ready'); gSub.textContent = '—'; }
@@ -4575,7 +4713,6 @@ function updateAbilityButtons(){
         const ready = cds.filter(c => c <= 0).length;
         setAbilityButton(gBtn, gSub, ready, list.length, 'S' + (list[0]+1), Math.min(...cds));
     }
-    // K9
     const k9Btn = document.getElementById('act-k9');
     const k9Sub = document.getElementById('act-k9-sub');
     if (list[0] >= OFFICER_SYNDICATES){ k9Btn.disabled = true; k9Btn.classList.remove('ready'); k9Sub.textContent = '—'; }
@@ -4594,7 +4731,6 @@ function updateAbilityButtons(){
         else if (!ready && out && list.length === 1){ setAbilityButton(k9Btn, k9Sub, 0, 1, lbl, 0, lbl + ' deployed ' + Math.ceil(minCd) + 's'); }
         else setAbilityButton(k9Btn, k9Sub, ready, list.length, lbl, minCd === Infinity ? 0 : minCd);
     }
-    // Acid van
     const vanBtn = document.getElementById('act-van');
     const vanSub = document.getElementById('act-van-sub');
     const v = game.acidVehicles[VEHICLE_SYNDICATE];
@@ -4608,7 +4744,6 @@ function updateAbilityButtons(){
         vanBtn.classList.toggle('ready', canBuy);
         vanSub.textContent = '30 · deploy';
     }
-    // Ambulance
     const ambBtn = document.getElementById('act-amb');
     const ambSub = document.getElementById('act-amb-sub');
     if (game.ambulance && game.ambulance.alive){ ambBtn.disabled = true; ambBtn.classList.remove('ready'); ambSub.textContent = 'out'; }
@@ -4641,7 +4776,6 @@ function updateStationButton(){
     const btn = document.getElementById('station-btn');
     if (!btn) return;
     const active = game.selectedSyndicate === 3 && !isVehicleIdx(3);
-    // In this build, no separate station index — station button just recenters on base.
     btn.classList.toggle('active', false);
     const out = game.repairOfficers.filter(r => r.alive).length;
     if (out > 0) btn.textContent = '🏢 Station (👷×' + out + ')';
@@ -4705,7 +4839,14 @@ function updateStats(){
     document.getElementById('subj-fill').style.width = Math.min(100, game.subjects*5) + '%';
     document.getElementById('subj-num').textContent = game.subjects;
     let threat = 0;
-    for (const z of game.zombies){ if (z.kind === 'brute') threat += 4; else if (z.kind === 'runner') threat += 2; else threat += 1; }
+    for (const z of game.zombies){
+        if (z.kind === 'tank') threat += 8;
+        else if (z.kind === 'brute') threat += 4;
+        else if (z.kind === 'screamer') threat += 3;
+        else if (z.kind === 'spitter') threat += 2;
+        else if (z.kind === 'runner') threat += 2;
+        else threat += 1;
+    }
     const threatPct = Math.min(1, threat / 25);
     const tFill = document.getElementById('threat-fill');
     tFill.style.width = Math.round(threatPct*100) + '%';
@@ -4733,7 +4874,6 @@ function renderOptionsPanel(){
     const panel = document.getElementById('options-panel');
     if (!panel) return;
     panel.innerHTML = '';
-
     if (isVehicleIdx(game.selectedSyndicate)){
         const lbl = document.createElement('div');
         lbl.className = 'section-label'; lbl.textContent = 'Acid Cannon Vehicle';
@@ -4785,7 +4925,6 @@ function renderOptionsPanel(){
         panel.appendChild(info);
         return;
     }
-
     const sy = ensureSyndicateState(game.selectedSyndicate);
     const flabel = document.createElement('div');
     flabel.className = 'section-label'; flabel.textContent = 'Formation';
@@ -4935,7 +5074,6 @@ const OBJECTIVE_SHORT = { base:'Station', hunt:'Hunt Officers' };
 const ALL_EXITS = ['N18','N30','N54','N78','N90','S12','S54','S96'];
 const WAVE_TONES = { 1:'Probing Advance', 2:'Twin Thrust', 3:'Coordinated Push',
     4:'Widening Assault', 5:'Massed Assault', 6:'Rolling Offensive' };
-
 function exitDefence(exitId){
     const n = getNode(exitId);
     if (!n) return 1;
@@ -4974,12 +5112,13 @@ function startWave(){
     game.waveMoralePct = 100;
     const wave = game.waveNumber;
     game.waveIntensity = 1 + (wave - 1)*0.045;
-    // Objective: mostly hunt officers, sometimes base
     const roll = Math.random();
     if (wave <= 1) game.raidAI.objective = 'base';
     else if (roll < 0.55) game.raidAI.objective = 'hunt';
     else game.raidAI.objective = 'base';
-    const zombieCount = 20 + wave*6;
+
+    // Scaling: wave 1 ~ 32 zeds; wave 10 ~ 138; wave 20 ~ 340.
+    const zombieCount = 22 + wave * 8 + Math.floor(wave * wave * 0.35);
     const maxGates = wave <= 1 ? 1 : wave <= 2 ? 2 : wave <= 4 ? 3 : wave <= 6 ? 4 : wave <= 9 ? 5 : 6;
     const gateCount = Math.max(1, Math.min(ALL_EXITS.length, 1 + Math.floor(Math.random()*maxGates)));
     const shuffled = ALL_EXITS.slice();
@@ -5010,8 +5149,12 @@ function startWave(){
         for (let i = 0; i < count; i++){
             const roll2 = Math.random();
             let kind = 'walker';
-            if (roll2 < 0.30) kind = 'runner';
-            else if (roll2 > 0.88) kind = 'brute';
+            if      (roll2 < 0.28) kind = 'runner';
+            else if (roll2 < 0.34 && wave >= 3) kind = 'brute';
+            else if (roll2 < 0.40 && wave >= 5) kind = 'spitter';
+            else if (roll2 < 0.44 && wave >= 7) kind = 'screamer';
+            else if (roll2 < 0.47 && wave >= 10) kind = 'tank';
+            else if (roll2 > 0.92 && wave >= 4) kind = 'brute';
             game.waveSpawnQueue.push({ kind, squadId: squad.id });
             totalHp += ZOMBIE_TYPES[kind].hp;
         }
@@ -5060,8 +5203,6 @@ function updateWaves(dt){
         }
         game.waveSpawnTimer = 0.10 + Math.random()*0.18;
     }
-
-    // Failsafe: disperse if all stuck
     let combatAlive = 0, combatActive = 0;
     for (const r of game.zombies){
         if (!r.alive) continue;
@@ -5076,7 +5217,6 @@ function updateWaves(dt){
             for (const r of game.zombies) if (r.alive) r.alive = false;
         }
     } else { game.fsIdle = 0; game.fsIdleFired = false; }
-
     const anyLeft = game.zombies.some(r => r.alive) || game.waveSpawnQueue.length > 0;
     const moraleBroken = game.waveMoralePct <= 0;
     if (moraleBroken && !game.fsCapFired){
@@ -5363,8 +5503,6 @@ function setupBottomRightUI(){
     document.getElementById('btn-down').addEventListener('click', () => commandMove(0, 1));
     document.getElementById('btn-left').addEventListener('click', () => commandMove(-1, 0));
     document.getElementById('btn-right').addEventListener('click', () => commandMove(1, 0));
-
-    // Top ability buttons
     document.getElementById('act-train').addEventListener('click', () => {
         if (game.supplies < 20) return;
         game.supplies -= 20;
@@ -5433,165 +5571,9 @@ function setupBottomRightUI(){
     document.getElementById('gameover-restart').addEventListener('click', restartGame);
     document.getElementById('gameover-menu').addEventListener('click', openMainMenu);
 }
-function renderOptionsPanel_repair(panel){
-    const lbl = document.createElement('div');
-    lbl.className = 'section-label'; lbl.textContent = 'Station Support';
-    panel.appendChild(lbl);
-    for (let t = 0; t < REPAIR_TEAM_COUNT; t++){
-        const b = document.createElement('button');
-        const active = repairTeamActive(t);
-        const cd = game.repairCooldowns[t] || 0;
-        if (active){ b.textContent = '👷 Team ' + (t+1) + ' (out)'; b.disabled = true; b.classList.add('active-choice'); }
-        else if (cd > 0){ b.textContent = '👷 Team ' + (t+1) + ' (' + Math.ceil(cd) + 's)'; b.disabled = true; }
-        else b.textContent = '👷 Send Team ' + (t+1);
-        b.addEventListener('click', () => deployRepairTeam(t));
-        panel.appendChild(b);
-    }
-    const ab = document.createElement('button');
-    const ambOut = game.ambulance && game.ambulance.alive, acd = game.ambulanceCooldown || 0;
-    if (ambOut){ ab.textContent = '🚑 Ambulance (out)'; ab.disabled = true; ab.classList.add('active-choice'); }
-    else if (acd > 0){ ab.textContent = '🚑 Ambulance (' + Math.ceil(acd) + 's)'; ab.disabled = true; }
-    else ab.textContent = '🚑 Send Ambulance';
-    ab.addEventListener('click', deployAmbulance);
-    panel.appendChild(ab);
-    const auto = document.createElement('button');
-    auto.textContent = '🔁 Auto-Repair: ' + (game.autoRepair ? 'ON' : 'OFF');
-    if (game.autoRepair) auto.classList.add('active-choice');
-    auto.addEventListener('click', () => {
-        game.autoRepair = !game.autoRepair;
-        showToast(game.autoRepair ? '🔁 Auto-repair ON.' : '🔁 Auto-repair OFF.');
-        renderOptionsPanel(); updateSelectionUI();
-    });
-    panel.appendChild(auto);
-}
-function renderOptionsPanel_override(){
-    const panel = document.getElementById('options-panel');
-    if (!panel) return;
-    // If station button is somehow active or nothing selected, call base
-    renderOptionsPanelBase();
-}
-function renderOptionsPanelBase(){
-    // placeholder; will be replaced below
-}
-// Override renderOptionsPanel to inject repair panel when needed
-const _origRenderOptionsPanel = renderOptionsPanel;
-renderOptionsPanel = function(){
-    const panel = document.getElementById('options-panel');
-    if (!panel) return;
-    panel.innerHTML = '';
-    const idx = game.selectedSyndicate;
-    // Station button re-targets to repair panel
-    if (window._stationFocus){
-        renderOptionsPanel_repair(panel);
-        return;
-    }
-    if (isVehicleIdx(idx)){ _origRenderOptionsPanel(); return; }
-    // Inline the original officer formation panel here (re-call)
-    // Call original but it clears panel; do the work directly
-    const sy = ensureSyndicateState(idx);
-    const flabel = document.createElement('div');
-    flabel.className = 'section-label'; flabel.textContent = 'Formation';
-    panel.appendChild(flabel);
-    FORMATION_DEFS.forEach(t => {
-        const b = document.createElement('button');
-        b.textContent = t.label;
-        if (t.key === 'pulse'){
-            const pp = ensurePulse(sy);
-            if (pp.active) b.textContent = '💥 Pulse (' + Math.ceil(PULSE_MAX_ACTIVE - pp.used) + 's left)';
-            else if (pp.cooldown > 0){ b.textContent = '💥 Pulse (' + Math.ceil(pp.cooldown) + 's)'; b.classList.add('on-cooldown'); }
-        }
-        if (sy.tactic === t.key && !sy.post) b.classList.add('active-choice');
-        b.addEventListener('click', () => applyTactic(t.key));
-        panel.appendChild(b);
-    });
-    if (sy.post){
-        const w = document.createElement('div');
-        w.className = 'info-line'; w.style.color = '#8ec8f0';
-        const dirNames = { N:'north', S:'south', E:'east', W:'west' };
-        const covered = sy.post.cover.map(d => dirNames[d]).join(' + ');
-        w.textContent = '🎯 JUNCTION POST (' + dirNames[sy.post.dir] + ') — covering ' + covered + '. Picking a formation clears the post.';
-        panel.appendChild(w);
-        const clearBtn = document.createElement('button');
-        clearBtn.textContent = '✖ Clear post';
-        clearBtn.addEventListener('click', () => { sy.post = null; assignFormation(); renderOptionsPanel(); updateSelectionUI(); });
-        panel.appendChild(clearBtn);
-    }
-    if (tacticIsPassive(sy.tactic) && sy.provokedTimer <= 0){
-        const w = document.createElement('div');
-        w.className = 'info-line'; w.style.color = '#8ec8f0';
-        w.textContent = '🕊 Holding fire — this posture will not engage unless attacked.';
-        panel.appendChild(w);
-    }
-    if (sy.tactic === 'rest' && sy.autoWallTimer > 0){
-        const w = document.createElement('div');
-        w.className = 'info-line'; w.style.color = '#8ec8f0';
-        w.textContent = '🧱 Under attack — wall up for ' + Math.ceil(sy.autoWallTimer) + 's';
-        panel.appendChild(w);
-    }
-    if (sy.provokedTimer > 0 && tacticIsPassive(sy.tactic)){
-        const w = document.createElement('div');
-        w.className = 'info-line'; w.style.color = '#ff8a5c';
-        w.textContent = '⚔ Provoked — engaging for ' + Math.ceil(sy.provokedTimer) + 's';
-        panel.appendChild(w);
-    }
-    if (game.mergedMode){
-        const d = document.createElement('div');
-        d.className = 'info-line'; d.style.color = '#ff8a5c'; d.style.fontWeight = 'bold';
-        d.textContent = '⚠ ALL UNITS MERGED';
-        panel.appendChild(d);
-    }
-    const tip = document.createElement('div');
-    tip.className = 'info-line';
-    tip.style.cssText = 'color:#7fc47f;padding-top:6px;border-top:1px solid #232c3a;margin-top:4px';
-    tip.textContent = '💡 Tap a green dot near a road junction to snap the syndicate to a defensive post.';
-    panel.appendChild(tip);
-};
 
 // ============================ RENDER ============================
 let ctx;
-function drawBuildingStatus(ctx){
-    const now = performance.now()/1000;
-    for (const b of sceneryBuildings){
-        if (b.hp >= b.maxHp) continue;
-        const w = b.wT*TILE, h = b.hT*TILE;
-        const px = b.x0*TILE - game.camera.x, py = b.y0*TILE - game.camera.y;
-        if (px > game.width || py > game.height || px + w < 0 || py + h < 0) continue;
-        const pct = Math.max(0, Math.min(1, b.hp / b.maxHp));
-        if (!b.alive && pct > 0) drawBuildingImg(ctx, b, px, py, 0.15 + 0.7*pct);
-        if (b.alive && pct < 0.75){
-            const rnd = mulberry32(b.x0*31 + b.y0*17);
-            const n = Math.floor((1 - pct)*9);
-            for (let i = 0; i < n; i++){
-                const cx = px + 3 + rnd()*(w-6), cy = py + h*0.3 + rnd()*h*0.65;
-                ctx.fillStyle = 'rgba(10,8,8,0.45)';
-                ctx.fillRect(cx, cy, 3 + rnd()*4, 2 + rnd()*3);
-            }
-        }
-        const smoking = (b.alive && pct < 0.5) || (!b.alive);
-        if (smoking){
-            const seed = b.x0*13 + b.y0;
-            for (let i = 0; i < 3; i++){
-                const ph = (now*0.45 + i/3 + (seed % 7)*0.13) % 1;
-                ctx.fillStyle = `rgba(45,42,40,${(1-ph)*0.55})`;
-                ctx.beginPath();
-                ctx.arc(px + w*(0.3 + 0.2*i) + Math.sin(ph*6 + i)*3, py + h*0.5 - ph*26, 3 + ph*6, 0, Math.PI*2);
-                ctx.fill();
-            }
-        }
-        if (b.alive && pct < 0.25){
-            for (let i = 0; i < 3; i++){
-                const fl = 0.6 + 0.4*Math.sin(now*11 + i*2.3 + b.x0);
-                const fx = px + w*(0.25 + 0.25*i), fy = py + h*0.55;
-                ctx.fillStyle = `rgba(255,${120 + Math.floor(fl*80)},40,0.85)`;
-                ctx.beginPath(); ctx.moveTo(fx - 3, fy); ctx.lineTo(fx, fy - 7*fl - 3); ctx.lineTo(fx + 3, fy); ctx.closePath(); ctx.fill();
-            }
-        }
-        ctx.fillStyle = 'rgba(0,0,0,0.65)';
-        ctx.fillRect(px + w*0.2, py + h - 7, w*0.6, 4);
-        ctx.fillStyle = pct > 0.5 ? '#e8b24e' : '#e86858';
-        ctx.fillRect(px + w*0.2, py + h - 7, w*0.6*pct, 4);
-    }
-}
 function drawJunctionPosts(ctx){
     if (isVehicleIdx(game.selectedSyndicate)) return;
     const sy = game.syndicates[game.selectedSyndicate];
@@ -5626,9 +5608,6 @@ function render(){
     ctx = game.ctx;
     ctx.clearRect(0, 0, game.width, game.height);
     drawWorldAndClouds(ctx);
-    drawBuildingStatus(ctx);
-
-    // Blood decals + effects (under everything else on the terrain)
     for (const b of game.bloodDecals){
         const sx = b.x - game.camera.x, sy = b.y - game.camera.y;
         if (sx < -30 || sy < -30 || sx > game.width+30 || sy > game.height+30) continue;
@@ -5636,9 +5615,7 @@ function render(){
         ctx.fillStyle = `rgba(${60 + (b.seed*10|0)%30},14,14,${0.28*fade})`;
         ctx.beginPath(); ctx.ellipse(sx, sy, 5 + (b.seed%3), 2.5 + (b.seed%2), 0, 0, Math.PI*2); ctx.fill();
     }
-
     game.k9s.forEach(k => { if (k.alive) k.drawLead(ctx); });
-
     const all = [];
     game.officers.forEach(o => { if (o.alive) all.push(o); });
     game.grabbers.forEach(a => { if (a.alive) all.push(a); });
@@ -5654,11 +5631,7 @@ function render(){
     if (v && v.alive) all.push(v);
     all.sort((a, b) => a.y - b.y);
     all.forEach(u => u.draw(ctx));
-
-    // Acid clouds on top
     game.acidTeams.forEach(t => { if (t.alive) t.drawAcidCloud(ctx); });
-
-    // Effects on top
     for (const e of game.effects){
         const sx = e.x - game.camera.x, sy = e.y - game.camera.y;
         if (sx < -40 || sy < -60 || sx > game.width+40 || sy > game.height+40) continue;
@@ -5666,11 +5639,8 @@ function render(){
         ctx.fillStyle = `rgba(255,220,120,${p*0.8})`;
         ctx.beginPath(); ctx.arc(sx, sy, 3 + (1-p)*5, 0, Math.PI*2); ctx.fill();
     }
-
-    // Junction post dots
+    drawProjectiles(ctx);
     drawJunctionPosts(ctx);
-
-    // Vehicle spot markers
     if (isVehicleIdx(game.selectedSyndicate) && game.acidVehicles[VEHICLE_SYNDICATE]){
         const selVeh = game.acidVehicles[VEHICLE_SYNDICATE];
         for (const s of BLOCKADE_SPOTS){
@@ -5684,8 +5654,6 @@ function render(){
             ctx.strokeStyle = 'rgba(0,0,0,0.55)'; ctx.lineWidth = 1; ctx.stroke();
         }
     }
-
-    // Selected syndicate destination & route
     if (isVehicleIdx(game.selectedSyndicate) && game.acidVehicles[VEHICLE_SYNDICATE]){
         const v2 = game.acidVehicles[VEHICLE_SYNDICATE];
         if (v2.route && v2.routeIdx < v2.route.length){
@@ -5732,11 +5700,7 @@ function render(){
             ctx.setLineDash([]);
         }
     }
-
-    // Crates
     game.crates.forEach(c => drawCrate(ctx, c));
-
-    // Base marker
     const bsx = BASE_TILE_X*TILE - game.camera.x;
     const bsy = BASE_TILE_Y*TILE - game.camera.y;
     const pulse = 0.5 + 0.5*Math.sin(performance.now()/380);
@@ -5751,8 +5715,6 @@ function render(){
     const pctB = game.baseHp / BASE_MAX_HP;
     ctx.fillStyle = pctB > 0.4 ? '#6ad46a' : '#d04a3a';
     ctx.fillRect(bsx - w/2, bsy - 80, w*pctB, 6);
-
-    // Vignette
     const g = ctx.createRadialGradient(game.width/2, game.height/2, Math.min(game.width, game.height)*0.36,
                                        game.width/2, game.height/2, Math.max(game.width, game.height)*0.78);
     g.addColorStop(0, 'rgba(10,16,12,0)');
@@ -5822,7 +5784,10 @@ function drawMinimap(){
         let col = '#8a4a34';
         if (z.beingDragged) col = '#ffcc33';
         else if (z.acidBurn > 0) col = '#f0f080';
+        else if (z.kind === 'tank') col = '#600000';
         else if (z.kind === 'brute') col = '#a02020';
+        else if (z.kind === 'screamer') col = '#ff8800';
+        else if (z.kind === 'spitter') col = '#70c040';
         else if (z.kind === 'runner') col = '#c06030';
         ctx.fillStyle = col;
         ctx.fillRect((z.x/TILE)*MINIMAP_SCALE, (z.y/TILE)*MINIMAP_SCALE, 2, 2);
@@ -6057,12 +6022,8 @@ function loop(t){
     if (!game.gameOver && !game.paused){
         try {
             updateWaves(dt);
-
-            // Danger map
             game.dangerTimer -= dt;
             if (game.dangerTimer <= 0){ game.dangerTimer = 0.7; computeRoadDanger(); }
-
-            // Cooldowns
             if (game.allOutCooldown > 0) game.allOutCooldown = Math.max(0, game.allOutCooldown - dt);
             for (let i = 0; i < 4; i++){
                 if (game.acidCooldown[i] > 0) game.acidCooldown[i] = Math.max(0, game.acidCooldown[i] - dt);
@@ -6072,8 +6033,6 @@ function loop(t){
                 if (game.repairCooldowns[i] > 0) game.repairCooldowns[i] = Math.max(0, game.repairCooldowns[i] - dt);
             }
             if (game.ambulanceCooldown > 0) game.ambulanceCooldown = Math.max(0, game.ambulanceCooldown - dt);
-
-            // Auto repair
             const anyRepair = game.repairOfficers.some(r => r.alive);
             if (game.repairWasActive && !anyRepair){
                 for (let i = 0; i < REPAIR_TEAM_COUNT; i++){
@@ -6083,7 +6042,6 @@ function loop(t){
             }
             game._repairWasOut = [repairTeamActive(0), repairTeamActive(1)];
             game.repairWasActive = anyRepair;
-
             if (game.autoRepair){
                 game.autoRepairTimer = (game.autoRepairTimer || 0) - dt;
                 if (game.autoRepairTimer <= 0){
@@ -6095,8 +6053,6 @@ function loop(t){
                     }
                 }
             }
-
-            // Morale
             if (game.moraleHoldTimer > 0) game.moraleHoldTimer -= dt;
             if (game.moraleDrain > 0){
                 const applied = Math.min(game.moraleDrain, 30*dt + 0.05);
@@ -6106,11 +6062,8 @@ function loop(t){
             } else if (game.moraleHoldTimer <= 0 && game.morale < MORALE_MAX){
                 game.morale = Math.min(MORALE_MAX, game.morale + MORALE_RECOVERY_RATE*dt);
             }
-
-            // Base regen
             if (game.baseRegenTimer > 0) game.baseRegenTimer -= dt;
             else if (game.baseHp < BASE_MAX_HP) game.baseHp = Math.min(BASE_MAX_HP, game.baseHp + BASE_REGEN_RATE*dt);
-
             for (let pi = 0; pi < OFFICER_SYNDICATES; pi++) updatePulse(game.syndicates[pi], pi, dt);
             updateSyndicateMovement(dt);
             assignFormation();
@@ -6134,13 +6087,12 @@ function loop(t){
             const v = game.acidVehicles[VEHICLE_SYNDICATE];
             if (v) v.update(dt);
             updateAmbulance(dt);
+            updateProjectiles(dt);
             updateEffects(dt);
             updateCrates(dt);
             updateAttackMarkers(dt);
             updateCamera(dt);
             updateStats();
-
-            // Prune
             if (game.zombies.some(z => !z.alive)) game.zombies = game.zombies.filter(z => z.alive);
             if (game.grabbers.some(a => !a.alive)) game.grabbers = game.grabbers.filter(a => a.alive);
             if (game.handlers.some(h => !h.alive)) game.handlers = game.handlers.filter(h => h.alive);
@@ -6173,12 +6125,10 @@ function init(){
     setupMenus();
     window.addEventListener('resize', () => setTimeout(rebuildWorldForScreenSize, 50));
     window.addEventListener('orientationchange', () => setTimeout(rebuildWorldForScreenSize, 300));
-
     initGameState();
     resizeCanvas();
     computeMapSize(); computeMinimapSize();
     rebuildRoadNetwork();
-
     loadAssets(() => {
         generateMap();
         buildTerrainCanvas();
@@ -6191,8 +6141,6 @@ function init(){
         game.ready = true;
         setTimeout(() => spawnCrate(), 2500);
     });
-
-    // Ambient crate timer
     let crateTimer = 22;
     setInterval(() => {
         if (game.paused || game.gameOver) return;

@@ -19,7 +19,7 @@
     @media (orientation: portrait) { #rotate-overlay { display: block; } }
     canvas#game { display: block; position: fixed; top: 0; left: 0; z-index: 1; }
 
-    #left-dock { position: fixed; left: 0; top: 0; bottom: 40px; width: 132px;
+    #left-dock { position: fixed; left: 0; top: 0; bottom: 40px; width: 128px;
         display: flex; flex-direction: column;
         background: linear-gradient(90deg,#0d1416,#070c0e);
         border-right: 2px solid #1d2a2e; z-index: 100; }
@@ -41,8 +41,6 @@
     #options-panel button:active { background: linear-gradient(180deg,#0f181a,#1a2a2c); transform: scale(.97); }
     #options-panel button.active-choice { background: linear-gradient(180deg,#4a7a3a,#2d4a1f);
         border-color: #7dffa0; color: #eaffea; box-shadow: 0 0 10px rgba(120,220,120,.4); }
-    #options-panel button.acid { background: linear-gradient(180deg,#4a6a10,#223a08);
-        border-color: #a8d040; color: #e8ffc0; }
     #options-panel button.on-cooldown { opacity: .55; }
     #options-panel button:disabled { opacity: .4; cursor: not-allowed; }
     #options-panel .info-line { font-size: 9.5px; color: #6a8a80; text-align: center;
@@ -68,7 +66,7 @@
         display: flex; align-items: center; justify-content: center; gap: 2px; }
     .stat span { color: #7dffa0; font-weight: bold; font-size: 10px; }
 
-    #hud-topleft { position: fixed; top: 8px; left: 140px; z-index: 96;
+    #hud-topleft { position: fixed; top: 8px; left: 136px; z-index: 96;
         display: flex; flex-direction: column; gap: 4px; max-width: 320px; pointer-events: none; }
     #status-panel { background: rgba(8,14,12,.85); border: 1px solid #1d2a2e;
         border-radius: 7px; padding: 5px 7px; display: flex; flex-direction: column; gap: 4px;
@@ -95,12 +93,12 @@
         padding: 5px 10px; border-radius: 7px; font-size: 11px;
         backdrop-filter: blur(5px); font-weight: 500; }
 
+    /* TOP BAR — 3 ability buttons, exactly matching the main game */
     #top-bar { position: fixed; top: 8px; left: calc(50% + 64px); transform: translateX(-50%); z-index: 96;
         display: flex; gap: 5px; background: rgba(8,14,12,.85);
         border: 1px solid #1d2a2e; border-radius: 9px; padding: 4px;
-        backdrop-filter: blur(5px); max-width: calc(100vw - 320px);
-        overflow-x: auto; scrollbar-width: none; }
-    #top-bar::-webkit-scrollbar { display: none; }
+        backdrop-filter: blur(5px); box-shadow: 0 2px 8px rgba(0,0,0,.4);
+        max-width: calc(100vw - 320px); }
     .train-btn { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px;
         width: 86px; min-width: 86px; height: 46px;
         background: linear-gradient(180deg,#1a2a2c,#0f181a);
@@ -111,12 +109,6 @@
     .train-btn:disabled { opacity: .42; cursor: not-allowed; }
     .train-btn .tlabel { z-index: 2; white-space: nowrap; }
     .train-btn .tsub { z-index: 2; font-size: 8px; color: #7a9a90; font-weight: 500; white-space: nowrap; }
-    .train-btn.train { background: linear-gradient(180deg,#1a3a5a,#0e1f30); border-color: #4a7ab0; color: #d0e8ff; }
-    .train-btn.train.ready { box-shadow: 0 0 10px rgba(90,150,220,.5); }
-    .train-btn.heal { background: linear-gradient(180deg,#3a5a2a,#1a2e12); border-color: #6aa03a; color: #e0ffd0; }
-    .train-btn.heal.ready { box-shadow: 0 0 10px rgba(120,200,80,.5); }
-    .train-btn.fortify { background: linear-gradient(180deg,#5a4a1a,#2e2010); border-color: #a08030; color: #fff0c0; }
-    .train-btn.fortify.ready { box-shadow: 0 0 10px rgba(200,170,60,.5); }
     .train-btn.acid { background: linear-gradient(180deg,#4a6a10,#223a08); border-color: #a8d040; color: #e8ffc0; }
     .train-btn.acid.ready { background: linear-gradient(180deg,#6a9a20,#345a10);
         box-shadow: 0 0 12px rgba(180,230,60,.6); animation: acidPulse 1.7s ease-in-out infinite; }
@@ -132,12 +124,10 @@
         box-shadow: 0 0 12px rgba(200,130,60,.6); animation: k9Pulse 1.7s ease-in-out infinite; }
     @keyframes k9Pulse { 0%,100% { box-shadow: 0 0 10px rgba(200,130,60,.4); }
         50% { box-shadow: 0 0 22px rgba(230,160,70,.9); } }
-    .train-btn.amb { background: linear-gradient(180deg,#1a5a2a,#0e3018); border-color: #4ac06a; color: #d0ffd8; }
-    .train-btn.amb.ready { box-shadow: 0 0 12px rgba(80,220,120,.5); }
 
     #bottom-right-ui { position: fixed; right: 8px; bottom: 48px; z-index: 97;
         display: flex; flex-direction: column; gap: 6px; align-items: stretch; min-width: 190px; }
-    #all-out-btn, #all-units-btn { padding: 9px 12px; border-radius: 8px;
+    #all-out-btn, #all-units-btn, #station-btn { padding: 9px 12px; border-radius: 8px;
         font-size: 11px; font-weight: 800; cursor: pointer; letter-spacing: .4px;
         width: 100%; box-shadow: 0 2px 6px rgba(0,0,0,.5); text-shadow: 0 1px 1px rgba(0,0,0,.5); }
     #all-units-btn { background: linear-gradient(180deg,#1a3a5a,#0e1f30); border: 1px solid #4a7ab0; color: #d0e8ff; }
@@ -147,6 +137,8 @@
         box-shadow: 0 0 14px rgba(255,90,60,.6); animation: allOutPulse 1.6s ease-in-out infinite; }
     @keyframes allOutPulse { 0%,100% { box-shadow: 0 0 10px rgba(255,90,60,.45); }
         50% { box-shadow: 0 0 20px rgba(255,120,80,.85); } }
+    #station-btn { background: linear-gradient(180deg,#1a2a2c,#0f181a); border: 1px solid #2f4a4a; color: #d8e8dc; }
+    #station-btn.active { background: linear-gradient(180deg,#7dffa0,#2a8a50); color: #0a1a0a; border-color: #ccffcc; }
 
     #syndicate-tabs { display: flex; gap: 4px; background: rgba(8,14,12,.9);
         border: 1px solid #1d2a2e; border-radius: 8px; padding: 4px; backdrop-filter: blur(5px); }
@@ -293,21 +285,10 @@
         </div>
     </div>
 
+    <!-- TOP BAR: 3 ability buttons (matches main game's Arrest / Gas / K9) -->
     <div id="top-bar">
-        <button id="act-train" class="train-btn train ready">
-            <span class="tlabel">👮 Recruit</span>
-            <span class="tsub" id="act-train-sub">20</span>
-        </button>
-        <button id="act-heal" class="train-btn heal ready">
-            <span class="tlabel">💊 Heal</span>
-            <span class="tsub" id="act-heal-sub">15</span>
-        </button>
-        <button id="act-fortify" class="train-btn fortify ready">
-            <span class="tlabel">🧱 Fortify</span>
-            <span class="tsub" id="act-fortify-sub">25</span>
-        </button>
         <button id="act-acid" class="train-btn acid ready">
-            <span class="tlabel">🧪 Acid</span>
+            <span class="tlabel">🧪 Acid Team</span>
             <span class="tsub" id="act-acid-sub">S1 ready</span>
         </button>
         <button id="act-grabber" class="train-btn grabber ready">
@@ -317,10 +298,6 @@
         <button id="act-k9" class="train-btn k9 ready">
             <span class="tlabel">🐕 K9</span>
             <span class="tsub" id="act-k9-sub">S1 ready</span>
-        </button>
-        <button id="act-amb" class="train-btn amb ready">
-            <span class="tlabel">🚑 Ambulance</span>
-            <span class="tsub" id="act-amb-sub">ready</span>
         </button>
     </div>
 
@@ -373,6 +350,7 @@
     <div id="bottom-right-ui">
         <button id="all-out-btn">🚨 ALL OUT</button>
         <button id="all-units-btn">🪖 All Units On Me</button>
+        <button id="station-btn">🏢 Station</button>
         <div id="syndicate-tabs">
             <button class="syn-btn" data-idx="0">S1</button>
             <button class="syn-btn" data-idx="1">S2</button>
@@ -432,7 +410,7 @@
                         Zombies stream in from the map edges and head for your officers or the station.<br><br>
                         <b>Supply crates</b> drop onto the road network. Walk any officer over one to bank its contents.<br><br>
                         <b>Test-Subject Grabbers</b> seize live zombies and drag them back to the station for supplies.<br><br>
-                        <b>Acid officers</b> spray a dissolving cone that eats through a crowd. The <b>acid van</b> drives the cordon and drenches anything nearby, while the <b>gas van</b> parks and deploys two gas gunners. <b>K9</b> hunts runners and the <b>ambulance</b> patches up wounded syndicates.<br><br>
+                        <b>Acid officers</b> spray a dissolving cone that eats through a crowd. The <b>Water Cannon van</b> drives the cordon and blasts anything nearby, while the <b>Rubber Bullet van</b> parks and deploys two gunners. <b>K9</b> hunts runners and the <b>ambulance</b> (from the Station panel) patches up wounded syndicates.<br><br>
                         Use <b>formations</b>, <b>junction posts</b>, and <b>ALL OUT</b> to hold the line.
                     </p>
                 </div>
@@ -442,21 +420,16 @@
 
 <script>
 /* ============================================================================
- * CORDON: OUTBREAK MODE — Full Toolkit (endless survival)
+ * CORDON: OUTBREAK MODE
  *
- * Movement parity with the main Cordon build:
- *   - Syndicates & vehicles snap to road dots (BLOCKADE_SPOTS).
- *   - Junction posts still give facing + cover directions.
- *   - Two vehicles at the start: acid cannon van + gas van.
- *   - Gas van parks and deploys two gas gunners (formerly rubber-bullet).
- *
- * Zombies:
- *   - Move like raiders with a per-zombie stuck failsafe (kick → fade).
- *   - Never surrender; always advance until dead or the wave is cleared.
- *   - Do not damage buildings.
- *   - Wave clears only when every zombie is dead.
- *
- * Repair team system removed.
+ * Fixes applied in this build:
+ *   - Officer melee damage path renamed to dealDamageToOfficer (was throwing).
+ *   - Vehicles are the same WaterCannonVehicle class as the main game:
+ *       idx 3 → water cannon (wc_sheet + turret + water_sheet burst cone)
+ *       idx 5 → rubber bullet van (response_van_sheet, two deployed gunners)
+ *   - Layout matches main game: 3 ability buttons in top bar (hidden for
+ *     vehicles / station), Station button above syndicate tabs, station panel
+ *     with Train / Heal / Fortify / Ambulance, formations in left panel.
  * ==========================================================================*/
 (function(){
 'use strict';
@@ -494,8 +467,9 @@ const OFFICERS_PER_ROW = ROAD_W + 1;
 const ROW_SPACING = 1.2, COL_SPACING = 1.1, WALL_COL_SPACING = 1.42;
 const OFFICERS_PER_SYNDICATE = 15;
 const OFFICER_SYNDICATES = 3;
-const VEHICLE_SYNDICATE = 3;      // acid cannon van
-const VEHICLE_SYNDICATE_2 = 5;    // gas van
+const VEHICLE_SYNDICATE = 3;      // water cannon
+const VEHICLE_SYNDICATE_2 = 5;    // rubber bullet van
+const STATION_INDEX = 4;
 function isVehicleIdx(idx){ return idx === VEHICLE_SYNDICATE || idx === VEHICLE_SYNDICATE_2; }
 function vehicleAt(idx){
     if (!game.vehicles) return null;
@@ -556,21 +530,28 @@ const K9_HP = 90, K9_DEPLOY_TIME = 10, K9_COOLDOWN = 50, K9_SPEED = 5.2,
 const AMB_CELL = 140, AMB_SCALE = (TILE*3.3)/103;
 const AMB_COOLDOWN = 90, AMB_STAY = 35, AMB_HEAL = 16, AMB_RADIUS = TILE*7, AMB_SPEED = 5.0;
 
-// ====== VEHICLES ======
-const ACID_CANNON_RANGE = TILE*9;
-const ACID_CANNON_CONE = Math.PI/4;
-const ACID_CANNON_TICK = 0.1;
-const ACID_CANNON_DMG = 22;
-const ACID_CANNON_SPEED = 4.5;
-const VEHICLE_STEP_RANGE = TILE*9;
+// ====== VEHICLES (identical to main game) ======
+const VEHICLE_SPEED = 4.5;
+const VEHICLE_TURN_RATE = 6.0;
+const VEHICLE_STEP_RANGE = TILE * 9;
 
-const GAS_VAN_RANGE = TILE*8;
-const GAS_VAN_COOLDOWN = 2.0;
-const GAS_VAN_DAMAGE = 16;
-const GAS_VAN_AOE = TILE*1.6;
-const GAS_BURN_DURATION = 3.5;
-const GAS_VAN_SHELL_TIME = 0.7;
-const GAS_VAN_SPEED = 4.5;
+const WATER_CANNON_RANGE = TILE * 9;
+const WATER_CANNON_CONE_HALF = Math.PI / 4;
+const WATER_CANNON_BURST_DURATION = 0.75;
+const WATER_CANNON_IDLE_DURATION = 0.9;
+const WATER_CANNON_TICK_INTERVAL = 0.1;
+const WATER_CANNON_DAMAGE_PER_TICK = 18;
+const WATER_CANNON_PUSH_PER_TICK = TILE * 0.32;
+
+const RUBBER_BULLET_RANGE = TILE * 7.5;
+const RUBBER_BULLET_COOLDOWN = 2.0;
+const RUBBER_BULLET_DAMAGE = 9;
+const RUBBER_BULLET_STUN = 0.6;
+
+const WC_CELL = 140;
+const WC_LENGTH_TILES = 3.4;
+const WC_SCALE = (TILE * WC_LENGTH_TILES) / 100;
+const WC_FRAMES = [[[49.7,53.9],[91.7,54.1],[91.7,57.7]],[[50.1,52.1],[92.5,56.4],[91.0,60.0]],[[51.1,50.2],[93.2,58.6],[90.1,62.1]],[[53.7,47.6],[94.8,60.0],[90.3,63.3]],[[55.4,45.2],[94.8,61.4],[88.8,64.5]],[[55.0,44.4],[92.0,64.1],[84.7,67.0]],[[57.2,43.3],[91.2,66.3],[82.7,68.8]],[[59.8,42.6],[90.2,68.5],[80.6,70.7]],[[62.4,42.6],[88.6,71.0],[78.2,72.8]],[[64.3,42.3],[85.9,72.7],[74.8,74.1]],[[66.0,41.9],[82.7,73.9],[71.1,74.8]],[[67.7,41.7],[79.2,74.7],[67.3,75.2]],[[69.4,41.9],[75.4,75.4],[63.4,75.4]],[[71.1,41.5],[71.5,75.0],[59.6,74.5]],[[73.0,41.5],[67.9,74.4],[56.3,73.4]],[[74.7,41.6],[64.2,73.4],[53.1,72.0]],[[77.1,41.7],[61.3,71.9],[51.0,70.1]],[[79.7,42.2],[58.9,70.3],[49.3,68.1]],[[82.2,43.1],[56.8,68.6],[48.3,66.1]],[[84.4,43.9],[54.7,66.5],[47.4,63.7]],[[86.2,45.5],[52.8,64.8],[46.8,61.7]],[[87.6,47.3],[51.1,63.0],[46.5,59.7]],[[88.8,49.4],[49.8,61.3],[46.7,57.8]],[[89.0,51.5],[48.1,59.4],[46.6,55.8]],[[87.3,53.6],[45.3,57.4],[45.3,53.8]],[[87.3,54.9],[44.9,54.6],[46.5,51.0]],[[86.5,56.7],[44.4,52.2],[47.5,48.8]],[[86.0,58.1],[44.9,49.8],[49.5,46.4]],[[85.5,60.5],[46.1,48.3],[52.1,45.2]],[[84.4,62.9],[47.4,47.2],[54.7,44.3]],[[83.0,64.4],[49.1,45.4],[57.6,42.9]],[[81.1,65.2],[50.7,43.3],[60.2,41.1]],[[79.4,66.5],[53.2,42.1],[63.6,40.3]],[[77.2,67.4],[55.6,41.0],[66.6,39.6]],[[74.6,67.7],[58.0,39.7],[69.5,38.8]],[[71.9,66.2],[60.5,37.2],[72.4,36.7]],[[69.7,65.6],[63.7,36.1],[75.7,36.1]],[[67.3,65.8],[66.8,36.3],[78.7,36.8]],[[65.2,65.0],[70.3,36.1],[81.9,37.0]],[[63.0,64.4],[73.5,36.6],[84.6,38.0]],[[61.1,63.4],[76.9,37.2],[87.3,39.0]],[[59.6,62.7],[80.4,38.6],[89.9,40.8]],[[58.0,62.7],[83.5,41.2],[91.9,43.7]],[[56.0,61.9],[85.7,43.3],[93.0,46.2]],[[54.0,60.4],[87.3,45.1],[93.3,48.2]],[[51.8,58.8],[88.4,47.1],[92.9,50.4]],[[50.5,56.9],[89.5,49.0],[92.6,52.4]],[[49.6,55.0],[90.4,51.1],[92.0,54.7]]];
 
 // Formations
 const FORMATION_MODS = {
@@ -753,8 +734,7 @@ let game = {
 
     attackMarkers: [],
 
-    gasShells: [],
-    gasTracers: [],
+    rubberTracers: [],
 };
 
 // ============================ ROAD GRAPH ============================
@@ -1103,7 +1083,7 @@ function rebuildRoadNetwork(){
     buildJunctionPosts();
 }
 
-// ============================ MAP GEN (unchanged) ============================
+// ============================ MAP GEN ============================
 let cityKind = null;
 let sceneryBuildings = [];
 let sceneryProps = [];
@@ -1142,6 +1122,11 @@ const ASSET_PATHS = {
     veh_van_red: 'assets/map/vehicles/veh_van_red.png',
     amb_sheet: 'assets/map/vehicles/ambulance_sheet.png',
     gas_sheet: 'assets/fx/gas_plume_sheet.png',
+    // Main-game vehicle sheets (identical to Cordon)
+    wc_sheet: 'assets/map/vehicles/water_cannon_sheet.png',
+    wc_turret: 'assets/map/vehicles/water_cannon_turret.png',
+    response_van_sheet: 'assets/map/vehicles/response_van_sheet.png',
+    water_sheet: 'assets/fx/water_jet_sheet.png',
     prop_tree: 'assets/map/props/prop_tree.png',
     prop_tree_tall: 'assets/map/props/prop_tree_tall.png',
     prop_streetlight: 'assets/map/props/prop_streetlight.png',
@@ -2230,6 +2215,7 @@ class Zombie {
         this.beingDragged = false;
         this.grabber = null;
         this.acidBurn = 0;
+        this.stunTimer = 0;
         this.eyePhase = Math.random()*10;
         this.hue = (Math.random() - 0.5) * 20;
         this.route = null; this.routeIdx = 0; this.goalNodeId = null; this.routeVersion = -1;
@@ -2284,6 +2270,12 @@ class Zombie {
         if (!isValidPosition(this.x, this.y)){
             const n = nearestRoadNode(this.x, this.y);
             if (n){ this.x = n.x*TILE; this.y = n.y*TILE; }
+        }
+
+        if (this.stunTimer > 0){
+            this.stunTimer -= dt;
+            this.isMoving = false;
+            return;
         }
 
         if (this.acidBurn > 0){
@@ -2371,6 +2363,7 @@ class Zombie {
             if (this.atkTimer <= 0){
                 this.atkTimer = this.def.atkCooldown;
                 this.attackFlash = 0.22;
+                // FIXED: was dealDamageToOfficer (undefined) — now calls the real function
                 dealDamageToOfficer(target, this.def.damage * this.dmgMult);
             }
             return;
@@ -2471,6 +2464,11 @@ class Zombie {
         drawZombieFigure(ctx, this);
         ctx.restore();
         if (this.hp < this.maxHp) drawHpBar(ctx, sx, sy - 22, this.hp, this.maxHp, '#a02a2a');
+        if (this.stunTimer > 0){
+            ctx.fillStyle = 'rgba(255,220,120,0.9)';
+            ctx.font = 'bold 10px monospace'; ctx.textAlign = 'center';
+            ctx.fillText('💫', sx, sy - 30);
+        }
         if (this.acidBurn > 0){
             ctx.fillStyle = 'rgba(180,240,80,0.9)';
             ctx.font = 'bold 10px monospace'; ctx.textAlign = 'center';
@@ -2551,7 +2549,10 @@ function damageZombie(z, amount){
         addBloodDecal(z.x, z.y);
     }
 }
-function damageOfficer(o, amount){
+// RENAMED: this is the function zombies call. It was previously named damageOfficer,
+// and the zombie's melee call used dealDamageToOfficer (undefined) — so zombies
+// never dealt damage. Also matches the main game's naming convention.
+function dealDamageToOfficer(o, amount){
     if (!o.alive) return;
     if (!o.isAllOut && o.syndicateIndex >= 0){
         const syHit = game.syndicates[o.syndicateIndex];
@@ -2596,7 +2597,7 @@ function updateEffects(dt){
     }
 }
 
-// ============================ PROJECTILES (SPITTER BILE) ============================
+// ============================ PROJECTILES ============================
 function updateProjectiles(dt){
     for (let i = game.projectiles.length - 1; i >= 0; i--){
         const p = game.projectiles[i];
@@ -2605,7 +2606,7 @@ function updateProjectiles(dt){
             for (const o of game.officers){
                 if (!o.alive) continue;
                 if (Math.hypot(o.x - p.tx, o.y - p.ty) < p.aoe){
-                    damageOfficer(o, p.dmg);
+                    dealDamageToOfficer(o, p.dmg);
                 }
             }
             spawnHitEffect(p.tx, p.ty);
@@ -2629,50 +2630,6 @@ function drawProjectiles(ctx){
             ctx.lineWidth = 1.2;
             ctx.beginPath(); ctx.arc(sx, sy, 6, 0, Math.PI * 2); ctx.stroke();
         }
-    }
-}
-
-// ============================ GAS SHELLS (FROM GAS VAN) ============================
-function updateGasShells(dt){
-    for (let i = game.gasShells.length - 1; i >= 0; i--){
-        const s = game.gasShells[i];
-        s.t += dt;
-        if (s.t >= s.duration){
-            for (const z of game.zombies){
-                if (!z.alive || z.beingDragged) continue;
-                if (Math.hypot(z.x - s.tx, z.y - s.ty) < GAS_VAN_AOE){
-                    damageZombie(z, GAS_VAN_DAMAGE);
-                    z.acidBurn = Math.max(z.acidBurn, GAS_BURN_DURATION);
-                }
-            }
-            spawnHitEffect(s.tx, s.ty);
-            game.effects.push({ kind:'gasCloud', x:s.tx, y:s.ty, t:0, life:2.5 });
-            game.gasShells.splice(i, 1);
-        }
-    }
-    for (let i = game.gasTracers.length - 1; i >= 0; i--){
-        game.gasTracers[i].t -= dt;
-        if (game.gasTracers[i].t <= 0) game.gasTracers.splice(i, 1);
-    }
-}
-function drawGasShells(ctx){
-    for (const s of game.gasShells){
-        const t = s.t / s.duration;
-        const px = s.sx + (s.tx - s.sx) * t;
-        const py = s.sy + (s.ty - s.sy) * t - Math.sin(t * Math.PI) * TILE * 4;
-        const sx = px - game.camera.x, sy = py - game.camera.y;
-        ctx.fillStyle = 'rgba(120,255,120,0.95)';
-        ctx.beginPath(); ctx.arc(sx, sy, 4, 0, Math.PI * 2); ctx.fill();
-        ctx.strokeStyle = 'rgba(80,220,80,0.6)';
-        ctx.lineWidth = 1.2;
-        ctx.beginPath(); ctx.arc(sx, sy, 7, 0, Math.PI * 2); ctx.stroke();
-    }
-    for (const tr of game.gasTracers){
-        const x0 = tr.x0 - game.camera.x, y0 = tr.y0 - game.camera.y;
-        const x1 = tr.x1 - game.camera.x, y1 = tr.y1 - game.camera.y;
-        ctx.strokeStyle = `rgba(150,255,150,${0.7 * (tr.t/0.15)})`;
-        ctx.lineWidth = 1.4;
-        ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke();
     }
 }
 
@@ -3495,243 +3452,32 @@ function updateAmbulance(dt){
     if (game.ambulance && game.ambulance.alive) game.ambulance.update(dt);
 }
 
-// ============================ ACID CANNON VAN (vehicle idx 3) ============================
-class AcidCannonVehicle {
-    constructor(syndicateIndex){
+// ============================ WATER CANNON VEHICLE (from main game) ============================
+class WaterCannonVehicle {
+    constructor(syndicateIndex, kind){
         this.syndicateIndex = syndicateIndex;
-        this.x = BASE_TILE_X*TILE + TILE*2;
-        this.y = BASE_TILE_Y*TILE + TILE*2;
+        this.kind = kind || 'watercannon';
+        this.x = this.kind === 'rubberbullet' ? 40 * TILE + TILE / 2 : 44 * TILE + TILE / 2;
+        this.y = ROAD_Y_BOTTOM * TILE + TILE / 2;
         this.angle = 0;
         this.targetAngle = 0;
-        this.lightPhase = Math.random()*10;
+        this.lightPhase = Math.random() * 10;
         this.alive = true;
         this.parked = false;
         this.targetSpot = null;
         this.route = null;
         this.routeIdx = 0;
         this.stuckTimer = 0;
-        this.acidOn = true;
-        this.phase = 'idle';
-        this.timer = 0;
-        this.tickTimer = 0;
-        this.aimAngle = 0;
-        this.aimTarget = 0;
-        this.dirx = 1;
-        this.hp = 300;
-        this.maxHp = 300;
-    }
-    setSpot(spot){
-        if (!spot || this.targetSpot === spot) return;
-        this.targetSpot = spot;
-        this.parked = false;
-        this.stuckTimer = 0;
-        game.blockadeVersion++;
-        this.recomputeRoute();
-    }
-    clearTarget(){
-        this.targetSpot = null;
-        this.route = null; this.routeIdx = 0;
-        this.parked = false;
-        this.stuckTimer = 0;
-        game.blockadeVersion++;
-    }
-    recomputeRoute(){
-        if (!this.targetSpot){ this.route = null; this.routeIdx = 0; return; }
-        const spot = this.targetSpot;
-        if (Math.hypot(spot.x - this.x, spot.y - this.y) < TILE*2){ this.route = [{ x:spot.x, y:spot.y }]; this.routeIdx = 0; return; }
-        const edge = ROAD_EDGES.find(e => e.key === spot.edgeKey);
-        const goalIds = edge ? [edge.a, edge.b] : [];
-        if (!goalIds.length){ this.route = [{ x:spot.x, y:spot.y }]; this.routeIdx = 0; return; }
-        const starts = [];
-        const near = nearestRoadNode(this.x, this.y);
-        if (near) starts.push(near.id);
-        const hereEdge = findEdgeForSpot({ x:this.x, y:this.y });
-        if (hereEdge){
-            const e = ROAD_EDGES.find(ed => ed.key === hereEdge);
-            if (e){ if (!starts.includes(e.a)) starts.push(e.a); if (!starts.includes(e.b)) starts.push(e.b); }
-        }
-        if (!starts.length) starts.push('B54');
-        let bestPath = null, bestCost = Infinity;
-        for (const sId of starts){
-            const sNode = getNode(sId);
-            if (!sNode) continue;
-            const toStart = Math.hypot(sNode.x*TILE - this.x, sNode.y*TILE - this.y);
-            for (const gId of goalIds){
-                const gNode = getNode(gId);
-                if (!gNode) continue;
-                const path = findPathWeighted(sId, gId, null);
-                if (!path) continue;
-                let len = 0;
-                for (let i = 1; i < path.length; i++){
-                    const a = getNode(path[i-1]), b = getNode(path[i]);
-                    if (a && b) len += Math.hypot(b.x-a.x, b.y-a.y)*TILE;
-                }
-                const toSpot = Math.hypot(gNode.x*TILE - spot.x, gNode.y*TILE - spot.y);
-                const cost = toStart + len + toSpot;
-                if (cost < bestCost){ bestCost = cost; bestPath = path; }
-            }
-        }
-        if (!bestPath){ this.route = [{ x:spot.x, y:spot.y }]; this.routeIdx = 0; return; }
-        const pts = [{ x:this.x, y:this.y }];
-        for (const id of bestPath){ const n = getNode(id); if (n) pts.push({ x:n.x*TILE, y:n.y*TILE }); }
-        pts.push({ x:spot.x, y:spot.y });
-        this.route = pts;
-        this.routeIdx = 0;
-    }
-    update(dt){
-        if (!this.alive) return;
-        this.lightPhase += dt;
-        let da = this.targetAngle - this.angle;
-        while (da > Math.PI) da -= Math.PI*2;
-        while (da < -Math.PI) da += Math.PI*2;
-        this.angle += da * Math.min(1, dt*6);
-        if (this.targetSpot){
-            if (this.route){
-                while (this.routeIdx < this.route.length &&
-                       Math.hypot(this.route[this.routeIdx].x - this.x, this.route[this.routeIdx].y - this.y) < TILE*0.7){
-                    this.routeIdx++;
-                }
-            }
-            let tx = this.targetSpot.x, ty = this.targetSpot.y;
-            const routeDone = !this.route || this.routeIdx >= this.route.length;
-            if (!routeDone){ tx = this.route[this.routeIdx].x; ty = this.route[this.routeIdx].y; }
-            const dx = tx - this.x, dy = ty - this.y;
-            const dist = Math.hypot(dx, dy);
-            if (routeDone && dist < 3){ this.parked = true; this.stuckTimer = 0; }
-            else {
-                if (this.parked) this.parked = false;
-                const step = Math.min(dist, ACID_CANNON_SPEED*TILE*dt);
-                const ux = dx/(dist||1), uy = dy/(dist||1);
-                const nx = this.x + ux*step, ny = this.y + uy*step;
-                let moved = false;
-                if (isValidPosition(nx, ny) && isRoadAt(nx, ny)){ this.x = nx; this.y = ny; moved = true; }
-                else if (isValidPosition(nx, this.y) && isRoadAt(nx, this.y)){ this.x = nx; moved = true; }
-                else if (isValidPosition(this.x, ny) && isRoadAt(this.x, ny)){ this.y = ny; moved = true; }
-                if (moved){
-                    this.targetAngle = Math.atan2(uy, ux);
-                    if (Math.abs(ux) > 0.1) this.dirx = ux >= 0 ? 1 : -1;
-                    const after = Math.hypot(tx - this.x, ty - this.y);
-                    if (dist - after < 0.05) this.stuckTimer += dt; else this.stuckTimer = Math.max(0, this.stuckTimer - dt*2);
-                } else this.stuckTimer += dt;
-                if (this.stuckTimer > 1.0){
-                    this.stuckTimer = 0;
-                    if (this.route && this.routeIdx < this.route.length) this.routeIdx++;
-                    else { this.clearTarget(); showToast('🚐 No clear route to that point.'); }
-                }
-            }
-        }
-        let target = null, bestD = Infinity;
-        for (const z of game.zombies){
-            if (!z.alive || z.beingDragged) continue;
-            const dz = Math.hypot(z.x - this.x, z.y - this.y);
-            if (dz > ACID_CANNON_RANGE) continue;
-            if (dz < bestD){ bestD = dz; target = z; }
-        }
-        if (target) this.aimTarget = Math.atan2(target.y - this.y, target.x - this.x);
-        else this.aimTarget = this.angle;
-        let dda = this.aimTarget - this.aimAngle;
-        while (dda > Math.PI) dda -= Math.PI*2;
-        while (dda < -Math.PI) dda += Math.PI*2;
-        this.aimAngle += dda * Math.min(1, dt*8);
-        if (!this.acidOn){ this.phase = 'idle'; return; }
-        if (this.phase === 'burst'){
-            this.timer -= dt;
-            if (this.timer <= 0){ this.phase = 'idle'; this.timer = 0.7; }
-            else {
-                this.tickTimer -= dt;
-                if (this.tickTimer <= 0){ this.tickTimer = ACID_CANNON_TICK; this.applyAcidHit(); }
-            }
-        } else {
-            this.timer -= dt;
-            if (this.timer <= 0 && target){ this.phase = 'burst'; this.timer = 0.85; this.tickTimer = 0; }
-        }
-        const biter = game.zombies.find(z => z.alive && Math.hypot(z.x - this.x, z.y - this.y) < TILE*1.1);
-        if (biter) this.hp = Math.max(0, this.hp - 6*dt);
-        if (this.hp <= 0 && this.alive){ this.alive = false; showToast('🚐 Acid van destroyed.'); }
-    }
-    applyAcidHit(){
-        const ang = this.aimAngle;
-        for (const z of game.zombies){
-            if (!z.alive || z.beingDragged) continue;
-            const dx = z.x - this.x, dy = z.y - this.y;
-            const d = Math.hypot(dx, dy);
-            if (d > ACID_CANNON_RANGE) continue;
-            let diff = Math.atan2(dy, dx) - ang;
-            while (diff > Math.PI) diff -= Math.PI*2;
-            while (diff < -Math.PI) diff += Math.PI*2;
-            if (Math.abs(diff) > ACID_CANNON_CONE) continue;
-            damageZombie(z, ACID_CANNON_DMG);
-            z.acidBurn = Math.max(z.acidBurn, 3);
-        }
-    }
-    draw(ctx){
-        if (!this.alive) return;
-        const sx = this.x - game.camera.x, sy = this.y - game.camera.y;
-        if (sx < -200 || sy < -200 || sx > game.width+200 || sy > game.height+200) return;
-        if (this.phase === 'burst'){
-            const lifePct = this.timer/0.85;
-            const alpha = 0.55 * Math.min(1, lifePct*2) * Math.min(1, (1-lifePct)*4 + 0.3);
-            if (alpha > 0.02){
-                const grad = ctx.createRadialGradient(sx, sy, 0, sx, sy, ACID_CANNON_RANGE);
-                grad.addColorStop(0, `rgba(200, 255, 80, ${alpha})`);
-                grad.addColorStop(0.5, `rgba(150, 220, 40, ${alpha*0.7})`);
-                grad.addColorStop(1, 'rgba(90, 180, 20, 0)');
-                ctx.fillStyle = grad;
-                ctx.beginPath();
-                ctx.moveTo(sx, sy);
-                ctx.arc(sx, sy, ACID_CANNON_RANGE, this.aimAngle - ACID_CANNON_CONE, this.aimAngle + ACID_CANNON_CONE);
-                ctx.closePath(); ctx.fill();
-            }
-        }
-        ctx.fillStyle = 'rgba(0,0,0,0.28)';
-        ctx.beginPath(); ctx.ellipse(sx, sy + 7, TILE*1.6, TILE*0.9, 0, 0, Math.PI*2); ctx.fill();
-        const img = assets['veh_van'];
-        ctx.save(); ctx.translate(sx, sy);
-        if (this.dirx < 0) ctx.scale(-1, 1);
-        if (img){
-            const w = TILE*3.2, h = img.height * w / img.width;
-            ctx.drawImage(img, -w/2, -h*0.85, w, h);
-        } else {
-            ctx.fillStyle = '#2a4a10'; ctx.fillRect(-22, -14, 44, 16);
-            ctx.fillStyle = '#1a3008'; ctx.fillRect(-16, -18, 32, 6);
-        }
-        ctx.save(); ctx.rotate(this.aimAngle);
-        ctx.fillStyle = '#4a6a10';
-        ctx.fillRect(0, -3, 14, 6);
-        ctx.fillStyle = '#8ad020';
-        ctx.fillRect(12, -2, 4, 4);
-        ctx.restore();
-        ctx.restore();
-        const flash = Math.sin(this.lightPhase*11) > 0;
-        if (flash){
-            const g = ctx.createRadialGradient(sx, sy - 12, 0, sx, sy - 12, TILE*1.2);
-            g.addColorStop(0, 'rgba(200, 255, 80, 0.7)');
-            g.addColorStop(1, 'rgba(200, 255, 80, 0)');
-            ctx.fillStyle = g;
-            ctx.fillRect(sx - TILE*1.2, sy - TILE*1.2 - 12, TILE*2.4, TILE*2.4);
-        }
-        if (this.hp < this.maxHp) drawHpBar(ctx, sx, sy - 26, this.hp, this.maxHp, '#5aa05a');
-    }
-}
 
-// ============================ GAS VAN (vehicle idx 5) ============================
-class GasVanVehicle {
-    constructor(syndicateIndex){
-        this.syndicateIndex = syndicateIndex;
-        this.x = 40*TILE + TILE/2;
-        this.y = ROAD_Y_BOTTOM*TILE + TILE/2;
-        this.angle = 0;
-        this.targetAngle = 0;
-        this.lightPhase = Math.random()*10;
-        this.alive = true;
-        this.parked = false;
-        this.targetSpot = null;
-        this.route = null;
-        this.routeIdx = 0;
-        this.stuckTimer = 0;
-        this.hp = 300;
-        this.maxHp = 300;
+        this.waterCannonOn = false;
+        this.waterPhase = 'idle';
+        this.waterTimer = 0;
+        this.waterTickTimer = 0;
+        this.waterAimAngle = 0;
+        this.waterAimTarget = 0;
+
         this.gunnerFireTimer = [1.0, 1.9];
+        this.gunnersOut = false;
         this.gunnerDeployT = 0;
     }
     setSpot(spot){
@@ -3744,7 +3490,8 @@ class GasVanVehicle {
     }
     clearTarget(){
         this.targetSpot = null;
-        this.route = null; this.routeIdx = 0;
+        this.route = null;
+        this.routeIdx = 0;
         this.parked = false;
         this.stuckTimer = 0;
         game.blockadeVersion++;
@@ -3752,24 +3499,35 @@ class GasVanVehicle {
     recomputeRoute(){
         if (!this.targetSpot){ this.route = null; this.routeIdx = 0; return; }
         const spot = this.targetSpot;
-        if (Math.hypot(spot.x - this.x, spot.y - this.y) < TILE*2){ this.route = [{ x:spot.x, y:spot.y }]; this.routeIdx = 0; return; }
+        if (Math.hypot(spot.x - this.x, spot.y - this.y) < TILE * 2){
+            this.route = [{ x: spot.x, y: spot.y }];
+            this.routeIdx = 0;
+            return;
+        }
         const edge = ROAD_EDGES.find(e => e.key === spot.edgeKey);
         const goalIds = edge ? [edge.a, edge.b] : [];
-        if (!goalIds.length){ this.route = [{ x:spot.x, y:spot.y }]; this.routeIdx = 0; return; }
+        if (goalIds.length === 0){
+            this.route = [{ x: spot.x, y: spot.y }];
+            this.routeIdx = 0;
+            return;
+        }
         const starts = [];
         const near = nearestRoadNode(this.x, this.y);
         if (near) starts.push(near.id);
-        const hereEdge = findEdgeForSpot({ x:this.x, y:this.y });
+        const hereEdge = findEdgeForSpot({ x: this.x, y: this.y });
         if (hereEdge){
             const e = ROAD_EDGES.find(ed => ed.key === hereEdge);
-            if (e){ if (!starts.includes(e.a)) starts.push(e.a); if (!starts.includes(e.b)) starts.push(e.b); }
+            if (e){
+                if (!starts.includes(e.a)) starts.push(e.a);
+                if (!starts.includes(e.b)) starts.push(e.b);
+            }
         }
-        if (!starts.length) starts.push('B54');
+        if (starts.length === 0) starts.push('B54');
         let bestPath = null, bestCost = Infinity;
         for (const sId of starts){
             const sNode = getNode(sId);
             if (!sNode) continue;
-            const toStart = Math.hypot(sNode.x*TILE - this.x, sNode.y*TILE - this.y);
+            const toStart = Math.hypot(sNode.x * TILE - this.x, sNode.y * TILE - this.y);
             for (const gId of goalIds){
                 const gNode = getNode(gId);
                 if (!gNode) continue;
@@ -3777,179 +3535,402 @@ class GasVanVehicle {
                 if (!path) continue;
                 let len = 0;
                 for (let i = 1; i < path.length; i++){
-                    const a = getNode(path[i-1]), b = getNode(path[i]);
-                    if (a && b) len += Math.hypot(b.x-a.x, b.y-a.y)*TILE;
+                    const a = getNode(path[i - 1]), b = getNode(path[i]);
+                    if (a && b) len += Math.hypot(b.x - a.x, b.y - a.y) * TILE;
                 }
-                const toSpot = Math.hypot(gNode.x*TILE - spot.x, gNode.y*TILE - spot.y);
+                const toSpot = Math.hypot(gNode.x * TILE - spot.x, gNode.y * TILE - spot.y);
                 const cost = toStart + len + toSpot;
                 if (cost < bestCost){ bestCost = cost; bestPath = path; }
             }
         }
-        if (!bestPath){ this.route = [{ x:spot.x, y:spot.y }]; this.routeIdx = 0; return; }
-        const pts = [{ x:this.x, y:this.y }];
-        for (const id of bestPath){ const n = getNode(id); if (n) pts.push({ x:n.x*TILE, y:n.y*TILE }); }
-        pts.push({ x:spot.x, y:spot.y });
+        if (!bestPath){
+            this.route = [{ x: spot.x, y: spot.y }];
+            this.routeIdx = 0;
+            return;
+        }
+        const pts = [{ x: this.x, y: this.y }];
+        for (const id of bestPath){
+            const n = getNode(id);
+            if (n) pts.push({ x: n.x * TILE, y: n.y * TILE });
+        }
+        pts.push({ x: spot.x, y: spot.y });
         this.route = pts;
         this.routeIdx = 0;
     }
-    gunnerPositions(){
+    partUnits(){
         const cosA = Math.cos(this.angle), sinA = Math.sin(this.angle);
-        const side = TILE*1.05, back = -TILE*0.05;
-        const pts = [];
-        for (const s of [-1, 1]){
-            pts.push({
-                x: this.x + back*cosA - (side*s)*sinA,
-                y: this.y + back*sinA + (side*s)*cosA,
-                side: s
-            });
-        }
-        return pts;
-    }
-    fireGasRound(gunnerIdx){
-        const positions = this.gunnerPositions();
-        const pos = positions[gunnerIdx];
-        let target = null, bestD = Infinity;
-        for (const z of game.zombies){
-            if (!z.alive || z.beingDragged) continue;
-            const d = Math.hypot(z.x - pos.x, z.y - pos.y);
-            if (d < GAS_VAN_RANGE && d < bestD){ bestD = d; target = z; }
-        }
-        if (!target) return;
-        game.gasShells.push({
-            sx: pos.x, sy: pos.y,
-            tx: target.x + (Math.random()-0.5)*TILE,
-            ty: target.y + (Math.random()-0.5)*TILE,
-            t: 0, duration: GAS_VAN_SHELL_TIME,
-        });
-        game.gasTracers.push({
-            x0: pos.x, y0: pos.y,
-            x1: target.x, y1: target.y,
-            t: 0.15,
-        });
+        const halfL = TILE * WC_LENGTH_TILES / 2 + TILE * 0.15;
+        const halfW = TILE * 0.95;
+        const push = (u) => {
+            const dx = u.x - this.x, dy = u.y - this.y;
+            const lx = dx * cosA + dy * sinA;
+            const ly = -dx * sinA + dy * cosA;
+            if (Math.abs(lx) > halfL || Math.abs(ly) > halfW) return;
+            const sign = ly >= 0 ? 1 : -1;
+            const newLy = sign * halfW;
+            const wx = this.x + lx * cosA - newLy * sinA;
+            const wy = this.y + lx * sinA + newLy * cosA;
+            if (isValidPosition(wx, wy)) { u.x = wx; u.y = wy; return; }
+            if (isValidPosition(wx, u.y)) { u.x = wx; return; }
+            if (isValidPosition(u.x, wy)) { u.y = wy; return; }
+            const r = Math.hypot(dx, dy) || 1;
+            const nx = u.x + dx / r * TILE * 1.6;
+            const ny = u.y + dy / r * TILE * 1.6;
+            if (isValidPosition(nx, ny)) { u.x = nx; u.y = ny; }
+        };
+        for (const o of game.officers) if (o.alive && !o.isAllOut) push(o);
+        for (const z of game.zombies) if (z.alive && !z.beingDragged) push(z);
+        for (const a of game.grabbers) if (a.alive) push(a);
+        for (const h of game.handlers) if (h.alive) push(h);
+        for (const t of game.acidTeams) if (t.alive) push(t);
+        for (const k of game.k9s) if (k.alive) push(k);
     }
     update(dt){
         if (!this.alive) return;
         this.lightPhase += dt;
+
         let da = this.targetAngle - this.angle;
-        while (da > Math.PI) da -= Math.PI*2;
-        while (da < -Math.PI) da += Math.PI*2;
-        this.angle += da * Math.min(1, dt*6);
+        while (da > Math.PI) da -= Math.PI * 2;
+        while (da < -Math.PI) da += Math.PI * 2;
+        this.angle += da * Math.min(1, dt * VEHICLE_TURN_RATE);
+
         if (this.targetSpot){
             if (this.route){
                 while (this.routeIdx < this.route.length &&
-                       Math.hypot(this.route[this.routeIdx].x - this.x, this.route[this.routeIdx].y - this.y) < TILE*0.7){
+                       Math.hypot(this.route[this.routeIdx].x - this.x,
+                                  this.route[this.routeIdx].y - this.y) < TILE * 0.7) {
                     this.routeIdx++;
                 }
             }
             let tx = this.targetSpot.x, ty = this.targetSpot.y;
             const routeDone = !this.route || this.routeIdx >= this.route.length;
-            if (!routeDone){ tx = this.route[this.routeIdx].x; ty = this.route[this.routeIdx].y; }
+            if (!routeDone) { tx = this.route[this.routeIdx].x; ty = this.route[this.routeIdx].y; }
             const dx = tx - this.x, dy = ty - this.y;
             const dist = Math.hypot(dx, dy);
-            if (routeDone && dist < 3){ this.parked = true; this.stuckTimer = 0; }
-            else {
+            if (routeDone && dist < 3) {
+                this.parked = true;
+                this.stuckTimer = 0;
+            } else {
                 if (this.parked) this.parked = false;
-                const step = Math.min(dist, GAS_VAN_SPEED*TILE*dt);
-                const ux = dx/(dist||1), uy = dy/(dist||1);
-                const nx = this.x + ux*step, ny = this.y + uy*step;
+                const step = Math.min(dist, VEHICLE_SPEED * TILE * dt);
+                const ux = dx / (dist || 1), uy = dy / (dist || 1);
+                const nx = this.x + ux * step, ny = this.y + uy * step;
                 let moved = false;
-                if (isValidPosition(nx, ny) && isRoadAt(nx, ny)){ this.x = nx; this.y = ny; moved = true; }
-                else if (isValidPosition(nx, this.y) && isRoadAt(nx, this.y)){ this.x = nx; moved = true; }
-                else if (isValidPosition(this.x, ny) && isRoadAt(this.x, ny)){ this.y = ny; moved = true; }
-                if (moved){
+                if (isValidPosition(nx, ny) && isRoadAt(nx, ny)) { this.x = nx; this.y = ny; moved = true; }
+                else if (isValidPosition(nx, this.y) && isRoadAt(nx, this.y)) { this.x = nx; moved = true; }
+                else if (isValidPosition(this.x, ny) && isRoadAt(this.x, ny)) { this.y = ny; moved = true; }
+                if (moved) {
                     this.targetAngle = Math.atan2(uy, ux);
                     const after = Math.hypot(tx - this.x, ty - this.y);
-                    if (dist - after < 0.05) this.stuckTimer += dt; else this.stuckTimer = Math.max(0, this.stuckTimer - dt*2);
-                } else this.stuckTimer += dt;
-                if (this.stuckTimer > 1.0){
+                    if (dist - after < 0.05) this.stuckTimer += dt;
+                    else this.stuckTimer = Math.max(0, this.stuckTimer - dt * 2);
+                } else {
+                    this.stuckTimer += dt;
+                }
+                if (this.stuckTimer > 1.0) {
                     this.stuckTimer = 0;
-                    if (this.route && this.routeIdx < this.route.length) this.routeIdx++;
-                    else { this.clearTarget(); showToast('🚐 No clear route to that point.'); }
+                    if (this.route && this.routeIdx < this.route.length) {
+                        this.routeIdx++;
+                    } else {
+                        this.clearTarget();
+                        showToast('🚙 No clear route to that blockade point.');
+                    }
                 }
             }
         }
-        if (!this.parked){
-            this.gunnerDeployT = Math.max(0, this.gunnerDeployT - dt*3);
+
+        if (this.kind === 'rubberbullet') this.updateRubberBulletTeam(dt);
+        else this.updateWaterCannon(dt);
+        this.partUnits();
+    }
+    gunnerPositions(){
+        const cosA = Math.cos(this.angle), sinA = Math.sin(this.angle);
+        const side = TILE * 1.05, back = -TILE * 0.05;
+        const pts = [];
+        for (const s of [-1, 1]){
+            pts.push({
+                x: this.x + back * cosA - (side * s) * sinA,
+                y: this.y + back * sinA + (side * s) * cosA,
+                side: s
+            });
+        }
+        return pts;
+    }
+    updateRubberBulletTeam(dt){
+        const wasOut = this.gunnersOut;
+        this.gunnersOut = this.parked;
+        if (!this.gunnersOut) {
+            this.gunnerDeployT = Math.max(0, this.gunnerDeployT - dt * 3);
             return;
         }
-        this.gunnerDeployT = Math.min(1, this.gunnerDeployT + dt*3);
-        if (this.gunnerDeployT < 0.4) return;
-        for (let i = 0; i < 2; i++){
+        if (!wasOut) { this.gunnerFireTimer = [0.8, 1.5]; }
+        this.gunnerDeployT = Math.min(1, this.gunnerDeployT + dt * 3);
+        const positions = this.gunnerPositions();
+        for (let i = 0; i < 2; i++) {
             this.gunnerFireTimer[i] -= dt;
-            if (this.gunnerFireTimer[i] <= 0){
-                this.gunnerFireTimer[i] = GAS_VAN_COOLDOWN * (0.85 + Math.random()*0.3);
-                this.fireGasRound(i);
+            if (this.gunnerFireTimer[i] <= 0) {
+                this.gunnerFireTimer[i] = RUBBER_BULLET_COOLDOWN;
+                this.fireRubberRound(positions[i]);
             }
         }
     }
-    drawGunners(ctx){
+    fireRubberRound(pos) {
+        let target = null, bestD = Infinity;
+        for (const z of game.zombies) {
+            if (!z.alive || z.beingDragged) continue;
+            const d = Math.hypot(z.x - pos.x, z.y - pos.y);
+            if (d > RUBBER_BULLET_RANGE) continue;
+            if (d < bestD) { bestD = d; target = z; }
+        }
+        if (!target) return;
+        damageZombie(target, RUBBER_BULLET_DAMAGE);
+        target.stunTimer = Math.max(target.stunTimer || 0, RUBBER_BULLET_STUN);
+        if (!game.rubberTracers) game.rubberTracers = [];
+        game.rubberTracers.push({ x0: pos.x, y0: pos.y, y1: target.y, x1: target.x, t: 0.14 });
+    }
+    drawGunners(ctx) {
         if (this.gunnerDeployT <= 0.01) return;
         const positions = this.gunnerPositions();
         const scale = Math.min(1, this.gunnerDeployT * 1.4);
-        for (const p of positions){
+        for (const p of positions) {
             const sx = p.x - game.camera.x, sy = p.y - game.camera.y;
             ctx.save();
             ctx.translate(sx, sy);
             ctx.scale(scale, scale);
             if (p.side < 0) ctx.scale(-1, 1);
-            drawGasGunnerFigure(ctx, this, p);
+            drawRubberGunnerFigure(ctx, this, p);
             ctx.restore();
         }
     }
-    draw(ctx){
+    frameIndex() {
+        let deg = (this.angle * 180 / Math.PI) % 360; if (deg < 0) deg += 360;
+        return Math.round(deg / 7.5) % 48;
+    }
+    turretPos() {
+        const a = WC_FRAMES[this.frameIndex()][0];
+        return { x: this.x + (a[0] - WC_CELL / 2) * WC_SCALE, y: this.y + (a[1] - WC_CELL / 2) * WC_SCALE };
+    }
+    updateWaterCannon(dt) {
+        const tp = this.turretPos();
+        if (!this.waterCannonOn) {
+            this.waterPhase = 'idle';
+            this.waterTimer = 0;
+            this.waterTickTimer = 0;
+            this.waterAimTarget = this.angle;
+            let da0 = this.waterAimTarget - this.waterAimAngle;
+            while (da0 > Math.PI) da0 -= Math.PI * 2;
+            while (da0 < -Math.PI) da0 += Math.PI * 2;
+            this.waterAimAngle += da0 * Math.min(1, dt * 6);
+            return;
+        }
+        let target = null, bestD = Infinity;
+        for (const z of game.zombies) {
+            if (!z.alive || z.beingDragged) continue;
+            const d = Math.hypot(z.x - tp.x, z.y - tp.y);
+            if (d > WATER_CANNON_RANGE) continue;
+            if (d < bestD) { bestD = d; target = z; }
+        }
+        if (target) {
+            this.waterAimTarget = Math.atan2(target.y - tp.y, target.x - tp.x);
+        } else if (this.waterPhase !== 'burst') {
+            this.waterAimTarget = this.angle;
+        }
+        let da = this.waterAimTarget - this.waterAimAngle;
+        while (da > Math.PI) da -= Math.PI * 2;
+        while (da < -Math.PI) da += Math.PI * 2;
+        this.waterAimAngle += da * Math.min(1, dt * 8);
+
+        if (this.waterPhase === 'burst') {
+            this.waterTimer -= dt;
+            if (this.waterTimer <= 0) {
+                this.waterPhase = 'idle';
+                this.waterTimer = WATER_CANNON_IDLE_DURATION;
+            } else {
+                this.waterTickTimer -= dt;
+                if (this.waterTickTimer <= 0) {
+                    this.waterTickTimer = WATER_CANNON_TICK_INTERVAL;
+                    this.applyWaterHit();
+                }
+            }
+        } else {
+            this.waterTimer -= dt;
+            if (this.waterTimer <= 0 && target) {
+                this.waterPhase = 'burst';
+                this.waterTimer = WATER_CANNON_BURST_DURATION;
+                this.waterTickTimer = 0;
+            }
+        }
+    }
+    applyWaterHit() {
+        const ang = this.waterAimAngle;
+        const half = WATER_CANNON_CONE_HALF;
+        const tp = this.turretPos();
+        for (const z of game.zombies) {
+            if (!z.alive || z.beingDragged) continue;
+            const dx = z.x - tp.x, dy = z.y - tp.y;
+            const d = Math.hypot(dx, dy);
+            if (d > WATER_CANNON_RANGE) continue;
+            let diff = Math.atan2(dy, dx) - ang;
+            while (diff > Math.PI) diff -= Math.PI * 2;
+            while (diff < -Math.PI) diff += Math.PI * 2;
+            if (Math.abs(diff) > half) continue;
+            damageZombie(z, WATER_CANNON_DAMAGE_PER_TICK);
+            const pushX = Math.cos(ang) * WATER_CANNON_PUSH_PER_TICK;
+            const pushY = Math.sin(ang) * WATER_CANNON_PUSH_PER_TICK;
+            const nx = z.x + pushX, ny = z.y + pushY;
+            if (isValidPosition(nx, ny)) { z.x = nx; z.y = ny; }
+            else if (isValidPosition(nx, z.y)) z.x = nx;
+            else if (isValidPosition(z.x, ny)) z.y = ny;
+        }
+    }
+    drawWaterJet(ctx) {
+        if (this.waterPhase !== 'burst') return;
+        const tpJet = this.turretPos();
+        const sx = tpJet.x - game.camera.x;
+        const sy = tpJet.y - game.camera.y;
+        if (sx < -200 || sy < -200 || sx > game.width + 200 || sy > game.height + 200) return;
+        const ang = this.waterAimAngle;
+        const half = WATER_CANNON_CONE_HALF;
+        const lifePct = Math.max(0, Math.min(1, this.waterTimer / WATER_CANNON_BURST_DURATION));
+        const ramp = Math.min(1, (1 - lifePct) * 6 + 0.3) * Math.min(1, lifePct * 4 + 0.3);
+        const alpha = 0.6 * ramp;
+        if (alpha < 0.02) return;
+        const wimg = assets['water_sheet'];
+        if (wimg) {
+            const fi = Math.floor((game.lastTime || 0) / 1000 * 18) % 8;
+            const len = WATER_CANNON_RANGE * 1.06, hh = WATER_CANNON_RANGE * 0.42;
+            ctx.save();
+            ctx.translate(sx, sy); ctx.rotate(ang);
+            ctx.globalAlpha = Math.min(1, alpha * 1.7);
+            ctx.drawImage(wimg, (fi % 2) * 480, ((fi / 2) | 0) * 200, 480, 200, 0, -hh, len, hh * 2);
+            ctx.restore();
+            return;
+        }
+        ctx.save();
+        const grad = ctx.createRadialGradient(sx, sy, 0, sx, sy, WATER_CANNON_RANGE);
+        grad.addColorStop(0, `rgba(160, 230, 255, ${alpha})`);
+        grad.addColorStop(0.55, `rgba(90, 180, 240, ${alpha * 0.7})`);
+        grad.addColorStop(1, `rgba(60, 140, 220, 0)`);
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.moveTo(sx, sy);
+        ctx.arc(sx, sy, WATER_CANNON_RANGE, ang - half, ang + half);
+        ctx.closePath();
+        ctx.fill();
+        ctx.strokeStyle = `rgba(220, 245, 255, ${alpha * 0.9})`;
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(sx, sy);
+        ctx.lineTo(sx + Math.cos(ang) * WATER_CANNON_RANGE * 0.92,
+                   sy + Math.sin(ang) * WATER_CANNON_RANGE * 0.92);
+        ctx.stroke();
+        ctx.restore();
+    }
+    draw(ctx) {
         if (!this.alive) return;
         const sx = this.x - game.camera.x, sy = this.y - game.camera.y;
-        if (sx < -200 || sy < -200 || sx > game.width+200 || sy > game.height+200) return;
+        if (sx < -200 || sy < -200 || sx > game.width + 200 || sy > game.height + 200) return;
+        const isRubber = this.kind === 'rubberbullet';
+        if (!isRubber && this.waterCannonOn) this.drawWaterJet(ctx);
+        const sheet = assets[isRubber ? 'response_van_sheet' : 'wc_sheet'];
+        const turret = isRubber ? null : assets['wc_turret'];
+        if (!sheet) {
+            ctx.save(); ctx.translate(sx, sy); ctx.rotate(this.angle);
+            ctx.fillStyle = '#2a4a10'; ctx.fillRect(-22, -14, 44, 16);
+            ctx.restore();
+            if (isRubber) this.drawGunners(ctx);
+            return;
+        }
+        const fi = this.frameIndex(), col = fi % 7, row = (fi / 7) | 0;
+        const half = WC_CELL / 2;
+        const smooth = ctx.imageSmoothingEnabled;
+        ctx.imageSmoothingEnabled = false;
         ctx.fillStyle = 'rgba(0,0,0,0.28)';
-        ctx.beginPath(); ctx.ellipse(sx, sy + 7, TILE*1.6, TILE*0.9, 0, 0, Math.PI*2); ctx.fill();
-        const img = assets['veh_van_red'] || assets['veh_van'];
-        ctx.save(); ctx.translate(sx, sy);
-        ctx.rotate(this.angle);
-        if (img){
-            const w = TILE*3.2, h = img.height * w / img.width;
-            ctx.drawImage(img, -w/2, -h*0.85, w, h);
-        } else {
-            ctx.fillStyle = '#4a1a1a'; ctx.fillRect(-22, -14, 44, 16);
-            ctx.fillStyle = '#2a0808'; ctx.fillRect(-16, -18, 32, 6);
+        ctx.beginPath(); ctx.ellipse(sx, sy + 7, TILE * WC_LENGTH_TILES * 0.46, TILE * 0.9, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.drawImage(sheet, col * WC_CELL, row * WC_CELL, WC_CELL, WC_CELL,
+                      sx - half * WC_SCALE, sy - half * WC_SCALE, WC_CELL * WC_SCALE, WC_CELL * WC_SCALE);
+        if (turret) {
+            const tp = this.turretPos();
+            ctx.save();
+            ctx.translate(tp.x - game.camera.x, tp.y - game.camera.y);
+            ctx.rotate(this.waterAimAngle);
+            const k = WC_SCALE * 1.5;
+            ctx.scale(k, k);
+            ctx.drawImage(turret, -12, -16);
+            ctx.restore();
         }
-        ctx.restore();
-        const flash = Math.sin(this.lightPhase*11) > 0;
-        if (flash){
-            const g = ctx.createRadialGradient(sx, sy - 12, 0, sx, sy - 12, TILE*1.2);
-            g.addColorStop(0, 'rgba(120, 255, 120, 0.7)');
-            g.addColorStop(1, 'rgba(120, 255, 120, 0)');
+        const f = WC_FRAMES[fi];
+        const leftOn = Math.sin(this.lightPhase * 11) > 0;
+        const lightColor = isRubber
+            ? { core: '230,235,255', mid: '150,170,255', edge: '60,80,255' }
+            : { core: '140,195,255', mid: '40,110,255', edge: '0,60,255' };
+        [[f[1], leftOn], [f[2], !leftOn]].forEach(([pt, on]) => {
+            if (!on) return;
+            const lx = sx + (pt[0] - half) * WC_SCALE, ly = sy + (pt[1] - half) * WC_SCALE;
+            const rad = TILE * 1.5;
+            const g = ctx.createRadialGradient(lx, ly, 0, lx, ly, rad);
+            g.addColorStop(0, `rgba(${lightColor.core},0.95)`);
+            g.addColorStop(0.35, `rgba(${lightColor.mid},0.45)`);
+            g.addColorStop(1, `rgba(${lightColor.edge},0)`);
             ctx.fillStyle = g;
-            ctx.fillRect(sx - TILE*1.2, sy - TILE*1.2 - 12, TILE*2.4, TILE*2.4);
-        }
-        this.drawGunners(ctx);
-        if (this.hp < this.maxHp) drawHpBar(ctx, sx, sy - 26, this.hp, this.maxHp, '#5aa05a');
+            ctx.beginPath(); ctx.arc(lx, ly, rad, 0, Math.PI * 2); ctx.fill();
+        });
+        ctx.imageSmoothingEnabled = smooth;
+        if (isRubber) this.drawGunners(ctx);
     }
 }
-function drawGasGunnerFigure(ctx, vehicle, pos){
+function drawRubberGunnerFigure(ctx, vehicle, pos) {
     const H = 17;
     ctx.fillStyle = '#17171c';
     ctx.beginPath(); ctx.ellipse(0, 1.5, 5, 2.2, 0, 0, Math.PI * 2); ctx.fill();
     ctx.strokeStyle = OFFICER_PALETTE.dark; ctx.lineWidth = 2.4; ctx.lineCap = 'round';
     ctx.beginPath(); ctx.moveTo(-1.4, -2); ctx.lineTo(-2.6, H * 0.34); ctx.stroke();
     ctx.beginPath(); ctx.moveTo(0.4, -2); ctx.lineTo(1.6, H * 0.34); ctx.stroke();
-    ctx.fillStyle = '#3a5a1e';
+    ctx.fillStyle = OFFICER_PALETTE.cloth;
     ctx.beginPath();
     ctx.moveTo(-3, -2); ctx.lineTo(3, -2); ctx.lineTo(2.3, -H * 0.62); ctx.lineTo(-2.3, -H * 0.62);
     ctx.closePath(); ctx.fill();
     ctx.strokeStyle = OFFICER_PALETTE.dark; ctx.lineWidth = 0.8; ctx.stroke();
     ctx.fillStyle = '#1c2230';
     ctx.beginPath(); ctx.arc(0, -H * 0.74, H * 0.18, 0, Math.PI * 2); ctx.fill();
+    const fireGlow = (vehicle.gunnerFireTimer && vehicle.gunnerFireTimer[pos.side < 0 ? 0 : 1] > RUBBER_BULLET_COOLDOWN - 0.12);
     ctx.save();
     ctx.translate(2.4, -H * 0.42);
     ctx.rotate(-0.55);
     ctx.strokeStyle = '#2a2a2a'; ctx.lineWidth = 2.6;
     ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(H * 0.55, 0); ctx.stroke();
-    ctx.fillStyle = '#9adc9a';
-    ctx.beginPath(); ctx.arc(H * 0.55, 0, 1.8, 0, Math.PI * 2); ctx.fill();
+    if (fireGlow) {
+        ctx.fillStyle = 'rgba(255,214,140,0.9)';
+        ctx.beginPath(); ctx.arc(H * 0.58, 0, 2.3, 0, Math.PI * 2); ctx.fill();
+    }
     ctx.restore();
 }
+function drawRubberTracers(ctx) {
+    const list = game.rubberTracers;
+    if (!list || !list.length) return;
+    ctx.save();
+    ctx.strokeStyle = 'rgba(230,230,220,0.85)';
+    ctx.lineWidth = 1.4;
+    ctx.lineCap = 'round';
+    for (const t of list) {
+        const x0 = t.x0 - game.camera.x, y0 = t.y0 - game.camera.y;
+        const x1 = t.x1 - game.camera.x, y1 = t.y1 - game.camera.y;
+        const k = Math.max(0, Math.min(1, t.t / 0.14));
+        ctx.globalAlpha = 0.25 + 0.6 * k;
+        ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x0 + (x1 - x0) * (1 - k * 0.15), y0 + (y1 - y0) * (1 - k * 0.15)); ctx.stroke();
+    }
+    ctx.restore();
+}
+function updateRubberTracers(dt) {
+    const list = game.rubberTracers;
+    if (!list || !list.length) return;
+    for (let i = list.length - 1; i >= 0; i--) {
+        list[i].t -= dt;
+        if (list[i].t <= 0) list.splice(i, 1);
+    }
+}
 
-// ============================ SQUAD AI (zombies) ============================
+// ============================ SQUAD AI ============================
 class ZombieSquad {
     constructor(id, spawnNodeId, personality){
         this.id = id;
@@ -4017,16 +3998,10 @@ function applyZombieSeparation(dt){
     }
 }
 
-// ============================ ZOMBIE FAILSAFE (anti-stuck) ============================
+// ============================ FAILSAFE ============================
 const ZF = {
-    KICK_STILL: 25,
-    FADE_AFTER_KICK: 15,
-    OFFMAP_KICK: 3,
-    OFFMAP_FADE: 8,
-    WAVE_IDLE: 40,
-    WAVE_HARD_CAP: 420,
-    HARD_CAP_FADE: 45,
-    RADIUS: TILE * 3,
+    KICK_STILL: 25, FADE_AFTER_KICK: 15, OFFMAP_KICK: 3, OFFMAP_FADE: 8,
+    WAVE_IDLE: 40, WAVE_HARD_CAP: 420, HARD_CAP_FADE: 45, RADIUS: TILE * 3,
 };
 function fadeZombie(z){
     if (!z.alive) return;
@@ -4042,22 +4017,18 @@ function zombieFailsafe(dt){
         let f = z._fs;
         if (!f) f = z._fs = { ax: z.x, ay: z.y, still: 0, kicks: 0, off: 0, age: 0 };
         f.age += dt;
-
         if (f.age > 10 && !isValidPosition(z.x, z.y)){
             f.off += dt;
             if (f.off > ZF.OFFMAP_FADE){ fadeZombie(z); continue; }
             if (f.off > ZF.OFFMAP_KICK) hopToRoad(z);
         } else f.off = 0;
-
         const engaging = z.attackFlash > 0 || z.timeSinceDamage < 1.5 ||
                          z.state === 'fighting' || z.state === 'attacking_base' || z.state === 'ranged';
-
         if (engaging){
             f.still = 0; f.ax = z.x; f.ay = z.y; f.kicks = 0;
             combatActive++;
             continue;
         }
-
         if (Math.hypot(z.x - f.ax, z.y - f.ay) > ZF.RADIUS){
             f.ax = z.x; f.ay = z.y; f.still = 0; f.kicks = 0;
         } else {
@@ -4075,7 +4046,6 @@ function zombieFailsafe(dt){
         }
         if (f.still < 10) combatActive++;
     }
-
     if (combatAlive > 0 && combatActive === 0 && game.waveSpawnQueue.length === 0){
         game.fsIdle = (game.fsIdle || 0) + dt;
         if (game.fsIdle > ZF.WAVE_IDLE && !game.fsIdleFired){
@@ -4084,7 +4054,6 @@ function zombieFailsafe(dt){
             for (const z of game.zombies) if (z.alive) fadeZombie(z);
         }
     } else { game.fsIdle = 0; game.fsIdleFired = false; }
-
     if (game.waveSpawnQueue.length === 0){
         if (game.waveClock > ZF.WAVE_HARD_CAP && !game.fsCapFired){
             game.fsCapFired = true;
@@ -4300,7 +4269,7 @@ function assignFormationForSyndicate(idx){
     }
 }
 
-// ============================ SYNDICATE MANAGEMENT ============================
+// ============================ SYNDICATE ============================
 const SYNDICATE_MARCH_SPEED = 3.0;
 function ensureSyndicateState(idx){
     if (!game.syndicates[idx]){
@@ -4480,7 +4449,7 @@ function updateSyndicateMovement(dt){
     }
 }
 
-// ============================ ALL UNITS ON ME ============================
+// ============================ ALL UNITS / ALL OUT ============================
 function toggleMergedMode(){
     if (game.syndicatesDeployed < 2){ showToast('Need at least 2 syndicates to merge.'); return; }
     if (game.mergedMode){
@@ -4499,8 +4468,6 @@ function updateMergedButton(){
     if (game.mergedMode){ btn.classList.add('active'); btn.textContent = '🔓 Release Units'; }
     else { btn.classList.remove('active'); btn.textContent = '🪖 All Units On Me'; }
 }
-
-// ============================ ALL OUT ============================
 function triggerAllOut(){
     if (game.allOutCooldown > 0 || game.gameOver) return;
     game.allOutCooldown = ALL_OUT_COOLDOWN;
@@ -4642,27 +4609,9 @@ function setAbilityButton(btn, sub, readyCount, total, label, nextSecs, note){
     }
 }
 function updateAbilityButtons(){
-    const trainBtn = document.getElementById('act-train');
-    const trainSub = document.getElementById('act-train-sub');
-    const canTrain = game.supplies >= 20;
-    trainBtn.disabled = !canTrain;
-    trainBtn.classList.toggle('ready', canTrain);
-    trainSub.textContent = '20 · ' + Math.floor(game.supplies) + '📦';
-    const healBtn = document.getElementById('act-heal');
-    const healSub = document.getElementById('act-heal-sub');
-    const canHeal = game.supplies >= 15;
-    healBtn.disabled = !canHeal;
-    healBtn.classList.toggle('ready', canHeal);
-    healSub.textContent = '15 · ' + Math.floor(game.supplies) + '📦';
-    const fortBtn = document.getElementById('act-fortify');
-    const fortSub = document.getElementById('act-fortify-sub');
-    const canFort = game.supplies >= 25 && game.baseHp < BASE_MAX_HP;
-    fortBtn.disabled = !canFort;
-    fortBtn.classList.toggle('ready', canFort);
-    fortSub.textContent = '25 · ' + Math.round(game.baseHp/BASE_MAX_HP*100) + '%';
+    const list = abilityIdxs();
     const acidBtn = document.getElementById('act-acid');
     const acidSub = document.getElementById('act-acid-sub');
-    const list = abilityIdxs();
     if (list[0] >= OFFICER_SYNDICATES){ acidBtn.disabled = true; acidBtn.classList.remove('ready'); acidSub.textContent = '—'; }
     else {
         const cds = list.map(i => game.acidCooldown[i] || 0);
@@ -4695,11 +4644,16 @@ function updateAbilityButtons(){
         else if (!ready && out && list.length === 1){ setAbilityButton(k9Btn, k9Sub, 0, 1, lbl, 0, lbl + ' deployed ' + Math.ceil(minCd) + 's'); }
         else setAbilityButton(k9Btn, k9Sub, ready, list.length, lbl, minCd === Infinity ? 0 : minCd);
     }
-    const ambBtn = document.getElementById('act-amb');
-    const ambSub = document.getElementById('act-amb-sub');
-    if (game.ambulance && game.ambulance.alive){ ambBtn.disabled = true; ambBtn.classList.remove('ready'); ambSub.textContent = 'out'; }
-    else if (game.ambulanceCooldown > 0){ ambBtn.disabled = true; ambBtn.classList.remove('ready'); ambSub.textContent = Math.ceil(game.ambulanceCooldown)+'s'; }
-    else { ambBtn.disabled = false; ambBtn.classList.add('ready'); ambSub.textContent = 'ready'; }
+}
+function updateStationButton(){
+    const btn = document.getElementById('station-btn');
+    if (!btn) return;
+    btn.classList.toggle('active', game.selectedSyndicate === STATION_INDEX);
+    const ambOut = game.ambulance && game.ambulance.alive;
+    const acd = game.ambulanceCooldown || 0;
+    if (ambOut) btn.textContent = '🏢 Station (🚑)';
+    else if (acd > 0) btn.textContent = '🏢 Station (' + Math.ceil(acd) + 's)';
+    else btn.textContent = '🏢 Station';
 }
 function renderSyndicateTabs(){
     const tabs = document.querySelectorAll('#syndicate-tabs .syn-btn');
@@ -4709,8 +4663,7 @@ function renderSyndicateTabs(){
             const v = vehicleAt(idx);
             b.disabled = false;
             b.classList.toggle('active', game.selectedSyndicate === idx);
-            if (v) b.textContent = idx === VEHICLE_SYNDICATE ? '🚐' : '🧴';
-            else b.textContent = idx === VEHICLE_SYNDICATE ? '🚐' : '🧴';
+            b.textContent = idx === VEHICLE_SYNDICATE ? '🚐' : '🚙';
             return;
         }
         const exists = idx < game.syndicatesDeployed;
@@ -4729,15 +4682,26 @@ function updateSelectionUI(){
     const el = document.getElementById('selection-info');
     if (!el) return;
     const idx = game.selectedSyndicate;
+    // Hide top bar for vehicles and station (matches main game)
+    const topBar = document.getElementById('top-bar');
+    if (topBar) topBar.style.display = (isVehicleIdx(idx) || idx === STATION_INDEX) ? 'none' : 'flex';
+    if (idx === STATION_INDEX){
+        const ambOut = game.ambulance && game.ambulance.alive;
+        const acd = game.ambulanceCooldown || 0;
+        if (ambOut) el.textContent = '🏢 Station — ambulance out on call';
+        else if (acd > 0) el.textContent = '🏢 Station — ambulance restocking (' + Math.ceil(acd) + 's)';
+        else el.textContent = '🏢 Station — train, heal, fortify, or send the ambulance';
+        return;
+    }
     if (isVehicleIdx(idx)){
         const v = vehicleAt(idx);
         if (!v){ el.textContent = ''; return; }
-        let txt = (idx === VEHICLE_SYNDICATE ? '🚐 Acid Cannon Van — ' : '🧴 Gas Van — ');
+        let txt = (idx === VEHICLE_SYNDICATE ? '🚐 Water Cannon — ' : '🚙 Rubber Bullet Van — ');
         if (v.parked) txt += 'holding position';
         else if (v.targetSpot) txt += 'moving to position';
         else txt += 'mobile';
-        if (idx === VEHICLE_SYNDICATE && v.acidOn) txt += ' · 🧪 cannon ON';
-        if (idx === VEHICLE_SYNDICATE_2 && v.parked) txt += ' · 🔫 gunners deployed';
+        if (idx === VEHICLE_SYNDICATE && v.waterCannonOn) txt += ' · 💧 cannon ON';
+        if (idx === VEHICLE_SYNDICATE_2 && v.parked) txt += ' · 🔫 team deployed';
         el.textContent = txt;
         return;
     }
@@ -4802,7 +4766,7 @@ function updateStats(){
     pubFill.className = 'stat-fill hope' + (pubPct < 0.25 ? ' crit' : pubPct < 0.5 ? ' low' : '');
     document.getElementById('hope-num').textContent = Math.round(pubPct*100) + '%';
     renderSyndicateTabs(); updateMoveButtons(); updateMergedButton(); updateAllOutButton();
-    updateAbilityButtons();
+    updateAbilityButtons(); updateStationButton();
 }
 
 const FORMATION_DEFS = [
@@ -4818,10 +4782,82 @@ function renderOptionsPanel(){
     const panel = document.getElementById('options-panel');
     if (!panel) return;
     panel.innerHTML = '';
-    if (isVehicleIdx(game.selectedSyndicate)){
-        const isAcid = game.selectedSyndicate === VEHICLE_SYNDICATE;
+
+    // ===== STATION PANEL (mirrors main game) =====
+    if (game.selectedSyndicate === STATION_INDEX){
         const lbl = document.createElement('div');
-        lbl.className = 'section-label'; lbl.textContent = isAcid ? 'Acid Cannon Vehicle' : 'Gas Response Van';
+        lbl.className = 'section-label'; lbl.textContent = 'Station Support';
+        panel.appendChild(lbl);
+
+        const trainBtn = document.createElement('button');
+        trainBtn.textContent = '👮 Recruit (20📦)';
+        trainBtn.disabled = game.supplies < 20;
+        trainBtn.addEventListener('click', () => {
+            if (game.supplies < 20) return;
+            game.supplies -= 20;
+            const idx = 0;
+            const cx = BASE_TILE_X*TILE, cy = BASE_TILE_Y*TILE;
+            let sx = cx, sy = cy;
+            for (let tries = 0; tries < 40; tries++){
+                const tx = cx + (Math.random()-0.5)*TILE*10;
+                const ty = cy + (Math.random()-0.5)*TILE*10;
+                if (isValidPosition(tx, ty)){ sx = tx; sy = ty; break; }
+            }
+            game.officers.push(new Officer(sx, sy, idx));
+            showToast('👮 Officer trained.');
+            renderOptionsPanel(); updateStats();
+        });
+        panel.appendChild(trainBtn);
+
+        const healBtn = document.createElement('button');
+        healBtn.textContent = '💊 Heal Squad (15📦)';
+        healBtn.disabled = game.supplies < 15;
+        healBtn.addEventListener('click', () => {
+            if (game.supplies < 15) return;
+            game.supplies -= 15;
+            game.officers.forEach(o => { if (o.alive) o.hp = o.maxHp; });
+            game.acidTeams.forEach(a => { if (a.alive) a.hp = a.maxHp; });
+            game.grabbers.forEach(a => { if (a.alive) a.hp = a.maxHp; });
+            game.handlers.forEach(h => { if (h.alive) h.hp = h.maxHp; });
+            game.k9s.forEach(k => { if (k.alive) k.hp = k.maxHp; });
+            showToast('💊 Squad patched up.');
+            renderOptionsPanel(); updateStats();
+        });
+        panel.appendChild(healBtn);
+
+        const fortBtn = document.createElement('button');
+        fortBtn.textContent = '🧱 Fortify Station (25📦)';
+        fortBtn.disabled = game.supplies < 25 || game.baseHp >= BASE_MAX_HP;
+        fortBtn.addEventListener('click', () => {
+            if (game.supplies < 25 || game.baseHp >= BASE_MAX_HP) return;
+            game.supplies -= 25;
+            game.baseHp = Math.min(BASE_MAX_HP, game.baseHp + 80);
+            showToast('🧱 Station reinforced.');
+            renderOptionsPanel(); updateStats();
+        });
+        panel.appendChild(fortBtn);
+
+        const ambBtn = document.createElement('button');
+        const ambOut = game.ambulance && game.ambulance.alive;
+        const acd = game.ambulanceCooldown || 0;
+        if (ambOut) { ambBtn.textContent = '🚑 Ambulance (out)'; ambBtn.disabled = true; ambBtn.classList.add('active-choice'); }
+        else if (acd > 0) { ambBtn.textContent = '🚑 Ambulance (' + Math.ceil(acd) + 's)'; ambBtn.disabled = true; }
+        else ambBtn.textContent = '🚑 Send Ambulance';
+        ambBtn.addEventListener('click', deployAmbulance);
+        panel.appendChild(ambBtn);
+
+        const info = document.createElement('div');
+        info.className = 'info-line';
+        info.textContent = 'Train extra officers, patch up the squad, reinforce the station, or dispatch the ambulance to the most-injured syndicate.';
+        panel.appendChild(info);
+        return;
+    }
+
+    // ===== VEHICLE PANEL =====
+    if (isVehicleIdx(game.selectedSyndicate)){
+        const isWC = game.selectedSyndicate === VEHICLE_SYNDICATE;
+        const lbl = document.createElement('div');
+        lbl.className = 'section-label'; lbl.textContent = isWC ? 'Water Cannon Vehicle' : 'Rubber Bullet Response Van';
         panel.appendChild(lbl);
         const v = vehicleAt(game.selectedSyndicate);
         const bMobile = document.createElement('button');
@@ -4830,7 +4866,7 @@ function renderOptionsPanel(){
         bMobile.addEventListener('click', () => { if (v) v.clearTarget(); showToast('Vehicle released — free to roam.'); renderOptionsPanel(); updateSelectionUI(); });
         panel.appendChild(bMobile);
         const bBlock = document.createElement('button');
-        bBlock.textContent = isAcid ? '📍 Hold Position' : '📍 Hold & Deploy Team';
+        bBlock.textContent = isWC ? '📍 Hold Position' : '📍 Hold & Deploy Team';
         if (v && (v.parked || v.targetSpot)) bBlock.classList.add('active-choice');
         bBlock.addEventListener('click', () => {
             if (!v) return;
@@ -4840,40 +4876,28 @@ function renderOptionsPanel(){
                     const d = Math.hypot(s.x - v.x, s.y - v.y);
                     if (d < bestD){ bestD = d; best = s; }
                 }
-                if (best){ game.selectedSyndicate = isAcid ? VEHICLE_SYNDICATE : VEHICLE_SYNDICATE_2; setVehicleTarget(best); }
+                if (best){ setVehicleTarget(best); }
             } else v.setSpot(v.targetSpot);
             renderOptionsPanel(); updateSelectionUI();
         });
         panel.appendChild(bBlock);
-        if (v && v.alive){
-            if (isAcid){
-                const toggle = document.createElement('button');
-                toggle.textContent = v.acidOn ? '🧪 Acid Cannon: ON' : '🧪 Acid Cannon: OFF';
-                toggle.classList.toggle('active-choice', v.acidOn);
-                toggle.addEventListener('click', () => { v.acidOn = !v.acidOn; showToast(v.acidOn ? '🧪 Acid cannon engaged.' : '🧪 Acid cannon off.'); renderOptionsPanel(); });
-                panel.appendChild(toggle);
-            }
-            const repair = document.createElement('button');
-            const canRepair = game.supplies >= 15 && v.hp < v.maxHp;
-            repair.textContent = '🔧 Repair Van (15)';
-            repair.disabled = !canRepair;
-            repair.addEventListener('click', () => {
-                if (!canRepair) return;
-                game.supplies -= 15;
-                v.hp = v.maxHp;
-                showToast('🔧 Van repaired.');
-                renderOptionsPanel(); updateStats();
-            });
-            panel.appendChild(repair);
+        if (isWC && v && v.alive){
+            const toggle = document.createElement('button');
+            toggle.textContent = v.waterCannonOn ? '💧 Water Cannon: ON' : '💧 Water Cannon: OFF';
+            toggle.classList.toggle('active-choice', v.waterCannonOn);
+            toggle.addEventListener('click', () => { v.waterCannonOn = !v.waterCannonOn; showToast(v.waterCannonOn ? '💧 Water cannon engaged.' : '💧 Water cannon off.'); renderOptionsPanel(); });
+            panel.appendChild(toggle);
         }
         const info = document.createElement('div');
         info.className = 'info-line';
-        info.textContent = isAcid
-            ? 'The acid van roams the road network spraying dissolving acid at any zombie nearby. Tap the map to send it, or use the d-pad.'
-            : 'The gas van drives to a road point, parks, and deploys two gas gunners who fire gas shells at nearby zombies. Tap the map or d-pad to send it.';
+        info.textContent = isWC
+            ? 'The water cannon roams the road network and blasts a wide cone of high-pressure water at any zombie in range. Tap the map or d-pad to move it.'
+            : 'The rubber bullet van drives to a road point, parks, and deploys two gunners who fire baton rounds at nearby zombies. Tap the map or d-pad to move it.';
         panel.appendChild(info);
         return;
     }
+
+    // ===== SYNDICATE PANEL =====
     const sy = ensureSyndicateState(game.selectedSyndicate);
     const flabel = document.createElement('div');
     flabel.className = 'section-label'; flabel.textContent = 'Formation';
@@ -4929,7 +4953,7 @@ function renderOptionsPanel(){
     const tip = document.createElement('div');
     tip.className = 'info-line';
     tip.style.cssText = 'color:#7fc47f;padding-top:6px;border-top:1px solid #232c3a;margin-top:4px';
-    tip.textContent = '💡 Tap a road dot to move the syndicate there. Tap a junction post dot to give them a facing.';
+    tip.textContent = '💡 Tap a road dot to move the syndicate. Tap a junction post dot to give them a facing.';
     panel.appendChild(tip);
 }
 function updateMoveButtons(){
@@ -4977,6 +5001,8 @@ function updateCrates(dt){
         if (!got){
             const v = vehicleAt(VEHICLE_SYNDICATE);
             if (v && v.alive && Math.hypot(v.x - c.x, v.y - c.y) < TILE*1.4) got = true;
+            const v2 = vehicleAt(VEHICLE_SYNDICATE_2);
+            if (v2 && v2.alive && Math.hypot(v2.x - c.x, v2.y - c.y) < TILE*1.4) got = true;
         }
         if (!got && game.ambulance && game.ambulance.alive && Math.hypot(game.ambulance.x - c.x, game.ambulance.y - c.y) < TILE*1.4) got = true;
         if (got){
@@ -5145,9 +5171,7 @@ function updateWaves(dt){
         }
         game.waveSpawnTimer = 0.10 + Math.random()*0.18;
     }
-
     zombieFailsafe(dt);
-
     const anyLeft = game.zombies.some(r => r.alive) || game.waveSpawnQueue.length > 0;
     if (!anyLeft){
         game.zombies = [];
@@ -5323,14 +5347,13 @@ function handleTap(clientX, clientY){
         else showToast('Tap near a road to move the vehicle.');
         return;
     }
-    // Junction posts still take priority — they give facing and cover
+    if (game.selectedSyndicate >= OFFICER_SYNDICATES) return;
     let postHit = null, postHitD = TILE*1.6;
     for (const post of JUNCTION_POSTS){
         const dp = postDotPos(post);
         const d = Math.hypot(wx - dp.x, wy - dp.y);
         if (d < postHitD){ postHitD = d; postHit = post; }
     }
-    // Prefer the nearest road dot (parity with index)
     let bestSpot = null, bestSpotD = Infinity;
     for (const s of BLOCKADE_SPOTS){
         const d = Math.hypot(s.x - wx, s.y - wy);
@@ -5378,22 +5401,26 @@ function updateCamera(dt){
     let cx = 0, cy = 0, n = 0;
     for (const o of game.officers){
         if (!o.alive || o.isAllOut) continue;
+        if (idx === STATION_INDEX) continue;
         if (!game.mergedMode && o.syndicateIndex !== idx) continue;
         const w = (o.state === 'active') ? 1 : 0.3;
         cx += o.x * w; cy += o.y * w; n += w;
     }
     for (const a of game.grabbers){
         if (!a.alive) continue;
+        if (idx === STATION_INDEX) continue;
         if (!game.mergedMode && a.syndicateIndex !== idx) continue;
         cx += a.x; cy += a.y; n += 1;
     }
     for (const h of game.handlers){
         if (!h.alive) continue;
+        if (idx === STATION_INDEX) continue;
         if (!game.mergedMode && h.syndicateIndex !== idx) continue;
         cx += h.x; cy += h.y; n += 1;
     }
     for (const t of game.acidTeams){
         if (!t.alive) continue;
+        if (idx === STATION_INDEX) continue;
         if (!game.mergedMode && t.syndicateIndex !== idx) continue;
         cx += t.x; cy += t.y; n += 1;
     }
@@ -5421,47 +5448,21 @@ function setupBottomRightUI(){
     if (mergeBtn) mergeBtn.addEventListener('click', toggleMergedMode);
     const allOutBtn = document.getElementById('all-out-btn');
     if (allOutBtn) allOutBtn.addEventListener('click', triggerAllOut);
+    const stationBtn = document.getElementById('station-btn');
+    if (stationBtn) stationBtn.addEventListener('click', () => {
+        if (game.mergedMode){ game.mergedMode = false; updateMergedButton(); }
+        game.selectedSyndicate = STATION_INDEX;
+        renderSyndicateTabs(); renderOptionsPanel(); updateSelectionUI();
+        updateStationButton();
+        game.cameraUserLock = 0; game.camGlide = 0.8;
+    });
     document.getElementById('btn-up').addEventListener('click', () => commandMove(0, -1));
     document.getElementById('btn-down').addEventListener('click', () => commandMove(0, 1));
     document.getElementById('btn-left').addEventListener('click', () => commandMove(-1, 0));
     document.getElementById('btn-right').addEventListener('click', () => commandMove(1, 0));
-    document.getElementById('act-train').addEventListener('click', () => {
-        if (game.supplies < 20) return;
-        game.supplies -= 20;
-        const idx = game.selectedSyndicate >= OFFICER_SYNDICATES ? 0 : game.selectedSyndicate;
-        const cx = BASE_TILE_X*TILE, cy = BASE_TILE_Y*TILE;
-        let sx = cx, sy = cy;
-        for (let tries = 0; tries < 40; tries++){
-            const tx = cx + (Math.random()-0.5)*TILE*10;
-            const ty = cy + (Math.random()-0.5)*TILE*10;
-            if (isValidPosition(tx, ty)){ sx = tx; sy = ty; break; }
-        }
-        game.officers.push(new Officer(sx, sy, idx));
-        showToast('👮 Officer trained.');
-        updateStats();
-    });
-    document.getElementById('act-heal').addEventListener('click', () => {
-        if (game.supplies < 15) return;
-        game.supplies -= 15;
-        game.officers.forEach(o => { if (o.alive) o.hp = o.maxHp; });
-        game.acidTeams.forEach(a => { if (a.alive) a.hp = a.maxHp; });
-        game.grabbers.forEach(a => { if (a.alive) a.hp = a.maxHp; });
-        game.handlers.forEach(h => { if (h.alive) h.hp = h.maxHp; });
-        game.k9s.forEach(k => { if (k.alive) k.hp = k.maxHp; });
-        showToast('💊 Squad patched up.');
-        updateStats();
-    });
-    document.getElementById('act-fortify').addEventListener('click', () => {
-        if (game.supplies < 25 || game.baseHp >= BASE_MAX_HP) return;
-        game.supplies -= 25;
-        game.baseHp = Math.min(BASE_MAX_HP, game.baseHp + 80);
-        showToast('🧱 Station reinforced.');
-        updateStats();
-    });
     document.getElementById('act-acid').addEventListener('click', deployAcid);
     document.getElementById('act-grabber').addEventListener('click', deployGrabber);
     document.getElementById('act-k9').addEventListener('click', deployK9);
-    document.getElementById('act-amb').addEventListener('click', deployAmbulance);
     document.getElementById('pause-btn').addEventListener('click', () => {
         if (game.gameOver || game.paused) return;
         game.paused = true;
@@ -5481,7 +5482,7 @@ function setupBottomRightUI(){
 // ============================ RENDER ============================
 let ctx;
 function drawJunctionPosts(ctx){
-    if (isVehicleIdx(game.selectedSyndicate)) return;
+    if (isVehicleIdx(game.selectedSyndicate) || game.selectedSyndicate === STATION_INDEX) return;
     const sy = game.syndicates[game.selectedSyndicate];
     if (!sy) return;
     const pad = 40;
@@ -5511,7 +5512,7 @@ function drawJunctionPosts(ctx){
     }
 }
 function drawSyndicateRoadDots(ctx){
-    if (isVehicleIdx(game.selectedSyndicate)) return;
+    if (isVehicleIdx(game.selectedSyndicate) || game.selectedSyndicate === STATION_INDEX) return;
     const sy = game.syndicates[game.selectedSyndicate];
     if (!sy) return;
     for (const s of BLOCKADE_SPOTS){
@@ -5571,28 +5572,22 @@ function render(){
     game.k9s.forEach(k => { if (k.alive) all.push(k); });
     game.commanders.forEach(c => { if (c.alive) all.push(c); });
     if (game.ambulance && game.ambulance.alive) all.push(game.ambulance);
-    const v1 = vehicleAt(VEHICLE_SYNDICATE);
-    if (v1 && v1.alive) all.push(v1);
-    const v2 = vehicleAt(VEHICLE_SYNDICATE_2);
-    if (v2 && v2.alive) all.push(v2);
     all.sort((a, b) => a.y - b.y);
     all.forEach(u => u.draw(ctx));
+    const v1 = vehicleAt(VEHICLE_SYNDICATE);
+    if (v1 && v1.alive) v1.draw(ctx);
+    const v2 = vehicleAt(VEHICLE_SYNDICATE_2);
+    if (v2 && v2.alive) v2.draw(ctx);
     game.acidTeams.forEach(t => { if (t.alive) t.drawAcidCloud(ctx); });
+    drawRubberTracers(ctx);
     for (const e of game.effects){
         const sx = e.x - game.camera.x, sy = e.y - game.camera.y;
         if (sx < -40 || sy < -60 || sx > game.width+40 || sy > game.height+40) continue;
-        if (e.kind === 'gasCloud'){
-            const p = e.t / e.life;
-            ctx.fillStyle = `rgba(140, 255, 140, ${(1-p)*0.35})`;
-            ctx.beginPath(); ctx.arc(sx, sy, 12 + p*14, 0, Math.PI*2); ctx.fill();
-            continue;
-        }
         const p = 1 - e.t/e.life;
         ctx.fillStyle = `rgba(255,220,120,${p*0.8})`;
         ctx.beginPath(); ctx.arc(sx, sy, 3 + (1-p)*5, 0, Math.PI*2); ctx.fill();
     }
     drawProjectiles(ctx);
-    drawGasShells(ctx);
     drawAttackRings(ctx);
     drawJunctionPosts(ctx);
     drawSyndicateRoadDots(ctx);
@@ -5602,29 +5597,23 @@ function render(){
             const sx = s.x - game.camera.x, sy = s.y - game.camera.y;
             if (sx < -20 || sy < -20 || sx > game.width + 20 || sy > game.height + 20) continue;
             const isTarget = selVeh.targetSpot === s;
-            const isBlocked = game.blockedEdges.has(s.edgeKey);
             ctx.beginPath();
             ctx.arc(sx, sy, isTarget ? 7 : 3, 0, Math.PI*2);
-            ctx.fillStyle = isBlocked ? 'rgba(255,90,60,0.9)'
-                : isTarget ? 'rgba(255,204,51,0.95)'
-                : 'rgba(110,230,140,0.55)';
+            ctx.fillStyle = isTarget ? 'rgba(255,204,51,0.95)' : 'rgba(110,230,140,0.55)';
             ctx.fill();
             ctx.strokeStyle = 'rgba(0,0,0,0.55)'; ctx.lineWidth = 1; ctx.stroke();
         }
-    }
-    if (isVehicleIdx(game.selectedSyndicate) && vehicleAt(game.selectedSyndicate)){
-        const v2 = vehicleAt(game.selectedSyndicate);
-        if (v2.route && v2.routeIdx < v2.route.length){
+        if (selVeh.route && selVeh.routeIdx < selVeh.route.length){
             ctx.strokeStyle = 'rgba(120,200,255,0.55)';
             ctx.lineWidth = 2; ctx.setLineDash([6, 6]);
             ctx.beginPath();
-            ctx.moveTo(v2.x - game.camera.x, v2.y - game.camera.y);
-            for (let i = v2.routeIdx; i < v2.route.length; i++){
-                ctx.lineTo(v2.route[i].x - game.camera.x, v2.route[i].y - game.camera.y);
+            ctx.moveTo(selVeh.x - game.camera.x, selVeh.y - game.camera.y);
+            for (let i = selVeh.routeIdx; i < selVeh.route.length; i++){
+                ctx.lineTo(selVeh.route[i].x - game.camera.x, selVeh.route[i].y - game.camera.y);
             }
             ctx.stroke(); ctx.setLineDash([]);
         }
-    } else if (!isVehicleIdx(game.selectedSyndicate)){
+    } else if (game.selectedSyndicate < OFFICER_SYNDICATES){
         const sy = game.syndicates[game.selectedSyndicate];
         if (sy){
             if (sy.path && sy.pathIdx < sy.path.length){
@@ -5690,35 +5679,12 @@ function drawMinimap(){
         ctx.fillStyle = o.isAllOut ? '#ffb45c' : '#6cc4ff';
         ctx.fillRect(PX(o.x), PX(o.y), 2, 2);
     });
-    game.grabbers.forEach(a => {
-        if (!a.alive) return;
-        ctx.fillStyle = '#c8a0ff';
-        ctx.fillRect(PX(a.x), PX(a.y), 2, 2);
-    });
-    game.k9s.forEach(k => {
-        if (!k.alive) return;
-        ctx.fillStyle = k.deployTimer > 0 ? '#ff5a30' : '#c08040';
-        ctx.fillRect(PX(k.x), PX(k.y), 2, 2);
-    });
-    game.handlers.forEach(h => {
-        if (!h.alive) return;
-        ctx.fillStyle = '#7fd3a0';
-        ctx.fillRect(PX(h.x), PX(h.y), 2, 2);
-    });
-    if (game.ambulance && game.ambulance.alive){
-        ctx.fillStyle = '#5dff8a';
-        ctx.fillRect(PX(game.ambulance.x) - 1, PX(game.ambulance.y) - 1, 3, 3);
-    }
-    game.commanders.forEach(c => {
-        if (!c.alive) return;
-        ctx.fillStyle = '#ffe066';
-        ctx.fillRect(PX(c.x) - 0.5, PX(c.y) - 0.5, 3, 3);
-    });
-    game.acidTeams.forEach(t => {
-        if (!t.alive) return;
-        ctx.fillStyle = t.state === 'spraying' ? '#f0f080' : '#c8d040';
-        ctx.fillRect(PX(t.x), PX(t.y), 2, 2);
-    });
+    game.grabbers.forEach(a => { if (!a.alive) return; ctx.fillStyle = '#c8a0ff'; ctx.fillRect(PX(a.x), PX(a.y), 2, 2); });
+    game.k9s.forEach(k => { if (!k.alive) return; ctx.fillStyle = k.deployTimer > 0 ? '#ff5a30' : '#c08040'; ctx.fillRect(PX(k.x), PX(k.y), 2, 2); });
+    game.handlers.forEach(h => { if (!h.alive) return; ctx.fillStyle = '#7fd3a0'; ctx.fillRect(PX(h.x), PX(h.y), 2, 2); });
+    if (game.ambulance && game.ambulance.alive){ ctx.fillStyle = '#5dff8a'; ctx.fillRect(PX(game.ambulance.x) - 1, PX(game.ambulance.y) - 1, 3, 3); }
+    game.commanders.forEach(c => { if (!c.alive) return; ctx.fillStyle = '#ffe066'; ctx.fillRect(PX(c.x) - 0.5, PX(c.y) - 0.5, 3, 3); });
+    game.acidTeams.forEach(t => { if (!t.alive) return; ctx.fillStyle = t.state === 'spraying' ? '#f0f080' : '#c8d040'; ctx.fillRect(PX(t.x), PX(t.y), 2, 2); });
     for (const k in game.vehicles){
         const v = game.vehicles[k];
         if (!v || !v.alive) continue;
@@ -5729,6 +5695,7 @@ function drawMinimap(){
         if (!z.alive) return;
         let col = '#8a4a34';
         if (z.beingDragged) col = '#ffcc33';
+        else if (z.stunTimer > 0) col = '#ffe080';
         else if (z.acidBurn > 0) col = '#f0f080';
         else if (z.kind === 'tank') col = '#600000';
         else if (z.kind === 'brute') col = '#a02020';
@@ -5751,9 +5718,7 @@ function drawMinimap(){
                 if (a <= 0.01) continue;
                 ctx.strokeStyle = `rgba(255,90,60,${a.toFixed(3)})`;
                 ctx.lineWidth = 1.3;
-                ctx.beginPath();
-                ctx.arc(mx, my, r, 0, Math.PI*2);
-                ctx.stroke();
+                ctx.beginPath(); ctx.arc(mx, my, r, 0, Math.PI*2); ctx.stroke();
             }
         }
     }
@@ -5785,12 +5750,14 @@ function restartGame(){
     for (let i = 0; i < OFFICER_SYNDICATES; i++) spawnSyndicate();
     ensureVehicleSyndicate(VEHICLE_SYNDICATE);
     ensureVehicleSyndicate(VEHICLE_SYNDICATE_2);
-    game.vehicles[VEHICLE_SYNDICATE] = new AcidCannonVehicle(VEHICLE_SYNDICATE);
-    game.vehicles[VEHICLE_SYNDICATE_2] = new GasVanVehicle(VEHICLE_SYNDICATE_2);
+    game.vehicles[VEHICLE_SYNDICATE] = new WaterCannonVehicle(VEHICLE_SYNDICATE, 'watercannon');
+    game.vehicles[VEHICLE_SYNDICATE_2] = new WaterCannonVehicle(VEHICLE_SYNDICATE_2, 'rubberbullet');
     game.selectedSyndicate = 0;
     game.syndicates.forEach(sy => { if (sy){ sy.path = null; sy.pathIdx = 0; sy.post = null; } });
     renderSyndicateTabs(); renderOptionsPanel(); updateSelectionUI();
-    updateMergedButton(); updateAllOutButton(); updateAbilityButtons();
+    updateMergedButton(); updateAllOutButton(); updateAbilityButtons(); updateStationButton();
+    const tb = document.getElementById('top-bar');
+    if (tb) tb.style.display = 'flex';
 }
 
 // ============================ SPAWN ============================
@@ -5883,8 +5850,7 @@ function initGameState(){
     game.crates = [];
     game.bloodDecals = [];
     game.attackMarkers = [];
-    game.gasShells = [];
-    game.gasTracers = [];
+    game.rubberTracers = [];
 }
 function resizeCanvas(){
     const c = game.canvas;
@@ -6010,7 +5976,7 @@ function loop(t){
             }
             updateAmbulance(dt);
             updateProjectiles(dt);
-            updateGasShells(dt);
+            updateRubberTracers(dt);
             updateEffects(dt);
             updateCrates(dt);
             updateAttackMarkers(dt);
@@ -6057,11 +6023,11 @@ function init(){
         for (let i = 0; i < OFFICER_SYNDICATES; i++) spawnSyndicate();
         ensureVehicleSyndicate(VEHICLE_SYNDICATE);
         ensureVehicleSyndicate(VEHICLE_SYNDICATE_2);
-        game.vehicles[VEHICLE_SYNDICATE] = new AcidCannonVehicle(VEHICLE_SYNDICATE);
-        game.vehicles[VEHICLE_SYNDICATE_2] = new GasVanVehicle(VEHICLE_SYNDICATE_2);
+        game.vehicles[VEHICLE_SYNDICATE] = new WaterCannonVehicle(VEHICLE_SYNDICATE, 'watercannon');
+        game.vehicles[VEHICLE_SYNDICATE_2] = new WaterCannonVehicle(VEHICLE_SYNDICATE_2, 'rubberbullet');
         game.selectedSyndicate = 0;
         renderSyndicateTabs(); renderOptionsPanel(); updateSelectionUI();
-        updateMergedButton(); updateAllOutButton(); updateAbilityButtons();
+        updateMergedButton(); updateAllOutButton(); updateAbilityButtons(); updateStationButton();
         game.ready = true;
         setTimeout(() => spawnCrate(), 2500);
     });

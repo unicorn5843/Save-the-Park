@@ -410,7 +410,8 @@
                         Zombies stream in from the map edges and head for your officers or the station.<br><br>
                         <b>Supply crates</b> drop onto the road network. Walk any officer over one to bank its contents.<br><br>
                         <b>Test-Subject Grabbers</b> seize live zombies and drag them back to the station for supplies.<br><br>
-                        <b>Acid officers</b> spray a dissolving cone that eats through a crowd. The <b>Water Cannon van</b> drives the cordon and blasts anything nearby, while the <b>Rubber Bullet van</b> parks and deploys two gunners. <b>K9</b> hunts runners and the <b>ambulance</b> (from the Station panel) patches up wounded syndicates.<br><br>
+                        <b>Acid officers</b> spray a dissolving cone that eats through a crowd. The <b>Acid Cannon van</b> drives the cordon and blasts anything nearby, while the <b>Mobile Shooter van</b> parks and deploys two gunners. Both carry limited ammo: when they run dry they drive back to the station and park for a 3-second refill that costs supplies. <b>K9</b> hunts runners and the <b>ambulance</b> (from the Station panel) patches up wounded syndicates.<br><br>
+                        <b>Wounded officers</b> fall back to the station on their own and heal there. Healing costs supplies, so keep banking crates. You can also recall hurt officers early from the Station panel.<br><br>
                         Use <b>formations</b>, <b>junction posts</b>, and <b>ALL OUT</b> to hold the line.
                     </p>
                 </div>
@@ -424,9 +425,14 @@
  *
  * Fixes applied in this build:
  *   - Officer melee damage path renamed to dealDamageToOfficer (was throwing).
- *   - Vehicles are the same WaterCannonVehicle class as the main game:
- *       idx 3 → water cannon (wc_sheet + turret + water_sheet burst cone)
- *       idx 5 → rubber bullet van (response_van_sheet, two deployed gunners)
+ *   - Zombie art now lives in its own folder (assets/zombie/…) so this game can
+ *     branch away from the main one.
+ *   - Burnt / abandoned wreck vehicles line the kerbs, re-shuffled every game.
+ *   - Zombie stuck-fixes (node reach, crowd pile-ups, orphaned drag victims).
+ *   - Wounded officers walk back to the station and heal using supplies.
+ *   - Vehicles have limited ammo and refuel at the station (3 s, costs supplies):
+ *       idx 3 → Acid Cannon van (wc_sheet + turret + acid_sheet burst cone)
+ *       idx 5 → Mobile Shooter van (response_van_sheet, two deployed gunners)
  *   - Layout matches main game: 3 ability buttons in top bar (hidden for
  *     vehicles / station), Station button above syndicate tabs, station panel
  *     with Train / Heal / Fortify / Ambulance, formations in left panel.
@@ -547,6 +553,21 @@ const RUBBER_BULLET_RANGE = TILE * 7.5;
 const RUBBER_BULLET_COOLDOWN = 2.0;
 const RUBBER_BULLET_DAMAGE = 9;
 const RUBBER_BULLET_STUN = 0.6;
+
+// ====== VEHICLE AMMO + STATION REFILL ======
+// Acid cannon: tank is spent a little on every spray tick. Mobile shooter: 1 round per shot.
+const ACID_TANK_MAX = 100;          // full tank
+const ACID_TANK_PER_TICK = 0.5;     // used each 0.1s while spraying  (~27 sprays per tank)
+const SHOOTER_AMMO_MAX = 200;       // rounds in a full load  (2 gunners x 1 shot / 2s = lasts ~3 minutes of non-stop fire)
+const REFILL_SECONDS = 3.0;         // time parked at the station for a full refill
+const ACID_REFILL_COST = 18;        // supplies for a COMPLETELY empty tank (less if partly full)
+const SHOOTER_REFILL_COST = 14;     // supplies for a COMPLETELY empty magazine (less if partly full)
+const ACID_BURN_SECONDS = 3;        // acid keeps eating zombies for a few seconds after a hit
+
+// ====== OFFICER HEALING AT THE STATION ======
+const HEAL_RATE_HP_PER_SEC = 14;    // how fast an officer heals once at the station
+const HEAL_COST_PER_HP = 0.10;      // supplies spent per HP healed (a near-dead officer ~ 11 supplies)
+const REINFORCE_COST = 20;          // replace one fallen officer (never more than 15 per syndicate)
 
 const WC_CELL = 140;
 const WC_LENGTH_TILES = 3.4;
@@ -1115,18 +1136,15 @@ const ASSET_PATHS = {
     road_box: 'assets/map/roads/road_box.png',
     road_giveway: 'assets/map/roads/road_giveway_zombie.png',
     road_slow: 'assets/map/roads/road_slow_zombie.png',
-    units_sheet: 'assets/units/units_sheet.png',
-    k9_sheet: 'assets/units/k9_gsd_sheet.png',
-    parked_atlas: 'assets/map/vehicles/parked_atlas.png',
-    veh_van: 'assets/map/vehicles/veh_van.png',
-    veh_van_red: 'assets/map/vehicles/veh_van_red.png',
-    amb_sheet: 'assets/map/vehicles/ambulance_sheet.png',
-    gas_sheet: 'assets/fx/gas_plume_sheet.png',
-    // Main-game vehicle sheets (identical to Cordon)
-    wc_sheet: 'assets/map/vehicles/water_cannon_sheet.png',
-    wc_turret: 'assets/map/vehicles/water_cannon_turret.png',
-    response_van_sheet: 'assets/map/vehicles/response_van_sheet.png',
-    water_sheet: 'assets/fx/water_jet_sheet.png',
+    // ---- Zombie-side art: its own copies live in assets/zombie/ so this game can diverge from the main one ----
+    units_sheet: 'assets/zombie/units/units_sheet.png',
+    k9_sheet: 'assets/zombie/units/k9_gsd_sheet.png',
+    amb_sheet: 'assets/zombie/vehicles/ambulance_sheet.png',
+    wc_sheet: 'assets/zombie/vehicles/water_cannon_sheet.png',
+    wc_turret: 'assets/zombie/vehicles/water_cannon_turret.png',
+    response_van_sheet: 'assets/zombie/vehicles/response_van_sheet.png',
+    wreck_atlas: 'assets/zombie/vehicles/wreck_atlas.png',
+    acid_sheet: 'assets/zombie/fx/acid_jet_sheet.png',
     prop_tree: 'assets/map/props/prop_tree.png',
     prop_tree_tall: 'assets/map/props/prop_tree_tall.png',
     prop_streetlight: 'assets/map/props/prop_streetlight.png',
@@ -1182,8 +1200,7 @@ function loadAssets(onDone){
     keys.forEach(key => {
         const img = new Image();
         img.onload = () => {
-            if (key === 'parked_atlas') assets[key] = applyZombieFilter(img);
-            else assets[key] = img;
+            assets[key] = img;
             settle();
         };
         img.onerror = () => { assets[key] = null; settle(); };
@@ -1221,6 +1238,7 @@ function generateMap(){
     placeSceneryBuildings();
     placeSceneryProps();
     roadLayout = computeRoadLayout();
+    placeWreckVehicles();
     buildJunctionPosts();
     finalizeScenery();
 }
@@ -1459,6 +1477,99 @@ function computeRoadLayout(){
         });
     });
     return { half, H, V, junctions, zebras, base, stationRect };
+}
+
+// ============================ WRECK VEHICLES (burnt + abandoned) ============================
+// Atlas: assets/zombie/vehicles/wreck_atlas.png.  Each entry = [x, y, width, height, drawScale].
+// Names look like  sedan_burnt_E  or  sedan_abred_N   (E/W = lying along a street, N/S = along an avenue).
+const WRECK_ATLAS = {"bus_abblack_S":[0,0,52,135,0.5915],"bus_abgreen_S":[55,0,52,135,0.5915],"bus_abbrown_S":[110,0,52,135,0.5915],"bus_abblack_N":[165,0,50,131,0.5915],"bus_abgreen_N":[218,0,50,131,0.5915],"bus_abbrown_N":[271,0,50,131,0.5915],"bus_burnt_S":[324,0,46,130,0.5915],"bus_burnt_N":[373,0,46,126,0.5915],"truck_abred_S":[422,0,51,111,0.5714],"truck_abwhite_S":[476,0,51,111,0.5714],"truck_abblue_S":[530,0,51,111,0.5714],"ambulance_ab_S":[584,0,46,109,0.558],"camper_abwhite_S":[633,0,46,106,0.56],"camper_abyellow_S":[682,0,46,106,0.56],"camper_abred_S":[731,0,46,106,0.56],"boxtruck_abred_S":[780,0,44,105,0.6408],"boxtruck_abwhite_S":[827,0,44,105,0.6408],"boxtruck_abblue_S":[874,0,44,105,0.6408],"truck_abred_N":[921,0,49,104,0.5714],"truck_abwhite_N":[973,0,49,104,0.5714],"truck_abblue_N":[1025,0,49,104,0.5714],"truck_burnt_S":[0,138,44,102,0.5714],"camper_abwhite_N":[47,138,46,101,0.56],"camper_abyellow_N":[96,138,46,101,0.56],"camper_abred_N":[145,138,46,101,0.56],"limo_abwhite_S":[194,138,48,100,0.512],"limo_abyellow_S":[245,138,48,100,0.512],"limo_abred_S":[296,138,48,100,0.512],"limo_burnt_S":[347,138,38,98,0.512],"limo_burnt_N":[388,138,38,97,0.512],"limo_abwhite_N":[429,138,49,97,0.512],"limo_abyellow_N":[481,138,49,97,0.512],"limo_abred_N":[533,138,49,97,0.512],"ambulance_burnt_S":[585,138,39,96,0.558],"camper_burnt_S":[627,138,38,96,0.56],"truck_burnt_N":[668,138,44,96,0.5714],"ambulance_ab_N":[715,138,46,96,0.558],"boxtruck_burnt_S":[764,138,38,95,0.6408],"camper_burnt_N":[805,138,38,92,0.56],"boxtruck_abred_N":[846,138,44,83,0.6408],"boxtruck_abwhite_N":[893,138,44,83,0.6408],"boxtruck_abblue_N":[940,138,44,83,0.6408],"ambulance_burnt_N":[987,138,39,82,0.558],"boxtruck_burnt_N":[1029,138,38,80,0.6408],"minivan_abblack_S":[0,243,42,79,0.561],"minivan_abblue_S":[45,243,42,79,0.561],"minivan_abbrown_S":[90,243,42,79,0.561],"minivan_abgreen_S":[135,243,42,79,0.561],"minivan_abred_S":[180,243,42,79,0.561],"minivan_abwhite_S":[225,243,42,79,0.561],"wagon_abblack_S":[270,243,42,77,0.5349],"wagon_abblue_S":[315,243,42,77,0.5349],"wagon_abbrown_S":[360,243,42,77,0.5349],"wagon_abgreen_S":[405,243,42,77,0.5349],"wagon_abred_S":[450,243,42,77,0.5349],"wagon_abwhite_S":[495,243,42,77,0.5349],"luxury_abblue_S":[540,243,44,76,0.528],"luxury_abblack_S":[587,243,44,76,0.528],"luxury_abbrown_S":[634,243,44,76,0.528],"supercar_abred_S":[681,243,40,74,0.494],"supercar_abwhite_S":[724,243,40,74,0.494],"supercar_abblue_S":[767,243,40,74,0.494],"minivan_burnt_S":[810,243,38,73,0.561],"supercar_burnt_S":[851,243,40,73,0.494],"luxury_abblue_N":[894,243,45,73,0.528],"luxury_abblack_N":[942,243,45,73,0.528],"luxury_abbrown_N":[990,243,45,73,0.528],"suv_abblack_S":[1038,243,43,73,0.6104],"suv_abblue_S":[0,325,43,73,0.6104],"suv_abbrown_S":[46,325,43,73,0.6104],"suv_abgreen_S":[92,325,43,73,0.6104],"suv_abred_S":[138,325,43,73,0.6104],"suv_abwhite_S":[184,325,43,73,0.6104],"wagon_abblack_N":[230,325,42,73,0.5349],"wagon_abblue_N":[275,325,42,73,0.5349],"wagon_abbrown_N":[320,325,42,73,0.5349],"wagon_abgreen_N":[365,325,42,73,0.5349],"wagon_abred_N":[410,325,42,73,0.5349],"wagon_abwhite_N":[455,325,42,73,0.5349],"luxury_burnt_S":[500,325,41,72,0.528],"luxury_burnt_N":[544,325,44,72,0.528],"wagon_burnt_S":[591,325,38,71,0.5349],"coupe_abred_S":[632,325,46,71,0.4941],"coupe_abwhite_S":[681,325,46,71,0.4941],"coupe_abblue_S":[730,325,46,71,0.4941],"minivan_abblack_N":[779,325,43,71,0.561],"minivan_abblue_N":[825,325,43,71,0.561],"minivan_abbrown_N":[871,325,43,71,0.561],"minivan_abgreen_N":[917,325,43,71,0.561],"minivan_abred_N":[963,325,43,71,0.561],"minivan_abwhite_N":[1009,325,43,71,0.561],"van_abblack_S":[1055,325,40,71,0.7042],"van_abblue_S":[0,401,40,71,0.7042],"van_abbrown_S":[43,401,40,71,0.7042],"van_abgreen_S":[86,401,40,71,0.7042],"van_abred_S":[129,401,40,71,0.7042],"van_abwhite_S":[172,401,40,71,0.7042],"coupe_burnt_S":[215,401,42,70,0.4941],"coupe_abred_N":[260,401,46,70,0.4941],"coupe_abwhite_N":[309,401,46,70,0.4941],"coupe_abblue_N":[358,401,46,70,0.4941],"pickup_abblack_S":[407,401,49,70,0.5882],"pickup_abblack_N":[459,401,49,70,0.5882],"pickup_abblue_S":[511,401,49,70,0.5882],"pickup_abblue_N":[563,401,49,70,0.5882],"pickup_abbrown_S":[615,401,49,70,0.5882],"pickup_abbrown_N":[667,401,49,70,0.5882],"pickup_abgreen_S":[719,401,49,70,0.5882],"pickup_abgreen_N":[771,401,49,70,0.5882],"pickup_abred_S":[823,401,49,70,0.5882],"pickup_abred_N":[875,401,49,70,0.5882],"pickup_abwhite_S":[927,401,49,70,0.5882],"pickup_abwhite_N":[979,401,49,70,0.5882],"taxi_burnt_S":[1031,401,38,69,0.529],"bus_abblack_W":[0,475,153,69,0.5915],"bus_abgreen_W":[156,475,153,69,0.5915],"bus_abbrown_W":[312,475,153,69,0.5915],"sedan_abblack_S":[468,475,53,69,0.5301],"sedan_abblue_S":[524,475,53,69,0.5301],"sedan_abbrown_S":[580,475,53,69,0.5301],"sedan_abgreen_S":[636,475,53,69,0.5301],"sedan_abred_S":[692,475,53,69,0.5301],"sedan_abwhite_S":[748,475,53,69,0.5301],"sport_abblue_S":[804,475,43,69,0.5],"sport_abblack_S":[850,475,43,69,0.5],"sport_abbrown_S":[896,475,43,69,0.5],"taxi_ab_S":[942,475,48,69,0.529],"taxi_ab_N":[993,475,50,69,0.529],"pickup_burnt_S":[1046,475,38,68,0.5882],"suv_burnt_S":[0,547,40,68,0.6104],"sport_burnt_S":[43,547,40,68,0.5],"wagon_burnt_N":[86,547,38,68,0.5349],"bus_abblack_E":[127,547,153,68,0.5915],"bus_abgreen_E":[283,547,153,68,0.5915],"bus_abbrown_E":[439,547,153,68,0.5915],"muscle_abwhite_S":[595,547,41,68,0.542],"muscle_abwhite_N":[639,547,43,68,0.542],"muscle_abyellow_S":[685,547,41,68,0.542],"muscle_abyellow_N":[729,547,43,68,0.542],"muscle_abred_S":[775,547,41,68,0.542],"muscle_abred_N":[819,547,43,68,0.542],"police_ab_S":[865,547,47,68,0.524],"sedan_abblack_N":[915,547,53,68,0.5301],"sedan_abblue_N":[971,547,53,68,0.5301],"sedan_abbrown_N":[1027,547,53,68,0.5301],"sedan_abgreen_N":[0,618,53,68,0.5301],"sedan_abred_N":[56,618,53,68,0.5301],"sedan_abwhite_N":[112,618,53,68,0.5301],"minivan_burnt_N":[168,618,38,67,0.561],"pickup_burnt_N":[209,618,38,67,0.5882],"police_burnt_S":[250,618,37,67,0.524],"police_ab_N":[290,618,47,67,0.524],"suv_abblack_N":[340,618,43,67,0.6104],"suv_abblue_N":[386,618,43,67,0.6104],"suv_abbrown_N":[432,618,43,67,0.6104],"suv_abgreen_N":[478,618,43,67,0.6104],"suv_abred_N":[524,618,43,67,0.6104],"suv_abwhite_N":[570,618,43,67,0.6104],"supercar_abred_N":[616,618,40,67,0.494],"supercar_abwhite_N":[659,618,40,67,0.494],"supercar_abblue_N":[702,618,40,67,0.494],"muscle_burnt_N":[745,618,41,66,0.542],"police_burnt_N":[789,618,37,66,0.524],"sedan_burnt_S":[829,618,38,66,0.5301],"sedan_burnt_N":[870,618,38,66,0.5301],"taxi_burnt_N":[911,618,38,66,0.529],"van_burnt_S":[952,618,36,66,0.7042],"hatch_abblack_S":[991,618,43,66,0.5063],"hatch_abblue_S":[1037,618,43,66,0.5063],"hatch_abbrown_S":[0,689,43,66,0.5063],"hatch_abgreen_S":[46,689,43,66,0.5063],"hatch_abred_S":[92,689,43,66,0.5063],"hatch_abwhite_S":[138,689,43,66,0.5063],"coupe_burnt_N":[184,689,42,65,0.4941],"muscle_burnt_S":[229,689,41,65,0.542],"sport_abblue_N":[273,689,43,65,0.5],"sport_abblack_N":[319,689,43,65,0.5],"sport_abbrown_N":[365,689,43,65,0.5],"hatch_burnt_S":[411,689,42,63,0.5063],"supercar_burnt_N":[456,689,40,63,0.494],"hatch_abblack_N":[499,689,42,63,0.5063],"hatch_abblue_N":[544,689,42,63,0.5063],"hatch_abbrown_N":[589,689,42,63,0.5063],"hatch_abgreen_N":[634,689,42,63,0.5063],"hatch_abred_N":[679,689,42,63,0.5063],"hatch_abwhite_N":[724,689,42,63,0.5063],"bus_burnt_E":[769,689,145,62,0.5915],"bus_burnt_W":[917,689,145,62,0.5915],"sport_burnt_N":[0,758,40,62,0.5],"truck_abred_E":[43,758,126,62,0.5714],"truck_abwhite_E":[172,758,126,62,0.5714],"truck_abblue_E":[301,758,126,62,0.5714],"truck_abred_W":[430,758,124,61,0.5714],"truck_abwhite_W":[557,758,124,61,0.5714],"truck_abblue_W":[684,758,124,61,0.5714],"van_abblack_N":[811,758,38,61,0.7042],"van_abblue_N":[852,758,38,61,0.7042],"van_abbrown_N":[893,758,38,61,0.7042],"van_abgreen_N":[934,758,38,61,0.7042],"van_abred_N":[975,758,38,61,0.7042],"van_abwhite_N":[1016,758,38,61,0.7042],"hatch_burnt_N":[0,823,42,60,0.5063],"suv_burnt_N":[45,823,40,60,0.6104],"van_burnt_N":[88,823,36,59,0.7042],"ambulance_ab_W":[127,823,122,59,0.558],"ambulance_ab_E":[252,823,123,58,0.558],"camper_abwhite_W":[378,823,115,58,0.56],"camper_abyellow_W":[496,823,115,58,0.56],"camper_abred_W":[614,823,115,58,0.56],"jeep_burnt_S":[732,823,38,56,0.683],"truck_burnt_E":[773,823,111,56,0.5714],"truck_burnt_W":[887,823,111,56,0.5714],"camper_abwhite_E":[0,886,115,56,0.56],"camper_abyellow_E":[118,886,115,56,0.56],"camper_abred_E":[236,886,115,56,0.56],"jeep_abblack_S":[354,886,48,56,0.683],"jeep_abgreen_S":[405,886,48,56,0.683],"jeep_abbrown_S":[456,886,48,56,0.683],"boxtruck_abred_E":[507,886,115,55,0.6408],"boxtruck_abwhite_E":[625,886,115,55,0.6408],"boxtruck_abblue_E":[743,886,115,55,0.6408],"boxtruck_abred_W":[861,886,113,54,0.6408],"boxtruck_abwhite_W":[977,886,113,54,0.6408],"boxtruck_abblue_W":[0,945,113,54,0.6408],"jeep_abblack_N":[116,945,47,54,0.683],"jeep_abgreen_N":[166,945,47,54,0.683],"jeep_abbrown_N":[216,945,47,54,0.683],"camper_burnt_E":[266,945,100,53,0.56],"camper_burnt_W":[369,945,100,53,0.56],"limo_abwhite_E":[472,945,129,51,0.512],"limo_abyellow_E":[604,945,129,51,0.512],"limo_abred_E":[736,945,129,51,0.512],"sedan_abblack_E":[868,945,91,51,0.5301],"sedan_abblue_E":[962,945,91,51,0.5301],"sedan_abbrown_E":[0,1002,91,51,0.5301],"sedan_abgreen_E":[94,1002,91,51,0.5301],"sedan_abred_E":[188,1002,91,51,0.5301],"sedan_abwhite_E":[282,1002,91,51,0.5301],"ambulance_burnt_E":[376,1002,104,50,0.558],"ambulance_burnt_W":[483,1002,104,50,0.558],"civic_abblue_S":[590,1002,43,50,0.679],"civic_abblack_S":[636,1002,43,50,0.679],"civic_abbrown_S":[682,1002,43,50,0.679],"minivan_abblack_E":[728,1002,86,50,0.561],"minivan_abblue_E":[817,1002,86,50,0.561],"minivan_abbrown_E":[906,1002,86,50,0.561],"minivan_abgreen_E":[995,1002,86,50,0.561],"minivan_abred_E":[0,1056,86,50,0.561],"minivan_abwhite_E":[89,1056,86,50,0.561],"sedan_abblack_W":[178,1056,90,50,0.5301],"sedan_abblue_W":[271,1056,90,50,0.5301],"sedan_abbrown_W":[364,1056,90,50,0.5301],"sedan_abgreen_W":[457,1056,90,50,0.5301],"sedan_abred_W":[550,1056,90,50,0.5301],"sedan_abwhite_W":[643,1056,90,50,0.5301],"boxtruck_burnt_E":[736,1056,103,49,0.6408],"boxtruck_burnt_W":[842,1056,103,49,0.6408],"civic_burnt_S":[948,1056,35,49,0.679],"wagon_abblack_E":[986,1056,91,49,0.5349],"wagon_abblack_W":[0,1109,92,49,0.5349],"wagon_abblue_E":[95,1109,91,49,0.5349],"wagon_abblue_W":[189,1109,92,49,0.5349],"wagon_abbrown_E":[284,1109,91,49,0.5349],"wagon_abbrown_W":[378,1109,92,49,0.5349],"wagon_abgreen_E":[473,1109,91,49,0.5349],"wagon_abgreen_W":[567,1109,92,49,0.5349],"wagon_abred_E":[662,1109,91,49,0.5349],"wagon_abred_W":[756,1109,92,49,0.5349],"wagon_abwhite_E":[851,1109,91,49,0.5349],"wagon_abwhite_W":[945,1109,92,49,0.5349],"jeep_abblack_W":[0,1161,63,48,0.683],"jeep_abgreen_W":[66,1161,63,48,0.683],"jeep_abbrown_W":[132,1161,63,48,0.683],"minivan_abblack_W":[198,1161,86,48,0.561],"minivan_abblue_W":[287,1161,86,48,0.561],"minivan_abbrown_W":[376,1161,86,48,0.561],"minivan_abgreen_W":[465,1161,86,48,0.561],"minivan_abred_W":[554,1161,86,48,0.561],"minivan_abwhite_W":[643,1161,86,48,0.561],"pickup_abblack_E":[732,1161,89,48,0.5882],"pickup_abblue_E":[824,1161,89,48,0.5882],"pickup_abbrown_E":[916,1161,89,48,0.5882],"pickup_abgreen_E":[1008,1161,89,48,0.5882],"pickup_abred_E":[0,1212,89,48,0.5882],"pickup_abwhite_E":[92,1212,89,48,0.5882],"van_abblack_E":[184,1212,73,48,0.7042],"van_abblue_E":[260,1212,73,48,0.7042],"van_abbrown_E":[336,1212,73,48,0.7042],"van_abgreen_E":[412,1212,73,48,0.7042],"van_abred_E":[488,1212,73,48,0.7042],"van_abwhite_E":[564,1212,73,48,0.7042],"jeep_burnt_N":[640,1212,38,47,0.683],"civic_abblue_N":[681,1212,42,47,0.679],"civic_abblack_N":[726,1212,42,47,0.679],"civic_abbrown_N":[771,1212,42,47,0.679],"jeep_abblack_E":[816,1212,63,47,0.683],"jeep_abgreen_E":[882,1212,63,47,0.683],"jeep_abbrown_E":[948,1212,63,47,0.683],"limo_abwhite_W":[0,1263,129,47,0.512],"limo_abyellow_W":[132,1263,129,47,0.512],"limo_abred_W":[264,1263,129,47,0.512],"van_abblack_W":[396,1263,73,47,0.7042],"van_abblue_W":[472,1263,73,47,0.7042],"van_abbrown_W":[548,1263,73,47,0.7042],"van_abgreen_W":[624,1263,73,47,0.7042],"van_abred_W":[700,1263,73,47,0.7042],"van_abwhite_W":[776,1263,73,47,0.7042],"coupe_abred_E":[852,1263,90,46,0.4941],"coupe_abwhite_E":[945,1263,90,46,0.4941],"coupe_abblue_E":[0,1313,90,46,0.4941],"police_ab_E":[93,1313,85,46,0.524],"police_ab_W":[181,1313,85,46,0.524],"suv_abblack_W":[269,1313,84,46,0.6104],"suv_abblue_W":[356,1313,84,46,0.6104],"suv_abbrown_W":[443,1313,84,46,0.6104],"suv_abgreen_W":[530,1313,84,46,0.6104],"suv_abred_W":[617,1313,84,46,0.6104],"suv_abwhite_W":[704,1313,84,46,0.6104],"civic_burnt_N":[791,1313,35,45,0.679],"jeep_burnt_E":[829,1313,60,45,0.683],"jeep_burnt_W":[892,1313,60,45,0.683],"van_burnt_E":[955,1313,71,44,0.7042],"luxury_abblue_W":[0,1362,92,44,0.528],"luxury_abblack_W":[95,1362,92,44,0.528],"luxury_abbrown_W":[190,1362,92,44,0.528],"pickup_abblack_W":[285,1362,89,44,0.5882],"pickup_abblue_W":[377,1362,89,44,0.5882],"pickup_abbrown_W":[469,1362,89,44,0.5882],"pickup_abgreen_W":[561,1362,89,44,0.5882],"pickup_abred_W":[653,1362,89,44,0.5882],"pickup_abwhite_W":[745,1362,89,44,0.5882],"sport_abblue_E":[837,1362,87,44,0.5],"sport_abblack_E":[927,1362,87,44,0.5],"sport_abbrown_E":[0,1409,87,44,0.5],"taxi_ab_E":[90,1409,88,44,0.529],"minivan_burnt_E":[181,1409,82,43,0.561],"van_burnt_W":[266,1409,71,43,0.7042],"civic_abblue_W":[340,1409,59,43,0.679],"civic_abblack_W":[402,1409,59,43,0.679],"civic_abbrown_W":[464,1409,59,43,0.679],"coupe_abred_W":[526,1409,90,43,0.4941],"coupe_abwhite_W":[619,1409,90,43,0.4941],"coupe_abblue_W":[712,1409,90,43,0.4941],"micro_abblack_S":[805,1409,30,43,0.868],"micro_abgreen_S":[838,1409,30,43,0.868],"micro_abbrown_S":[871,1409,30,43,0.868],"suv_abblack_E":[904,1409,84,43,0.6104],"suv_abblue_E":[991,1409,84,43,0.6104],"suv_abbrown_E":[0,1456,84,43,0.6104],"suv_abgreen_E":[87,1456,84,43,0.6104],"suv_abred_E":[174,1456,84,43,0.6104],"suv_abwhite_E":[261,1456,84,43,0.6104],"taxi_ab_W":[348,1456,88,43,0.529],"luxury_burnt_W":[439,1456,89,42,0.528],"micro_burnt_S":[531,1456,26,42,0.868],"minivan_burnt_W":[560,1456,82,42,0.561],"police_burnt_W":[645,1456,84,42,0.524],"wagon_burnt_E":[732,1456,86,42,0.5349],"wagon_burnt_W":[821,1456,86,42,0.5349],"hatch_abblack_W":[910,1456,83,42,0.5063],"hatch_abblue_W":[996,1456,83,42,0.5063],"hatch_abbrown_W":[0,1502,83,42,0.5063],"hatch_abgreen_W":[86,1502,83,42,0.5063],"hatch_abred_W":[172,1502,83,42,0.5063],"hatch_abwhite_W":[258,1502,83,42,0.5063],"luxury_abblue_E":[344,1502,92,42,0.528],"luxury_abblack_E":[439,1502,92,42,0.528],"luxury_abbrown_E":[534,1502,92,42,0.528],"muscle_abwhite_E":[629,1502,88,42,0.542],"muscle_abyellow_E":[720,1502,88,42,0.542],"muscle_abred_E":[811,1502,88,42,0.542],"sport_abblue_W":[902,1502,87,42,0.5],"sport_abblack_W":[992,1502,87,42,0.5],"sport_abbrown_W":[0,1547,87,42,0.5],"coupe_burnt_E":[90,1547,85,41,0.4941],"coupe_burnt_W":[178,1547,85,41,0.4941],"luxury_burnt_E":[266,1547,89,41,0.528],"police_burnt_E":[358,1547,84,41,0.524],"suv_burnt_E":[445,1547,77,41,0.6104],"suv_burnt_W":[525,1547,77,41,0.6104],"muscle_abwhite_W":[605,1547,88,41,0.542],"muscle_abyellow_W":[696,1547,88,41,0.542],"muscle_abred_W":[787,1547,88,41,0.542],"hatch_burnt_W":[878,1547,78,40,0.5063],"taxi_burnt_W":[959,1547,85,40,0.529],"hatch_abblack_E":[0,1592,83,40,0.5063],"hatch_abblue_E":[86,1592,83,40,0.5063],"hatch_abbrown_E":[172,1592,83,40,0.5063],"hatch_abgreen_E":[258,1592,83,40,0.5063],"hatch_abred_E":[344,1592,83,40,0.5063],"hatch_abwhite_E":[430,1592,83,40,0.5063],"supercar_abred_E":[516,1592,88,40,0.494],"supercar_abwhite_E":[607,1592,88,40,0.494],"supercar_abblue_E":[698,1592,88,40,0.494],"hatch_burnt_E":[789,1592,78,39,0.5063],"limo_burnt_E":[870,1592,129,39,0.512],"muscle_burnt_E":[1002,1592,83,39,0.542],"muscle_burnt_W":[0,1635,83,39,0.542],"pickup_burnt_E":[86,1635,85,39,0.5882],"pickup_burnt_W":[174,1635,85,39,0.5882],"sedan_burnt_E":[262,1635,83,39,0.5301],"sedan_burnt_W":[348,1635,83,39,0.5301],"sport_burnt_E":[434,1635,82,39,0.5],"taxi_burnt_E":[519,1635,85,39,0.529],"civic_abblue_E":[607,1635,59,39,0.679],"civic_abblack_E":[669,1635,59,39,0.679],"civic_abbrown_E":[731,1635,59,39,0.679],"limo_burnt_W":[793,1635,129,38,0.512],"sport_burnt_W":[925,1635,82,38,0.5],"supercar_abred_W":[0,1677,89,38,0.494],"supercar_abwhite_W":[92,1677,89,38,0.494],"supercar_abblue_W":[184,1677,89,38,0.494],"supercar_burnt_E":[276,1677,87,37,0.494],"supercar_burnt_W":[366,1677,87,37,0.494],"micro_abblack_N":[456,1677,30,37,0.868],"micro_abgreen_N":[489,1677,30,37,0.868],"micro_abbrown_N":[522,1677,30,37,0.868],"civic_burnt_W":[555,1677,56,36,0.679],"micro_abblack_E":[614,1677,45,36,0.868],"micro_abblack_W":[662,1677,45,36,0.868],"micro_abgreen_E":[710,1677,45,36,0.868],"micro_abgreen_W":[758,1677,45,36,0.868],"micro_abbrown_E":[806,1677,45,36,0.868],"micro_abbrown_W":[854,1677,45,36,0.868],"civic_burnt_E":[902,1677,56,35,0.679],"micro_burnt_N":[961,1677,26,33,0.868],"micro_burnt_E":[990,1677,38,31,0.868],"micro_burnt_W":[1031,1677,38,31,0.868]};
+const WRECK_IDS = ["ambulance_burnt","boxtruck_burnt","bus_burnt","camper_burnt","civic_burnt","coupe_burnt","hatch_burnt","jeep_burnt","limo_burnt","luxury_burnt","truck_burnt","micro_burnt","minivan_burnt","muscle_burnt","pickup_burnt","police_burnt","suv_burnt","sedan_burnt","sport_burnt","supercar_burnt","taxi_burnt","van_burnt","wagon_burnt","ambulance_ab","boxtruck_abred","boxtruck_abwhite","boxtruck_abblue","bus_abblack","bus_abgreen","bus_abbrown","camper_abwhite","camper_abyellow","camper_abred","civic_abblue","civic_abblack","civic_abbrown","coupe_abred","coupe_abwhite","coupe_abblue","hatch_abblack","hatch_abblue","hatch_abbrown","hatch_abgreen","hatch_abred","hatch_abwhite","jeep_abblack","jeep_abgreen","jeep_abbrown","limo_abwhite","limo_abyellow","limo_abred","luxury_abblue","luxury_abblack","luxury_abbrown","truck_abred","truck_abwhite","truck_abblue","micro_abblack","micro_abgreen","micro_abbrown","minivan_abblack","minivan_abblue","minivan_abbrown","minivan_abgreen","minivan_abred","minivan_abwhite","muscle_abwhite","muscle_abyellow","muscle_abred","pickup_abblack","pickup_abblue","pickup_abbrown","pickup_abgreen","pickup_abred","pickup_abwhite","police_ab","suv_abblack","suv_abblue","suv_abbrown","suv_abgreen","suv_abred","suv_abwhite","sedan_abblack","sedan_abblue","sedan_abbrown","sedan_abgreen","sedan_abred","sedan_abwhite","sport_abblue","sport_abblack","sport_abbrown","supercar_abred","supercar_abwhite","supercar_abblue","taxi_ab","van_abblack","van_abblue","van_abbrown","van_abgreen","van_abred","van_abwhite","wagon_abblack","wagon_abblue","wagon_abbrown","wagon_abgreen","wagon_abred","wagon_abwhite"];
+// How common each kind of vehicle is (bigger = more of them). Burnt shells are weighted higher than overgrown ones.
+const WRECK_TYPE_WEIGHT = { sedan:3, hatch:2.5, wagon:2, suv:2, van:2, minivan:1.5, pickup:1.5, coupe:1.5, civic:1.5, micro:1,
+    jeep:1.5, sport:1, supercar:0.6, muscle:1.2, luxury:1, police:1.2, taxi:1.2, limo:0.4, ambulance:0.8, camper:0.6,
+    boxtruck:0.8, truck:0.7, bus:0.5 };
+const WRECK_BURNT_BONUS = 4;     // each burnt variant counts this many times vs 1 for each abandoned colour
+const WRECK_POOL = (() => {
+    const pool = []; let total = 0;
+    for (const id of WRECK_IDS){
+        const key = id.split('_')[0];
+        const w = (WRECK_TYPE_WEIGHT[key] || 1) * (id.endsWith('_burnt') ? WRECK_BURNT_BONUS : 1);
+        total += w; pool.push({ id, cum: total });
+    }
+    return { list: pool, total };
+})();
+function pickWreckId(rnd){
+    const r = rnd() * WRECK_POOL.total;
+    for (const p of WRECK_POOL.list) if (r <= p.cum) return p.id;
+    return WRECK_POOL.list[0].id;
+}
+let wreckVehicles = [];
+class WreckVehicle {
+    constructor(id, dir, cx, cy){
+        this.e = WRECK_ATLAS[id + '_' + dir];
+        this.cx = cx; this.cy = cy;
+        this.dw = this.e[2] * this.e[4]; this.dh = this.e[3] * this.e[4];
+        this.y = cy + this.dh * 0.3;           // used for front/back sorting against units
+        this.burnt = id.endsWith('_burnt');
+    }
+    draw(ctx){
+        const img = assets['wreck_atlas'];
+        if (!img) return;
+        const sx = this.cx - game.camera.x, sy = this.cy - game.camera.y;
+        if (sx < -90 || sy < -90 || sx > game.width + 90 || sy > game.height + 90) return;
+        ctx.fillStyle = 'rgba(0,0,0,0.34)';
+        ctx.beginPath(); ctx.ellipse(sx, sy + this.dh * 0.30, this.dw * 0.47, this.dh * 0.30, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.drawImage(img, this.e[0], this.e[1], this.e[2], this.e[3], sx - this.dw / 2, sy - this.dh / 2, this.dw, this.dh);
+    }
+}
+// Where the two vehicle refill bays are (on the road in front of the station). Kept clear of wrecks.
+function stationBaySpots(){
+    const out = {};
+    out[VEHICLE_SYNDICATE]   = { x: (BASE_TILE_X - 5) * TILE + TILE / 2, y: ROAD_Y_BOTTOM * TILE + TILE / 2 };
+    out[VEHICLE_SYNDICATE_2] = { x: (BASE_TILE_X + 5) * TILE + TILE / 2, y: ROAD_Y_BOTTOM * TILE + TILE / 2 };
+    return out;
+}
+// Scatter wrecks along the kerbs. Uses the town seed, so every new game gets a different arrangement
+// (and a window resize keeps the same one).
+function placeWreckVehicles(){
+    wreckVehicles = [];
+    const L = roadLayout;
+    if (!L) return;
+    const rnd = mulberry32((game.townSeed | 0) ^ 0x2f6e2b1);
+    const half = L.half, base = L.base;
+    const bays = Object.values(stationBaySpots());
+    const blockedAt = (x, y, rx, ry) => {
+        for (const j of L.junctions) if (Math.abs(x - j.x) < half + rx + 8 && Math.abs(y - j.y) < half + ry + 8) return true;
+        for (const z of L.zebras) if (x + rx > z.x - 8 && x - rx < z.x + z.w + 8 && y + ry > z.y - 8 && y - ry < z.y + z.h + 8) return true;
+        if (x + rx > base.x0 - 24 && x - rx < base.x1 + 24 && y + ry > base.y0 - 30 && y - ry < base.y1 + 30) return true;
+        const sr = L.stationRect;
+        if (x + rx > sr.x0 - 16 && x - rx < sr.x1 + 16 && y + ry > sr.y0 - 24 && y - ry < sr.y1 + 24) return true;
+        for (const b of bays) if (Math.abs(x - b.x) < rx + TILE * 3.2 && Math.abs(y - b.y) < ry + half) return true;
+        if (y - ry < 7 * TILE || y + ry > (MAP_H - 7) * TILE) return true;
+        return false;
+    };
+    const lane = (horizontal, c, a, b, side) => {
+        const dir = horizontal ? (side < 0 ? 'E' : 'W') : (side < 0 ? 'N' : 'S');
+        const density = rnd() < 0.08 ? 0.06 : 0.50 + rnd() * 0.45;   // some lanes nearly empty, most lanes busy
+        let p = a + 26 + rnd() * 90;
+        while (p < b - 30){
+            const id = pickWreckId(rnd);
+            const e = WRECK_ATLAS[id + '_' + dir];
+            if (!e){ p += 40; continue; }
+            const dw = e[2] * e[4], dh = e[3] * e[4];
+            const len = horizontal ? dw : dh, cross = horizontal ? dh : dw;
+            const along = p + len / 2, off = c + side * (half - 4 - cross / 2);
+            const x = horizontal ? along : off, y = horizontal ? off : along;
+            if (rnd() < density && !blockedAt(x, y, dw / 2, dh / 2)){
+                wreckVehicles.push(new WreckVehicle(id, dir, x, y));
+                p += len + 8 + rnd() * 22;
+            } else {
+                p += 30 + rnd() * 70;
+            }
+        }
+    };
+    for (const h of L.H){ lane(true, h.c, h.a, h.b, -1); lane(true, h.c, h.a, h.b, 1); }
+    for (const v of L.V){ lane(false, v.c, v.a, v.b, -1); lane(false, v.c, v.a, v.b, 1); }
 }
 
 // ============================ TERRAIN ============================
@@ -1936,7 +2047,7 @@ function drawSpriteUnit(ctx, u, row){
 const OFFICER = {
     hp: 120, meleeDamage: 22, meleeRange: 1.35, atkCooldown: 0.7,
     walkSpeed: 3.6, sprintSpeed: 6.5, lungeRange: 2.1, restRegen: 8,
-    retreatHpPct: 0.25, cooldownTime: 60, disperseDamageMult: 3.0,
+    retreatHpPct: 0.30, cooldownTime: 60, disperseDamageMult: 3.0,
 };
 const STATION_ENTER = {
     x0:(BASE_TILE_X-2.6)*TILE, x1:(BASE_TILE_X+2.6)*TILE,
@@ -1988,6 +2099,16 @@ class Officer {
         }
         this.retreatRoute.push({ x:this.baseX, y:this.baseY });
     }
+    startRetreat(){
+        if (this.isAllOut || this.state !== 'active') return false;
+        this.state = 'retreating';
+        this.shieldUp = false;
+        this.noTeleport = true;
+        this.retreatRoute = null; this.retreatIdx = 0; this.retreatStuck = 0;
+        this.retreatTime = 0; this.lastWpDist = Infinity;
+        this._mv = false; this.dashing = false;
+        return true;
+    }
     mySyndicate(){
         if (game.mergedMode) return game.syndicates[game.mergedIntoIndex] || game.syndicates[0];
         return game.syndicates[this.syndicateIndex] || game.syndicates[0];
@@ -1999,19 +2120,16 @@ class Officer {
         if (this.attackFlash > 0) this.attackFlash = Math.max(0, this.attackFlash - dt);
         this.atkTimer = Math.max(0, this.atkTimer - dt);
 
-        if (this.state === 'active' && this.hp <= this.maxHp*OFFICER.retreatHpPct){
-            this.state = 'retreating';
-            this.shieldUp = false;
-            this.noTeleport = true;
-            this.retreatRoute = null; this.retreatIdx = 0; this.retreatStuck = 0;
-            this.retreatTime = 0; this.lastWpDist = Infinity;
-        }
+        if (this.state === 'active' && this.hp <= this.maxHp*OFFICER.retreatHpPct) this.startRetreat();
         if (this.state === 'retreating'){
             this.retreatTime = (this.retreatTime||0) + dt;
             const distHome = Math.hypot(this.baseX - this.x, this.baseY - this.y);
-            if (distHome <= TILE*1.2 || isAtStation(this.x, this.y) || this.retreatTime > 40){
-                this.state = 'cooldown';
-                this.cooldownTimer = OFFICER.cooldownTime;
+            const atStation = distHome <= TILE*1.2 || isAtStation(this.x, this.y);
+            if (atStation || this.retreatTime > 40){
+                // (the >40s case is only a safety net so nobody is ever lost on the way)
+                if (!atStation){ this.x = this.baseX + (Math.random()-0.5)*TILE*2; this.y = this.baseY + (Math.random()-0.5)*TILE*2; }
+                this.state = 'healing';
+                this.healSpot = null;
                 this.shieldUp = true; this.isMoving = false;
                 this.retreatRoute = null; this.noTeleport = false;
                 return;
@@ -2031,18 +2149,44 @@ class Officer {
             if (this.retreatStuck > 1.2){ hopToRoad(this); this.retreatRoute = null; this.retreatIdx = 0; this.retreatStuck = 0; this.lastWpDist = Infinity; }
             return;
         }
-        if (this.state === 'cooldown'){
-            this.cooldownTimer -= dt * moraleRegenMult();
-            this.isMoving = false;
-            this.hp = Math.min(this.maxHp, this.hp + OFFICER.restRegen*dt*0.5*moraleRegenMult());
-            if (this.cooldownTimer <= 0){ this.state = 'active'; this.noTeleport = false; }
+        if (this.state === 'healing'){
+            // Standing at the station. Healing is paid for out of the supplies the squad has collected.
+            this.shieldUp = true;
+            if (!this.healSpot){
+                for (let tries = 0; tries < 16; tries++){
+                    const hx = this.baseX + (Math.random()-0.5)*TILE*4.4, hy = this.baseY + (Math.random()-0.4)*TILE*4.2;
+                    if (isValidPosition(hx, hy) && isAtStation(hx, hy)){ this.healSpot = { x:hx, y:hy }; break; }
+                }
+                if (!this.healSpot) this.healSpot = { x:this.baseX, y:this.baseY };
+            }
+            const hd = Math.hypot(this.healSpot.x - this.x, this.healSpot.y - this.y);
+            if (hd > 3){ this.isMoving = true; steerUnit(this, this.healSpot.x, this.healSpot.y, dt, OFFICER.walkSpeed); }
+            else this.isMoving = false;
+            const need = this.maxHp - this.hp;
+            if (need <= 0.5){
+                this.hp = this.maxHp; this.state = 'active'; this.noTeleport = false; this.healSpot = null; this.waitingForSupplies = false;
+                return;
+            }
+            const want = Math.min(need, HEAL_RATE_HP_PER_SEC*dt);
+            const cost = want*HEAL_COST_PER_HP;
+            if (game.supplies >= cost){
+                game.supplies -= cost; this.hp += want; this.waitingForSupplies = false;
+            } else {
+                if (game.supplies > 0){ this.hp += game.supplies/HEAL_COST_PER_HP; game.supplies = 0; }
+                this.waitingForSupplies = true;
+                const now = performance.now();
+                if (!game._noSupplyToastAt || now - game._noSupplyToastAt > 9000){
+                    game._noSupplyToastAt = now;
+                    showToast('📦 Out of supplies — wounded officers are waiting at the station.');
+                }
+            }
             return;
         }
 
         const sy = this.mySyndicate();
         const tactic = activeTacticOf(sy);
         this.shieldUp = tactic !== 'rest';
-        if (tactic === 'rest' && this.hp < this.maxHp) this.hp = Math.min(this.maxHp, this.hp + OFFICER.restRegen*dt*moraleRegenMult());
+        if (tactic === 'rest' && this.hp < this.maxHp) this.hp = Math.min(this.maxHp, this.hp + OFFICER.restRegen*0.12*dt*moraleRegenMult());
 
         const passive = sy ? syndicateIsPassive(sy) : false;
         const engageRange = OFFICER.lungeRange;
@@ -2164,10 +2308,14 @@ class Officer {
         if (this.isAllOut){
             ctx.fillStyle = '#ff8a5c'; ctx.font = 'bold 8px monospace'; ctx.textAlign = 'center';
             ctx.fillText('⚡', sx, sy - 28);
-        } else if (this.state === 'retreating' || this.state === 'cooldown'){
-            ctx.fillStyle = this.state === 'retreating' ? '#ff4444' : '#ffaa00';
+        } else if (this.state === 'retreating'){
+            ctx.fillStyle = '#ff4444';
             ctx.font = '8px monospace'; ctx.textAlign = 'center';
-            ctx.fillText(this.state === 'retreating' ? '!' : '...', sx, sy - 32);
+            ctx.fillText('!', sx, sy - 32);
+        } else if (this.state === 'healing'){
+            ctx.fillStyle = this.waitingForSupplies ? '#ffaa00' : '#6be08a';
+            ctx.font = 'bold 9px monospace'; ctx.textAlign = 'center';
+            ctx.fillText(this.waitingForSupplies ? '📦?' : '+', sx, sy - 32);
         }
     }
 }
@@ -2182,6 +2330,7 @@ const ZOMBIE_TYPES = {
     tank:    { name:'Tank',    hp:420,  damage:24,  meleeRange:1.60, atkCooldown:2.00, speed:1.0, weight: 0, value:14 },
 };
 const MAX_ATTACKERS_PER_OFFICER = 3;
+const ZOMBIE_NODE_REACH = TILE * 1.7;   // how close counts as 'reached the corner' (was 12px, which crowds could never get inside)
 let zombieIdSeq = 1;
 class Zombie {
     constructor(kind, spawnX, spawnY, squadId){
@@ -2263,6 +2412,7 @@ class Zombie {
         this.route = path || [start.id];
         this.routeIdx = 1;
         this.routeVersion = game.blockadeVersion;
+        this._wdT = 0; this._wdX = this.x; this._wdY = this.y;
     }
     update(dt){
         if (!this.alive) return;
@@ -2302,6 +2452,7 @@ class Zombie {
         if (this.attackFlash > 0) this.attackFlash = Math.max(0, this.attackFlash - dt);
         this.atkTimer = Math.max(0, this.atkTimer - dt);
         this.timeSinceDamage += dt;
+        if (this._strikes){ this._strikeAge = (this._strikeAge || 0) + dt; if (this._strikeAge > 8) this._strikes = 0; }
         if (this._stickyTimer > 0) this._stickyTimer -= dt;
         if (this._stickyTarget && (!this._stickyTarget.alive || this._stickyTimer <= 0)) this._stickyTarget = null;
         if (this._screamBuff > 0) this._screamBuff = Math.max(0, this._screamBuff - dt);
@@ -2414,18 +2565,29 @@ class Zombie {
             }
         }
 
-        if (this.route && this.routeIdx < this.route.length){
+        // ---- Follow the road route, corner by corner ----
+        // Each zombie aims at its OWN spot near the corner (jitter), counts as 'there' within ~1.7 tiles,
+        // and a watchdog skips a corner (or, after 3 skips, hops back onto the road) if it stops making progress.
+        while (this.route && this.routeIdx < this.route.length){
             const node = getNode(this.route[this.routeIdx]);
-            if (node){
-                const tx = node.x*TILE, ty = node.y*TILE;
-                const d = Math.hypot(tx - this.x, ty - this.y);
-                if (d < 12) this.routeIdx++;
-                else {
-                    this.state = 'advancing';
-                    this.moveToward(tx, ty, dt, spd);
-                    return;
+            if (!node){ this.routeIdx++; continue; }
+            const tx = node.x*TILE + this.jitterX*1.6, ty = node.y*TILE + this.jitterY*1.6;
+            const d = Math.hypot(tx - this.x, ty - this.y);
+            if (d < ZOMBIE_NODE_REACH){ this.routeIdx++; this._wdT = 0; this._wdX = this.x; this._wdY = this.y; continue; }
+            this.state = 'advancing';
+            this.moveToward(tx, ty, dt, spd);
+            this._wdT = (this._wdT || 0) + dt;
+            if (this._wdT >= 0.8){
+                const moved = Math.hypot(this.x - (this._wdX ?? this.x), this.y - (this._wdY ?? this.y));
+                const expected = spd*TILE*this._wdT;
+                this._wdT = 0; this._wdX = this.x; this._wdY = this.y;
+                if (moved < expected*0.2){
+                    this._strikes = (this._strikes || 0) + 1; this._strikeAge = 0;
+                    if (this._strikes >= 3){ this._strikes = 0; hopToRoad(this); }
+                    else this.routeIdx++;
                 }
-            } else this.routeIdx++;
+            }
+            return;
         }
 
         const nearest = (this._stickyTarget && this._stickyTarget.alive)
@@ -2433,14 +2595,15 @@ class Zombie {
             : this.nearestActiveOfficer();
         if (nearest){
             this.state = 'advancing';
-            this.moveToward(nearest.x, nearest.y, dt, spd);
+            // routedMove walks straight when the way is clear, otherwise follows the roads (no more nose-first into building corners)
+            routedMove(this, nearest.x, nearest.y, dt, spd);
             return;
         }
         const stX = BASE_TILE_X*TILE, stY = BASE_TILE_Y*TILE;
         const dB = Math.hypot(stX - this.x, stY - this.y);
         if (dB > TILE*4.0){
             this.state = 'advancing';
-            this.moveToward(stX, stY, dt, spd);
+            routedMove(this, stX, stY, dt, spd);
             return;
         }
         this.state = 'attacking_base';
@@ -3479,9 +3642,93 @@ class WaterCannonVehicle {
         this.gunnerFireTimer = [1.0, 1.9];
         this.gunnersOut = false;
         this.gunnerDeployT = 0;
+
+        // ---- ammo / refill ----
+        this.maxAmmo = this.kind === 'rubberbullet' ? SHOOTER_AMMO_MAX : ACID_TANK_MAX;
+        this.ammo = this.maxAmmo;
+        this.refill = null;            // { phase:'driving'|'filling', bayKey, resumeKey }
+        this.refillWait = false;       // true while parked at the bay but the supplies have run out
+        this._emptyHandled = false;
     }
-    setSpot(spot){
+    ammoPct(){ return Math.max(0, Math.min(1, this.ammo / this.maxAmmo)); }
+    isRefilling(){ return !!(this.refill && this.refill.phase === 'filling'); }
+    canFire(){ return this.ammo > 0.01 && !this.isRefilling(); }
+    bayKey(){ return 'H' + ROAD_Y_BOTTOM + '_' + (this.kind === 'rubberbullet' ? BASE_TILE_X + 5 : BASE_TILE_X - 5); }
+    bayCost(){ return (this.kind === 'rubberbullet' ? SHOOTER_REFILL_COST : ACID_REFILL_COST) * (1 - this.ammoPct()); }
+    startRefillTrip(auto){
+        if (this.refill) return false;
+        let bay = BLOCKADE_SPOTS.find(sp => sp.key === this.bayKey());
+        if (!bay){
+            // fallback: the parking point nearest the station
+            let bd = Infinity;
+            for (const sp of BLOCKADE_SPOTS){ const d = Math.hypot(sp.x - BASE_TILE_X*TILE, sp.y - BASE_TILE_Y*TILE); if (d < bd){ bd = d; bay = sp; } }
+        }
+        if (!bay) return false;
+        // remember where to go back to afterwards
+        let resume = this.targetSpot && this.targetSpot.key !== bay.key ? this.targetSpot : null;
+        if (!resume){
+            let bd = Infinity;
+            for (const sp of BLOCKADE_SPOTS){ if (sp.key === bay.key) continue; const d = Math.hypot(sp.x - this.x, sp.y - this.y); if (d < bd){ bd = d; resume = sp; } }
+        }
+        this.refill = { phase:'driving', bayKey: bay.key, resumeKey: resume ? resume.key : null };
+        this.refillWait = false;
+        this.setSpot(bay, true);
+        const sy = game.syndicates[this.syndicateIndex];
+        if (sy){ sy.commandX = bay.x; sy.commandY = bay.y; }
+        showToast(auto ? ('⛽ ' + this.shortName() + ' is empty — heading to the station to refill.')
+                       : ('⛽ ' + this.shortName() + ' heading to the station to refill.'));
+        return true;
+    }
+    shortName(){ return this.kind === 'rubberbullet' ? 'Mobile Shooter' : 'Acid Cannon'; }
+    finishRefill(){
+        const resumeKey = this.refill ? this.refill.resumeKey : null;
+        this.refill = null; this.refillWait = false; this._emptyHandled = false;
+        this.ammo = this.maxAmmo;
+        showToast('✅ ' + this.shortName() + ' refilled.');
+        const resume = resumeKey ? BLOCKADE_SPOTS.find(sp => sp.key === resumeKey) : null;
+        if (resume){
+            this.setSpot(resume, true);
+            const sy = game.syndicates[this.syndicateIndex];
+            if (sy){ sy.commandX = resume.x; sy.commandY = resume.y; }
+        }
+    }
+    updateRefill(dt){
+        // 1) ran dry on its own -> head to the station (once; the player can still override)
+        if (this.ammo <= 0.01 && !this.refill && !this._emptyHandled){
+            this._emptyHandled = true;
+            this.startRefillTrip(true);
+        }
+        if (this.ammo > this.maxAmmo * 0.2) this._emptyHandled = false;
+        if (!this.refill) return;
+        const atBay = this.parked && this.targetSpot && this.targetSpot.key === this.refill.bayKey;
+        if (this.refill.phase === 'driving'){
+            if (!this.targetSpot || this.targetSpot.key !== this.refill.bayKey){ this.refill = null; return; }   // cancelled by a new order
+            if (atBay){ this.refill.phase = 'filling'; this.refillWait = false; }
+            return;
+        }
+        // phase === 'filling'
+        if (!atBay){ this.refill = null; return; }
+        const missing = this.maxAmmo - this.ammo;
+        if (missing <= 0.01){ this.finishRefill(); return; }
+        const perSec = this.maxAmmo / REFILL_SECONDS;                         // a totally empty tank takes REFILL_SECONDS
+        const costPerUnit = (this.kind === 'rubberbullet' ? SHOOTER_REFILL_COST : ACID_REFILL_COST) / this.maxAmmo;
+        const fill = Math.min(missing, perSec * dt);
+        const cost = fill * costPerUnit;
+        if (game.supplies >= cost){ game.supplies -= cost; this.ammo += fill; this.refillWait = false; }
+        else {
+            if (game.supplies > 0){ this.ammo += game.supplies / costPerUnit; game.supplies = 0; }
+            this.refillWait = true;
+            const now = performance.now();
+            if (!game._noSupplyToastAt || now - game._noSupplyToastAt > 9000){
+                game._noSupplyToastAt = now;
+                showToast('📦 Not enough supplies to refill — the ' + this.shortName() + ' is waiting at the station.');
+            }
+        }
+        if (this.maxAmmo - this.ammo <= 0.01) this.finishRefill();
+    }
+    setSpot(spot, fromRefill){
         if (!spot || this.targetSpot === spot) return;
+        if (!fromRefill && this.refill){ this.refill = null; this.refillWait = false; }   // a player order cancels the refill trip
         this.targetSpot = spot;
         this.parked = false;
         this.stuckTimer = 0;
@@ -3489,6 +3736,7 @@ class WaterCannonVehicle {
         this.recomputeRoute();
     }
     clearTarget(){
+        if (this.refill){ this.refill = null; this.refillWait = false; }
         this.targetSpot = null;
         this.route = null;
         this.routeIdx = 0;
@@ -3639,6 +3887,7 @@ class WaterCannonVehicle {
             }
         }
 
+        this.updateRefill(dt);
         if (this.kind === 'rubberbullet') this.updateRubberBulletTeam(dt);
         else this.updateWaterCannon(dt);
         this.partUnits();
@@ -3658,7 +3907,7 @@ class WaterCannonVehicle {
     }
     updateRubberBulletTeam(dt){
         const wasOut = this.gunnersOut;
-        this.gunnersOut = this.parked;
+        this.gunnersOut = this.parked && !this.isRefilling();     // gunners climb back in while the van is being refilled
         if (!this.gunnersOut) {
             this.gunnerDeployT = Math.max(0, this.gunnerDeployT - dt * 3);
             return;
@@ -3670,7 +3919,7 @@ class WaterCannonVehicle {
             this.gunnerFireTimer[i] -= dt;
             if (this.gunnerFireTimer[i] <= 0) {
                 this.gunnerFireTimer[i] = RUBBER_BULLET_COOLDOWN;
-                this.fireRubberRound(positions[i]);
+                if (this.ammo >= 1) this.fireRubberRound(positions[i]);
             }
         }
     }
@@ -3683,6 +3932,7 @@ class WaterCannonVehicle {
             if (d < bestD) { bestD = d; target = z; }
         }
         if (!target) return;
+        this.ammo = Math.max(0, this.ammo - 1);          // one round per shot, only when there is something to shoot
         damageZombie(target, RUBBER_BULLET_DAMAGE);
         target.stunTimer = Math.max(target.stunTimer || 0, RUBBER_BULLET_STUN);
         if (!game.rubberTracers) game.rubberTracers = [];
@@ -3724,6 +3974,7 @@ class WaterCannonVehicle {
             return;
         }
         let target = null, bestD = Infinity;
+        const armed = this.canFire();
         for (const z of game.zombies) {
             if (!z.alive || z.beingDragged) continue;
             const d = Math.hypot(z.x - tp.x, z.y - tp.y);
@@ -3742,7 +3993,7 @@ class WaterCannonVehicle {
 
         if (this.waterPhase === 'burst') {
             this.waterTimer -= dt;
-            if (this.waterTimer <= 0) {
+            if (this.waterTimer <= 0 || !armed) {
                 this.waterPhase = 'idle';
                 this.waterTimer = WATER_CANNON_IDLE_DURATION;
             } else {
@@ -3754,7 +4005,7 @@ class WaterCannonVehicle {
             }
         } else {
             this.waterTimer -= dt;
-            if (this.waterTimer <= 0 && target) {
+            if (this.waterTimer <= 0 && target && armed) {
                 this.waterPhase = 'burst';
                 this.waterTimer = WATER_CANNON_BURST_DURATION;
                 this.waterTickTimer = 0;
@@ -3762,6 +4013,7 @@ class WaterCannonVehicle {
         }
     }
     applyWaterHit() {
+        this.ammo = Math.max(0, this.ammo - ACID_TANK_PER_TICK);       // every spray tick uses up some of the tank
         const ang = this.waterAimAngle;
         const half = WATER_CANNON_CONE_HALF;
         const tp = this.turretPos();
@@ -3775,6 +4027,7 @@ class WaterCannonVehicle {
             while (diff < -Math.PI) diff += Math.PI * 2;
             if (Math.abs(diff) > half) continue;
             damageZombie(z, WATER_CANNON_DAMAGE_PER_TICK);
+            if (z.alive) z.acidBurn = Math.max(z.acidBurn || 0, ACID_BURN_SECONDS);   // acid keeps eating at them
             const pushX = Math.cos(ang) * WATER_CANNON_PUSH_PER_TICK;
             const pushY = Math.sin(ang) * WATER_CANNON_PUSH_PER_TICK;
             const nx = z.x + pushX, ny = z.y + pushY;
@@ -3795,7 +4048,7 @@ class WaterCannonVehicle {
         const ramp = Math.min(1, (1 - lifePct) * 6 + 0.3) * Math.min(1, lifePct * 4 + 0.3);
         const alpha = 0.6 * ramp;
         if (alpha < 0.02) return;
-        const wimg = assets['water_sheet'];
+        const wimg = assets['acid_sheet'];
         if (wimg) {
             const fi = Math.floor((game.lastTime || 0) / 1000 * 18) % 8;
             const len = WATER_CANNON_RANGE * 1.06, hh = WATER_CANNON_RANGE * 0.42;
@@ -3808,16 +4061,16 @@ class WaterCannonVehicle {
         }
         ctx.save();
         const grad = ctx.createRadialGradient(sx, sy, 0, sx, sy, WATER_CANNON_RANGE);
-        grad.addColorStop(0, `rgba(160, 230, 255, ${alpha})`);
-        grad.addColorStop(0.55, `rgba(90, 180, 240, ${alpha * 0.7})`);
-        grad.addColorStop(1, `rgba(60, 140, 220, 0)`);
+        grad.addColorStop(0, `rgba(190, 255, 110, ${alpha})`);
+        grad.addColorStop(0.55, `rgba(120, 210, 50, ${alpha * 0.7})`);
+        grad.addColorStop(1, `rgba(70, 150, 30, 0)`);
         ctx.fillStyle = grad;
         ctx.beginPath();
         ctx.moveTo(sx, sy);
         ctx.arc(sx, sy, WATER_CANNON_RANGE, ang - half, ang + half);
         ctx.closePath();
         ctx.fill();
-        ctx.strokeStyle = `rgba(220, 245, 255, ${alpha * 0.9})`;
+        ctx.strokeStyle = `rgba(235, 255, 190, ${alpha * 0.9})`;
         ctx.lineWidth = 3;
         ctx.beginPath();
         ctx.moveTo(sx, sy);
@@ -3877,6 +4130,25 @@ class WaterCannonVehicle {
         });
         ctx.imageSmoothingEnabled = smooth;
         if (isRubber) this.drawGunners(ctx);
+        this.drawAmmoBar(ctx, sx, sy);
+    }
+    drawAmmoBar(ctx, sx, sy){
+        const w = 30, h = 4, x = sx - w/2, y = sy - TILE * 1.9;
+        const pct = this.ammoPct();
+        ctx.fillStyle = 'rgba(0,0,0,0.65)'; ctx.fillRect(x - 1, y - 1, w + 2, h + 2);
+        ctx.fillStyle = pct > 0.5 ? '#9be84a' : pct > 0.2 ? '#ffc24a' : '#ff5a4a';
+        ctx.fillRect(x, y, w * pct, h);
+        ctx.font = 'bold 8px monospace'; ctx.textAlign = 'center';
+        if (this.isRefilling()){
+            ctx.fillStyle = this.refillWait ? '#ffaa00' : '#9be84a';
+            ctx.fillText(this.refillWait ? '⛽ need 📦' : '⛽ refilling…', sx, y - 3);
+        } else if (this.refill){
+            ctx.fillStyle = '#ffd24a';
+            ctx.fillText('⛽ to station', sx, y - 3);
+        } else if (this.ammo <= 0.01){
+            ctx.fillStyle = '#ff5a4a';
+            ctx.fillText('EMPTY', sx, y - 3);
+        }
     }
 }
 function drawRubberGunnerFigure(ctx, vehicle, pos) {
@@ -3990,6 +4262,7 @@ function applyZombieSeparation(dt){
             count++;
         }
         if (count === 0) continue;
+        { const m = Math.hypot(fx, fy); if (m > 1.2){ fx *= 1.2/m; fy *= 1.2/m; } }
         const nx = a.x + (fx + a.sepBiasX*0.15)*force;
         const ny = a.y + (fy + a.sepBiasY*0.15)*force;
         if (isValidPosition(nx, ny)){ a.x = nx; a.y = ny; }
@@ -4000,7 +4273,7 @@ function applyZombieSeparation(dt){
 
 // ============================ FAILSAFE ============================
 const ZF = {
-    KICK_STILL: 25, FADE_AFTER_KICK: 15, OFFMAP_KICK: 3, OFFMAP_FADE: 8,
+    KICK_STILL: 9, FADE_AFTER_KICK: 12, OFFMAP_KICK: 3, OFFMAP_FADE: 8,
     WAVE_IDLE: 40, WAVE_HARD_CAP: 420, HARD_CAP_FADE: 45, RADIUS: TILE * 3,
 };
 function fadeZombie(z){
@@ -4011,6 +4284,13 @@ function fadeZombie(z){
 }
 function zombieFailsafe(dt){
     let combatAlive = 0, combatActive = 0;
+    const activeOfficers = [];
+    for (const o of game.officers) if (o.alive && o.state === 'active') activeOfficers.push(o);
+    const nearFight = (z) => {
+        const r2 = (TILE*4)*(TILE*4);
+        for (const o of activeOfficers){ const dx = o.x - z.x, dy = o.y - z.y; if (dx*dx + dy*dy < r2) return true; }
+        return false;
+    };
     for (const z of game.zombies){
         if (!z.alive || z.beingDragged) continue;
         combatAlive++;
@@ -4023,7 +4303,7 @@ function zombieFailsafe(dt){
             if (f.off > ZF.OFFMAP_KICK) hopToRoad(z);
         } else f.off = 0;
         const engaging = z.attackFlash > 0 || z.timeSinceDamage < 1.5 ||
-                         z.state === 'fighting' || z.state === 'attacking_base' || z.state === 'ranged';
+                         z.state === 'fighting' || z.state === 'attacking_base' || z.state === 'ranged' || nearFight(z);
         if (engaging){
             f.still = 0; f.ax = z.x; f.ay = z.y; f.kicks = 0;
             combatActive++;
@@ -4367,7 +4647,10 @@ function canMove(dx, dy){
 function setVehicleTarget(spot){
     const v = vehicleAt(game.selectedSyndicate);
     if (!v || !spot) return;
+    const wasRefilling = !!v.refill;
     v.setSpot(spot);
+    if (v.ammo <= 0.01 && !v.refill) showToast('⛽ ' + v.shortName() + ' is EMPTY — use the Refill button when you want it back at the station.');
+    else if (wasRefilling && !v.refill) showToast('⛽ Refill trip cancelled.');
     const sy = game.syndicates[game.selectedSyndicate];
     if (sy){ sy.commandX = spot.x; sy.commandY = spot.y; }
     renderOptionsPanel(); updateSelectionUI();
@@ -4655,6 +4938,43 @@ function updateStationButton(){
     else if (acd > 0) btn.textContent = '🏢 Station (' + Math.ceil(acd) + 's)';
     else btn.textContent = '🏢 Station';
 }
+let _livePanelSig = '';
+function updateVehicleHud(){
+    const idx = game.selectedSyndicate;
+    if (!isVehicleIdx(idx)) return;
+    const v = vehicleAt(idx);
+    if (!v) return;
+    const fill = document.getElementById('veh-ammo-fill');
+    const txt = document.getElementById('veh-ammo-text');
+    const btn = document.getElementById('veh-refill-btn');
+    const pct = v.ammoPct();
+    if (fill){ fill.style.width = Math.round(pct*100) + '%'; fill.style.background = pct > 0.5 ? '#9be84a' : pct > 0.2 ? '#ffc24a' : '#ff5a4a'; }
+    if (txt){
+        const unit = idx === VEHICLE_SYNDICATE ? 'Acid tank' : 'Ammo';
+        let t = unit + ': ' + Math.round(pct*100) + '%';
+        if (v.isRefilling()) t += v.refillWait ? '  ·  ⛽ waiting for supplies' : '  ·  ⛽ refilling…';
+        else if (v.refill) t += '  ·  ⛽ driving to the station';
+        else if (v.ammo <= 0.01) t += '  ·  EMPTY';
+        txt.textContent = t;
+    }
+    if (btn){
+        const full = v.ammo >= v.maxAmmo - 0.5;
+        btn.disabled = full || !!v.refill;
+        btn.textContent = v.refill ? '⛽ Refilling trip under way…'
+            : full ? '⛽ Refill at Station (full)'
+            : '⛽ Refill at Station (~' + Math.max(1, Math.round(v.bayCost())) + '📦)';
+    }
+}
+// The Station panel shows counts (wounded, full squads, can-afford). Rebuild it when those change, not every frame.
+function refreshLivePanels(){
+    if (game.selectedSyndicate !== STATION_INDEX){ _livePanelSig = ''; return; }
+    const hurt = game.officers.filter(o => o.alive && !o.isAllOut && o.state === 'active' && o.hp < o.maxHp*0.7).length;
+    const healing = game.officers.filter(o => o.alive && !o.isAllOut && (o.state === 'retreating' || o.state === 'healing')).length;
+    let full = 0;
+    for (let i = 0; i < OFFICER_SYNDICATES; i++) if (game.officers.filter(o => o.alive && !o.isAllOut && o.syndicateIndex === i).length >= OFFICERS_PER_SYNDICATE) full++;
+    const sig = [hurt, healing, full, game.supplies >= REINFORCE_COST ? 1 : 0, game.supplies >= 25 ? 1 : 0, game.baseHp >= BASE_MAX_HP ? 1 : 0].join('|');
+    if (sig !== _livePanelSig){ _livePanelSig = sig; renderOptionsPanel(); }
+}
 function renderSyndicateTabs(){
     const tabs = document.querySelectorAll('#syndicate-tabs .syn-btn');
     tabs.forEach(b => {
@@ -4663,7 +4983,7 @@ function renderSyndicateTabs(){
             const v = vehicleAt(idx);
             b.disabled = false;
             b.classList.toggle('active', game.selectedSyndicate === idx);
-            b.textContent = idx === VEHICLE_SYNDICATE ? '🚐' : '🚙';
+            b.textContent = (idx === VEHICLE_SYNDICATE ? '🚐' : '🚙') + (v ? (v.ammo <= 0.01 ? '⛽!' : (v.ammoPct() < 0.25 ? '⛽' : '')) : '');
             return;
         }
         const exists = idx < game.syndicatesDeployed;
@@ -4690,18 +5010,21 @@ function updateSelectionUI(){
         const acd = game.ambulanceCooldown || 0;
         if (ambOut) el.textContent = '🏢 Station — ambulance out on call';
         else if (acd > 0) el.textContent = '🏢 Station — ambulance restocking (' + Math.ceil(acd) + 's)';
-        else el.textContent = '🏢 Station — train, heal, fortify, or send the ambulance';
+        else el.textContent = '🏢 Station — heal the wounded, reinforce, fortify, or send the ambulance';
         return;
     }
     if (isVehicleIdx(idx)){
         const v = vehicleAt(idx);
         if (!v){ el.textContent = ''; return; }
-        let txt = (idx === VEHICLE_SYNDICATE ? '🚐 Water Cannon — ' : '🚙 Rubber Bullet Van — ');
-        if (v.parked) txt += 'holding position';
+        let txt = (idx === VEHICLE_SYNDICATE ? '🚐 Acid Cannon — ' : '🚙 Mobile Shooter — ');
+        if (v.isRefilling()) txt += v.refillWait ? 'waiting for supplies' : 'refilling';
+        else if (v.refill) txt += 'heading to the station';
+        else if (v.parked) txt += 'holding position';
         else if (v.targetSpot) txt += 'moving to position';
         else txt += 'mobile';
-        if (idx === VEHICLE_SYNDICATE && v.waterCannonOn) txt += ' · 💧 cannon ON';
-        if (idx === VEHICLE_SYNDICATE_2 && v.parked) txt += ' · 🔫 team deployed';
+        txt += ' · ⛽ ' + Math.round(v.ammoPct()*100) + '%';
+        if (idx === VEHICLE_SYNDICATE && v.waterCannonOn) txt += ' · ☣ cannon ON';
+        if (idx === VEHICLE_SYNDICATE_2 && v.gunnersOut) txt += ' · 🔫 gunners out';
         el.textContent = txt;
         return;
     }
@@ -4767,6 +5090,9 @@ function updateStats(){
     document.getElementById('hope-num').textContent = Math.round(pubPct*100) + '%';
     renderSyndicateTabs(); updateMoveButtons(); updateMergedButton(); updateAllOutButton();
     updateAbilityButtons(); updateStationButton();
+    updateVehicleHud();
+    if (isVehicleIdx(game.selectedSyndicate)) updateSelectionUI();
+    refreshLivePanels();
 }
 
 const FORMATION_DEFS = [
@@ -4789,13 +5115,18 @@ function renderOptionsPanel(){
         lbl.className = 'section-label'; lbl.textContent = 'Station Support';
         panel.appendChild(lbl);
 
+        // --- Reinforce: replaces fallen officers, but never lets any syndicate grow past 15 ---
+        const counts = [];
+        for (let i = 0; i < OFFICER_SYNDICATES; i++) counts.push(game.officers.filter(o => o.alive && !o.isAllOut && o.syndicateIndex === i).length);
+        let weakest = 0;
+        for (let i = 1; i < OFFICER_SYNDICATES; i++) if (counts[i] < counts[weakest]) weakest = i;
+        const allFull = counts[weakest] >= OFFICERS_PER_SYNDICATE;
         const trainBtn = document.createElement('button');
-        trainBtn.textContent = '👮 Recruit (20📦)';
-        trainBtn.disabled = game.supplies < 20;
+        trainBtn.textContent = allFull ? '👮 Reinforce (all squads full)' : '👮 Reinforce Syndicate ' + (weakest + 1) + ' (' + REINFORCE_COST + '📦)';
+        trainBtn.disabled = allFull || game.supplies < REINFORCE_COST;
         trainBtn.addEventListener('click', () => {
-            if (game.supplies < 20) return;
-            game.supplies -= 20;
-            const idx = 0;
+            if (allFull || game.supplies < REINFORCE_COST) return;
+            game.supplies -= REINFORCE_COST;
             const cx = BASE_TILE_X*TILE, cy = BASE_TILE_Y*TILE;
             let sx = cx, sy = cy;
             for (let tries = 0; tries < 40; tries++){
@@ -4803,27 +5134,25 @@ function renderOptionsPanel(){
                 const ty = cy + (Math.random()-0.5)*TILE*10;
                 if (isValidPosition(tx, ty)){ sx = tx; sy = ty; break; }
             }
-            game.officers.push(new Officer(sx, sy, idx));
-            showToast('👮 Officer trained.');
+            game.officers.push(new Officer(sx, sy, weakest));
+            showToast('👮 Reinforcement joins Syndicate ' + (weakest + 1) + '.');
             renderOptionsPanel(); updateStats();
         });
         panel.appendChild(trainBtn);
 
-        const healBtn = document.createElement('button');
-        healBtn.textContent = '💊 Heal Squad (15📦)';
-        healBtn.disabled = game.supplies < 15;
-        healBtn.addEventListener('click', () => {
-            if (game.supplies < 15) return;
-            game.supplies -= 15;
-            game.officers.forEach(o => { if (o.alive) o.hp = o.maxHp; });
-            game.acidTeams.forEach(a => { if (a.alive) a.hp = a.maxHp; });
-            game.grabbers.forEach(a => { if (a.alive) a.hp = a.maxHp; });
-            game.handlers.forEach(h => { if (h.alive) h.hp = h.maxHp; });
-            game.k9s.forEach(k => { if (k.alive) k.hp = k.maxHp; });
-            showToast('💊 Squad patched up.');
+        // --- Recall wounded: send hurt officers back to heal before they drop ---
+        const hurt = game.officers.filter(o => o.alive && !o.isAllOut && o.state === 'active' && o.hp < o.maxHp*0.7);
+        const healing = game.officers.filter(o => o.alive && !o.isAllOut && (o.state === 'retreating' || o.state === 'healing'));
+        const recallBtn = document.createElement('button');
+        recallBtn.textContent = hurt.length ? '🏥 Recall Wounded (' + hurt.length + ')' : '🏥 Recall Wounded (none hurt)';
+        recallBtn.disabled = hurt.length === 0;
+        recallBtn.addEventListener('click', () => {
+            let n = 0;
+            game.officers.forEach(o => { if (o.alive && !o.isAllOut && o.state === 'active' && o.hp < o.maxHp*0.7 && o.startRetreat()) n++; });
+            showToast('🏥 ' + n + ' wounded officer' + (n === 1 ? '' : 's') + ' heading back to the station.');
             renderOptionsPanel(); updateStats();
         });
-        panel.appendChild(healBtn);
+        panel.appendChild(recallBtn);
 
         const fortBtn = document.createElement('button');
         fortBtn.textContent = '🧱 Fortify Station (25📦)';
@@ -4848,7 +5177,8 @@ function renderOptionsPanel(){
 
         const info = document.createElement('div');
         info.className = 'info-line';
-        info.textContent = 'Train extra officers, patch up the squad, reinforce the station, or dispatch the ambulance to the most-injured syndicate.';
+        info.textContent = 'Wounded officers walk back here on their own and heal at the station. Healing costs supplies (about 1📦 per 10 HP), so keep collecting crates. Reinforce replaces fallen officers (max 15 per syndicate). Vehicles refill at the two bays beside the station.'
+            + (healing.length ? '  🩹 ' + healing.length + ' officer' + (healing.length === 1 ? '' : 's') + ' on the way / healing now.' : '');
         panel.appendChild(info);
         return;
     }
@@ -4857,7 +5187,7 @@ function renderOptionsPanel(){
     if (isVehicleIdx(game.selectedSyndicate)){
         const isWC = game.selectedSyndicate === VEHICLE_SYNDICATE;
         const lbl = document.createElement('div');
-        lbl.className = 'section-label'; lbl.textContent = isWC ? 'Water Cannon Vehicle' : 'Rubber Bullet Response Van';
+        lbl.className = 'section-label'; lbl.textContent = isWC ? 'Acid Cannon Vehicle' : 'Mobile Shooter Vehicle';
         panel.appendChild(lbl);
         const v = vehicleAt(game.selectedSyndicate);
         const bMobile = document.createElement('button');
@@ -4866,7 +5196,7 @@ function renderOptionsPanel(){
         bMobile.addEventListener('click', () => { if (v) v.clearTarget(); showToast('Vehicle released — free to roam.'); renderOptionsPanel(); updateSelectionUI(); });
         panel.appendChild(bMobile);
         const bBlock = document.createElement('button');
-        bBlock.textContent = isWC ? '📍 Hold Position' : '📍 Hold & Deploy Team';
+        bBlock.textContent = isWC ? '📍 Hold Position' : '📍 Hold & Deploy Gunners';
         if (v && (v.parked || v.targetSpot)) bBlock.classList.add('active-choice');
         bBlock.addEventListener('click', () => {
             if (!v) return;
@@ -4883,16 +5213,35 @@ function renderOptionsPanel(){
         panel.appendChild(bBlock);
         if (isWC && v && v.alive){
             const toggle = document.createElement('button');
-            toggle.textContent = v.waterCannonOn ? '💧 Water Cannon: ON' : '💧 Water Cannon: OFF';
+            toggle.textContent = v.waterCannonOn ? '☣ Acid Cannon: ON' : '☣ Acid Cannon: OFF';
             toggle.classList.toggle('active-choice', v.waterCannonOn);
-            toggle.addEventListener('click', () => { v.waterCannonOn = !v.waterCannonOn; showToast(v.waterCannonOn ? '💧 Water cannon engaged.' : '💧 Water cannon off.'); renderOptionsPanel(); });
+            toggle.addEventListener('click', () => { v.waterCannonOn = !v.waterCannonOn; showToast(v.waterCannonOn ? '☣ Acid cannon engaged.' : '☣ Acid cannon off.'); renderOptionsPanel(); });
             panel.appendChild(toggle);
+        }
+        if (v && v.alive){
+            const refillBtn = document.createElement('button');
+            refillBtn.id = 'veh-refill-btn';
+            refillBtn.addEventListener('click', () => {
+                if (!v.alive) return;
+                if (v.refill){ showToast('⛽ Already on the way to the station.'); return; }
+                if (v.ammo >= v.maxAmmo - 0.5){ showToast('⛽ Already full.'); return; }
+                v.startRefillTrip(false);
+                renderOptionsPanel(); updateSelectionUI();
+            });
+            panel.appendChild(refillBtn);
+            const barWrap = document.createElement('div');
+            barWrap.className = 'info-line';
+            barWrap.innerHTML = '<div id="veh-ammo-text"></div>'
+                + '<div style="height:8px;background:#10161a;border:1px solid #2a3a44;border-radius:4px;margin-top:4px;overflow:hidden">'
+                + '<div id="veh-ammo-fill" style="height:100%;width:0%;background:#9be84a"></div></div>';
+            panel.appendChild(barWrap);
+            updateVehicleHud();
         }
         const info = document.createElement('div');
         info.className = 'info-line';
         info.textContent = isWC
-            ? 'The water cannon roams the road network and blasts a wide cone of high-pressure water at any zombie in range. Tap the map or d-pad to move it.'
-            : 'The rubber bullet van drives to a road point, parks, and deploys two gunners who fire baton rounds at nearby zombies. Tap the map or d-pad to move it.';
+            ? 'The acid cannon blasts a wide cone of acid at any zombie in range; the acid keeps burning for a few seconds. The tank is limited: when it runs dry the van drives back to the station and parks for a 3-second refill that costs supplies. Tap the map or d-pad to move it.'
+            : 'The mobile shooter drives to a road point, parks, and deploys two gunners who fire baton rounds at nearby zombies. It carries a big but limited magazine: when it is empty it drives back to the station for a 3-second refill that costs supplies. Tap the map or d-pad to move it.';
         panel.appendChild(info);
         return;
     }
@@ -5551,6 +5900,22 @@ function drawAttackRings(ctx){
         }
     }
 }
+function drawRefillBays(ctx){
+    const bays = stationBaySpots();
+    for (const idx of [VEHICLE_SYNDICATE, VEHICLE_SYNDICATE_2]){
+        const b = bays[idx];
+        const sx = b.x - game.camera.x, sy = b.y - game.camera.y;
+        if (sx < -120 || sy < -80 || sx > game.width + 120 || sy > game.height + 80) continue;
+        const w = TILE * 4.2, h = TILE * 2.5;
+        ctx.save();
+        ctx.strokeStyle = 'rgba(255,214,74,0.55)'; ctx.lineWidth = 1.5; ctx.setLineDash([5, 4]);
+        ctx.strokeRect(sx - w/2, sy - h/2, w, h);
+        ctx.setLineDash([]);
+        ctx.fillStyle = 'rgba(255,214,74,0.55)'; ctx.font = 'bold 8px monospace'; ctx.textAlign = 'center';
+        ctx.fillText(idx === VEHICLE_SYNDICATE ? '⛽ ACID' : '⛽ AMMO', sx, sy + h/2 + 9);
+        ctx.restore();
+    }
+}
 function render(){
     ctx = game.ctx;
     ctx.clearRect(0, 0, game.width, game.height);
@@ -5562,6 +5927,7 @@ function render(){
         ctx.fillStyle = `rgba(${60 + (b.seed*10|0)%30},14,14,${0.28*fade})`;
         ctx.beginPath(); ctx.ellipse(sx, sy, 5 + (b.seed%3), 2.5 + (b.seed%2), 0, 0, Math.PI*2); ctx.fill();
     }
+    drawRefillBays(ctx);
     game.k9s.forEach(k => { if (k.alive) k.drawLead(ctx); });
     const all = [];
     game.officers.forEach(o => { if (o.alive) all.push(o); });
@@ -5572,6 +5938,7 @@ function render(){
     game.k9s.forEach(k => { if (k.alive) all.push(k); });
     game.commanders.forEach(c => { if (c.alive) all.push(c); });
     if (game.ambulance && game.ambulance.alive) all.push(game.ambulance);
+    for (const w of wreckVehicles) all.push(w);
     all.sort((a, b) => a.y - b.y);
     all.forEach(u => u.draw(ctx));
     const v1 = vehicleAt(VEHICLE_SYNDICATE);
@@ -5968,6 +6335,11 @@ function loop(t){
             game.commanders.forEach(withSpeed);
             game.acidTeams.forEach(withSpeed);
             game.k9s.forEach(withSpeed);
+            for (const z of game.zombies){
+                if (z.beingDragged && (!z.grabber || !z.grabber.alive || z.grabber.dragging !== z)){
+                    z.beingDragged = false; z.grabber = null; z.stunTimer = 0;
+                }
+            }
             game.zombies.forEach(z => z.update(dt));
             applyZombieSeparation(dt);
             for (const k in game.vehicles){

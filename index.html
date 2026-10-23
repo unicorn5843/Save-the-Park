@@ -66,11 +66,7 @@
             border-color: #ffe27a; color: #1a1508;
             box-shadow: 0 0 10px rgba(255, 204, 51, 0.4);
         }
-        #options-panel button.order-btn.active-choice {
-            background: linear-gradient(180deg, #ff8a5c, #c9452a);
-            border-color: #ffb28c; color: #1a0f08;
-            box-shadow: 0 0 10px rgba(255, 138, 92, 0.45);
-        }
+        #options-panel button.locked { opacity: 0.5; border-style: dashed; color: #9fb0c7; }
         #options-panel button:disabled { opacity: 0.4; cursor: not-allowed; }
         #options-panel .info-line {
             font-size: 9.5px; color: #7a8698; text-align: center; padding: 4px 2px 8px;
@@ -166,7 +162,6 @@
         .train-btn:disabled { opacity: 0.42; cursor: not-allowed; }
         .train-btn .tlabel { z-index: 2; white-space: nowrap; }
         .train-btn .tsub { z-index: 2; font-size: 8.5px; color: #9fb0c7; font-weight: 500; white-space: nowrap; }
-        .train-btn .tprog { position: absolute; left: 0; bottom: 0; height: 3px; background: #ffcc33; width: 0%; z-index: 2; }
         .train-btn.arrest {
             background: linear-gradient(180deg, #3a5a8a, #1e3a5a);
             border-color: #6a9ac8;
@@ -205,20 +200,6 @@
             50% { box-shadow: 0 0 20px rgba(230, 160, 70, 0.85); }
         }
         #options-panel button.on-cooldown { opacity: 0.55; }
-        .train-btn.disperse {
-            background: linear-gradient(180deg, #6a2a8a, #3a1258);
-            border-color: #a070d0;
-            color: #efd9ff;
-        }
-        .train-btn.disperse.ready {
-            background: linear-gradient(180deg, #8a3aa8, #5a1e78);
-            box-shadow: 0 0 12px rgba(180, 90, 220, 0.55);
-            animation: dispersePulse 1.6s ease-in-out infinite;
-        }
-        @keyframes dispersePulse {
-            0%, 100% { box-shadow: 0 0 10px rgba(180, 90, 220, 0.4); }
-            50% { box-shadow: 0 0 20px rgba(200, 120, 240, 0.85); }
-        }
 
         #bottom-right-ui {
             position: fixed; right: 8px; bottom: 48px; z-index: 97;
@@ -436,7 +417,59 @@
         #pause-overlay.show { display: flex; }
         #pause-overlay h2 { color: #fff; font-style: italic; letter-spacing: .12em; text-shadow: 0 2px 0 #0f4bb5, 0 0 14px #6eb7ff; margin-bottom: 4px; }
         #pause-btn { margin-left: auto; width: 28px; height: 24px; padding: 0; font-size: 11px; line-height: 1; border-radius: 6px; cursor: pointer; color: #fff; border: 1px solid #8fd0ff; background: linear-gradient(180deg, #5fb4ff, #1565d6); box-shadow: inset 0 1px 0 rgba(255,255,255,.6); }
-        #gameover-menu { margin-top: 8px; }
+        #gameover-menu, #gameover-skills { margin-top: 8px; }
+        #gameover-menu {
+            display: block; margin-left: auto; margin-right: auto; padding: 8px 20px; background: linear-gradient(180deg, #3a465c, #262f40);
+            border: 1px solid #5a6b88; border-radius: 8px; color: #e8edf5; font-size: 14px; font-weight: 700; cursor: pointer;
+        }
+        #gameover-save { font-size: 13px; color: #ffe27a; margin: -8px 0 16px; line-height: 1.5; }
+        #gameover-skills {
+            padding: 10px 22px; background: linear-gradient(180deg, #5fb4ff, #1565d6); border: 1px solid #8fd0ff;
+            border-radius: 8px; color: #fff; font-size: 15px; font-weight: 700; cursor: pointer; display: block; margin-left: auto; margin-right: auto;
+        }
+
+        /* ===== SKILLS SCREEN ===== */
+        #menu-skills { justify-content: flex-start; gap: 0; padding: max(6px, env(safe-area-inset-top)) max(8px, env(safe-area-inset-right)) max(6px, env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left)); }
+        .sk-window { width: min(100%, 880px); flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; border: 2px solid #0a3a93; border-radius: 10px 10px 6px 6px; background: #ece9d8; box-shadow: 0 10px 30px rgba(0,10,60,.7); overflow: hidden; color: #0b1d4a; }
+        .sk-bar { display: flex; align-items: center; gap: 10px; padding: 5px 8px; flex: 0 0 auto; color: #fff; text-shadow: 1px 1px 0 #0a2a80; font-weight: 700; font-size: 15px;
+            background: linear-gradient(180deg, #3f8cf3 0%, #0a58d6 40%, #0a4fc4 60%, #1c6df0 100%); }
+        .sk-title { flex: 1; letter-spacing: .04em; }
+        .sk-pill { border: 2px solid #fff; border-radius: 999px; padding: 4px 14px; font: 700 13px Tahoma, Verdana, sans-serif; color: #fff; text-shadow: 0 1px 2px #06246b; cursor: pointer; -webkit-tap-highlight-color: transparent;
+            background: linear-gradient(180deg, #9bd8ff 0%, #44a3f7 47%, #1565d6 53%, #3592f2 100%); }
+        .sk-pill:active { transform: translateY(1px); }
+        .sk-coins { background: rgba(0,0,0,.28); border-radius: 999px; padding: 3px 12px; color: #ffe27a; font-size: 14px; }
+        #sk-msg { flex: 0 0 auto; min-height: 21px; padding: 3px 10px; font-size: 12px; font-weight: 700; background: #fff8d6; border-bottom: 1px solid #c9bf8a; color: #6b5200; }
+        #sk-msg.ok { background: #e2f8e2; color: #1b7a26; border-bottom-color: #9ad09a; }
+        #sk-msg.bad { background: #ffe8e4; color: #a43b2b; border-bottom-color: #e0a99f; }
+        .sk-scroll { flex: 1 1 auto; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; touch-action: pan-y; padding: 8px 10px 16px; text-align: left;
+            background: linear-gradient(180deg, #ffffff, #dce9fb); }
+        .sk-card { border: 2px solid #8aa3d1; border-radius: 8px; padding: 8px 10px; background: #fff; margin-bottom: 12px; }
+        .sk-stats { display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: 12.5px; margin-bottom: 6px; }
+        .sk-stats b { color: #0a4fc4; }
+        .sk-seg-row { display: flex; gap: 6px; flex-wrap: wrap; }
+        .sk-seg { flex: 1 1 150px; padding: 7px 8px; border-radius: 8px; border: 2px solid #8aa3d1; background: #eef4ff; color: #0b1d4a; font: 700 12px Tahoma, Verdana, sans-serif; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+        .sk-seg.on { background: linear-gradient(180deg, #a6f2a0, #4cc84a); border-color: #1c9a24; color: #063a0a; }
+        .sk-hint { font-size: 10.5px; color: #4a638f; margin-top: 5px; line-height: 1.3; }
+        .sk-section { margin-bottom: 12px; }
+        .sk-sec-title { font-weight: 800; font-size: 14px; color: #0a4fc4; border-bottom: 2px solid #b6c7e6; padding-bottom: 2px; margin-bottom: 3px; }
+        .sk-sec-note { font-size: 10.5px; color: #4a638f; margin-bottom: 6px; line-height: 1.3; }
+        .sk-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 6px; }
+        .sk-cols { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+        .sk-col { display: flex; flex-direction: column; gap: 6px; padding: 5px; border-radius: 8px; background: rgba(10,79,196,.06); }
+        .sk-node { display: flex; flex-direction: column; gap: 2px; align-items: flex-start; text-align: left; padding: 7px 9px; border-radius: 8px; border: 2px solid #8aa3d1;
+            background: linear-gradient(180deg, #fff, #e4edfb); color: #0b1d4a; cursor: pointer; font: 12px Tahoma, Verdana, sans-serif; -webkit-tap-highlight-color: transparent; box-shadow: 0 2px 0 #b6c7e6; }
+        .sk-node:active { transform: translateY(1px); }
+        .sk-icon { font-size: 18px; line-height: 1; }
+        .sk-name { font-weight: 700; font-size: 12.5px; }
+        .sk-desc { font-size: 10px; color: #4a638f; line-height: 1.25; }
+        .sk-status { margin-top: auto; padding-top: 3px; font-weight: 700; font-size: 11.5px; }
+        .sk-node.owned { border-color: #2e9c3a; background: linear-gradient(180deg, #f0fff0, #d2f2d2); }
+        .sk-node.owned .sk-status { color: #1b7a26; }
+        .sk-node.ready { border-color: #e0a800; background: linear-gradient(180deg, #fffbe8, #ffe9a6); box-shadow: 0 0 0 2px rgba(255,200,0,.35), 0 2px 0 #c99a00; }
+        .sk-node.ready .sk-status { color: #8a5a00; }
+        .sk-node.short .sk-status { color: #a43b2b; }
+        .sk-node.locked { opacity: .55; border-style: dashed; }
+        .sk-reset { margin-top: 4px; padding: 6px 12px; border-radius: 8px; border: 2px solid #b04a3a; background: #fff0ee; color: #8a2a1c; font: 700 11.5px Tahoma, Verdana, sans-serif; cursor: pointer; }
     </style>
 </head>
 <body>
@@ -471,6 +504,7 @@
             <div class="stat">🌊 <span id="wave">1</span></div>
             <div class="stat">🚫 <span id="routed">0</span></div>
             <div class="stat">🔒 <span id="arrested">0</span></div>
+            <div class="stat">🪙 <span id="coins">0</span></div>
         </div>
     </div>
 
@@ -527,7 +561,9 @@
         <div id="gameover-panel">
             <div id="gameover-title"></div>
             <div id="gameover-stats"></div>
+            <div id="gameover-save"></div>
             <button id="gameover-restart">🔄 Play Again</button>
+            <button id="gameover-skills">⭐ Spend Coins in Skills</button>
             <button id="gameover-menu">🏠 Main Menu</button>
         </div>
     </div>
@@ -555,14 +591,29 @@
             </div>
             <div class="menu-footer">Pixel UI art: Crusenho &amp; MinZiin (CC BY 4.0)</div>
         </div>
+        <div class="menu-screen" id="menu-skills">
+            <div class="sk-window">
+                <div class="sk-bar">
+                    <button class="sk-pill" id="sk-back">◀ Back</button>
+                    <span class="sk-title">Skills</span>
+                    <span class="sk-coins" id="sk-coins">🪙 0</span>
+                </div>
+                <div id="sk-msg">Clear levels to earn coins, then unlock anything in any order.</div>
+                <div class="sk-scroll">
+                    <div class="sk-card" id="sk-progress"></div>
+                    <div id="sk-tree"></div>
+                    <button class="sk-reset" id="sk-reset">Erase all progress</button>
+                </div>
+            </div>
+        </div>
         <div class="menu-screen" id="menu-soon">
             <button class="xp-btn" id="m-back">◀ BACK</button>
             <div class="xp-window">
-                <div class="xp-title" id="soon-title">Skills</div>
+                <div class="xp-title">Settings</div>
                 <div class="xp-body">
                     <img src="assets/ui/ui_crystal_blue.png" alt="">
                     <h2>Coming soon</h2>
-                    <p id="soon-text">This section is still being built.</p>
+                    <p>Sound, controls and display options are still being built.</p>
                 </div>
             </div>
         </div>
@@ -613,7 +664,6 @@
     const WALL_COL_SPACING = 1.42;
     const OFFICERS_PER_SYNDICATE = 15;
     const OFFICER_SYNDICATES = 3;
-    const MAX_SYNDICATES = 4;
     const VEHICLE_SYNDICATE = 3;
     const STATION_INDEX = 4;
     const VEHICLE_SYNDICATE_2 = 5;
@@ -625,10 +675,8 @@
     const SYNDICATE_START_X = [46, 54, 62];
     const SYNDICATE_START_Y = [ROAD_Y_BOTTOM, ROAD_Y_BOTTOM, ROAD_Y_BOTTOM];
 
-    const ALL_OUT_COUNT = 20;
     const ALL_OUT_DURATION = 20;
     const ALL_OUT_COOLDOWN = 55;
-    const ALL_OUT_RADIUS = TILE * 15;
     const ALL_OUT_HOLD_RADIUS = TILE * 6;
 
     const ALL_OUT_BOX_TILES = (() => {
@@ -681,7 +729,6 @@
     const K9_ATTACK_COOLDOWN = 0.55;
     const K9_MORALE_DAMAGE_MULT = 4.0;
     const K9_LEAD_LENGTH_ATTACHED = TILE * 1.0;
-    const K9_LEAD_LENGTH_DEPLOYED = TILE * 3.75;
     const K9_MAX_LEASH_FROM_HANDLER = TILE * 12;
 
     const VEHICLE_SPEED = 4.5;
@@ -882,8 +929,96 @@
         return tacticIsPassive(activeTacticOf(sy));
     }
 
-    const MANUAL_DISPERSE_DURATION = 10;
-    const MANUAL_DISPERSE_COOLDOWN = 45;
+    // ---------- Reinforce: one syndicate or vehicle joins another ----------
+    // The "partner" keeps its own tab, teams and commander, but its officers take slots in the
+    // host's formation and the host's tactic, so the host gets a bigger, tougher line without
+    // calling "All Units On Me". A vehicle partner parks just behind the host's line.
+    const REINFORCE_RESIST_BONUS = 0.06;   // extra damage reduction per partner
+    const REINFORCE_MAX_RESIST = 0.85;
+    function hostOf(idx) {
+        if (idx >= 0 && idx < OFFICER_SYNDICATES && game.mergedMode) return game.mergedIntoIndex;
+        const sy = game.syndicates[idx];
+        return (sy && sy.linkHost !== null && sy.linkHost !== undefined) ? sy.linkHost : idx;
+    }
+    function partnersOf(host) {
+        const list = [];
+        for (let i = 0; i < game.syndicates.length; i++) {
+            const sy = game.syndicates[i];
+            if (sy && i !== host && sy.linkHost === host) list.push(i);
+        }
+        return list;
+    }
+    function reinforceBonus(host) { return Math.min(REINFORCE_MAX_RESIST, partnersOf(host).length * REINFORCE_RESIST_BONUS); }
+    function unitLabel(idx) {
+        return idx === VEHICLE_SYNDICATE ? '🚔 Water cannon' : idx === VEHICLE_SYNDICATE_2 ? '🚐 Rubber van' : 'S' + (idx + 1);
+    }
+    function isLinked(idx) { const sy = game.syndicates[idx]; return !!sy && sy.linkHost !== null && sy.linkHost !== undefined; }
+    function releaseLink(idx, silent) {
+        const sy = game.syndicates[idx];
+        if (!isLinked(idx)) return false;
+        const host = sy.linkHost;
+        sy.linkHost = null;
+        if (!silent) showToast('🤝 ' + unitLabel(idx) + ' released from S' + (host + 1) + '.');
+        assignFormation();
+        return true;
+    }
+    // Steps a partner out of its host's line when the player orders it somewhere itself.
+    function leaveLineIfPartner(idx) { return isLinked(idx) ? releaseLink(idx, false) : false; }
+    function linkReinforce(host, partner) {
+        const hs = game.syndicates[host], ps = game.syndicates[partner];
+        if (!hs || !ps || host === partner || host >= OFFICER_SYNDICATES) return false;
+        if (game.mergedMode) { showToast('Release "All Units On Me" first.'); return false; }
+        releaseLink(host, true);                                   // a host cannot also be someone's partner
+        for (const q of partnersOf(partner)) releaseLink(q, true); // and a partner cannot host others
+        ps.linkHost = host;
+        ps.path = null; ps.pathIdx = 0; ps.post = null;
+        if (isVehicleIdx(partner)) { ps.linkAnchorX = undefined; postVehicleBehind(partner, host); }
+        else syncLinkedState(partner);
+        commanderShout(host, 'Reinforcements — close up on me!');
+        showToast('🤝 ' + unitLabel(partner) + ' is reinforcing S' + (host + 1) + '.');
+        assignFormation();
+        return true;
+    }
+    function syncLinkedState(idx) {
+        const ps = game.syndicates[idx], hs = ps && game.syndicates[ps.linkHost];
+        if (!ps || !hs) return;
+        ps.commandX = hs.commandX; ps.commandY = hs.commandY;
+        ps.facingX = hs.facingX; ps.facingY = hs.facingY;
+        ps.goalX = hs.goalX; ps.goalY = hs.goalY;
+    }
+    function postVehicleBehind(vIdx, hostIdx) {
+        const v = vehicleAt(vIdx), hs = game.syndicates[hostIdx], vs = game.syndicates[vIdx];
+        if (!v || !hs || !vs) return;
+        let fx = hs.facingX || 1, fy = hs.facingY || 0;
+        if (Math.abs(fx) > Math.abs(fy)) { fx = Math.sign(fx) || 1; fy = 0; } else { fx = 0; fy = Math.sign(fy) || 1; }
+        const bx = hs.commandX - fx * TILE * 3.5, by = hs.commandY - fy * TILE * 3.5;
+        let best = null, bestD = Infinity;
+        for (const s of BLOCKADE_SPOTS) {
+            const d = Math.hypot(s.x - bx, s.y - by);
+            if (d < bestD) { bestD = d; best = s; }
+        }
+        vs.linkAnchorX = hs.commandX; vs.linkAnchorY = hs.commandY;
+        if (best) { v.setSpot(best); vs.commandX = best.x; vs.commandY = best.y; }
+    }
+    function updateLinks(dt) {
+        for (let i = 0; i < game.syndicates.length; i++) {
+            const ps = game.syndicates[i];
+            if (!isLinked(i)) continue;
+            const hostIdx = ps.linkHost, hs = game.syndicates[hostIdx];
+            const hostHasOfficers = game.officers.some(o => o.alive && !o.isAllOut && o.syndicateIndex === hostIdx && o.state === 'active');
+            if (!hs || !hostHasOfficers) { releaseLink(i, true); showToast('🤝 ' + unitLabel(i) + ' released — S' + (hostIdx + 1) + ' has no officers left.'); renderOptionsPanel(); continue; }
+            if (isVehicleIdx(i)) {
+                ps.linkTimer = (ps.linkTimer || 0) - dt;
+                if (!hs.path && ps.linkTimer <= 0) {
+                    ps.linkTimer = 1.0;
+                    if (ps.linkAnchorX === undefined || Math.hypot(hs.commandX - ps.linkAnchorX, hs.commandY - ps.linkAnchorY) > TILE * 2.5) postVehicleBehind(i, hostIdx);
+                }
+            } else {
+                ps.path = null; ps.pathIdx = 0;
+                syncLinkedState(i);
+            }
+        }
+    }
 
     const BRICK_THROW_RANGE   = TILE * 9;
     const BRICK_THROW_DAMAGE  = 22;
@@ -919,6 +1054,132 @@
     const BASE_REGEN_DELAY = 35;
     const BASE_REGEN_RATE = 3.2;
 
+    // ========== SAVE DATA & SKILLS ==========
+    // Everything the player keeps between games lives in one small record in the
+    // browser (localStorage): coins, unlocked skills, checkpoint and start mode.
+    const SAVE_KEY = 'cordon.save.v1';
+    const START_COINS = 0;                 // for testing, set this to e.g. 2000 and clear the save
+    const CHECKPOINT_EVERY = 10;           // a checkpoint is banked every 10 levels cleared
+    const COINS_BASE = 10, COINS_PER_LEVEL = 3, COINS_PER_ARREST = 1;
+    const STRENGTH_PER_LEVEL = 0.10;       // +10% officer health and baton damage per training level
+    const FORCE_SCALE = [0.55, 0.8, 1.0];  // raider numbers shrink while you only have 1 or 2 syndicates
+
+    const SKILL_BRANCHES = [
+        { key: 'syndicates', title: '🪖 Syndicates & Teams', note: 'Each column is one syndicate of 15 officers. Its teams unlock on their own, so S1 can have a gas team while S3 has an arrest team and a commander.' },
+        { key: 'strength',   title: '💪 Officer Training',   note: 'Each level makes every officer tougher and hit harder.' },
+        { key: 'tactics',    title: '🧭 Tactics',            note: 'Unlock in any order. Rest and Wall are free.' },
+        { key: 'vehicles',   title: '🚔 Vehicles',           note: 'All three syndicates must be unlocked first.' },
+        { key: 'station',    title: '🏢 Station',            note: 'Repair crews and the ambulance work out of the station.' },
+        { key: 'command',    title: '📣 Command',            note: 'Big, expensive calls for when the street gets ugly.' },
+    ];
+    const SKILL_LIST = [];
+    (function defineSkills() {
+        const add = (key, branch, icon, name, desc, cost, req, extra) =>
+            SKILL_LIST.push(Object.assign({ key, branch, icon, name, desc, cost, req: req || [] }, extra || {}));
+        // syndicates and their per-syndicate teams
+        add('syn1', 'syndicates', '🪖', 'Syndicate 1', '15 shield officers.', 0, [], { free: true, col: 0 });
+        add('syn2', 'syndicates', '🪖', 'Syndicate 2', 'A second line of 15 officers.', 150, ['syn1'], { col: 1 });
+        add('syn3', 'syndicates', '🪖', 'Syndicate 3', 'A third line of 15 officers.', 400, ['syn2'], { col: 2 });
+        const teams = [
+            ['arrest', '🚔', 'Arrest Team', 'Three officers grab raiders and run them to the station.', [80, 100, 120]],
+            ['gas',    '💨', 'Tear Gas Team', 'Gas officers hit the biggest crowd.', [100, 120, 140]],
+            ['k9',     '🐕', 'K9 Unit', 'A dog and handler that dash in.', [110, 130, 150]],
+            ['cmd',    '⭐', 'Commander', 'Boosts damage, speed and defence, and heals nearby officers.', [140, 160, 180]],
+        ];
+        for (let i = 0; i < 3; i++) {
+            for (const t of teams) add(t[0] + (i + 1), 'syndicates', t[1], t[2], t[3], t[4][i], ['syn' + (i + 1)], { col: i });
+        }
+        // officer training
+        const ROMAN = ['I', 'II', 'III', 'IV', 'V'], TRAIN_COST = [60, 120, 200, 320, 480];
+        for (let n = 1; n <= 5; n++) {
+            add('strength' + n, 'strength', '💪', 'Training ' + ROMAN[n - 1], '+' + Math.round(STRENGTH_PER_LEVEL * 100) + '% officer health and damage (total +' + Math.round(STRENGTH_PER_LEVEL * 100 * n) + '%).',
+                TRAIN_COST[n - 1], n > 1 ? ['strength' + (n - 1)] : []);
+        }
+        // tactics
+        add('tactic_rest',       'tactics', '😌', 'Rest',        'Shields down, officers recover.', 0, [], { free: true });
+        add('tactic_wall',       'tactics', '🧱', 'Wall',        'A tight shield wall across the road.', 0, [], { free: true });
+        add('tactic_wedge',      'tactics', '🔺', 'Wedge',       'A pointed formation that pushes forward.', 40);
+        add('tactic_stackleft',  'tactics', '⬅️', 'Stack Left',  'Press the line against the left kerb.', 60);
+        add('tactic_stackright', 'tactics', '➡️', 'Stack Right', 'Press the line against the right kerb.', 60);
+        add('tactic_box',        'tactics', '📦', 'Box',         'Cover every side.', 90);
+        add('tactic_reinforce',  'tactics', '🤝', 'Reinforce',   'Pull another syndicate or a vehicle into this one for extra strength.', 120);
+        add('tactic_pulse',      'tactics', '💥', 'Pulse',       'Hold a wall while thirds of the line charge out in turn.', 140);
+        // vehicles (need every syndicate first)
+        add('veh_water',  'vehicles', '🚔', 'Water Cannon', 'A cannon truck you park on the road dots.', 500, ['syn3']);
+        add('veh_rubber', 'vehicles', '🚐', 'Rubber Bullet Van', 'Parks up and puts out a firing team.', 650, ['syn3']);
+        // station
+        add('repair1',   'station', '👷', 'Repair Team 1', 'Escorted crew that fixes damaged buildings.', 120);
+        add('repair2',   'station', '👷', 'Repair Team 2', 'A second repair crew.', 220, ['repair1']);
+        add('ambulance', 'station', '🚑', 'Ambulance', 'Collects and treats injured officers.', 180);
+        // command
+        add('allout',   'command', '🚨', 'All Out', 'A shield box of extra officers around the station.', 150);
+        add('mergeall', 'command', '🪖', 'All Units On Me', 'Every syndicate converges on the one you select.', 200);
+    })();
+    const SKILLS = {};
+    SKILL_LIST.forEach(s => { SKILLS[s.key] = s; });
+
+    function defaultProfile() { return { v: 1, coins: START_COINS, owned: {}, checkpoint: 1, bestLevel: 1, autoStart: true }; }
+    function loadProfile() {
+        const p = defaultProfile();
+        try {
+            const raw = window.localStorage.getItem(SAVE_KEY);
+            const d = raw ? JSON.parse(raw) : null;
+            if (d && typeof d === 'object') {
+                if (Number.isFinite(d.coins)) p.coins = Math.max(0, Math.floor(d.coins));
+                if (d.owned && typeof d.owned === 'object') for (const k of Object.keys(d.owned)) if (SKILLS[k] && d.owned[k]) p.owned[k] = true;
+                if (Number.isFinite(d.bestLevel)) p.bestLevel = Math.max(1, Math.floor(d.bestLevel));
+                if (Number.isFinite(d.checkpoint)) p.checkpoint = 1 + Math.floor((Math.max(1, d.checkpoint) - 1) / CHECKPOINT_EVERY) * CHECKPOINT_EVERY;
+                if (typeof d.autoStart === 'boolean') p.autoStart = d.autoStart;
+            }
+        } catch (e) { /* storage blocked (private mode): the game still plays, it just can't remember */ }
+        return p;
+    }
+    let profile = loadProfile();
+    function saveProfile() { try { window.localStorage.setItem(SAVE_KEY, JSON.stringify(profile)); } catch (e) { } }
+    function resetProfile() { profile = defaultProfile(); saveProfile(); }
+
+    function skillOwned(key) { const s = SKILLS[key]; return !!s && (!!s.free || !!profile.owned[key]); }
+    function skillMissing(key) { return SKILLS[key].req.filter(r => !skillOwned(r)); }
+    function skillBuy(key) {
+        const s = SKILLS[key];
+        if (!s) return { ok: false, msg: '' };
+        if (skillOwned(key)) return { ok: false, msg: s.name + ' is already unlocked.' };
+        const missing = skillMissing(key);
+        if (missing.length) return { ok: false, msg: '🔒 Unlock ' + missing.map(r => SKILLS[r].name).join(' + ') + ' first.' };
+        if (profile.coins < s.cost) return { ok: false, msg: 'Not enough coins: ' + (s.cost - profile.coins) + ' more needed.' };
+        profile.coins -= s.cost;
+        profile.owned[key] = true;
+        saveProfile();
+        return { ok: true, msg: '✔ Unlocked ' + s.name + '!' };
+    }
+    const TACTIC_SKILL = {
+        rest: 'tactic_rest', wall: 'tactic_wall', wedge: 'tactic_wedge', stackleft: 'tactic_stackleft',
+        stackright: 'tactic_stackright', box: 'tactic_box', pulse: 'tactic_pulse', reinforce: 'tactic_reinforce',
+    };
+    function tacticUnlocked(kind) { return skillOwned(TACTIC_SKILL[kind]); }
+    function teamUnlocked(kind, idx) { return skillOwned(kind + (idx + 1)); }          // kind: arrest | gas | k9 | cmd
+    function vehicleUnlocked(idx) { return skillOwned(idx === VEHICLE_SYNDICATE ? 'veh_water' : 'veh_rubber'); }
+    function repairTeamUnlocked(t) { return skillOwned('repair' + (t + 1)); }
+    function syndicatesUnlocked() { return 1 + (skillOwned('syn2') ? 1 : 0) + (skillOwned('syn3') ? 1 : 0); }
+    function strengthLevel() { let n = 0; for (let i = 1; i <= 5; i++) if (skillOwned('strength' + i)) n++; return n; }
+    function strengthMult() { return 1 + STRENGTH_PER_LEVEL * strengthLevel(); }
+    function forceScale() { return FORCE_SCALE[Math.max(1, Math.min(3, game.syndicatesDeployed)) - 1]; }
+
+    function isCheckpointLevel(level) { return level > 1 && (level - 1) % CHECKPOINT_EVERY === 0; }
+    function startLevel() { return profile.autoStart ? profile.checkpoint : 1; }
+    function levelCoins(level, arrests) { return COINS_BASE + COINS_PER_LEVEL * level + COINS_PER_ARREST * Math.max(0, arrests); }
+    // Called when a level is cleared: pays out coins, tracks the best level and banks checkpoints.
+    function bankLevelClear(cleared, arrests) {
+        const reward = levelCoins(cleared, arrests);
+        const next = cleared + 1;
+        profile.coins += reward;
+        profile.bestLevel = Math.max(profile.bestLevel, next);
+        let checkpoint = false;
+        if (isCheckpointLevel(next) && next > profile.checkpoint) { profile.checkpoint = next; checkpoint = true; }
+        saveProfile();
+        return { reward, checkpoint, next };
+    }
+
     // ========== GAME STATE ==========
     let map = [];
     let toastTimer = null;
@@ -938,13 +1199,12 @@
         mouse: { down: false, startX: 0, startY: 0, curX: 0, curY: 0, moved: false },
         lastTime: 0,
         gameOver: false,
-        testMode: false,
 
         baseHp: BASE_MAX_HP,
         baseRegenTimer: BASE_REGEN_DELAY,
         syndicates: [],
         selectedSyndicate: 0,
-        syndicatesDeployed: 3,
+        syndicatesDeployed: 0,
         mergedMode: false,
         mergedIntoIndex: 0,
         allOutCooldown: 0,
@@ -953,7 +1213,6 @@
         arrestCooldown: [0, 0, 0, 0],
         tearGasCooldown: [0, 0, 0, 0],
         gasTargets: [null, null, null, null],
-        manualDisperseCooldown: [0, 0, 0, 0],
 
         repairOfficers: [],
         repairEscorts: [],
@@ -1355,7 +1614,7 @@
             const nx = n.x * TILE, ny = n.y * TILE;
             for (const o of game.officers) {
                 if (!o.alive || o.isAllOut || o.state !== 'active') continue;
-                const sy = game.syndicates[o.syndicateIndex];
+                const sy = game.syndicates[hostOf(o.syndicateIndex)];
                 if (!sy || syndicateIsPassive(sy)) continue;
                 const dist = Math.hypot(o.x - nx, o.y - ny);
                 if (dist < TILE * 14) d += (1 - dist / (TILE * 14));
@@ -1379,7 +1638,6 @@
             this.wallPerpX = 0; this.wallPerpY = 1;
             this.wallTravelX = 0; this.wallTravelY = 1;
             this.role = 'main';
-            this.targetSyndicate = 0;
             this.isCrowd = false;
         }
         members() {
@@ -1481,10 +1739,10 @@
     ASSET_PATHS['response_van_sheet'] = 'assets/map/vehicles/response_van_sheet.png';
 
     const PROP_KEYS = ['prop_tree', 'prop_tree_tall', 'prop_bench', 'prop_streetlight', 'prop_hydrant',
-        'prop_postbox', 'prop_bikerack', 'prop_foodcart', 'prop_bin', 'prop_cones'];
+        'prop_bikerack', 'prop_foodcart', 'prop_bin', 'prop_cones'];
     const PROP_DRAW_H = {
         prop_tree: TILE * 2.2, prop_tree_tall: TILE * 2.3, prop_bench: TILE * 1.1,
-        prop_streetlight: TILE * 2.6, prop_hydrant: TILE * 0.9, prop_postbox: TILE * 1.0,
+        prop_streetlight: TILE * 2.6, prop_hydrant: TILE * 0.9,
         prop_bikerack: TILE * 0.85, prop_foodcart: TILE * 1.5, prop_bin: TILE * 1.0, prop_cones: TILE * 0.9,
     };
     PROP_KEYS.forEach(k => { ASSET_PATHS[k] = 'assets/map/props/' + k + '.png'; });
@@ -1511,13 +1769,12 @@
     ASSET_PATHS['prop_trafficlight_a'] = 'assets/map/props/prop_trafficlight_a.png';
     const TRAFFICLIGHT_DRAW_H = TILE * 2.3;
 
-    PROP_KEYS.push('prop_lamp_uk', 'prop_bin2', 'prop_cone2', 'prop_postbox2');
+    PROP_KEYS.push('prop_lamp_uk', 'prop_bin2', 'prop_cone2');
     Object.assign(PROP_DRAW_H, {
-        prop_lamp_uk: TILE * 2.6, prop_bin2: TILE * 1.0, prop_cone2: TILE * 0.55, prop_postbox2: TILE * 1.1,
+        prop_lamp_uk: TILE * 2.6, prop_bin2: TILE * 1.0, prop_cone2: TILE * 0.55,
     });
-    ['prop_lamp_uk', 'prop_bin2', 'prop_cone2', 'prop_postbox2'].forEach(k => { ASSET_PATHS[k] = 'assets/map/props/' + k + '.png'; });
+    ['prop_lamp_uk', 'prop_bin2', 'prop_cone2'].forEach(k => { ASSET_PATHS[k] = 'assets/map/props/' + k + '.png'; });
 
-    ['prop_postbox', 'prop_postbox2'].forEach(old => { const i = PROP_KEYS.indexOf(old); if (i >= 0) PROP_KEYS.splice(i, 1); });
     PROP_KEYS.push('prop_postbox_uk', 'prop_postbox_uk', 'prop_phonebox_uk');
     Object.assign(PROP_DRAW_H, { prop_postbox_uk: TILE * 1.15, prop_phonebox_uk: TILE * 1.9, prop_belisha: TILE * 1.5 });
     ['prop_postbox_uk', 'prop_phonebox_uk'].forEach(k => { ASSET_PATHS[k] = 'assets/map/props/' + k + '.png'; });
@@ -1757,7 +2014,7 @@
         tree:     { hp: 0 },                      vehicle: { hp: 0 },
         misc:     { hp: 50,  wreck: 'debris' },
     };
-    const OLD_PROP_CLASS = {
+    const PROP_CLASS = {
         prop_tree: 'tree', prop_tree_tall: 'tree', prop_bench: 'bench', prop_streetlight: 'lamp',
         prop_hydrant: 'hydrant', prop_bikerack: 'bikerack', prop_foodcart: 'cart', prop_bin: 'bin',
         prop_cones: 'cones', prop_lamp_uk: 'lamp', prop_bin2: 'bin', prop_cone2: 'cones',
@@ -1781,7 +2038,7 @@
                 h = drawH || PROP_DRAW_H[key] || SIGN_DRAW_H[key] || TILE;
                 w = img.width * h / img.height;
             }
-            cls = key.indexOf('veh_') === 0 ? 'vehicle' : (key.indexOf('sign_') === 0 ? 'sign' : (OLD_PROP_CLASS[key] || 'misc'));
+            cls = key.indexOf('veh_') === 0 ? 'vehicle' : (key.indexOf('sign_') === 0 ? 'sign' : (PROP_CLASS[key] || 'misc'));
         }
         const def = FURN[cls] || FURN.misc;
         const indestructible = !(def.hp > 0);
@@ -1838,13 +2095,6 @@
         ind: [['crate_a', 3], ['crate_b', 3], ['crate_iso', 3], ['tyres', 3], ['barrier', 2], ['generator', 2], ['generator2', 2],
               ['ac_unit', 1], ['bin_c', 1], ['box_open', 1], ['warn_sign', 1]],
     };
-    const CAR_CHANCE = { res: 0.2, biz: 0.12, ind: 0.22 };
-    const CAR_MIX = {
-        res: ['veh_car', 'veh_car_red', 'veh_car_green', 'veh_taxi'],
-        biz: ['veh_taxi', 'veh_van', 'veh_van_red', 'veh_car', 'veh_car_red'],
-        ind: ['veh_van', 'veh_van_red', 'veh_van', 'veh_car', 'veh_police_car'],
-    };
-
     function placeSceneryProps() {
         sceneryProps = [];
         const rnd = mulberry32(MAP_W * 977 + MAP_H * 31 + 99);
@@ -2696,7 +2946,7 @@
             let ax = 0, ay = 0, n = 0;
             for (const o of game.officers) {
                 if (!o.alive || o.isAllOut || o.state !== 'active') continue;
-                if (!game.mergedMode && o.syndicateIndex !== idx) continue;
+                if (hostOf(o.syndicateIndex) !== hostOf(idx)) continue;
                 ax += o.x; ay += o.y; n++;
             }
             if (n > 0) { ax /= n; ay /= n; } else { ax = sy.commandX; ay = sy.commandY; }
@@ -2737,7 +2987,7 @@
             this.homeX = x; this.homeY = y;
             this.x = x; this.y = y;
             this.targetX = x; this.targetY = y;
-            this.hp = this.isAllOut ? 260 : OFFICER.hp;
+            this.hp = this.isAllOut ? 260 : OFFICER.hp * strengthMult();
             this.maxHp = this.hp;
             this.dir = { x: 1, y: 0 };
             this.animTimer = Math.random() * 10;
@@ -2775,8 +3025,7 @@
             this.retreatRoute.push({ x: this.baseX, y: this.baseY });
         }
         mySyndicate() {
-            if (game.mergedMode) return game.syndicates[game.mergedIntoIndex] || game.syndicates[0];
-            return game.syndicates[this.syndicateIndex] || game.syndicates[0];
+            return game.syndicates[hostOf(this.syndicateIndex)] || game.syndicates[0];
         }
         update(dt) {
             if (!this.alive) return;
@@ -2846,7 +3095,6 @@
             const passive = sy ? syndicateIsPassive(sy) : false;
 
             const engageRange = OFFICER.lungeRange;
-            const dispersing = true;
             let target = null, bestD = Infinity;
             if (!passive) {
                 for (const r of game.raiders) {
@@ -2857,7 +3105,7 @@
                 }
             }
             this.dashCool = Math.max(0, (this.dashCool || 0) - dt);
-            if (dispersing && target && bestD < OFFICER.meleeRange * TILE * 1.4 && !this.dashing && this.dashCool <= 0) this.dashing = true;
+            if (target && bestD < OFFICER.meleeRange * TILE * 1.4 && !this.dashing && this.dashCool <= 0) this.dashing = true;
             if (this.dashing && (!target || bestD > OFFICER.meleeRange * TILE * 2.2)) { this.dashing = false; this.dashCool = 0.7; }
 
             if (this.dashing && target) {
@@ -2873,7 +3121,7 @@
                     this.atkTimer = OFFICER.atkCooldown;
                     this.attackFlash = 0.22;
                     const fm = getFormationMods(sy.tactic);
-                    dealDamageToRaider(target, OFFICER.meleeDamage * fm.dmgMult * (dispersing ? OFFICER.disperseDamageMult : 1.0));
+                    dealDamageToRaider(target, OFFICER.meleeDamage * strengthMult() * fm.dmgMult * OFFICER.disperseDamageMult);
                 }
                 return;
             }
@@ -2903,7 +3151,7 @@
                 this.atkTimer = OFFICER.atkCooldown;
                 this.attackFlash = 0.22;
                 const fm = getFormationMods(sy.tactic);
-                dealDamageToRaider(target, OFFICER.meleeDamage * fm.dmgMult * cmdBoost(this.syndicateIndex, 'dmg') * (dispersing ? OFFICER.disperseDamageMult : 1.0));
+                dealDamageToRaider(target, OFFICER.meleeDamage * strengthMult() * fm.dmgMult * cmdBoost(this.syndicateIndex, 'dmg') * OFFICER.disperseDamageMult);
             }
         }
         updateAllOut(dt) {
@@ -3722,7 +3970,6 @@
     }
 
     // ========== TEAR GAS OFFICER ==========
-    const TEAR_GAS_PALETTE = { cloth: '#4a4a20', dark: '#2a2a10', mask: '#e8e0c0', maskDark: '#4a4020', tank: '#c0a040', tankDark: '#806020' };
     let tearGasIdSeq = 1;
     class TearGasOfficer {
         constructor(x, y, syndicateIndex) {
@@ -3998,7 +4245,7 @@
         return { x: (facesLeft(u) ? -1 : 1) * p.mx, y: p.my };
     }
     function drawTearGasFigure(ctx, u) {
-        if (!assets['units_sheet']) { drawTearGasFigureLegacy(ctx, u); return; }
+        if (!assets['units_sheet']) return;
         const target = u.state === 'spraying' ? 1 : (u.state === 'advancing' ? 0.55 : 0);
         u.raise = (u.raise || 0) + (target - (u.raise || 0)) * 0.12;
         const p = gasPose(u.raise);
@@ -4017,54 +4264,6 @@
         if (u.state === 'spraying') { ctx.fillStyle = 'rgba(255,255,255,0.85)'; ctx.beginPath(); ctx.arc(7.6, 0, 1.8, 0, Math.PI * 2); ctx.fill(); }
         ctx.restore();
     }
-    function drawTearGasFigureLegacy(ctx, u) {
-        const pal = TEAR_GAS_PALETTE;
-        const anim = walkAnim(u);
-        const legSwing = Math.sin(anim.phase) * anim.amp;
-        const H = 20;
-        const legReach = H * 0.34;
-        ctx.save();
-        ctx.translate(anim.running ? 1.1 : 0, 0);
-        ctx.lineCap = 'round';
-        ctx.strokeStyle = pal.dark; ctx.lineWidth = 2.6;
-        ctx.beginPath(); ctx.moveTo(-1, -2); ctx.lineTo(-1 - legSwing * legReach * 0.6, legReach); ctx.stroke();
-        ctx.beginPath(); ctx.moveTo(-1, -2); ctx.lineTo(-1 + legSwing * legReach, legReach); ctx.stroke();
-        ctx.strokeStyle = pal.cloth; ctx.lineWidth = 5;
-        ctx.beginPath(); ctx.moveTo(-1, -2); ctx.lineTo(-1, -H * 0.62); ctx.stroke();
-        ctx.fillStyle = pal.tank;
-        ctx.strokeStyle = pal.tankDark; ctx.lineWidth = 1;
-        ctx.beginPath();
-        const tankX = -H * 0.38, tankY = -H * 0.72, tankW = H * 0.22, tankH = H * 0.5;
-        if (ctx.roundRect) ctx.roundRect(tankX, tankY, tankW, tankH, 2);
-        else ctx.rect(tankX, tankY, tankW, tankH);
-        ctx.fill(); ctx.stroke();
-        ctx.strokeStyle = pal.tankDark; ctx.lineWidth = 1.2;
-        ctx.beginPath();
-        ctx.moveTo(tankX + tankW * 0.5, tankY + 2);
-        ctx.quadraticCurveTo(-H * 0.1, -H * 0.55, H * 0.32, -H * 0.42);
-        ctx.stroke();
-        ctx.fillStyle = pal.dark;
-        ctx.beginPath(); ctx.arc(0, -H * 0.72, H * 0.19, 0, Math.PI * 2); ctx.fill();
-        ctx.fillStyle = pal.mask;
-        ctx.beginPath(); ctx.arc(H * 0.07, -H * 0.72, H * 0.1, 0, Math.PI * 2); ctx.fill();
-        ctx.fillStyle = pal.maskDark;
-        ctx.beginPath(); ctx.arc(H * 0.07, -H * 0.72, H * 0.05, 0, Math.PI * 2); ctx.fill();
-        const nozzleAngle = (u.state === 'spraying') ? 0 : -0.15;
-        ctx.save();
-        ctx.translate(H * 0.05, -H * 0.4);
-        ctx.rotate(nozzleAngle);
-        ctx.strokeStyle = pal.dark; ctx.lineWidth = 2;
-        ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(H * 0.42, 0); ctx.stroke();
-        ctx.fillStyle = pal.tankDark;
-        ctx.beginPath(); ctx.arc(H * 0.42, 0, 2, 0, Math.PI * 2); ctx.fill();
-        if (u.state === 'spraying') {
-            ctx.fillStyle = `rgba(240, 230, 80, 0.85)`;
-            ctx.beginPath(); ctx.arc(H * 0.46, 0, 2.6, 0, Math.PI * 2); ctx.fill();
-        }
-        ctx.restore();
-        ctx.restore();
-    }
-
     // ========== K9 HANDLER ==========
     let handlerIdSeq = 1;
     class K9Handler {
@@ -4157,7 +4356,7 @@
         pulse: ['Pulse! Front rank — go, go, go!'],
     };
     function commanderOf(idx) { return game.commanders.find(c => c.alive && c.syndicateIndex === idx) || null; }
-    function cmdBoost(idx, key) { const c = (game.mergedMode ? commanderOf(game.mergedIntoIndex) : null) || commanderOf(idx); return c ? COMMANDER_BOOST[key] : 1; }
+    function cmdBoost(idx, key) { const c = commanderOf(hostOf(idx)) || commanderOf(idx); return c ? COMMANDER_BOOST[key] : 1; }
     function commanderShout(idx, text) {
         const c = commanderOf(idx);
         if (!c || (c.shout && c.shout.t > 1.9 && c.shout.text === text)) return;
@@ -4187,8 +4386,9 @@
             let cx = 0, cy = 0;
             for (const o of mine) { cx += o.x; cy += o.y; }
             cx /= mine.length; cy /= mine.length;
-            for (const o of mine) {
-                if (o.hp < o.maxHp && Math.hypot(o.x - this.x, o.y - this.y) < COMMANDER_AURA) o.hp = Math.min(o.maxHp, o.hp + COMMANDER_REGEN * dt);
+            for (const o of game.officers) {
+                if (!o.alive || o.isAllOut || o.hp >= o.maxHp || hostOf(o.syndicateIndex) !== hostOf(this.syndicateIndex)) continue;
+                if (Math.hypot(o.x - this.x, o.y - this.y) < COMMANDER_AURA) o.hp = Math.min(o.maxHp, o.hp + COMMANDER_REGEN * dt);
             }
             const sy = game.syndicates[this.syndicateIndex];
             let fx = (sy && sy.facingX) || 1, fy = (sy && sy.facingY) || 0;
@@ -4352,6 +4552,7 @@
         }
     }
     function deployAmbulance() {
+        if (!skillOwned('ambulance')) { showToast('🔒 The ambulance is locked. Unlock it in Skills.'); return; }
         if (game.ambulance && game.ambulance.alive) { showToast('🚑 The ambulance is already out.'); return; }
         if ((game.ambulanceCooldown || 0) > 0) { showToast('🚑 Ambulance restocking — ' + Math.ceil(game.ambulanceCooldown) + 's.'); return; }
         const amb = new AmbulanceVehicle();
@@ -4576,7 +4777,7 @@
 
     function drawK9Figure(ctx, u) {
         const img = assets['k9_sheet'];
-        if (!img) { drawK9FigureLegacy(ctx, u); return; }
+        if (!img) return;
         const now = (game.lastTime || 0) / 1000 + u.id * 0.37;
         const sp = u.curSpeed || 0;
         let row, n, fi;
@@ -4591,48 +4792,6 @@
         ctx.beginPath(); ctx.ellipse(-1, 1.5, 13, 3.4, 0, 0, Math.PI * 2); ctx.fill();
         ctx.drawImage(img, fi * 128, row * 96, 128, 96, -17.5, -24.5, DW, DH);
     }
-    function drawK9FigureLegacy(ctx, u) {
-        const walking = u.isMoving;
-        const phase = u.animTimer * (walking ? 12 : 1.5);
-        ctx.fillStyle = '#6a3a1a';
-        ctx.strokeStyle = '#2a1408';
-        ctx.lineWidth = 1;
-        ctx.beginPath();
-        ctx.ellipse(0, -6, 6.5, 4, 0, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.stroke();
-        ctx.fillStyle = '#7a4620';
-        ctx.beginPath();
-        ctx.ellipse(6, -9, 3.6, 3, 0, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.stroke();
-        ctx.fillStyle = '#2a1408';
-        ctx.beginPath();
-        ctx.ellipse(9.2, -8.4, 1.6, 1.3, 0, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.fillStyle = '#4a2410';
-        ctx.beginPath();
-        ctx.moveTo(4.5, -11.5);
-        ctx.lineTo(6.5, -13.5);
-        ctx.lineTo(6.8, -10.5);
-        ctx.closePath();
-        ctx.fill();
-        const tailSwing = Math.sin(phase * 1.7) * 0.6;
-        ctx.strokeStyle = '#6a3a1a'; ctx.lineWidth = 1.6;
-        ctx.beginPath();
-        ctx.moveTo(-6, -7);
-        ctx.quadraticCurveTo(-9, -10 + tailSwing * 2, -10, -6 + tailSwing * 3);
-        ctx.stroke();
-        ctx.strokeStyle = '#2a1408'; ctx.lineWidth = 1.6;
-        const legSwing = Math.sin(phase) * (walking ? 2 : 0.3);
-        ctx.beginPath(); ctx.moveTo(-3, -3); ctx.lineTo(-3 - legSwing * 0.5, 1.5); ctx.stroke();
-        ctx.beginPath(); ctx.moveTo(2, -3); ctx.lineTo(2 + legSwing * 0.5, 1.5); ctx.stroke();
-        ctx.beginPath(); ctx.moveTo(-4.5, -3); ctx.lineTo(-4.5 + legSwing * 0.4, 1.5); ctx.stroke();
-        ctx.beginPath(); ctx.moveTo(3.5, -3); ctx.lineTo(3.5 - legSwing * 0.4, 1.5); ctx.stroke();
-        ctx.strokeStyle = '#ffcc33'; ctx.lineWidth = 1.4;
-        ctx.beginPath(); ctx.moveTo(3, -9.5); ctx.lineTo(4, -11); ctx.stroke();
-    }
-
     // ========== BLOCKADE VEHICLE ==========
     class WaterCannonVehicle {
         constructor(syndicateIndex, kind) {
@@ -6052,7 +6211,7 @@
     }
     function dealDamageToOfficer(o, dmg) {
         if (!o.isAllOut && o.syndicateIndex >= 0) {
-            const syHit = game.syndicates[o.syndicateIndex];
+            const syHit = game.syndicates[hostOf(o.syndicateIndex)];
             if (syHit) {
                 if (syHit.tactic === 'rest') { syHit.autoWallTimer = AUTO_WALL_SECONDS; }
                 if (tacticIsPassive(syHit.tactic)) { syHit.provokedTimer = PROVOKED_TIME; }
@@ -6064,8 +6223,8 @@
         if (o.formationResist !== undefined) {
             resist = o.formationResist;
         } else {
-            const sy = game.syndicates[o.syndicateIndex];
-            resist = sy ? formationResistance(activeTacticOf(sy)) : 0;
+            const hostIdx = hostOf(o.syndicateIndex), sy = game.syndicates[hostIdx];
+            resist = sy ? Math.min(REINFORCE_MAX_RESIST, formationResistance(activeTacticOf(sy)) + reinforceBonus(hostIdx)) : 0;
         }
         const finalDmg = dmg * shieldMult * (1 - resist) * (o.syndicateIndex >= 0 ? cmdBoost(o.syndicateIndex, 'guard') : 1);
         o.hp -= finalDmg;
@@ -6179,18 +6338,10 @@
         const byId = new Map(list.map(o => [o.id, o]));
         return prev.map(id => byId.get(id));
     }
-    function effectiveTactic(sy, idx) {
-        return activeTacticOf(sy);
-    }
     function assignFormation() { for (let idx = 0; idx < OFFICER_SYNDICATES; idx++) assignFormationForSyndicate(idx); }
     function assignFormationForSyndicate(idx) {
-        let alive;
-        if (game.mergedMode) {
-            if (idx !== game.mergedIntoIndex) return;
-            alive = game.officers.filter(o => o.alive && !o.isAllOut && o.state === 'active');
-        } else {
-            alive = game.officers.filter(o => o.alive && !o.isAllOut && o.syndicateIndex === idx && o.state === 'active');
-        }
+        if (hostOf(idx) !== idx) return;      // merged into / reinforcing another syndicate: it takes that line's slots
+        let alive = game.officers.filter(o => o.alive && !o.isAllOut && o.state === 'active' && hostOf(o.syndicateIndex) === idx);
         if (alive.length === 0) return;
         const sy = game.syndicates[idx];
         if (!sy) return;
@@ -6198,7 +6349,7 @@
         for (const o of alive) if (o._postFacing) o._postFacing = null;
 
         const cx = sy.commandX, cy = sy.commandY;
-        const tactic = effectiveTactic(sy, idx);
+        const tactic = activeTacticOf(sy);
         if (tactic !== 'pulse') alive = orderByFrontStrength(alive, sy, tactic);
         let fx = sy.facingX || 1, fy = sy.facingY || 0;
         if (Math.abs(fx) > Math.abs(fy)) { fx = Math.sign(fx) || 1; fy = 0; } else { fx = 0; fy = Math.sign(fy) || 1; }
@@ -6386,17 +6537,16 @@
             const startY = (SYNDICATE_START_Y[idx] !== undefined) ? SYNDICATE_START_Y[idx] : ROAD_Y_BOTTOM;
             game.syndicates[idx] = {
                 tactic: 'rest', commandX: startX * TILE, commandY: startY * TILE,
-                facingX: -1, facingY: 0, disperseTimer: 0, autoWallTimer: 0, provokedTimer: 0,
+                facingX: -1, facingY: 0, autoWallTimer: 0, provokedTimer: 0,
                 pulse: { active: false, used: 0, cooldown: 0, timer: 0, step: 0, shown: -1, order: null, out: [], dashers: [], cycleStep: -1, inited: false },
                 path: null, pathIdx: 0, pathVersion: -1,
                 goalX: startX * TILE, goalY: startY * TILE,
-                post: null,
+                post: null, arriveAxis: null, linkHost: null,
             };
         }
         const sy = game.syndicates[idx];
         if (sy.facingX === undefined) sy.facingX = -1;
         if (sy.facingY === undefined) sy.facingY = 0;
-        if (sy.disperseTimer === undefined) sy.disperseTimer = 0;
         if (sy.provokedTimer === undefined) sy.provokedTimer = 0;
         if (sy.post === undefined) sy.post = null;
         ensurePulse(sy);
@@ -6413,10 +6563,12 @@
             tactic: 'blockade',
             commandX: idx === VEHICLE_SYNDICATE_2 ? 40 * TILE + TILE / 2 : 44 * TILE + TILE / 2,
             commandY: ROAD_Y_BOTTOM * TILE + TILE / 2,
-            facingX: -1, facingY: 0, disperseTimer: 0,
+            facingX: -1, facingY: 0, linkHost: null,
         };
     }
     function applyTactic(kind) {
+        if (!tacticUnlocked(kind)) { showToast('🔒 That tactic is locked. Unlock it in Skills.'); return; }
+        leaveLineIfPartner(game.selectedSyndicate);
         const sy = ensureSyndicateState(game.selectedSyndicate);
         const p = ensurePulse(sy);
         sy.post = null;
@@ -6444,8 +6596,10 @@
     function commandMove(dx, dy) {
         if (isVehicleIdx(game.selectedSyndicate)) { commandMoveVehicle(dx, dy); return; }
         if (game.selectedSyndicate === STATION_INDEX) return;
+        leaveLineIfPartner(game.selectedSyndicate);
         const sy = ensureSyndicateState(game.selectedSyndicate);
         sy.post = null;
+        sy.arriveAxis = null;
         sy.path = null;
         sy.pathIdx = 0;
         const nx = sy.commandX + dx * TILE, ny = sy.commandY + dy * TILE;
@@ -6485,6 +6639,7 @@
     function setVehicleTarget(spot) {
         const v = vehicleAt(game.selectedSyndicate);
         if (!v || !spot) return;
+        leaveLineIfPartner(game.selectedSyndicate);
         v.setSpot(spot);
         const sy = game.syndicates[game.selectedSyndicate];
         if (sy) { sy.commandX = spot.x; sy.commandY = spot.y; }
@@ -6519,21 +6674,38 @@
         sy.pathVersion = game.blockadeVersion;
     }
 
-    function commandSyndicateTo(worldX, worldY) {
+    // Sent to a road dot, a syndicate arrives lined up ACROSS the road, facing along it, so it
+    // blocks the road instead of standing side-on. The d-pad can still turn it afterwards.
+    function commandSyndicateTo(worldX, worldY, spot) {
         if (isVehicleIdx(game.selectedSyndicate)) return;
         if (game.selectedSyndicate === STATION_INDEX) return;
+        leaveLineIfPartner(game.selectedSyndicate);
         const sy = ensureSyndicateState(game.selectedSyndicate);
         sy.post = null;
+        sy.arriveAxis = spot ? spot.dir : null;
         pathSyndicateTo(sy, worldX, worldY);
         updateSelectionUI();
+    }
+    function faceAcrossRoad(sy) {
+        const axis = sy.arriveAxis;
+        sy.arriveAxis = null;
+        if (axis === 'h') {            // road runs east-west: face along it (keep the way we were heading)
+            sy.facingX = (sy.facingY === 0 && sy.facingX) ? Math.sign(sy.facingX) : (sy.commandX >= BASE_TILE_X * TILE ? 1 : -1);
+            sy.facingY = 0;
+        } else if (axis === 'v') {     // road runs north-south
+            sy.facingY = (sy.facingX === 0 && sy.facingY) ? Math.sign(sy.facingY) : (sy.commandY < BASE_TILE_Y * TILE ? -1 : 1);
+            sy.facingX = 0;
+        }
     }
 
     function commandSyndicateToPost(post) {
         if (isVehicleIdx(game.selectedSyndicate)) return;
         if (game.selectedSyndicate === STATION_INDEX) return;
         if (!post) return;
+        leaveLineIfPartner(game.selectedSyndicate);
         const sy = ensureSyndicateState(game.selectedSyndicate);
         sy.post = post;
+        sy.arriveAxis = null;
         pathSyndicateTo(sy, post.junction.x, post.junction.y);
         assignFormation();
         updateSelectionUI();
@@ -6585,13 +6757,14 @@
                 if (sy.post) {
                     sy.commandX = sy.post.junction.x;
                     sy.commandY = sy.post.junction.y;
-                }
+                } else if (sy.arriveAxis) faceAcrossRoad(sy);
             }
         }
     }
 
     // ========== ALL UNITS ON ME ==========
     function toggleMergedMode() {
+        if (!skillOwned('mergeall')) { showToast('🔒 All Units On Me is locked. Unlock it in Skills.'); return; }
         if (game.syndicatesDeployed < 2) { showToast('Need at least 2 syndicates to merge.'); return; }
         if (game.mergedMode) {
             game.mergedMode = false;
@@ -6606,12 +6779,14 @@
     function updateMergedButton() {
         const btn = document.getElementById('all-units-btn');
         if (!btn) return;
-        if (game.mergedMode) { btn.classList.add('active'); btn.textContent = '🔓 Release Units'; }
-        else { btn.classList.remove('active'); btn.textContent = '🪖 All Units On Me'; }
+        if (!skillOwned('mergeall')) { btn.classList.remove('active'); btn.disabled = true; btn.textContent = '🔒 All Units On Me'; }
+        else if (game.mergedMode) { btn.disabled = false; btn.classList.add('active'); btn.textContent = '🔓 Release Units'; }
+        else { btn.disabled = false; btn.classList.remove('active'); btn.textContent = '🪖 All Units On Me'; }
     }
 
     // ========== ALL OUT ==========
     function triggerAllOut() {
+        if (!skillOwned('allout')) { showToast('🔒 All Out is locked. Unlock it in Skills.'); return; }
         if (game.allOutCooldown > 0 || game.gameOver) return;
         game.allOutCooldown = ALL_OUT_COOLDOWN;
         game.allOutActive = ALL_OUT_DURATION;
@@ -6636,7 +6811,10 @@
     function updateAllOutButton() {
         const btn = document.getElementById('all-out-btn');
         if (!btn) return;
-        if (game.allOutCooldown > 0) {
+        if (!skillOwned('allout')) {
+            btn.disabled = true; btn.classList.remove('ready');
+            btn.textContent = '🔒 ALL OUT';
+        } else if (game.allOutCooldown > 0) {
             btn.disabled = true; btn.classList.remove('ready');
             btn.textContent = '🚨 ALL OUT (' + Math.ceil(game.allOutCooldown) + 's)';
         } else {
@@ -6648,7 +6826,8 @@
     // ========== ARREST TEAM ==========
     function sendInArrestTeamFor(idx, silent) {
         const say = m => { if (!silent) showToast(m); };
-        if (idx >= OFFICER_SYNDICATES) { say('The water cannon vehicle has no arrest team.'); return false; }
+        if (idx >= OFFICER_SYNDICATES) { say('Vehicles have no arrest team.'); return false; }
+        if (!teamUnlocked('arrest', idx)) { say('🔒 S' + (idx + 1) + ' has no arrest team yet. Unlock it in Skills.'); return false; }
         if (game.arrestCooldown[idx] > 0) {
             say('Arrest team for S' + (idx + 1) + ' is regrouping.');
             return false;
@@ -6704,6 +6883,7 @@
         }
         game.arrestCooldown[idx] = ARREST_COOLDOWN;
         showToast('🚔 Arrest team deploying behind Syndicate ' + (idx + 1) + '!');
+        commanderShout(idx, 'Arrest team — grab that one!');
         updateArrestButton();
         return true;
     }
@@ -6721,8 +6901,10 @@
         const btn = document.getElementById('send-arrest');
         const sub = document.getElementById('send-arrest-sub');
         if (!btn) return;
-        const list = abilityIdxs();
+        let list = abilityIdxs();
         if (list[0] >= OFFICER_SYNDICATES) { btn.disabled = true; btn.classList.remove('ready'); sub.textContent = '—'; return; }
+        list = list.filter(i => teamUnlocked('arrest', i));
+        if (!list.length) { btn.disabled = true; btn.classList.remove('ready'); sub.textContent = '🔒 locked'; return; }
         const cds = list.map(i => game.arrestCooldown[i] || 0);
         setAbilityButton(btn, sub, cds.filter(c => c <= 0).length, list.length, 'S' + (list[0] + 1), Math.min(...cds));
     }
@@ -6733,7 +6915,12 @@
             for (let i = 0; i < OFFICER_SYNDICATES; i++) if (game.syndicates[i]) list.push(i);
             if (list.length) return list;
         }
-        return [game.selectedSyndicate];
+        const sel = game.selectedSyndicate;
+        if (sel < OFFICER_SYNDICATES) {
+            const group = [sel, ...partnersOf(sel).filter(i => i < OFFICER_SYNDICATES)];
+            if (group.length > 1) return group;
+        }
+        return [sel];
     }
     function fireNextReady(fn) {
         const list = abilityIdxs();
@@ -6745,14 +6932,15 @@
     // ========== TEAR GAS ==========
     function deployTearGasFor(idx, silent) {
         const say = m => { if (!silent) showToast(m); };
-        if (idx >= OFFICER_SYNDICATES) { say('The water cannon vehicle carries no tear gas.'); return false; }
+        if (idx >= OFFICER_SYNDICATES) { say('Vehicles carry no tear gas.'); return false; }
+        if (!teamUnlocked('gas', idx)) { say('🔒 S' + (idx + 1) + ' has no tear gas team yet. Unlock it in Skills.'); return false; }
         if (game.tearGasCooldown[idx] > 0) {
             say('Tear gas ready in ' + Math.ceil(game.tearGasCooldown[idx]) + 's.');
             return false;
         }
         const team = game.tearGasOfficers.filter(t => t.alive && t.syndicateIndex === idx);
         if (team.length === 0) {
-            say('No tear gas team for this syndicate.');
+            say('Every gas officer of this syndicate has fallen.');
             return false;
         }
         const busy = team.some(t => t.state === 'advancing' || t.state === 'spraying');
@@ -6773,6 +6961,7 @@
         }
         game.tearGasCooldown[idx] = TEAR_GAS_COOLDOWN;
         showToast('💨 Tear gas moving on the biggest crowd (' + Math.max(1, Math.round(crowd.count)) + ' raiders)!');
+        commanderShout(idx, 'Gas team — deploy!');
         updateTearGasButton();
         return true;
     }
@@ -6781,8 +6970,10 @@
         const btn = document.getElementById('deploy-gas');
         const sub = document.getElementById('deploy-gas-sub');
         if (!btn) return;
-        const list = abilityIdxs();
+        let list = abilityIdxs();
         if (list[0] >= OFFICER_SYNDICATES) { btn.disabled = true; btn.classList.remove('ready'); sub.textContent = '—'; return; }
+        list = list.filter(i => teamUnlocked('gas', i));
+        if (!list.length) { btn.disabled = true; btn.classList.remove('ready'); sub.textContent = '🔒 locked'; return; }
         let ready = 0, minCd = Infinity, anyTeam = false, spraying = false;
         for (const i of list) {
             const team = game.tearGasOfficers.filter(t => t.alive && t.syndicateIndex === i);
@@ -6801,13 +6992,15 @@
     // ========== K9 ==========
     function deployK9For(idx, silent) {
         const say = m => { if (!silent) showToast(m); };
-        if (idx >= OFFICER_SYNDICATES) { say('The water cannon vehicle has no K9 unit.'); return false; }
+        if (idx >= OFFICER_SYNDICATES) { say('Vehicles have no K9 unit.'); return false; }
+        if (!teamUnlocked('k9', idx)) { say('🔒 S' + (idx + 1) + ' has no K9 yet. Unlock it in Skills.'); return false; }
         const k9 = game.k9s.find(k => k.syndicateIndex === idx && k.alive);
         if (!k9) { say('No K9 available for this syndicate.'); return false; }
         if (k9.deployTimer > 0) { say('K9 already deployed.'); return false; }
         if (k9.cooldownTimer > 0) { say('K9 resting — ' + Math.ceil(k9.cooldownTimer) + 's until ready.'); return false; }
         if (k9.deploy()) {
             showToast('🐕 K9 released!');
+            commanderShout(idx, 'K9 forward! Release the dog!');
             updateK9Button();
             return true;
         }
@@ -6818,8 +7011,10 @@
         const btn = document.getElementById('deploy-k9');
         const sub = document.getElementById('deploy-k9-sub');
         if (!btn) return;
-        const list = abilityIdxs();
+        let list = abilityIdxs();
         if (list[0] >= OFFICER_SYNDICATES) { btn.disabled = true; btn.classList.remove('ready'); sub.textContent = '—'; return; }
+        list = list.filter(i => teamUnlocked('k9', i));
+        if (!list.length) { btn.disabled = true; btn.classList.remove('ready'); sub.textContent = '🔒 locked'; return; }
         let ready = 0, minCd = Infinity, any = false, out = false;
         for (const i of list) {
             const k9 = game.k9s.find(k => k.syndicateIndex === i && k.alive);
@@ -6835,23 +7030,21 @@
         setAbilityButton(btn, sub, ready, list.length, lbl, minCd === Infinity ? 0 : minCd);
     }
 
-    // ========== MANUAL DISPERSE ==========
-    function updateDisperseButton() { /* Disperse is always on now; there is no button */ }
-
     // ========== REPAIR TEAMS ==========
     function repairTeamActive(t) {
         return game.repairOfficers.some(r => r.alive && r.teamIndex === t);
     }
     function freeRepairTeam() {
         for (let t = 0; t < REPAIR_TEAM_COUNT; t++) {
-            if (!repairTeamActive(t) && (game.repairCooldowns[t] || 0) <= 0) return t;
+            if (repairTeamUnlocked(t) && !repairTeamActive(t) && (game.repairCooldowns[t] || 0) <= 0) return t;
         }
         return -1;
     }
     function deployRepairTeam(teamIdx, silent) {
         const say = m => { if (!silent) showToast(m); };
         if (teamIdx === undefined || teamIdx < 0) teamIdx = freeRepairTeam();
-        if (teamIdx < 0) { say('👷 All repair teams are out or recharging.'); return; }
+        if (teamIdx < 0) { say(repairTeamUnlocked(0) ? '👷 All repair teams are out or recharging.' : '🔒 No repair team yet. Unlock one in Skills.'); return; }
+        if (!repairTeamUnlocked(teamIdx)) { say('🔒 Repair Team ' + (teamIdx + 1) + ' is locked. Unlock it in Skills.'); return; }
         if ((game.repairCooldowns[teamIdx] || 0) > 0) {
             say('👷 Repair team ' + (teamIdx + 1) + ' recharging — ' + Math.ceil(game.repairCooldowns[teamIdx]) + 's.');
             return;
@@ -6900,17 +7093,19 @@
             }
             game.officers.push(new Officer(spawnX, spawnY, idx));
         }
-        let hx = cx, hy = cy;
-        for (let tries = 0; tries < 40; tries++) {
-            const tx = cx + (Math.random() - 0.5) * TILE * 8;
-            const ty = cy + (Math.random() - 0.5) * TILE * 8;
-            if (isValidOfficerPosition(tx, ty)) { hx = tx; hy = ty; break; }
+        if (teamUnlocked('k9', idx)) {
+            let hx = cx, hy = cy;
+            for (let tries = 0; tries < 40; tries++) {
+                const tx = cx + (Math.random() - 0.5) * TILE * 8;
+                const ty = cy + (Math.random() - 0.5) * TILE * 8;
+                if (isValidOfficerPosition(tx, ty)) { hx = tx; hy = ty; break; }
+            }
+            game.handlers.push(new K9Handler(hx, hy, idx));
+            const k9 = new K9Unit(cx + (Math.random() - 0.5) * TILE * 2, cy + (Math.random() - 0.5) * TILE * 2, idx);
+            game.k9s.push(k9);
         }
-        game.handlers.push(new K9Handler(hx, hy, idx));
-        spawnCommander(idx);
-        const k9 = new K9Unit(cx + (Math.random() - 0.5) * TILE * 2, cy + (Math.random() - 0.5) * TILE * 2, idx);
-        game.k9s.push(k9);
-        for (let i = 0; i < TEAR_GAS_TEAM_SIZE; i++) {
+        if (teamUnlocked('cmd', idx)) spawnCommander(idx);
+        for (let i = 0; teamUnlocked('gas', idx) && i < TEAR_GAS_TEAM_SIZE; i++) {
             let sx = cx, sy2 = cy;
             for (let tries = 0; tries < 40; tries++) {
                 const tx = cx + (Math.random() - 0.5) * TILE * 8;
@@ -6923,6 +7118,11 @@
         }
         assignFormation();
     }
+    function spawnStartingForce() {
+        for (let i = 0; i < syndicatesUnlocked(); i++) spawnSyndicate();
+        if (vehicleUnlocked(VEHICLE_SYNDICATE)) spawnVehicleSyndicate(VEHICLE_SYNDICATE);
+        if (vehicleUnlocked(VEHICLE_SYNDICATE_2)) spawnVehicleSyndicate(VEHICLE_SYNDICATE_2);
+    }
     function spawnVehicleSyndicate(idx) {
         idx = idx === undefined ? VEHICLE_SYNDICATE : idx;
         ensureVehicleSyndicate(idx);
@@ -6934,7 +7134,6 @@
 
     // ========== WAVES ==========
     const OBJECTIVE_LABELS = { base: 'Reach the Station', buildings: 'Vandalize the City', hunt: 'Attack the Officers' };
-    const OBJECTIVE_SHORT = { base: 'Station', buildings: 'Vandalism', hunt: 'Hunt Officers' };
 
     const ALL_EXITS = ['N18', 'N30', 'N54', 'N78', 'N90', 'S12', 'S54', 'S96'];
 
@@ -6983,6 +7182,7 @@
     function startWave() {
         game.waveClock = 0; game.fsIdle = 0; game.fsIdleFired = false; game.fsCapFired = false; game.fsClear = 0;
         game.waveState = 'active';
+        game.waveArrestBase = game.arrested;
         game.waveMoralePct = 100;
         game.routed = 0;
         game.raidersDefeated = 0;
@@ -7000,7 +7200,7 @@
         else ai.objective = 'hunt';
 
         // Raider count and gate spread scale up harder — closes the easy-corner exploit.
-        const raiderCount = 24 + wave * 8 + Math.floor(wave * wave * 0.4);
+        const raiderCount = Math.max(6, Math.round((24 + wave * 8 + Math.floor(wave * wave * 0.4)) * forceScale()));
         const crowdCount = wave <= 1 ? 0 : Math.min(24, 5 + wave * 2);
 
         const maxGates = Math.min(ALL_EXITS.length, 2 + Math.floor(wave / 2));
@@ -7033,7 +7233,6 @@
             assigned += share;
             const r = Math.random();
             squad.role = (r < 0.55) ? 'main' : (r < 0.8) ? 'flank' : 'distraction';
-            squad.targetSyndicate = Math.floor(Math.random() * OFFICER_SYNDICATES);
         }
 
         game.waveSpawnQueue = [];
@@ -7070,6 +7269,7 @@
         game.totalRaidersInWave = raiderCount;
         game.waveSpawnTimer = 0;
         announceWave(exits.length, gateCount);
+        commanderShoutAll('Here they come — hold the line!');
     }
 
     // ========== RAIDER FAILSAFE ==========
@@ -7236,7 +7436,6 @@
     }
 
     function updateWaves(dt) {
-        if (game.testMode) return;
         if (game.waveState === 'intermission') {
             game.waveTimer -= dt;
             if (game.waveTimer <= 0) startWave();
@@ -7292,10 +7491,12 @@
             if (!stillFleeing) {
                 game.raiders = [];
                 game.waveState = 'intermission';
+                const paid = bankLevelClear(game.waveNumber, game.arrested - (game.waveArrestBase || 0));
+                game.runCoins += paid.reward;
                 game.waveNumber++;
                 game.waveTimer = 8;
                 game.fsClear = 0;
-                showToast('Wave cleared — raiders dispersed!');
+                showToast('Level cleared! +' + paid.reward + ' 🪙' + (paid.checkpoint ? '  ·  💾 Checkpoint saved: Level ' + paid.next : ''));
             } else {
                 game.fsClear = (game.fsClear || 0) + dt;
                 if (game.fsClear > FS.CLEAR_STALL) {
@@ -7305,7 +7506,7 @@
         } else {
             game.fsClear = 0;
         }
-        if (game.baseHp <= 0 && !game.gameOver) endGame(false);
+        if (game.baseHp <= 0 && !game.gameOver) endGame();
     }
 
     // ========== SQUAD AI DIRECTOR ==========
@@ -7489,7 +7690,7 @@
         }
         if (game.selectedSyndicate === STATION_INDEX) return;
 
-        // Syyndicates snap to the nearest road dot (same UX as vehicles).
+        // Syndicates snap to the nearest road dot (same as the vehicles).
         let bestSpot = null, bestSpotD = Infinity;
         for (const s of BLOCKADE_SPOTS) {
             const d = Math.hypot(s.x - wx, s.y - wy);
@@ -7508,7 +7709,7 @@
         if (postHit && postHitD < bestSpotD) { commandSyndicateToPost(postHit); return; }
 
         if (bestSpot && bestSpotD < snapRadius) {
-            commandSyndicateTo(bestSpot.x, bestSpot.y);
+            commandSyndicateTo(bestSpot.x, bestSpot.y, bestSpot);
             return;
         }
         showToast('Tap a road dot to move the syndicate.');
@@ -7580,26 +7781,26 @@
         for (const o of game.officers) {
             if (!o.alive || o.isAllOut) continue;
             if (idx === STATION_INDEX) continue;
-            if (!game.mergedMode && o.syndicateIndex !== idx) continue;
+            if (hostOf(o.syndicateIndex) !== hostOf(idx)) continue;
             const w = (o.state === 'active') ? 1 : 0.3;
             cx += o.x * w; cy += o.y * w; n += w;
         }
         for (const a of game.arrestOfficers) {
             if (!a.alive) continue;
             if (idx === STATION_INDEX) continue;
-            if (!game.mergedMode && a.syndicateIndex !== idx) continue;
+            if (hostOf(a.syndicateIndex) !== hostOf(idx)) continue;
             cx += a.x; cy += a.y; n += 1;
         }
         for (const h of game.handlers) {
             if (!h.alive) continue;
             if (idx === STATION_INDEX) continue;
-            if (!game.mergedMode && h.syndicateIndex !== idx) continue;
+            if (hostOf(h.syndicateIndex) !== hostOf(idx)) continue;
             cx += h.x; cy += h.y; n += 1;
         }
         for (const t of game.tearGasOfficers) {
             if (!t.alive) continue;
             if (idx === STATION_INDEX) continue;
-            if (!game.mergedMode && t.syndicateIndex !== idx) continue;
+            if (hostOf(t.syndicateIndex) !== hostOf(idx)) continue;
             cx += t.x; cy += t.y; n += 1;
         }
         if (idx === STATION_INDEX) {
@@ -7648,7 +7849,8 @@
                 const b = document.createElement('button');
                 const active = repairTeamActive(t);
                 const cd = game.repairCooldowns[t] || 0;
-                if (active) { b.textContent = '👷 Team ' + (t + 1) + ' (out)'; b.disabled = true; b.classList.add('active-choice'); }
+                if (!repairTeamUnlocked(t)) { b.textContent = '🔒 Repair Team ' + (t + 1); b.classList.add('locked'); }
+                else if (active) { b.textContent = '👷 Team ' + (t + 1) + ' (out)'; b.disabled = true; b.classList.add('active-choice'); }
                 else if (cd > 0) { b.textContent = '👷 Team ' + (t + 1) + ' (' + Math.ceil(cd) + 's)'; b.disabled = true; }
                 else b.textContent = '👷 Send Team ' + (t + 1);
                 b.addEventListener('click', () => deployRepairTeam(t));
@@ -7657,7 +7859,8 @@
 
             const ab = document.createElement('button');
             const ambOut = game.ambulance && game.ambulance.alive, acd = game.ambulanceCooldown || 0;
-            if (ambOut) { ab.textContent = '🚑 Ambulance (out)'; ab.disabled = true; ab.classList.add('active-choice'); }
+            if (!skillOwned('ambulance')) { ab.textContent = '🔒 Ambulance'; ab.classList.add('locked'); }
+            else if (ambOut) { ab.textContent = '🚑 Ambulance (out)'; ab.disabled = true; ab.classList.add('active-choice'); }
             else if (acd > 0) { ab.textContent = '🚑 Ambulance (' + Math.ceil(acd) + 's)'; ab.disabled = true; }
             else ab.textContent = '🚑 Send Ambulance';
             ab.addEventListener('click', deployAmbulance);
@@ -7666,7 +7869,9 @@
             const auto = document.createElement('button');
             auto.textContent = '🔁 Auto-Repair: ' + (game.autoRepair ? 'ON' : 'OFF');
             if (game.autoRepair) auto.classList.add('active-choice');
+            if (!repairTeamUnlocked(0)) { auto.textContent = '🔒 Auto-Repair'; auto.classList.add('locked'); }
             auto.addEventListener('click', () => {
+                if (!repairTeamUnlocked(0)) { showToast('🔒 Unlock a repair team in Skills first.'); return; }
                 game.autoRepair = !game.autoRepair;
                 showToast(game.autoRepair ? '🔁 Auto-repair ON — teams deploy once a building is over half wrecked.'
                                          : '🔁 Auto-repair OFF.');
@@ -7703,10 +7908,12 @@
                 if (pp.active) b.textContent = '💥 Pulse (' + Math.ceil(PULSE_MAX_ACTIVE - pp.used) + 's left)';
                 else if (pp.cooldown > 0) { b.textContent = '💥 Pulse (' + Math.ceil(pp.cooldown) + 's)'; b.classList.add('on-cooldown'); }
             }
-            if (sy.tactic === t.key && !sy.post) b.classList.add('active-choice');
+            if (!tacticUnlocked(t.key)) { b.textContent = '🔒 ' + t.label.replace(/^\S+\s/, ''); b.classList.add('locked'); }
+            else if (sy.tactic === t.key && !sy.post) b.classList.add('active-choice');
             b.addEventListener('click', () => applyTactic(t.key));
             panel.appendChild(b);
         });
+        renderReinforceSection(panel, game.selectedSyndicate);
 
         if (sy.post) {
             const w = document.createElement('div');
@@ -7742,12 +7949,6 @@
             w.textContent = '⚔ Provoked — engaging for ' + Math.ceil(sy.provokedTimer) + 's';
             panel.appendChild(w);
         }
-        if (sy.disperseTimer > 0) {
-            const d = document.createElement('div');
-            d.className = 'info-line'; d.style.color = '#ffcc33';
-            d.textContent = '🔥 DISPERSE ACTIVE: ' + Math.ceil(sy.disperseTimer) + 's';
-            panel.appendChild(d);
-        }
         if (game.mergedMode) {
             const d = document.createElement('div');
             d.className = 'info-line'; d.style.color = '#ff8a5c'; d.style.fontWeight = 'bold';
@@ -7758,8 +7959,58 @@
         const tip = document.createElement('div');
         tip.className = 'info-line';
         tip.style.cssText = 'color:#7fc47f;padding-top:6px;border-top:1px solid #232c3a;margin-top:4px';
-        tip.textContent = '💡 Tap a green dot on a road to move the syndicate there. Tap a junction post dot to give them a facing.';
+        tip.textContent = '💡 Tap a green dot on a road to send the syndicate there: they line up across the road to block it. Use the d-pad to turn them. Tap a junction post dot to cover a junction.';
         panel.appendChild(tip);
+    }
+
+    // "Reinforce": pull another syndicate or a vehicle into the selected syndicate.
+    function renderReinforceSection(panel, idx) {
+        const label = document.createElement('div');
+        label.className = 'section-label'; label.textContent = 'Reinforce';
+        panel.appendChild(label);
+
+        if (!tacticUnlocked('reinforce')) {
+            const b = document.createElement('button');
+            b.textContent = '🔒 Reinforce'; b.classList.add('locked');
+            b.addEventListener('click', () => showToast('🔒 Reinforce is locked. Unlock it in Skills.'));
+            panel.appendChild(b);
+            return;
+        }
+        const note = document.createElement('div');
+        note.className = 'info-line';
+        if (isLinked(idx)) {
+            note.style.color = '#8ec8f0';
+            note.textContent = '🤝 Fighting as part of S' + (hostOf(idx) + 1) + '. Give this syndicate any order to pull it out again.';
+            panel.appendChild(note);
+            const rel = document.createElement('button');
+            rel.textContent = '✖ Leave S' + (hostOf(idx) + 1);
+            rel.addEventListener('click', () => { releaseLink(idx, false); renderOptionsPanel(); updateSelectionUI(); });
+            panel.appendChild(rel);
+            return;
+        }
+        let shown = 0;
+        const candidates = [0, 1, 2, VEHICLE_SYNDICATE, VEHICLE_SYNDICATE_2];
+        for (const c of candidates) {
+            if (c === idx || !game.syndicates[c]) continue;
+            if (c < OFFICER_SYNDICATES && c >= game.syndicatesDeployed) continue;
+            if (c < OFFICER_SYNDICATES && partnersOf(c).length) continue;      // already hosting others
+            const b = document.createElement('button');
+            const joined = game.syndicates[c].linkHost === idx;
+            const elsewhere = isLinked(c) && !joined;
+            const count = c < OFFICER_SYNDICATES ? ' (' + game.officers.filter(o => o.alive && !o.isAllOut && o.syndicateIndex === c).length + ')' : '';
+            b.textContent = joined ? '✔ ' + unitLabel(c) + count + ' — release' : '➕ ' + unitLabel(c) + count + (elsewhere ? ' (from S' + (hostOf(c) + 1) + ')' : '');
+            if (joined) b.classList.add('active-choice');
+            b.addEventListener('click', () => {
+                if (joined) releaseLink(c, false); else linkReinforce(idx, c);
+                renderOptionsPanel(); updateSelectionUI(); renderSyndicateTabs();
+            });
+            panel.appendChild(b);
+            shown++;
+        }
+        note.textContent = shown
+            ? 'Tap a unit to bring it into this line. It fights with this syndicate\'s tactic and adds extra armour.'
+            : 'No other syndicate or vehicle available to call up.';
+        panel.appendChild(note);
     }
 
     function renderVehiclePanel(panel, idx) {
@@ -7771,10 +8022,17 @@
         label.className = 'section-label'; label.textContent = isRubber ? 'Rubber Bullet Response Van' : 'Water Cannon Vehicle';
         panel.appendChild(label);
 
+        if (isLinked(idx)) {
+            const lk = document.createElement('div');
+            lk.className = 'info-line'; lk.style.color = '#8ec8f0';
+            lk.textContent = '🤝 Reinforcing S' + (hostOf(idx) + 1) + ' — it parks behind that line. Any order frees it.';
+            panel.appendChild(lk);
+        }
         const bMobile = document.createElement('button');
         bMobile.textContent = '🚔 Roam';
         if (v && !v.parked && !v.targetSpot) bMobile.classList.add('active-choice');
         bMobile.addEventListener('click', () => {
+            leaveLineIfPartner(idx);
             if (v) { v.clearTarget(); }
             showToast('Vehicle released — free to roam.');
             renderOptionsPanel(); updateSelectionUI();
@@ -7786,6 +8044,7 @@
         if (v && (v.parked || v.targetSpot)) bBlock.classList.add('active-choice');
         bBlock.addEventListener('click', () => {
             if (!v) return;
+            leaveLineIfPartner(idx);
             if (!v.targetSpot) {
                 let best = null, bestD = Infinity;
                 for (const s of BLOCKADE_SPOTS) {
@@ -7851,23 +8110,28 @@
         tabs.forEach((b) => {
             const idx = parseInt(b.dataset.idx, 10);
             if (isVehicleIdx(idx)) {
-                b.disabled = false;
-                b.classList.toggle('active', game.selectedSyndicate === idx);
+                const have = !!vehicleAt(idx);
+                b.disabled = !have;
+                b.textContent = (idx === VEHICLE_SYNDICATE ? '🚔' : '🚐') + (!have ? '🔒' : isLinked(idx) ? '🤝' : '');
+                b.classList.toggle('active', have && game.selectedSyndicate === idx);
                 return;
             }
             const exists = idx < game.syndicatesDeployed;
-            let count = 0;
+            let count = 0, mark = '';
             if (exists) {
                 if (game.mergedMode) {
                     count = (idx === game.mergedIntoIndex)
                         ? game.officers.filter(o => o.alive && !o.isAllOut && o.state === 'active').length
                         : 0;
-                } else {
+                } else if (isLinked(idx)) {
                     count = game.officers.filter(o => o.alive && !o.isAllOut && o.syndicateIndex === idx && o.state === 'active').length;
+                    mark = '🤝';
+                } else {
+                    count = game.officers.filter(o => o.alive && !o.isAllOut && o.state === 'active' && hostOf(o.syndicateIndex) === idx).length;
                 }
             }
             b.disabled = !exists;
-            b.textContent = 'S' + (idx + 1) + (exists ? ' (' + count + ')' : '');
+            b.textContent = 'S' + (idx + 1) + (exists ? ' (' + count + ')' + mark : '🔒');
             b.classList.toggle('active', idx === game.selectedSyndicate && exists);
         });
         updateStationButton();
@@ -7877,6 +8141,7 @@
             b.addEventListener('click', () => {
                 const idx = parseInt(b.dataset.idx, 10);
                 if (idx < OFFICER_SYNDICATES && idx >= game.syndicatesDeployed) return;
+                if (isVehicleIdx(idx) && !vehicleAt(idx)) return;
                 if (game.mergedMode) {
                     game.mergedMode = false;
                     showToast('Units released.');
@@ -7884,7 +8149,7 @@
                 }
                 game.selectedSyndicate = idx;
                 renderSyndicateTabs(); renderOptionsPanel(); updateSelectionUI();
-                updateArrestButton(); updateTearGasButton(); updateK9Button(); updateDisperseButton();
+                updateArrestButton(); updateTearGasButton(); updateK9Button();
                 game.cameraUserLock = 0; game.camGlide = 0.8;
             });
         });
@@ -7897,7 +8162,7 @@
             if (game.mergedMode) { game.mergedMode = false; updateMergedButton(); }
             game.selectedSyndicate = STATION_INDEX;
             renderSyndicateTabs(); renderOptionsPanel(); updateSelectionUI();
-            updateArrestButton(); updateTearGasButton(); updateK9Button(); updateDisperseButton();
+            updateArrestButton(); updateTearGasButton(); updateK9Button();
             updateStationButton();
             game.cameraUserLock = 0; game.camGlide = 0.8;
         });
@@ -7959,7 +8224,7 @@
             count = game.officers.filter(o => o.alive && !o.isAllOut && o.state === 'active').length;
             prefix = 'MERGED FORCE';
         } else {
-            count = game.officers.filter(o => o.alive && !o.isAllOut && o.syndicateIndex === idx && o.state === 'active').length;
+            count = game.officers.filter(o => o.alive && !o.isAllOut && o.state === 'active' && (isLinked(idx) ? o.syndicateIndex === idx : hostOf(o.syndicateIndex) === idx)).length;
             prefix = 'Syndicate ' + (idx + 1);
         }
         if (count === 0) { el.textContent = ''; return; }
@@ -7967,12 +8232,13 @@
         const tacticLabel = sy.post
             ? ('🎯 ' + dirNames[sy.post.dir] + ' post (' + sy.post.cover.map(d => dirNames[d]).join('+') + ')')
             : ((FORMATION_DEFS.find(t => t.key === sy.tactic) || {}).label || sy.tactic);
-        const resist = Math.round(formationResistance(activeTacticOf(sy)) * 100);
+        const resist = Math.round(Math.min(REINFORCE_MAX_RESIST, formationResistance(activeTacticOf(sy)) + reinforceBonus(idx)) * 100);
         const bits = [prefix + ' — ' + count + ' officers — ' + tacticLabel + ' · 🛡 ' + resist + '%'];
         if (!sy.post && tacticIsPassive(sy.tactic) && sy.provokedTimer <= 0) bits.push('🕊 holding fire');
         if (sy.provokedTimer > 0 && tacticIsPassive(sy.tactic)) bits.push('⚔ provoked ' + Math.ceil(sy.provokedTimer) + 's');
         if (sy.tactic === 'rest' && sy.autoWallTimer > 0) bits.push('🧱 wall ' + Math.ceil(sy.autoWallTimer) + 's');
-        if (sy.disperseTimer > 0) bits.push('🔥 ' + Math.ceil(sy.disperseTimer) + 's');
+        if (isLinked(idx)) bits.push('🤝 with S' + (hostOf(idx) + 1));
+        else if (partnersOf(idx).length) bits.push('🤝 +' + partnersOf(idx).map(unitLabel).join(' +'));
         if (sy.path) bits.push('➤ moving');
         el.textContent = bits.join(' · ');
     }
@@ -7982,6 +8248,7 @@
         document.getElementById('wave').textContent = game.waveNumber;
         document.getElementById('routed').textContent = game.routed;
         document.getElementById('arrested').textContent = game.arrested;
+        document.getElementById('coins').textContent = profile.coins;
 
         const baseFill = document.getElementById('base-hp-fill');
         const basePct = game.baseHp / BASE_MAX_HP;
@@ -7990,7 +8257,7 @@
         document.getElementById('base-hp-num').textContent = Math.round(basePct * 100) + '%';
 
         const aliveOfficers = game.officers.filter(o => o.alive).length;
-        const cap = OFFICER_SYNDICATES * OFFICERS_PER_SYNDICATE;
+        const cap = Math.max(1, game.syndicatesDeployed) * OFFICERS_PER_SYNDICATE;
         const troopPct = aliveOfficers / cap;
         document.getElementById('troop-fill').style.width = Math.round(troopPct * 100) + '%';
         document.getElementById('troop-num').textContent = Math.round(troopPct * 100) + '%';
@@ -8006,7 +8273,7 @@
         document.getElementById('public-morale-num').textContent = Math.round(pubPct * 100) + '%';
 
         renderSyndicateTabs(); updateMoveButtons(); updateMergedButton(); updateAllOutButton();
-        updateArrestButton(); updateTearGasButton(); updateK9Button(); updateDisperseButton();
+        updateArrestButton(); updateTearGasButton(); updateK9Button();
         updateStationButton();
     }
 
@@ -8391,12 +8658,15 @@
     }
 
     // ========== GAME OVER ==========
-    function endGame(win) {
+    function endGame() {
         game.gameOver = true;
         const overlay = document.getElementById('gameover-overlay');
-        document.getElementById('gameover-title').textContent = win ? '🏆 Order Restored' : '💥 Station Overrun';
+        document.getElementById('gameover-title').textContent = '💥 Station Overrun';
+        document.getElementById('gameover-save').textContent =
+            '🪙 +' + game.runCoins + ' coins this run (you have ' + profile.coins + ')  ·  ' +
+            (profile.checkpoint > 1 ? '💾 Checkpoint: Level ' + profile.checkpoint : 'Clear ' + CHECKPOINT_EVERY + ' levels to bank a checkpoint');
         document.getElementById('gameover-stats').textContent =
-            'Waves held: ' + (game.waveNumber - 1) +
+            'Levels cleared: ' + (game.waveNumber - game.startLevel) +
             '  •  Raiders routed: ' + game.routed +
             '  •  Arrested: ' + game.arrested +
             '  •  Buildings lost: ' + game.buildingsDestroyed +
@@ -8408,16 +8678,16 @@
         document.getElementById('gameover-overlay').classList.remove('show');
         game.paused = false;
         initGameState();
+        game.waveNumber = startLevel();
+        game.startLevel = game.waveNumber;
         rebuildRoadNetwork();
         generateMap(); buildTerrainCanvas(); buildMinimapTerrainCanvas();
-        for (let i = 0; i < OFFICER_SYNDICATES; i++) spawnSyndicate();
-        spawnVehicleSyndicate(VEHICLE_SYNDICATE);
-        spawnVehicleSyndicate(VEHICLE_SYNDICATE_2);
+        spawnStartingForce();
         game.selectedSyndicate = 0;
         game.syndicates.forEach(sy => { if (sy) { sy.path = null; sy.pathIdx = 0; sy.post = null; } });
         renderSyndicateTabs(); renderOptionsPanel(); updateSelectionUI();
         updateMergedButton(); updateAllOutButton();
-        updateArrestButton(); updateTearGasButton(); updateK9Button(); updateDisperseButton();
+        updateArrestButton(); updateTearGasButton(); updateK9Button();
         updateStationButton();
     }
 
@@ -8447,9 +8717,6 @@
             }
             for (let i = 0; i < game.tearGasCooldown.length; i++) {
                 if (game.tearGasCooldown[i] > 0) game.tearGasCooldown[i] = Math.max(0, game.tearGasCooldown[i] - dt);
-            }
-            for (let i = 0; i < game.manualDisperseCooldown.length; i++) {
-                if (game.manualDisperseCooldown[i] > 0) game.manualDisperseCooldown[i] = Math.max(0, game.manualDisperseCooldown[i] - dt);
             }
             for (let i = 0; i < REPAIR_TEAM_COUNT; i++) {
                 if (game.repairCooldowns[i] > 0) game.repairCooldowns[i] = Math.max(0, game.repairCooldowns[i] - dt);
@@ -8493,18 +8760,9 @@
                 game.baseHp = Math.min(BASE_MAX_HP, game.baseHp + BASE_REGEN_RATE * dt);
             }
 
-            game.syndicates.forEach(sy => {
-                if (sy && sy.disperseTimer > 0) {
-                    sy.disperseTimer -= dt;
-                    if (sy.disperseTimer <= 0) {
-                        sy.disperseTimer = 0;
-                        renderOptionsPanel(); updateSelectionUI();
-                    }
-                }
-            });
-
             for (let pi = 0; pi < OFFICER_SYNDICATES; pi++) updatePulse(game.syndicates[pi], pi, dt);
             updateSyndicateMovement(dt);
+            updateLinks(dt);
             assignFormation();
             game.attackerCounts.clear();
             const withSpeed = (u) => {
@@ -8588,7 +8846,6 @@
         game.arrestCooldown = [0, 0, 0, 0];
         game.tearGasCooldown = [0, 0, 0, 0];
         game.gasTargets = [null, null, null, null];
-        game.manualDisperseCooldown = [0, 0, 0, 0];
         game.repairOfficers = [];
         game.repairEscorts = [];
         game.repairCooldowns = [0, 0];
@@ -8604,6 +8861,8 @@
         game.squads = new Map();
         game.nextSquadId = 1;
         game.waveNumber = 1;
+        game.runCoins = 0;
+        game.waveArrestBase = 0;
         game.waveState = 'intermission';
         game.waveTimer = 3;
         game.waveMoralePct = 100;
@@ -8703,13 +8962,11 @@
         rebuildRoadNetwork();
         loadAssets(() => {
             generateMap(); buildTerrainCanvas(); buildMinimapTerrainCanvas();
-            for (let i = 0; i < OFFICER_SYNDICATES; i++) spawnSyndicate();
-            spawnVehicleSyndicate(VEHICLE_SYNDICATE);
-            spawnVehicleSyndicate(VEHICLE_SYNDICATE_2);
+            spawnStartingForce();
             game.selectedSyndicate = 0;
             renderSyndicateTabs(); renderOptionsPanel(); updateSelectionUI();
             updateMergedButton(); updateAllOutButton();
-            updateArrestButton(); updateTearGasButton(); updateK9Button(); updateDisperseButton();
+            updateArrestButton(); updateTearGasButton(); updateK9Button();
             updateStationButton();
             game.ready = true;
             if (game.playRequested) beginPlay();
@@ -8725,33 +8982,146 @@
         document.getElementById('gameover-overlay').classList.remove('show');
         game.paused = true;
         document.getElementById('menu-root').classList.remove('hidden');
+        updateMenuNote();
         showMenuScreen('menu-main');
+    }
+    function openSkills() {
+        document.getElementById('pause-overlay').classList.remove('show');
+        document.getElementById('gameover-overlay').classList.remove('show');
+        game.paused = true;
+        document.getElementById('menu-root').classList.remove('hidden');
+        skillsMessage('Clear levels to earn coins, then unlock anything in any order.', null);
+        renderSkills();
+        showMenuScreen('menu-skills');
+    }
+    // The main-menu buttons carry the save info: PLAY shows the level you will start at, SKILLS shows your coins.
+    function updateMenuNote() {
+        const lv = startLevel();
+        document.getElementById('m-play').textContent = '▶ PLAY' + (lv > 1 ? ' · LEVEL ' + lv : '');
+        document.getElementById('m-skills').lastChild.nodeValue = 'SKILLS · 🪙 ' + profile.coins;
+    }
+
+    // ========== SKILLS SCREEN ==========
+    function skillsMessage(text, ok) {
+        const el = document.getElementById('sk-msg');
+        el.textContent = text;
+        el.className = ok === true ? 'ok' : ok === false ? 'bad' : '';
+    }
+    function skillState(s) {
+        if (skillOwned(s.key)) return 'owned';
+        if (skillMissing(s.key).length) return 'locked';
+        return profile.coins >= s.cost ? 'ready' : 'short';
+    }
+    function skillNode(s) {
+        const st = skillState(s);
+        const b = document.createElement('button');
+        b.className = 'sk-node ' + st;
+        let status;
+        if (st === 'owned') status = s.free ? '✔ Included' : '✔ Unlocked';
+        else if (st === 'locked') status = '🔒 Needs ' + skillMissing(s.key).map(r => SKILLS[r].name).join(' + ');
+        else status = '🪙 ' + s.cost + (st === 'short' ? ' (' + (s.cost - profile.coins) + ' short)' : '');
+        for (const [cls, text] of [['sk-icon', s.icon], ['sk-name', s.name], ['sk-desc', s.desc], ['sk-status', status]]) {
+            const span = document.createElement('span');
+            span.className = cls; span.textContent = text;
+            b.appendChild(span);
+        }
+        b.addEventListener('click', () => {
+            const r = skillBuy(s.key);
+            if (r.msg) skillsMessage(r.msg, r.ok);
+            renderSkills();
+        });
+        return b;
+    }
+    function renderSkills() {
+        document.getElementById('sk-coins').textContent = '🪙 ' + profile.coins;
+
+        // progress + where the next game starts
+        const prog = document.getElementById('sk-progress');
+        prog.innerHTML = '';
+        const stats = document.createElement('div');
+        stats.className = 'sk-stats';
+        for (const [k, v] of [['Best level', profile.bestLevel], ['Checkpoint', profile.checkpoint > 1 ? 'Level ' + profile.checkpoint : 'none yet'], ['Next checkpoint', 'Level ' + (Math.floor((profile.bestLevel - 1) / CHECKPOINT_EVERY) * CHECKPOINT_EVERY + 1 + CHECKPOINT_EVERY)]]) {
+            const d = document.createElement('div');
+            const b = document.createElement('b'); b.textContent = k + ': ';
+            d.appendChild(b); d.appendChild(document.createTextNode(String(v)));
+            stats.appendChild(d);
+        }
+        prog.appendChild(stats);
+        const row = document.createElement('div');
+        row.className = 'sk-seg-row';
+        const hasCp = profile.checkpoint > 1;
+        const seg = (label, on, fn) => {
+            const b = document.createElement('button');
+            b.className = 'sk-seg' + (on ? ' on' : ''); b.textContent = label;
+            b.addEventListener('click', fn);
+            row.appendChild(b);
+        };
+        seg((profile.autoStart && hasCp ? '● ' : '○ ') + (hasCp ? 'Start at my checkpoint (Level ' + profile.checkpoint + ')' : 'Start at my checkpoint (none yet)'),
+            profile.autoStart && hasCp, () => { profile.autoStart = true; saveProfile(); renderSkills(); });
+        seg((!(profile.autoStart && hasCp) ? '● ' : '○ ') + 'Start from the beginning (Level 1)',
+            !(profile.autoStart && hasCp), () => { profile.autoStart = false; saveProfile(); renderSkills(); });
+        prog.appendChild(row);
+        const hint = document.createElement('div');
+        hint.className = 'sk-hint';
+        hint.textContent = 'A checkpoint is saved every ' + CHECKPOINT_EVERY + ' levels (Level ' + (CHECKPOINT_EVERY + 1) + ', ' + (2 * CHECKPOINT_EVERY + 1) + ', …). Coins and unlocks are always kept, whichever way you start.';
+        prog.appendChild(hint);
+
+        // the tree
+        const tree = document.getElementById('sk-tree');
+        tree.innerHTML = '';
+        for (const br of SKILL_BRANCHES) {
+            const sec = document.createElement('div');
+            sec.className = 'sk-section';
+            const t = document.createElement('div'); t.className = 'sk-sec-title'; t.textContent = br.title;
+            const n = document.createElement('div'); n.className = 'sk-sec-note'; n.textContent = br.note;
+            sec.appendChild(t); sec.appendChild(n);
+            const items = SKILL_LIST.filter(s => s.branch === br.key);
+            if (br.key === 'syndicates') {
+                const cols = document.createElement('div'); cols.className = 'sk-cols';
+                for (let c = 0; c < 3; c++) {
+                    const col = document.createElement('div'); col.className = 'sk-col';
+                    items.filter(s => s.col === c).forEach(s => col.appendChild(skillNode(s)));
+                    cols.appendChild(col);
+                }
+                sec.appendChild(cols);
+            } else {
+                const grid = document.createElement('div'); grid.className = 'sk-grid';
+                items.forEach(s => grid.appendChild(skillNode(s)));
+                sec.appendChild(grid);
+            }
+            tree.appendChild(sec);
+        }
+        const reset = document.getElementById('sk-reset');
+        reset.textContent = 'Erase all progress';
+        reset.dataset.armed = '';
     }
     function beginPlay() {
         game.playRequested = false;
         document.getElementById('menu-root').classList.add('hidden');
-        const pb = document.getElementById('m-play'); if (pb) pb.innerHTML = '▶ PLAY';
+        updateMenuNote();
         restartGame();
         game.paused = false;
         if (!game.loopStarted) { game.loopStarted = true; requestAnimationFrame(loop); }
     }
     function setupMenus() {
-        const SOON = {
-            skills:   ['Skills',      'Train your officers and unlock new abilities. Coming soon!'],
-            settings: ['Settings',    'Sound, controls and display options. Coming soon!'],
-            zombie:   ['Zombie Mode', 'Hold the cordon against something far worse than a protest. Coming soon!'],
-        };
-        const soon = key => {
-            document.getElementById('soon-title').textContent = SOON[key][0];
-            document.getElementById('soon-text').textContent = SOON[key][1];
-            showMenuScreen('menu-soon');
-        };
+        updateMenuNote();
         document.getElementById('m-play').addEventListener('click', () => {
             if (game.ready) beginPlay();
             else { game.playRequested = true; document.getElementById('m-play').textContent = 'LOADING…'; }
         });
-        document.getElementById('m-skills').addEventListener('click', () => soon('skills'));
-        document.getElementById('m-settings').addEventListener('click', () => soon('settings'));
+        document.getElementById('m-skills').addEventListener('click', openSkills);
+        document.getElementById('m-settings').addEventListener('click', () => showMenuScreen('menu-soon'));
+        document.getElementById('sk-back').addEventListener('click', () => { updateMenuNote(); showMenuScreen('menu-main'); });
+        document.getElementById('gameover-skills').addEventListener('click', openSkills);
+        document.getElementById('sk-reset').addEventListener('click', e => {
+            const btn = e.currentTarget;
+            if (btn.dataset.armed !== '1') {
+                btn.dataset.armed = '1'; btn.textContent = 'Tap again to erase everything';
+                setTimeout(() => { btn.dataset.armed = ''; btn.textContent = 'Erase all progress'; }, 4000);
+                return;
+            }
+            resetProfile(); renderSkills(); skillsMessage('All progress erased.', false);
+        });
         document.getElementById('m-zombie').addEventListener('click', () => { window.location.href = 'zombie.html'; });
         document.getElementById('m-back').addEventListener('click', () => showMenuScreen('menu-main'));
         document.getElementById('pause-btn').addEventListener('click', () => {
@@ -8767,13 +9137,6 @@
         document.getElementById('p-menu').addEventListener('click', openMainMenu);
         document.getElementById('gameover-menu').addEventListener('click', openMainMenu);
     }
-    (function wrapCommanderShouts() {
-        const k9 = deployK9For, gas = deployTearGasFor, arr = sendInArrestTeamFor, sw = startWave;
-        deployK9For = function (idx, silent) { const r = k9(idx, silent); if (r) commanderShout(idx, 'K9 forward! Release the dog!'); return r; };
-        deployTearGasFor = function (idx, silent) { const r = gas(idx, silent); if (r) commanderShout(idx, 'Gas team — deploy!'); return r; };
-        sendInArrestTeamFor = function (idx, silent) { const r = arr(idx, silent); if (r) commanderShout(idx, 'Arrest team — grab that one!'); return r; };
-        startWave = function () { const r = sw.apply(this, arguments); commanderShoutAll('Here they come — hold the line!'); return r; };
-    })();
     function bootWhenReady() {
         if (isLandscapeReady()) init();
         else {

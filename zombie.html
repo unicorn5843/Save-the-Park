@@ -270,16 +270,18 @@
     .xp-body h2 { font-size: min(6.5vh,28px); color: #0a5a20; margin-bottom: 6px; }
     .xp-body p { font-size: min(3.6vh,14px); color: #2a4a30; line-height: 1.4; }
 </style>
+    <link rel="stylesheet" href="assets/ui/moonroar.css">
+    <script src="assets/ui/moonroar.js"></script>
 </head>
-<body>
-    <div id="rotate-overlay">📱 Please rotate your device to landscape!</div>
+<body class="zombie-mode">
+    <div id="rotate-overlay">:phone: Please rotate your device to landscape!</div>
     <canvas id="game"></canvas>
 
     <div id="left-dock">
         <div id="panel-view">
             <div id="panel-header">
                 <span id="panel-title">Squad</span>
-                <button id="pause-btn" title="Pause">⏸</button>
+                <button id="pause-btn" title="Pause">:pause:</button>
             </div>
             <div id="options-panel"></div>
         </div>
@@ -288,15 +290,15 @@
     <!-- TOP BAR: 3 ability buttons (matches main game's Arrest / Gas / K9) -->
     <div id="top-bar">
         <button id="act-acid" class="train-btn acid ready">
-            <span class="tlabel">🧪 Acid Team</span>
+            <span class="tlabel">:flask: Acid Team</span>
             <span class="tsub" id="act-acid-sub">S1 ready</span>
         </button>
         <button id="act-grabber" class="train-btn grabber ready">
-            <span class="tlabel">🧟 Grabber</span>
+            <span class="tlabel">:zombie: Grabber</span>
             <span class="tsub" id="act-grabber-sub">S1 ready</span>
         </button>
         <button id="act-k9" class="train-btn k9 ready">
-            <span class="tlabel">🐕 K9</span>
+            <span class="tlabel">:dog: K9</span>
             <span class="tsub" id="act-k9-sub">S1 ready</span>
         </button>
     </div>
@@ -304,42 +306,42 @@
     <div id="right-dock">
         <canvas id="minimap" width="100" height="100"></canvas>
         <div id="stats-panel">
-            <div class="stat">🌊 <span id="wave">1</span></div>
-            <div class="stat">💀 <span id="kills">0</span></div>
-            <div class="stat">📦 <span id="supplies">0</span></div>
-            <div class="stat">🧟 <span id="subjects">0</span></div>
+            <div class="stat">:wave: <span id="wave">1</span></div>
+            <div class="stat">:skull: <span id="kills">0</span></div>
+            <div class="stat">:box: <span id="supplies">0</span></div>
+            <div class="stat">:zombie: <span id="subjects">0</span></div>
         </div>
     </div>
 
     <div id="hud-topleft">
         <div id="status-panel">
             <div class="stat-line">
-                <span class="stat-icon">🏢</span>
+                <span class="stat-icon">:station:</span>
                 <div class="stat-track"><div class="stat-fill base" id="base-hp-fill"></div></div>
                 <span class="stat-num" id="base-hp-num">100%</span>
             </div>
             <div class="stat-line">
-                <span class="stat-icon">👮</span>
+                <span class="stat-icon">:cop:</span>
                 <div class="stat-track"><div class="stat-fill troop" id="troop-fill"></div></div>
                 <span class="stat-num" id="troop-num">45</span>
             </div>
             <div class="stat-line">
-                <span class="stat-icon">📦</span>
+                <span class="stat-icon">:box:</span>
                 <div class="stat-track"><div class="stat-fill supplies" id="sup-fill"></div></div>
                 <span class="stat-num" id="sup-num">30</span>
             </div>
             <div class="stat-line">
-                <span class="stat-icon">🧟</span>
+                <span class="stat-icon">:zombie:</span>
                 <div class="stat-track"><div class="stat-fill subjects" id="subj-fill"></div></div>
                 <span class="stat-num" id="subj-num">0</span>
             </div>
             <div class="stat-line">
-                <span class="stat-icon">💀</span>
+                <span class="stat-icon">:skull:</span>
                 <div class="stat-track"><div class="stat-fill threat" id="threat-fill"></div></div>
                 <span class="stat-num" id="threat-num">—</span>
             </div>
             <div class="stat-line">
-                <span class="stat-icon">💚</span>
+                <span class="stat-icon">:heart:</span>
                 <div class="stat-track"><div class="stat-fill hope" id="hope-fill"></div></div>
                 <span class="stat-num" id="hope-num">100%</span>
             </div>
@@ -348,23 +350,45 @@
     </div>
 
     <div id="bottom-right-ui">
-        <button id="all-out-btn">🚨 ALL OUT</button>
-        <button id="all-units-btn">🪖 All Units On Me</button>
-        <button id="station-btn">🏢 Station</button>
+        <button id="all-out-btn">:siren: ALL OUT</button>
+        <button id="all-units-btn">:helmet: All Units On Me</button>
+        <button id="station-btn">:station: Station</button>
         <div id="syndicate-tabs">
             <button class="syn-btn" data-idx="0">S1</button>
             <button class="syn-btn" data-idx="1">S2</button>
             <button class="syn-btn" data-idx="2">S3</button>
-            <button class="syn-btn acid" data-idx="3">🚐</button>
-            <button class="syn-btn acid" data-idx="5">🚐</button>
+            <button class="syn-btn acid" data-idx="3">:van:</button>
+            <button class="syn-btn acid" data-idx="5">:van:</button>
         </div>
         <div id="dpad-container">
-            <button class="dpad-btn dpad-up" id="btn-up">▲</button>
-            <button class="dpad-btn dpad-left" id="btn-left">◀</button>
+            <button class="dpad-btn dpad-up" id="btn-up">:arrow_u:</button>
+            <button class="dpad-btn dpad-left" id="btn-left">:arrow_l:</button>
             <div class="dpad-btn dpad-center"></div>
-            <button class="dpad-btn dpad-right" id="btn-right">▶</button>
-            <button class="dpad-btn dpad-down" id="btn-down">▼</button>
+            <button class="dpad-btn dpad-right" id="btn-right">:play:</button>
+            <button class="dpad-btn dpad-down" id="btn-down">:arrow_d:</button>
         </div>
+    </div>
+
+    <div id="test-badge">TEST MODE</div>
+    <div id="fps-box"></div>
+    <button id="test-fab" class="test-btn">:bolt: TEST</button>
+    <div id="test-panel">
+        <h4>:bolt: Test tools</h4>
+        <div class="test-grid">
+            <button class="test-btn" id="t-skip">:play: Skip wave</button>
+            <button class="test-btn" id="t-next">:wave: Start next</button>
+            <button class="test-btn" id="t-coins">:box: +100 supplies</button>
+            <button class="test-btn" id="t-heal">:plus: Heal all</button>
+            <button class="test-btn" id="t-walkers">:zombie: +12 walkers</button>
+            <button class="test-btn" id="t-hounds">:dog: +3 hounds</button>
+            <button class="test-btn" id="t-brutes">:skull: +3 brutes</button>
+            <button class="test-btn" id="t-spitters">:hazard: +4 spitters</button>
+            <button class="test-btn" id="t-lvdn">:arrow_d: Wave &minus;5</button>
+            <button class="test-btn" id="t-lvup">:arrow_u: Wave +5</button>
+            <button class="test-btn" id="t-god">:shield: God: OFF</button>
+            <button class="test-btn" id="t-speed">:bolt: Speed x1</button>
+        </div>
+        <div class="test-info" id="test-info"></div>
     </div>
 
     <div id="wave-banner"></div>
@@ -375,16 +399,16 @@
         <div id="gameover-panel">
             <div id="gameover-title"></div>
             <div id="gameover-stats"></div>
-            <button id="gameover-restart">🔄 Try Again</button>
-            <button id="gameover-menu">🏠 Main Menu</button>
+            <button id="gameover-restart">:repeat: Try Again</button>
+            <button id="gameover-menu">:home: Main Menu</button>
         </div>
     </div>
 
     <div id="pause-overlay">
         <h2>PAUSED</h2>
-        <button class="xp-btn" id="p-resume">▶ RESUME</button>
-        <button class="xp-btn blood" id="p-restart">↻ RESTART</button>
-        <button class="xp-btn grey" id="p-menu">⌂ MAIN MENU</button>
+        <button class="xp-btn" id="p-resume">:play: RESUME</button>
+        <button class="xp-btn blood" id="p-restart">:repeat: RESTART</button>
+        <button class="xp-btn grey" id="p-menu">:home: MAIN MENU</button>
     </div>
 
     <div id="menu-root">
@@ -394,14 +418,15 @@
                 <div class="menu-tag">HOLD THE CORDON · HARVEST THE SWARM</div>
             </div>
             <div class="menu-buttons">
-                <button class="xp-btn" id="m-play">▶ PLAY</button>
-                <button class="xp-btn grey" id="m-howto">📖 HOW TO PLAY</button>
-                <button class="xp-btn blood" id="m-back-main">◀ MAIN GAME</button>
+                <button class="xp-btn" id="m-play">:play: PLAY</button>
+                <button class="xp-btn grey" id="m-howto">:book: HOW TO PLAY</button>
+                <button class="xp-btn grey" id="m-test">:bolt: TEST MODE: OFF</button>
+                <button class="xp-btn blood" id="m-back-main">:arrow_l: MAIN GAME</button>
             </div>
-            <div class="menu-footer">Cordon: Outbreak Mode — all abilities unlocked.</div>
+            <div class="menu-footer">Cordon: Outbreak Mode — all abilities unlocked.<br>UI art: MoonRoar by Studios SoulAres · Zombie &amp; character sprites: CraftPix</div>
         </div>
         <div class="menu-screen" id="menu-howto">
-            <button class="xp-btn" id="m-back">◀ BACK</button>
+            <button class="xp-btn" id="m-back">:arrow_l: BACK</button>
             <div class="xp-window">
                 <div class="xp-title">How to Survive</div>
                 <div class="xp-body">
@@ -431,8 +456,8 @@
  *   - Zombie stuck-fixes (node reach, crowd pile-ups, orphaned drag victims).
  *   - Wounded officers walk back to the station and heal using supplies.
  *   - Vehicles have limited ammo and refuel at the station (3 s, costs supplies):
- *       idx 3 → Acid Cannon van (wc_sheet + turret + acid_sheet burst cone)
- *       idx 5 → Mobile Shooter van (response_van_sheet, two deployed gunners)
+ *       idx 3 :arrow_r: Acid Cannon van (wc_sheet + turret + acid_sheet burst cone)
+ *       idx 5 :arrow_r: Mobile Shooter van (response_van_sheet, two deployed gunners)
  *   - Layout matches main game: 3 ability buttons in top bar (hidden for
  *     vehicles / station), Station button above syndicate tabs, station panel
  *     with Train / Heal / Fortify / Ambulance, formations in left panel.
@@ -631,7 +656,7 @@ function updatePulse(sy, idx, dt){
     if (p.active){
         p.used += dt; p.timer += dt;
         if (p.timer >= PULSE_ATTACK_SECONDS){ p.timer = 0; p.step++; }
-        if (p.used >= PULSE_MAX_ACTIVE){ stopPulse(sy); sy.tactic = 'wall'; showToast('💥 Pulse finished — cooldown ' + Math.ceil(p.cooldown) + 's.'); }
+        if (p.used >= PULSE_MAX_ACTIVE){ stopPulse(sy); sy.tactic = 'wall'; showToast(':burst: Pulse finished — cooldown ' + Math.ceil(p.cooldown) + 's.'); }
     } else if (p.cooldown > 0) p.cooldown = Math.max(0, p.cooldown - dt);
     const shown = p.active ? 1000 + Math.ceil(PULSE_MAX_ACTIVE - p.used) : Math.ceil(p.cooldown);
     if (shown !== p.shown){
@@ -1127,6 +1152,20 @@ const ZONES = {
 const ATLAS_TABLE = {"rb1_3":{"kind":"b","zone":"biz","wT":3,"hT":5,"src":"rb1","noflip":false,"x":740,"y":374,"w":48,"h":80},"rb1_3_v1":{"kind":"b","zone":"biz","wT":3,"hT":5,"src":"rb1","noflip":false,"x":790,"y":374,"w":48,"h":80},"rb1_4":{"kind":"b","zone":"biz","wT":4,"hT":7,"src":"rb1","noflip":false,"x":0,"y":146,"w":64,"h":112},"rb1_4_v1":{"kind":"b","zone":"biz","wT":4,"hT":7,"src":"rb1","noflip":false,"x":66,"y":146,"w":64,"h":112},"rb2_4":{"kind":"b","zone":"biz","wT":4,"hT":4,"src":"rb2","noflip":false,"x":874,"y":472,"w":64,"h":64},"rb2_4_v1":{"kind":"b","zone":"biz","wT":4,"hT":4,"src":"rb2","noflip":false,"x":940,"y":472,"w":64,"h":64},"rb2_5":{"kind":"b","zone":"biz","wT":5,"hT":5,"src":"rb2","noflip":false,"x":840,"y":374,"w":80,"h":80},"rb2_5_v1":{"kind":"b","zone":"biz","wT":5,"hT":5,"src":"rb2","noflip":false,"x":922,"y":374,"w":80,"h":80},"rb3_3":{"kind":"b","zone":"biz","wT":3,"hT":5,"src":"rb3","noflip":true,"x":0,"y":472,"w":48,"h":80},"rb3_4":{"kind":"b","zone":"biz","wT":4,"hT":6,"src":"rb3","noflip":true,"x":180,"y":260,"w":64,"h":96},"rb4_4":{"kind":"b","zone":"biz","wT":4,"hT":4,"src":"rb4","noflip":false,"x":0,"y":554,"w":64,"h":64},"rb4_4_v1":{"kind":"b","zone":"biz","wT":4,"hT":4,"src":"rb4","noflip":false,"x":66,"y":554,"w":64,"h":64},"rb4_5":{"kind":"b","zone":"biz","wT":5,"hT":5,"src":"rb4","noflip":false,"x":50,"y":472,"w":80,"h":80},"rb4_5_v1":{"kind":"b","zone":"biz","wT":5,"hT":5,"src":"rb4","noflip":false,"x":132,"y":472,"w":80,"h":80},"rb5_8":{"kind":"b","zone":"biz","wT":8,"hT":5,"src":"rb5","noflip":false,"x":214,"y":472,"w":128,"h":80},"rb5_10":{"kind":"b","zone":"biz","wT":10,"hT":6,"src":"rb5","noflip":false,"x":246,"y":260,"w":160,"h":96},"rb6_10":{"kind":"b","zone":"biz","wT":10,"hT":6,"src":"rb6","noflip":false,"x":408,"y":260,"w":160,"h":96},"rb6_12":{"kind":"b","zone":"biz","wT":12,"hT":7,"src":"rb6","noflip":false,"x":132,"y":146,"w":192,"h":112},"rb7_3":{"kind":"b","zone":"biz","wT":3,"hT":6,"src":"rb7","noflip":false,"x":570,"y":260,"w":48,"h":96},"rb7_3_v1":{"kind":"b","zone":"biz","wT":3,"hT":6,"src":"rb7","noflip":false,"x":620,"y":260,"w":48,"h":96},"rb7_4":{"kind":"b","zone":"biz","wT":4,"hT":8,"src":"rb7","noflip":false,"x":328,"y":0,"w":64,"h":128},"rb7_4_v1":{"kind":"b","zone":"biz","wT":4,"hT":8,"src":"rb7","noflip":false,"x":394,"y":0,"w":64,"h":128},"cb04_4":{"kind":"b","zone":"biz","wT":4,"hT":5,"src":"cb04","noflip":false,"x":344,"y":472,"w":64,"h":80},"cb04_5":{"kind":"b","zone":"biz","wT":5,"hT":6,"src":"cb04","noflip":false,"x":670,"y":260,"w":80,"h":96},"cb10_8":{"kind":"b","zone":"biz","wT":8,"hT":7,"src":"cb10","noflip":false,"x":326,"y":146,"w":128,"h":112},"cb10_10":{"kind":"b","zone":"biz","wT":10,"hT":8,"src":"cb10","noflip":false,"x":460,"y":0,"w":160,"h":128},"cb01_3":{"kind":"b","zone":"res","wT":3,"hT":7,"src":"cb01","noflip":false,"x":456,"y":146,"w":48,"h":112},"cb01_3_v1":{"kind":"b","zone":"res","wT":3,"hT":7,"src":"cb01","noflip":false,"x":506,"y":146,"w":48,"h":112},"cb01_4":{"kind":"b","zone":"res","wT":4,"hT":9,"src":"cb01","noflip":false,"x":0,"y":0,"w":64,"h":144},"cb01_4_v1":{"kind":"b","zone":"res","wT":4,"hT":9,"src":"cb01","noflip":false,"x":66,"y":0,"w":64,"h":144},"cb02_3":{"kind":"b","zone":"res","wT":3,"hT":5,"src":"cb02","noflip":false,"x":410,"y":472,"w":48,"h":80},"cb02_3_v1":{"kind":"b","zone":"res","wT":3,"hT":5,"src":"cb02","noflip":false,"x":460,"y":472,"w":48,"h":80},"cb02_4":{"kind":"b","zone":"res","wT":4,"hT":7,"src":"cb02","noflip":false,"x":556,"y":146,"w":64,"h":112},"cb02_4_v1":{"kind":"b","zone":"res","wT":4,"hT":7,"src":"cb02","noflip":false,"x":622,"y":146,"w":64,"h":112},"cb03_4":{"kind":"b","zone":"res","wT":4,"hT":5,"src":"cb03","noflip":false,"x":510,"y":472,"w":64,"h":80},"cb03_4_v1":{"kind":"b","zone":"res","wT":4,"hT":5,"src":"cb03","noflip":false,"x":576,"y":472,"w":64,"h":80},"cb03_5":{"kind":"b","zone":"res","wT":5,"hT":6,"src":"cb03","noflip":false,"x":752,"y":260,"w":80,"h":96},"cb03_5_v1":{"kind":"b","zone":"res","wT":5,"hT":6,"src":"cb03","noflip":false,"x":834,"y":260,"w":80,"h":96},"cb03_6":{"kind":"b","zone":"res","wT":6,"hT":7,"src":"cb03","noflip":false,"x":688,"y":146,"w":96,"h":112},"cb03_6_v1":{"kind":"b","zone":"res","wT":6,"hT":7,"src":"cb03","noflip":false,"x":786,"y":146,"w":96,"h":112},"cb06_3":{"kind":"b","zone":"res","wT":3,"hT":4,"src":"cb06","noflip":false,"x":132,"y":554,"w":48,"h":64},"cb06_3_v1":{"kind":"b","zone":"res","wT":3,"hT":4,"src":"cb06","noflip":false,"x":182,"y":554,"w":48,"h":64},"cb06_4":{"kind":"b","zone":"res","wT":4,"hT":6,"src":"cb06","noflip":false,"x":916,"y":260,"w":64,"h":96},"cb06_4_v1":{"kind":"b","zone":"res","wT":4,"hT":6,"src":"cb06","noflip":false,"x":0,"y":374,"w":64,"h":96},"cb08_4":{"kind":"b","zone":"res","wT":4,"hT":4,"src":"cb08","noflip":false,"x":232,"y":554,"w":64,"h":64},"cb08_4_v1":{"kind":"b","zone":"res","wT":4,"hT":4,"src":"cb08","noflip":false,"x":298,"y":554,"w":64,"h":64},"cb08_5":{"kind":"b","zone":"res","wT":5,"hT":6,"src":"cb08","noflip":false,"x":66,"y":374,"w":80,"h":96},"cb08_5_v1":{"kind":"b","zone":"res","wT":5,"hT":6,"src":"cb08","noflip":false,"x":148,"y":374,"w":80,"h":96},"cb09_4":{"kind":"b","zone":"res","wT":4,"hT":5,"src":"cb09","noflip":false,"x":642,"y":472,"w":64,"h":80},"cb09_4_v1":{"kind":"b","zone":"res","wT":4,"hT":5,"src":"cb09","noflip":false,"x":708,"y":472,"w":64,"h":80},"cb09_5":{"kind":"b","zone":"res","wT":5,"hT":6,"src":"cb09","noflip":false,"x":230,"y":374,"w":80,"h":96},"cb09_5_v1":{"kind":"b","zone":"res","wT":5,"hT":6,"src":"cb09","noflip":false,"x":312,"y":374,"w":80,"h":96},"cb05_3":{"kind":"b","zone":"ind","wT":3,"hT":5,"src":"cb05","noflip":false,"x":774,"y":472,"w":48,"h":80},"cb05_3_v1":{"kind":"b","zone":"ind","wT":3,"hT":5,"src":"cb05","noflip":false,"x":824,"y":472,"w":48,"h":80},"cb05_4":{"kind":"b","zone":"ind","wT":4,"hT":6,"src":"cb05","noflip":false,"x":394,"y":374,"w":64,"h":96},"cb05_4_v1":{"kind":"b","zone":"ind","wT":4,"hT":6,"src":"cb05","noflip":false,"x":460,"y":374,"w":64,"h":96},"cb05_5":{"kind":"b","zone":"ind","wT":5,"hT":8,"src":"cb05","noflip":false,"x":622,"y":0,"w":80,"h":128},"cb05_5_v1":{"kind":"b","zone":"ind","wT":5,"hT":8,"src":"cb05","noflip":false,"x":704,"y":0,"w":80,"h":128},"cb05_6":{"kind":"b","zone":"ind","wT":6,"hT":9,"src":"cb05","noflip":false,"x":132,"y":0,"w":96,"h":144},"cb05_6_v1":{"kind":"b","zone":"ind","wT":6,"hT":9,"src":"cb05","noflip":false,"x":230,"y":0,"w":96,"h":144},"cb07_3":{"kind":"b","zone":"ind","wT":3,"hT":4,"src":"cb07","noflip":false,"x":364,"y":554,"w":48,"h":64},"cb07_3_v1":{"kind":"b","zone":"ind","wT":3,"hT":4,"src":"cb07","noflip":false,"x":414,"y":554,"w":48,"h":64},"cb07_4":{"kind":"b","zone":"ind","wT":4,"hT":6,"src":"cb07","noflip":false,"x":526,"y":374,"w":64,"h":96},"cb07_4_v1":{"kind":"b","zone":"ind","wT":4,"hT":6,"src":"cb07","noflip":false,"x":592,"y":374,"w":64,"h":96},"cb07_5":{"kind":"b","zone":"ind","wT":5,"hT":7,"src":"cb07","noflip":false,"x":884,"y":146,"w":80,"h":112},"cb07_5_v1":{"kind":"b","zone":"ind","wT":5,"hT":7,"src":"cb07","noflip":false,"x":0,"y":260,"w":80,"h":112},"cb07_6":{"kind":"b","zone":"ind","wT":6,"hT":8,"src":"cb07","noflip":false,"x":786,"y":0,"w":96,"h":128},"cb07_6_v1":{"kind":"b","zone":"ind","wT":6,"hT":8,"src":"cb07","noflip":false,"x":884,"y":0,"w":96,"h":128},"cb08i_5":{"kind":"b","zone":"ind","wT":5,"hT":6,"src":"cb08i","noflip":false,"x":658,"y":374,"w":80,"h":96},"cb08i_6":{"kind":"b","zone":"ind","wT":6,"hT":7,"src":"cb08i","noflip":false,"x":82,"y":260,"w":96,"h":112}};
 const STATION_ATLAS = { x:692, y:640, w:192, h:144 };
 
+// Test mode is switched on in the main game's Settings (or with the button on this game's menu).
+// Both games read the same record, so one switch controls both.
+const SETTINGS_KEY = 'cordon.settings.v1';
+function loadSettings(){
+    const st = { testMode: false, showFps: false };
+    try { const d = JSON.parse(window.localStorage.getItem(SETTINGS_KEY) || '{}'); if (d && typeof d === 'object'){ st.testMode = !!d.testMode; st.showFps = !!d.showFps; } } catch (e) {}
+    return st;
+}
+let settings = loadSettings();
+function saveSettings(){
+    // merge, so we never wipe the main game's other settings
+    try { const d = JSON.parse(window.localStorage.getItem(SETTINGS_KEY) || '{}') || {}; d.testMode = settings.testMode; d.showFps = settings.showFps; window.localStorage.setItem(SETTINGS_KEY, JSON.stringify(d)); } catch (e) {}
+}
+
 const ASSET_PATHS = {
     city_atlas: 'assets/map/buildings/city_atlas_zombie.png',
     road_asphalt: 'assets/map/roads/road_asphalt.png',
@@ -1139,6 +1178,8 @@ const ASSET_PATHS = {
     // ---- Zombie-side art: its own copies live in assets/zombie/ so this game can diverge from the main one ----
     units_sheet: 'assets/zombie/units/units_sheet.png',
     k9_sheet: 'assets/zombie/units/k9_gsd_sheet.png',
+    zombie_sheet: 'assets/zombie/units/zombie_sheet.png',
+    hound_sheet: 'assets/zombie/units/zombie_hound_sheet.png',
     amb_sheet: 'assets/zombie/vehicles/ambulance_sheet.png',
     wc_sheet: 'assets/zombie/vehicles/water_cannon_sheet.png',
     wc_turret: 'assets/zombie/vehicles/water_cannon_turret.png',
@@ -1996,10 +2037,12 @@ const ALL_OUT_PALETTE = { cloth:'#5a2a30', dark:'#2a1018', visor:'#ffd08a', shie
 
 function drawHpBar(ctx, sx, sy, hp, maxHp, color){
     if (hp >= maxHp) return;
-    const barW = 22;
-    ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.fillRect(sx - barW/2, sy, barW, 3);
-    const pct = Math.max(0, Math.min(1, hp/maxHp));
-    ctx.fillStyle = color; ctx.fillRect(sx - barW/2, sy, barW*pct, 3);
+    const barW = 22, x = Math.round(sx - barW/2), y = Math.round(sy);
+    const pct = Math.max(0, Math.min(1, hp/maxHp)), w = Math.max(0, Math.round(barW*pct));
+    ctx.fillStyle = '#222034'; ctx.fillRect(x - 1, y - 1, barW + 2, 5);
+    ctx.fillStyle = '#4c4869'; ctx.fillRect(x, y, barW, 3);
+    ctx.fillStyle = color; ctx.fillRect(x, y, w, 3);
+    ctx.fillStyle = 'rgba(255,255,255,0.4)'; ctx.fillRect(x, y, w, 1);
 }
 function updateGait(u, dt){
     const raw = u.curSpeed || 0;
@@ -2177,7 +2220,7 @@ class Officer {
                 const now = performance.now();
                 if (!game._noSupplyToastAt || now - game._noSupplyToastAt > 9000){
                     game._noSupplyToastAt = now;
-                    showToast('📦 Out of supplies — wounded officers are waiting at the station.');
+                    showToast(':box: Out of supplies — wounded officers are waiting at the station.');
                 }
             }
             return;
@@ -2307,7 +2350,7 @@ class Officer {
         drawHpBar(ctx, sx, sy - 23, this.hp, this.maxHp, this.isAllOut ? '#ffb45c' : '#6cc4ff');
         if (this.isAllOut){
             ctx.fillStyle = '#ff8a5c'; ctx.font = 'bold 8px monospace'; ctx.textAlign = 'center';
-            ctx.fillText('⚡', sx, sy - 28);
+            drawIcon(ctx, 'bolt', sx, sy - 32, 11);
         } else if (this.state === 'retreating'){
             ctx.fillStyle = '#ff4444';
             ctx.font = '8px monospace'; ctx.textAlign = 'center';
@@ -2315,13 +2358,16 @@ class Officer {
         } else if (this.state === 'healing'){
             ctx.fillStyle = this.waitingForSupplies ? '#ffaa00' : '#6be08a';
             ctx.font = 'bold 9px monospace'; ctx.textAlign = 'center';
-            ctx.fillText(this.waitingForSupplies ? '📦?' : '+', sx, sy - 32);
+            { if (this.waitingForSupplies) drawIcon(ctx, 'box', sx, sy - 36, 11); else ctx.fillText('+', sx, sy - 32); }
         }
     }
 }
 
 // ============================ ZOMBIE ============================
 const ZOMBIE_TYPES = {
+    // HOUND: a turned guard dog. Fast, tough and bites hard - it can drop an officer or two before the line overpowers it.
+    // Not in the normal spawn mix: startWave() adds a few every third wave (and now and then in between).
+    hound:   { name:'Hound',   hp:520,  damage:34,  meleeRange:1.15, atkCooldown:0.50, speed:3.3, weight: 0, value:6 },
     walker:  { name:'Walker',  hp: 55,  damage: 8,  meleeRange:1.20, atkCooldown:1.10, speed:1.7, weight:60, value:2 },
     runner:  { name:'Runner',  hp: 40,  damage: 6,  meleeRange:1.00, atkCooldown:0.90, speed:2.6, weight:30, value:3 },
     brute:   { name:'Brute',   hp:180,  damage:18,  meleeRange:1.40, atkCooldown:1.80, speed:1.2, weight:10, value:6 },
@@ -2431,7 +2477,7 @@ class Zombie {
         if (this.acidBurn > 0){
             this.acidBurn -= dt;
             this.hp -= 8 * dt;
-            if (this.hp <= 0){ this.alive = false; game.kills++; addBloodDecal(this.x, this.y); return; }
+            if (this.hp <= 0){ this.alive = false; game.kills++; addBloodDecal(this.x, this.y, this); return; }
         }
 
         if (this.beingDragged){
@@ -2515,7 +2561,7 @@ class Zombie {
                 this.atkTimer = this.def.atkCooldown;
                 this.attackFlash = 0.22;
                 // FIXED: was dealDamageToOfficer (undefined) — now calls the real function
-                dealDamageToOfficer(target, this.def.damage * this.dmgMult);
+                dealDamageToOfficer(target, this.def.damage * this.dmgMult, this.kind === 'hound');
             }
             return;
         }
@@ -2554,6 +2600,7 @@ class Zombie {
             }
         }
         if (this._screamBuff > 0) spd *= 1.25;
+        if (this.kind === 'hound' && target && Math.hypot(target.x - this.x, target.y - this.y) < TILE * 6) spd *= 1.3;   // lunge
 
         this.repathTimer -= dt;
         if (this.repathTimer <= 0 || this.routeVersion !== game.blockadeVersion || !this.route){
@@ -2630,36 +2677,106 @@ class Zombie {
         if (this.stunTimer > 0){
             ctx.fillStyle = 'rgba(255,220,120,0.9)';
             ctx.font = 'bold 10px monospace'; ctx.textAlign = 'center';
-            ctx.fillText('💫', sx, sy - 30);
+            drawIcon(ctx, 'dizzy', sx, sy - 34, 11);
         }
         if (this.acidBurn > 0){
             ctx.fillStyle = 'rgba(180,240,80,0.9)';
             ctx.font = 'bold 10px monospace'; ctx.textAlign = 'center';
-            ctx.fillText('☣', sx, sy - 30);
+            drawIcon(ctx, 'hazard', sx, sy - 34, 11);
         }
         if (this.beingDragged){
             ctx.fillStyle = 'rgba(200,150,255,0.9)';
             ctx.font = 'bold 9px monospace'; ctx.textAlign = 'center';
-            ctx.fillText('🔗', sx, sy - 30);
+            drawIcon(ctx, 'link', sx, sy - 34, 11);
         }
         if (this.kind === 'screamer'){
             ctx.fillStyle = 'rgba(255,140,80,0.9)';
             ctx.font = 'bold 8px monospace'; ctx.textAlign = 'center';
-            ctx.fillText('☠', sx, sy - 30);
+            drawIcon(ctx, 'skull', sx, sy - 34, 11);
         }
         if (this.kind === 'spitter'){
             ctx.fillStyle = 'rgba(180,240,90,0.9)';
             ctx.font = 'bold 8px monospace'; ctx.textAlign = 'center';
-            ctx.fillText('☣', sx, sy - 30);
+            drawIcon(ctx, 'hazard', sx, sy - 34, 11);
         }
         if (this.kind === 'tank'){
             ctx.fillStyle = 'rgba(255,60,60,0.95)';
             ctx.font = 'bold 10px monospace'; ctx.textAlign = 'center';
-            ctx.fillText('☠', sx, sy - 32);
+            drawIcon(ctx, 'skull', sx, sy - 36, 11);
         }
     }
 }
+// ---- zombie sprites: assets/zombie/units/zombie_sheet.png (one row per look, 64px frames) ----
+const ZOMBIE_SHEET = {
+    rows: {suit: 0, lunge: 1, bald: 2, skirt: 3, man: 4, woman: 5, wild: 6, brute: 7, tank: 8, spitter: 9, screamer: 10},
+    layout: {suit: {idle: [0, 6], walk: [6, 10], run: [6, 10], attack: [16, 5], hurt: [21, 4], dead: [25, 5], scream: [16, 5]}, lunge: {idle: [0, 6], walk: [6, 10], run: [6, 10], attack: [16, 5], hurt: [21, 4], dead: [25, 5], scream: [16, 5]}, bald: {idle: [0, 6], walk: [6, 10], run: [6, 10], attack: [16, 4], hurt: [20, 4], dead: [24, 5], scream: [16, 4]}, skirt: {idle: [0, 7], walk: [7, 12], run: [7, 12], attack: [19, 10], hurt: [29, 4], dead: [33, 5], scream: [19, 10]}, man: {idle: [0, 8], walk: [8, 8], run: [16, 7], attack: [23, 5], hurt: [28, 3], dead: [31, 5], scream: [23, 5]}, woman: {idle: [0, 5], walk: [5, 7], run: [12, 7], attack: [19, 4], hurt: [23, 3], dead: [26, 5], scream: [31, 5]}, wild: {idle: [0, 9], walk: [9, 10], run: [19, 8], attack: [27, 4], hurt: [31, 5], dead: [36, 5], scream: [27, 4]}, brute: {idle: [0, 6], walk: [6, 10], run: [6, 10], attack: [16, 4], hurt: [20, 4], dead: [24, 5], scream: [16, 4]}, tank: {idle: [0, 6], walk: [6, 10], run: [6, 10], attack: [16, 5], hurt: [21, 4], dead: [25, 5], scream: [16, 5]}, spitter: {idle: [0, 5], walk: [5, 7], run: [12, 7], attack: [19, 4], hurt: [23, 3], dead: [26, 5], scream: [31, 5]}, screamer: {idle: [0, 7], walk: [7, 12], run: [7, 12], attack: [19, 10], hurt: [29, 4], dead: [33, 5], scream: [19, 10]}},
+};
+const ZOMBIE_LOOKS = {
+    walker: ['suit', 'bald', 'skirt', 'man', 'woman', 'lunge'],
+    runner: ['wild', 'lunge', 'man'],
+    brute: ['brute'], spitter: ['spitter'], screamer: ['screamer'], tank: ['tank'],
+};
+const ZOMBIE_SCALE = { walker: 1, runner: 1, brute: 1.22, spitter: 1, screamer: 1, tank: 1.5 };
+function zombieLook(z){
+    if (!z._look){ const arr = ZOMBIE_LOOKS[z.kind] || ZOMBIE_LOOKS.walker; z._look = arr[(z.id * 7 + 3) % arr.length]; }
+    return z._look;
+}
+function zombieSheetCol(look, anim, f){
+    const fr = ZOMBIE_SHEET.layout[look][anim] || ZOMBIE_SHEET.layout[look].walk;
+    return fr[0] + (((f % fr[1]) + fr[1]) % fr[1]);
+}
+function drawZombieSprite(ctx, z){
+    if (z.kind === 'hound') return drawHoundSprite(ctx, z);
+    const img = assets['zombie_sheet'];
+    if (!img) return false;
+    const look = zombieLook(z), lay = ZOMBIE_SHEET.layout[look], row = ZOMBIE_SHEET.rows[look];
+    const now = game.lastTime || 0;
+    let anim = 'idle', f = 0;
+    if (z.hitAt && now - z.hitAt < 190){ anim = 'hurt'; f = Math.floor((now - z.hitAt) / 64); }
+    else if (z.stunTimer > 0){ anim = 'hurt'; f = Math.floor(z.animTimer * 4); }
+    else if (z.attackFlash > 0){ anim = (z.kind === 'screamer' && lay.scream) ? 'scream' : 'attack'; f = Math.floor(Math.max(0, 1 - z.attackFlash / 0.25) * lay[anim][1]); }
+    else if (z.isMoving){ const fast = z.kind === 'runner' || z._screamBuff > 0; anim = fast ? 'run' : 'walk'; f = Math.floor(z.animTimer * (fast ? 13 : 8)); }
+    else f = Math.floor(z.animTimer * 5);
+    const sc = ZOMBIE_SCALE[z.kind] || 1;
+    const was = ctx.imageSmoothingEnabled; ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(img, zombieSheetCol(look, anim, f) * 64, row * 64, 64, 64, -16 * sc, -24.5 * sc, 32 * sc, 32 * sc);
+    ctx.imageSmoothingEnabled = was;
+    return true;
+}
+// Hound: the German-shepherd sheet turned grey-green and rotten (assets/zombie/units/zombie_hound_sheet.png, 128x96 frames:
+// row 0 idle, row 1 walk, row 2 run, row 3 attack)
+function drawHoundSprite(ctx, z){
+    const img = assets['hound_sheet'];
+    if (!img) return false;
+    let row = 0, n = 4, f;
+    if (z.attackFlash > 0){ row = 3; n = 8; f = Math.floor(Math.max(0, 1 - z.attackFlash / 0.22) * 8); }
+    else if (z.isMoving){ row = 2; n = 8; f = Math.floor(z.animTimer * 17); }
+    else f = Math.floor(z.animTimer * 4);
+    const col = ((f % n) + n) % n;
+    const hurt = z.hitAt && (game.lastTime || 0) - z.hitAt < 120;
+    const was = ctx.imageSmoothingEnabled; ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(img, col * 128, row * 96, 128, 96, -23, -28, 46, 34);
+    if (hurt){ ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = 0.35; ctx.drawImage(img, col * 128, row * 96, 128, 96, -23, -28, 46, 34); ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over'; }
+    ctx.imageSmoothingEnabled = was;
+    return true;
+}
+// Corpse left behind for a few seconds (last frames of the "dead" animation)
+function drawCorpse(ctx, b, sx, sy){
+    const img = assets['zombie_sheet'];
+    if (!img || !b.corpse || b.corpse.kind === 'hound' || b.t > 12) return;
+    const look = b.corpse.look, lay = ZOMBIE_SHEET.layout[look], row = ZOMBIE_SHEET.rows[look];
+    if (!lay || !lay.dead) return;
+    const f = Math.min(lay.dead[1] - 1, Math.floor(b.t * 10));
+    const sc = ZOMBIE_SCALE[b.corpse.kind] || 1;
+    ctx.save();
+    ctx.globalAlpha = b.t > 9 ? Math.max(0, (12 - b.t) / 3) : 1;
+    ctx.translate(sx, sy); if (b.corpse.left) ctx.scale(-1, 1);
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(img, (lay.dead[0] + f) * 64, row * 64, 64, 64, -16 * sc, -24.5 * sc, 32 * sc, 32 * sc);
+    ctx.restore();
+}
 function drawZombieFigure(ctx, z){
+    if (drawZombieSprite(ctx, z)) return;
     const phase = z.animTimer * (z.isMoving ? 3.5 : 1.3);
     const legSwing = Math.sin(phase) * (z.isMoving ? 1 : 0.15);
     const sway = Math.sin(phase*0.6)*1.4;
@@ -2699,23 +2816,28 @@ function drawZombieFigure(ctx, z){
 }
 
 // ============================ COMBAT ============================
+// A hound's thick hide soaks up most of every hit (batons, gas, acid). That is what lets it bite through an officer or two
+// before the line wears it down. Raise HOUND_ARMOR (max 1) to make hounds easier, lower it to make them tougher.
+const HOUND_ARMOR = 0.22;
 function damageZombie(z, amount){
     if (!z.alive) return;
     if (z.beingDragged) return;
+    if (z.kind === 'hound') amount *= HOUND_ARMOR;
     z.hp -= amount;
+    z.hitAt = game.lastTime || 0;
     z.timeSinceDamage = 0;
     spawnHitEffect(z.x, z.y);
     if (game.waveTotalHp > 0) game.waveMoralePct = Math.max(0, game.waveMoralePct - (amount / game.waveTotalHp) * 100);
     if (z.hp <= 0 && z.alive){
         z.alive = false;
         game.kills++;
-        addBloodDecal(z.x, z.y);
+        addBloodDecal(z.x, z.y, z);
     }
 }
 // RENAMED: this is the function zombies call. It was previously named damageOfficer,
 // and the zombie's melee call used dealDamageToOfficer (undefined) — so zombies
 // never dealt damage. Also matches the main game's naming convention.
-function dealDamageToOfficer(o, amount){
+function dealDamageToOfficer(o, amount, pierce){
     if (!o.alive) return;
     if (!o.isAllOut && o.syndicateIndex >= 0){
         const syHit = game.syndicates[o.syndicateIndex];
@@ -2725,26 +2847,30 @@ function dealDamageToOfficer(o, amount){
             o.shieldUp = true;
         }
     }
-    const shieldMult = o.shieldUp ? 0.5 : 1.15;
+    let shieldMult = o.shieldUp ? 0.5 : 1.15;
+    if (pierce) shieldMult = 1;
     let resist;
     if (o.formationResist !== undefined) resist = o.formationResist;
     else {
         const sy = game.syndicates[o.syndicateIndex];
         resist = sy ? formationResistance(activeTacticOf(sy)) : 0;
     }
+    if (pierce) resist *= 0.4;
     const finalDmg = amount * shieldMult * (1 - resist) * (o.syndicateIndex >= 0 ? cmdBoost(o.syndicateIndex, 'guard') : 1);
-    o.hp -= finalDmg;
+    if (!game.testGod) o.hp -= finalDmg;
     spawnHitEffect(o.x, o.y);
     if (o.hp <= 0 && o.alive) o.alive = false;
 }
 function damageBase(amount){
+    if (game.testGod) return;
     game.baseHp = Math.max(0, game.baseHp - amount);
     game.baseRegenTimer = BASE_REGEN_DELAY;
     if (game.baseHp <= 0 && !game.gameOver) endGame(false);
 }
 function spawnHitEffect(x, y){ game.effects.push({ x, y, t:0, life:0.25 }); }
-function addBloodDecal(x, y){
-    game.bloodDecals.push({ x, y, t:0, life:60, seed:Math.random()*10 });
+function addBloodDecal(x, y, z){
+    const dead = z ? { kind: z.kind, look: z.kind === 'hound' ? null : zombieLook(z), left: facesLeft(z) } : null;
+    game.bloodDecals.push({ x, y, t:0, life:60, seed:Math.random()*10, corpse: dead });
     if (game.bloodDecals.length > 80) game.bloodDecals.shift();
 }
 function updateEffects(dt){
@@ -2866,7 +2992,7 @@ class Commander {
         drawSpriteUnit(ctx, this, UNIT_ROWS.commander);
         ctx.restore();
         ctx.fillStyle = '#ffe066'; ctx.font = 'bold 9px sans-serif'; ctx.textAlign = 'center';
-        ctx.fillText('★', sx, sy - 26);
+        drawIcon(ctx, 'star', sx, sy - 30, 11);
         if (this.shout) this.drawBubble(ctx, sx, sy - 31);
     }
     drawBubble(ctx, sx, sy){
@@ -3039,7 +3165,7 @@ class AcidOfficer {
                 if (z.hp <= 0 && z.alive){
                     z.alive = false;
                     game.kills++;
-                    addBloodDecal(z.x, z.y);
+                    addBloodDecal(z.x, z.y, z);
                 }
             }
         }
@@ -3059,10 +3185,10 @@ class AcidOfficer {
         drawHpBar(ctx, sx, sy - 23, this.hp, this.maxHp, '#c8d040');
         if (this.state === 'advancing'){
             ctx.fillStyle = '#e0e070'; ctx.font = 'bold 8px monospace'; ctx.textAlign = 'center';
-            ctx.fillText('➤', sx, sy - 28);
+            drawIcon(ctx, 'arrow_r', sx, sy - 32, 11);
         } else if (this.state === 'spraying'){
             ctx.fillStyle = '#f0f080'; ctx.font = 'bold 8px monospace'; ctx.textAlign = 'center';
-            ctx.fillText('🧪', sx, sy - 28);
+            drawIcon(ctx, 'flask', sx, sy - 32, 11);
         }
     }
     drawAcidCloud(ctx){
@@ -3185,7 +3311,7 @@ class TestSubjectGrabber {
                 z.alive = false;
                 z.beingDragged = false;
                 z.grabber = null;
-                showToast(`🧟 Subject processed! +${val} supplies`);
+                showToast(`:zombie: Subject processed! +${val} supplies`);
                 this.dragging = null;
                 this.state = 'escort';
                 this.dragTimer = 0;
@@ -3226,7 +3352,7 @@ class TestSubjectGrabber {
             this.dragTimer = 0;
             this.route = null;
             spawnHitEffect(best.x, best.y);
-            showToast('🧟 Subject secured — delivering to station!');
+            showToast(':zombie: Subject secured — delivering to station!');
             return;
         }
         let chaseTarget = null, chaseBest = Infinity;
@@ -3265,7 +3391,7 @@ class TestSubjectGrabber {
         drawHpBar(ctx, sx, sy - 23, this.hp, this.maxHp, '#c8a0ff');
         if (this.dragging){
             ctx.fillStyle = '#c8a0ff'; ctx.font = 'bold 10px monospace'; ctx.textAlign = 'center';
-            ctx.fillText('🔗', sx, sy - 28);
+            drawIcon(ctx, 'link', sx, sy - 32, 11);
         } else if (this.lifeTimer < 8){
             ctx.fillStyle = '#9a7ac0'; ctx.font = '7px monospace'; ctx.textAlign = 'center';
             ctx.fillText(Math.ceil(this.lifeTimer) + 's', sx, sy - 28);
@@ -3399,7 +3525,7 @@ class K9Unit {
                     }
                 }
             } else this.followOfficer(dt, K9_SPEED*0.7);
-            if (this.deployTimer <= 0){ this.deployTimer = 0; showToast('🐕 K9 is returning to handler.'); }
+            if (this.deployTimer <= 0){ this.deployTimer = 0; showToast(':dog: K9 is returning to handler.'); }
             return;
         }
         this.followOfficer(dt, K9_SPEED*0.9);
@@ -3459,7 +3585,7 @@ class K9Unit {
         drawHpBar(ctx, sx, sy - 16, this.hp, this.maxHp, '#ffcc33');
         if (this.deployTimer > 0){
             ctx.fillStyle = '#ff8a5c'; ctx.font = 'bold 8px monospace'; ctx.textAlign = 'center';
-            ctx.fillText('⚡', sx, sy - 18);
+            drawIcon(ctx, 'bolt', sx, sy - 22, 11);
         } else if (this.cooldownTimer > 0){
             ctx.fillStyle = '#8a919c'; ctx.font = '7px monospace'; ctx.textAlign = 'center';
             ctx.fillText(Math.ceil(this.cooldownTimer) + 's', sx, sy - 18);
@@ -3548,7 +3674,7 @@ class AmbulanceVehicle {
             if (Math.hypot(base.x - this.x, base.y - this.y) < TILE*2.5){
                 this.alive = false;
                 game.ambulanceCooldown = AMB_COOLDOWN;
-                showToast('🚑 Ambulance back at the station.');
+                showToast(':ambulance: Ambulance back at the station.');
                 renderOptionsPanel();
             }
         }
@@ -3600,14 +3726,14 @@ class AmbulanceVehicle {
     }
 }
 function deployAmbulance(){
-    if (game.ambulance && game.ambulance.alive){ showToast('🚑 The ambulance is already out.'); return; }
-    if ((game.ambulanceCooldown || 0) > 0){ showToast('🚑 Ambulance restocking — ' + Math.ceil(game.ambulanceCooldown) + 's.'); return; }
+    if (game.ambulance && game.ambulance.alive){ showToast(':ambulance: The ambulance is already out.'); return; }
+    if ((game.ambulanceCooldown || 0) > 0){ showToast(':ambulance: Ambulance restocking — ' + Math.ceil(game.ambulanceCooldown) + 's.'); return; }
     const amb = new AmbulanceVehicle();
     let anyHurt = false;
     for (let i = 0; i < OFFICER_SYNDICATES; i++) if (amb.missing(i) > 2){ anyHurt = true; break; }
     game.ambulance = amb;
-    if (anyHurt) showToast('🚑 Ambulance dispatched — it will treat the most injured syndicate.');
-    else showToast('🚑 Ambulance dispatched — nobody hurt yet, holding at station.');
+    if (anyHurt) showToast(':ambulance: Ambulance dispatched — it will treat the most injured syndicate.');
+    else showToast(':ambulance: Ambulance dispatched — nobody hurt yet, holding at station.');
     renderOptionsPanel();
 }
 function updateAmbulance(dt){
@@ -3675,8 +3801,8 @@ class WaterCannonVehicle {
         this.setSpot(bay, true);
         const sy = game.syndicates[this.syndicateIndex];
         if (sy){ sy.commandX = bay.x; sy.commandY = bay.y; }
-        showToast(auto ? ('⛽ ' + this.shortName() + ' is empty — heading to the station to refill.')
-                       : ('⛽ ' + this.shortName() + ' heading to the station to refill.'));
+        showToast(auto ? (':fuel: ' + this.shortName() + ' is empty — heading to the station to refill.')
+                       : (':fuel: ' + this.shortName() + ' heading to the station to refill.'));
         return true;
     }
     shortName(){ return this.kind === 'rubberbullet' ? 'Mobile Shooter' : 'Acid Cannon'; }
@@ -3684,7 +3810,7 @@ class WaterCannonVehicle {
         const resumeKey = this.refill ? this.refill.resumeKey : null;
         this.refill = null; this.refillWait = false; this._emptyHandled = false;
         this.ammo = this.maxAmmo;
-        showToast('✅ ' + this.shortName() + ' refilled.');
+        showToast(':check: ' + this.shortName() + ' refilled.');
         const resume = resumeKey ? BLOCKADE_SPOTS.find(sp => sp.key === resumeKey) : null;
         if (resume){
             this.setSpot(resume, true);
@@ -3721,7 +3847,7 @@ class WaterCannonVehicle {
             const now = performance.now();
             if (!game._noSupplyToastAt || now - game._noSupplyToastAt > 9000){
                 game._noSupplyToastAt = now;
-                showToast('📦 Not enough supplies to refill — the ' + this.shortName() + ' is waiting at the station.');
+                showToast(':box: Not enough supplies to refill — the ' + this.shortName() + ' is waiting at the station.');
             }
         }
         if (this.maxAmmo - this.ammo <= 0.01) this.finishRefill();
@@ -3881,7 +4007,7 @@ class WaterCannonVehicle {
                         this.routeIdx++;
                     } else {
                         this.clearTarget();
-                        showToast('🚙 No clear route to that blockade point.');
+                        showToast(':car: No clear route to that blockade point.');
                     }
                 }
             }
@@ -4141,10 +4267,10 @@ class WaterCannonVehicle {
         ctx.font = 'bold 8px monospace'; ctx.textAlign = 'center';
         if (this.isRefilling()){
             ctx.fillStyle = this.refillWait ? '#ffaa00' : '#9be84a';
-            ctx.fillText(this.refillWait ? '⛽ need 📦' : '⛽ refilling…', sx, y - 3);
+            { drawIcon(ctx, 'fuel', sx - 26, y - 7, 10); ctx.fillText(this.refillWait ? 'need supplies' : 'refilling…', sx + 4, y - 3); }
         } else if (this.refill){
             ctx.fillStyle = '#ffd24a';
-            ctx.fillText('⛽ to station', sx, y - 3);
+            { drawIcon(ctx, 'fuel', sx - 24, y - 7, 10); ctx.fillText('to station', sx + 4, y - 3); }
         } else if (this.ammo <= 0.01){
             ctx.fillStyle = '#ff5a4a';
             ctx.fillText('EMPTY', sx, y - 3);
@@ -4591,9 +4717,9 @@ function applyTactic(kind){
     const p = ensurePulse(sy);
     sy.post = null;
     if (kind === 'pulse'){
-        if (sy.tactic === 'pulse'){ stopPulse(sy); sy.tactic = 'wall'; showToast('💥 Pulse off — cooldown ' + Math.ceil(p.cooldown) + 's.'); }
-        else if (p.cooldown > 0){ showToast('💥 Pulse recharging — ' + Math.ceil(p.cooldown) + 's.'); return; }
-        else { sy.tactic = 'pulse'; startPulse(sy); showToast('💥 Pulse — the front rank steps out in fives.'); }
+        if (sy.tactic === 'pulse'){ stopPulse(sy); sy.tactic = 'wall'; showToast(':burst: Pulse off — cooldown ' + Math.ceil(p.cooldown) + 's.'); }
+        else if (p.cooldown > 0){ showToast(':burst: Pulse recharging — ' + Math.ceil(p.cooldown) + 's.'); return; }
+        else { sy.tactic = 'pulse'; startPulse(sy); showToast(':burst: Pulse — the front rank steps out in fives.'); }
     } else {
         if (sy.tactic === 'pulse') stopPulse(sy);
         sy.tactic = kind;
@@ -4649,8 +4775,8 @@ function setVehicleTarget(spot){
     if (!v || !spot) return;
     const wasRefilling = !!v.refill;
     v.setSpot(spot);
-    if (v.ammo <= 0.01 && !v.refill) showToast('⛽ ' + v.shortName() + ' is EMPTY — use the Refill button when you want it back at the station.');
-    else if (wasRefilling && !v.refill) showToast('⛽ Refill trip cancelled.');
+    if (v.ammo <= 0.01 && !v.refill) showToast(':fuel: ' + v.shortName() + ' is EMPTY — use the Refill button when you want it back at the station.');
+    else if (wasRefilling && !v.refill) showToast(':fuel: Refill trip cancelled.');
     const sy = game.syndicates[game.selectedSyndicate];
     if (sy){ sy.commandX = spot.x; sy.commandY = spot.y; }
     renderOptionsPanel(); updateSelectionUI();
@@ -4693,7 +4819,7 @@ function commandSyndicateToPost(post){
     updateSelectionUI();
     const dirNames = { N:'north', S:'south', E:'east', W:'west' };
     const covered = post.cover.map(d => dirNames[d]).join(', ');
-    showToast('🎯 Syndicate moving to ' + dirNames[post.dir] + ' post — covering ' + covered + '.');
+    showToast(':target: Syndicate moving to ' + dirNames[post.dir] + ' post — covering ' + covered + '.');
 }
 function updateSyndicateMovement(dt){
     for (let i = 0; i < OFFICER_SYNDICATES; i++){
@@ -4748,8 +4874,8 @@ function toggleMergedMode(){
 function updateMergedButton(){
     const btn = document.getElementById('all-units-btn');
     if (!btn) return;
-    if (game.mergedMode){ btn.classList.add('active'); btn.textContent = '🔓 Release Units'; }
-    else { btn.classList.remove('active'); btn.textContent = '🪖 All Units On Me'; }
+    if (game.mergedMode){ btn.classList.add('active'); btn.textContent = ':unlock: Release Units'; }
+    else { btn.classList.remove('active'); btn.textContent = ':helmet: All Units On Me'; }
 }
 function triggerAllOut(){
     if (game.allOutCooldown > 0 || game.gameOver) return;
@@ -4769,7 +4895,7 @@ function triggerAllOut(){
             game.officers.push(o);
         }
     }
-    showToast('🚨 ALL OUT! Shield box formed around the station!');
+    showToast(':siren: ALL OUT! Shield box formed around the station!');
     updateAllOutButton();
 }
 function updateAllOutButton(){
@@ -4777,10 +4903,10 @@ function updateAllOutButton(){
     if (!btn) return;
     if (game.allOutCooldown > 0){
         btn.disabled = true; btn.classList.remove('ready');
-        btn.textContent = '🚨 ALL OUT (' + Math.ceil(game.allOutCooldown) + 's)';
+        btn.textContent = ':siren: ALL OUT (' + Math.ceil(game.allOutCooldown) + 's)';
     } else {
         btn.disabled = false; btn.classList.add('ready');
-        btn.textContent = '🚨 ALL OUT';
+        btn.textContent = ':siren: ALL OUT';
     }
 }
 
@@ -4808,7 +4934,7 @@ function deployAcidFor(idx, silent){
     const busy = team.some(t => t.state === 'advancing' || t.state === 'spraying');
     if (busy){ say('Acid team already engaged.'); return false; }
     const crowd = getAcidTarget(idx, true);
-    if (!crowd){ say('🧪 No zombie crowd in reach yet — hold the acid.'); return false; }
+    if (!crowd){ say(':flask: No zombie crowd in reach yet — hold the acid.'); return false; }
     for (const t of team){
         t.state = 'advancing';
         t.crowd = crowd;
@@ -4816,7 +4942,7 @@ function deployAcidFor(idx, silent){
         t._route = null; t._routeGoal = null; t._progStuck = 0;
     }
     game.acidCooldown[idx] = ACID_COOLDOWN;
-    showToast('🧪 Acid team moving on the biggest crowd (' + Math.max(1, Math.round(crowd.count)) + ' zeds)!');
+    showToast(':flask: Acid team moving on the biggest crowd (' + Math.max(1, Math.round(crowd.count)) + ' zeds)!');
     updateAbilityButtons();
     return true;
 }
@@ -4860,7 +4986,7 @@ function deployGrabberFor(idx, silent){
         }
     }
     game.grabberCooldown[idx] = GRABBER_COOLDOWN;
-    showToast('🧟 Test-subject grabbers deploying behind Syndicate ' + (idx+1) + '!');
+    showToast(':zombie: Test-subject grabbers deploying behind Syndicate ' + (idx+1) + '!');
     updateAbilityButtons();
     return true;
 }
@@ -4873,7 +4999,7 @@ function deployK9For(idx, silent){
     if (k9.deployTimer > 0){ say('K9 already deployed.'); return false; }
     if (k9.cooldownTimer > 0){ say('K9 resting — ' + Math.ceil(k9.cooldownTimer) + 's.'); return false; }
     if (k9.deploy()){
-        showToast('🐕 K9 released!');
+        showToast(':dog: K9 released!');
         updateAbilityButtons();
         return true;
     }
@@ -4934,9 +5060,9 @@ function updateStationButton(){
     btn.classList.toggle('active', game.selectedSyndicate === STATION_INDEX);
     const ambOut = game.ambulance && game.ambulance.alive;
     const acd = game.ambulanceCooldown || 0;
-    if (ambOut) btn.textContent = '🏢 Station (🚑)';
-    else if (acd > 0) btn.textContent = '🏢 Station (' + Math.ceil(acd) + 's)';
-    else btn.textContent = '🏢 Station';
+    if (ambOut) btn.textContent = ':station: Station (:ambulance:)';
+    else if (acd > 0) btn.textContent = ':station: Station (' + Math.ceil(acd) + 's)';
+    else btn.textContent = ':station: Station';
 }
 let _livePanelSig = '';
 function updateVehicleHud(){
@@ -4952,17 +5078,17 @@ function updateVehicleHud(){
     if (txt){
         const unit = idx === VEHICLE_SYNDICATE ? 'Acid tank' : 'Ammo';
         let t = unit + ': ' + Math.round(pct*100) + '%';
-        if (v.isRefilling()) t += v.refillWait ? '  ·  ⛽ waiting for supplies' : '  ·  ⛽ refilling…';
-        else if (v.refill) t += '  ·  ⛽ driving to the station';
+        if (v.isRefilling()) t += v.refillWait ? '  ·  :fuel: waiting for supplies' : '  ·  :fuel: refilling…';
+        else if (v.refill) t += '  ·  :fuel: driving to the station';
         else if (v.ammo <= 0.01) t += '  ·  EMPTY';
         txt.textContent = t;
     }
     if (btn){
         const full = v.ammo >= v.maxAmmo - 0.5;
         btn.disabled = full || !!v.refill;
-        btn.textContent = v.refill ? '⛽ Refilling trip under way…'
-            : full ? '⛽ Refill at Station (full)'
-            : '⛽ Refill at Station (~' + Math.max(1, Math.round(v.bayCost())) + '📦)';
+        btn.textContent = v.refill ? ':fuel: Refilling trip under way…'
+            : full ? ':fuel: Refill at Station (full)'
+            : ':fuel: Refill at Station (~' + Math.max(1, Math.round(v.bayCost())) + ':box:)';
     }
 }
 // The Station panel shows counts (wounded, full squads, can-afford). Rebuild it when those change, not every frame.
@@ -4983,7 +5109,7 @@ function renderSyndicateTabs(){
             const v = vehicleAt(idx);
             b.disabled = false;
             b.classList.toggle('active', game.selectedSyndicate === idx);
-            b.textContent = (idx === VEHICLE_SYNDICATE ? '🚐' : '🚙') + (v ? (v.ammo <= 0.01 ? '⛽!' : (v.ammoPct() < 0.25 ? '⛽' : '')) : '');
+            b.textContent = (idx === VEHICLE_SYNDICATE ? ':van:' : ':car:') + (v ? (v.ammo <= 0.01 ? ':fuel:!' : (v.ammoPct() < 0.25 ? ':fuel:' : '')) : '');
             return;
         }
         const exists = idx < game.syndicatesDeployed;
@@ -5008,23 +5134,23 @@ function updateSelectionUI(){
     if (idx === STATION_INDEX){
         const ambOut = game.ambulance && game.ambulance.alive;
         const acd = game.ambulanceCooldown || 0;
-        if (ambOut) el.textContent = '🏢 Station — ambulance out on call';
-        else if (acd > 0) el.textContent = '🏢 Station — ambulance restocking (' + Math.ceil(acd) + 's)';
-        else el.textContent = '🏢 Station — heal the wounded, reinforce, fortify, or send the ambulance';
+        if (ambOut) el.textContent = ':station: Station — ambulance out on call';
+        else if (acd > 0) el.textContent = ':station: Station — ambulance restocking (' + Math.ceil(acd) + 's)';
+        else el.textContent = ':station: Station — heal the wounded, reinforce, fortify, or send the ambulance';
         return;
     }
     if (isVehicleIdx(idx)){
         const v = vehicleAt(idx);
         if (!v){ el.textContent = ''; return; }
-        let txt = (idx === VEHICLE_SYNDICATE ? '🚐 Acid Cannon — ' : '🚙 Mobile Shooter — ');
+        let txt = (idx === VEHICLE_SYNDICATE ? ':van: Acid Cannon — ' : ':car: Mobile Shooter — ');
         if (v.isRefilling()) txt += v.refillWait ? 'waiting for supplies' : 'refilling';
         else if (v.refill) txt += 'heading to the station';
         else if (v.parked) txt += 'holding position';
         else if (v.targetSpot) txt += 'moving to position';
         else txt += 'mobile';
-        txt += ' · ⛽ ' + Math.round(v.ammoPct()*100) + '%';
-        if (idx === VEHICLE_SYNDICATE && v.waterCannonOn) txt += ' · ☣ cannon ON';
-        if (idx === VEHICLE_SYNDICATE_2 && v.gunnersOut) txt += ' · 🔫 gunners out';
+        txt += ' · :fuel: ' + Math.round(v.ammoPct()*100) + '%';
+        if (idx === VEHICLE_SYNDICATE && v.waterCannonOn) txt += ' · :hazard: cannon ON';
+        if (idx === VEHICLE_SYNDICATE_2 && v.gunnersOut) txt += ' · :gun: gunners out';
         el.textContent = txt;
         return;
     }
@@ -5040,14 +5166,14 @@ function updateSelectionUI(){
     }
     if (count === 0){ el.textContent = ''; return; }
     const dirNames = { N:'north', S:'south', E:'east', W:'west' };
-    const tacticLabel = sy.post ? ('🎯 ' + dirNames[sy.post.dir] + ' post (' + sy.post.cover.map(d => dirNames[d]).join('+') + ')')
+    const tacticLabel = sy.post ? (':target: ' + dirNames[sy.post.dir] + ' post (' + sy.post.cover.map(d => dirNames[d]).join('+') + ')')
         : ((FORMATION_DEFS.find(t => t.key === sy.tactic) || {}).label || sy.tactic);
     const resist = Math.round(formationResistance(activeTacticOf(sy)) * 100);
-    const bits = [prefix + ' — ' + count + ' officers — ' + tacticLabel + ' · 🛡 ' + resist + '%'];
-    if (!sy.post && tacticIsPassive(sy.tactic) && sy.provokedTimer <= 0) bits.push('🕊 holding fire');
-    if (sy.provokedTimer > 0 && tacticIsPassive(sy.tactic)) bits.push('⚔ provoked ' + Math.ceil(sy.provokedTimer) + 's');
-    if (sy.tactic === 'rest' && sy.autoWallTimer > 0) bits.push('🧱 wall ' + Math.ceil(sy.autoWallTimer) + 's');
-    if (sy.path) bits.push('➤ moving');
+    const bits = [prefix + ' — ' + count + ' officers — ' + tacticLabel + ' · :shield: ' + resist + '%'];
+    if (!sy.post && tacticIsPassive(sy.tactic) && sy.provokedTimer <= 0) bits.push(':dove: holding fire');
+    if (sy.provokedTimer > 0 && tacticIsPassive(sy.tactic)) bits.push(':baton: provoked ' + Math.ceil(sy.provokedTimer) + 's');
+    if (sy.tactic === 'rest' && sy.autoWallTimer > 0) bits.push(':wall: wall ' + Math.ceil(sy.autoWallTimer) + 's');
+    if (sy.path) bits.push(':arrow_r: moving');
     el.textContent = bits.join(' · ');
 }
 function updateStats(){
@@ -5096,13 +5222,13 @@ function updateStats(){
 }
 
 const FORMATION_DEFS = [
-    { key:'rest', label:'😌 Rest' },
-    { key:'wedge', label:'🔺 Wedge' },
-    { key:'wall', label:'🧱 Wall' },
-    { key:'stackleft', label:'⬅️ Stack Left' },
-    { key:'stackright', label:'➡️ Stack Right' },
-    { key:'box', label:'📦 Box' },
-    { key:'pulse', label:'💥 Pulse' },
+    { key:'rest', label:':moon: Rest' },
+    { key:'wedge', label:':wedge: Wedge' },
+    { key:'wall', label:':wall: Wall' },
+    { key:'stackleft', label:':arrow_l: Stack Left' },
+    { key:'stackright', label:':arrow_r: Stack Right' },
+    { key:'box', label:':box: Box' },
+    { key:'pulse', label:':burst: Pulse' },
 ];
 function renderOptionsPanel(){
     const panel = document.getElementById('options-panel');
@@ -5122,7 +5248,7 @@ function renderOptionsPanel(){
         for (let i = 1; i < OFFICER_SYNDICATES; i++) if (counts[i] < counts[weakest]) weakest = i;
         const allFull = counts[weakest] >= OFFICERS_PER_SYNDICATE;
         const trainBtn = document.createElement('button');
-        trainBtn.textContent = allFull ? '👮 Reinforce (all squads full)' : '👮 Reinforce Syndicate ' + (weakest + 1) + ' (' + REINFORCE_COST + '📦)';
+        trainBtn.textContent = allFull ? ':cop: Reinforce (all squads full)' : ':cop: Reinforce Syndicate ' + (weakest + 1) + ' (' + REINFORCE_COST + ':box:)';
         trainBtn.disabled = allFull || game.supplies < REINFORCE_COST;
         trainBtn.addEventListener('click', () => {
             if (allFull || game.supplies < REINFORCE_COST) return;
@@ -5135,7 +5261,7 @@ function renderOptionsPanel(){
                 if (isValidPosition(tx, ty)){ sx = tx; sy = ty; break; }
             }
             game.officers.push(new Officer(sx, sy, weakest));
-            showToast('👮 Reinforcement joins Syndicate ' + (weakest + 1) + '.');
+            showToast(':cop: Reinforcement joins Syndicate ' + (weakest + 1) + '.');
             renderOptionsPanel(); updateStats();
         });
         panel.appendChild(trainBtn);
@@ -5144,24 +5270,24 @@ function renderOptionsPanel(){
         const hurt = game.officers.filter(o => o.alive && !o.isAllOut && o.state === 'active' && o.hp < o.maxHp*0.7);
         const healing = game.officers.filter(o => o.alive && !o.isAllOut && (o.state === 'retreating' || o.state === 'healing'));
         const recallBtn = document.createElement('button');
-        recallBtn.textContent = hurt.length ? '🏥 Recall Wounded (' + hurt.length + ')' : '🏥 Recall Wounded (none hurt)';
+        recallBtn.textContent = hurt.length ? ':hospital: Recall Wounded (' + hurt.length + ')' : ':hospital: Recall Wounded (none hurt)';
         recallBtn.disabled = hurt.length === 0;
         recallBtn.addEventListener('click', () => {
             let n = 0;
             game.officers.forEach(o => { if (o.alive && !o.isAllOut && o.state === 'active' && o.hp < o.maxHp*0.7 && o.startRetreat()) n++; });
-            showToast('🏥 ' + n + ' wounded officer' + (n === 1 ? '' : 's') + ' heading back to the station.');
+            showToast(':hospital: ' + n + ' wounded officer' + (n === 1 ? '' : 's') + ' heading back to the station.');
             renderOptionsPanel(); updateStats();
         });
         panel.appendChild(recallBtn);
 
         const fortBtn = document.createElement('button');
-        fortBtn.textContent = '🧱 Fortify Station (25📦)';
+        fortBtn.textContent = ':wall: Fortify Station (25:box:)';
         fortBtn.disabled = game.supplies < 25 || game.baseHp >= BASE_MAX_HP;
         fortBtn.addEventListener('click', () => {
             if (game.supplies < 25 || game.baseHp >= BASE_MAX_HP) return;
             game.supplies -= 25;
             game.baseHp = Math.min(BASE_MAX_HP, game.baseHp + 80);
-            showToast('🧱 Station reinforced.');
+            showToast(':wall: Station reinforced.');
             renderOptionsPanel(); updateStats();
         });
         panel.appendChild(fortBtn);
@@ -5169,16 +5295,16 @@ function renderOptionsPanel(){
         const ambBtn = document.createElement('button');
         const ambOut = game.ambulance && game.ambulance.alive;
         const acd = game.ambulanceCooldown || 0;
-        if (ambOut) { ambBtn.textContent = '🚑 Ambulance (out)'; ambBtn.disabled = true; ambBtn.classList.add('active-choice'); }
-        else if (acd > 0) { ambBtn.textContent = '🚑 Ambulance (' + Math.ceil(acd) + 's)'; ambBtn.disabled = true; }
-        else ambBtn.textContent = '🚑 Send Ambulance';
+        if (ambOut) { ambBtn.textContent = ':ambulance: Ambulance (out)'; ambBtn.disabled = true; ambBtn.classList.add('active-choice'); }
+        else if (acd > 0) { ambBtn.textContent = ':ambulance: Ambulance (' + Math.ceil(acd) + 's)'; ambBtn.disabled = true; }
+        else ambBtn.textContent = ':ambulance: Send Ambulance';
         ambBtn.addEventListener('click', deployAmbulance);
         panel.appendChild(ambBtn);
 
         const info = document.createElement('div');
         info.className = 'info-line';
-        info.textContent = 'Wounded officers walk back here on their own and heal at the station. Healing costs supplies (about 1📦 per 10 HP), so keep collecting crates. Reinforce replaces fallen officers (max 15 per syndicate). Vehicles refill at the two bays beside the station.'
-            + (healing.length ? '  🩹 ' + healing.length + ' officer' + (healing.length === 1 ? '' : 's') + ' on the way / healing now.' : '');
+        info.textContent = 'Wounded officers walk back here on their own and heal at the station. Healing costs supplies (about 1:box: per 10 HP), so keep collecting crates. Reinforce replaces fallen officers (max 15 per syndicate). Vehicles refill at the two bays beside the station.'
+            + (healing.length ? '  :bandage: ' + healing.length + ' officer' + (healing.length === 1 ? '' : 's') + ' on the way / healing now.' : '');
         panel.appendChild(info);
         return;
     }
@@ -5191,12 +5317,12 @@ function renderOptionsPanel(){
         panel.appendChild(lbl);
         const v = vehicleAt(game.selectedSyndicate);
         const bMobile = document.createElement('button');
-        bMobile.textContent = '🚐 Roam';
+        bMobile.textContent = ':van: Roam';
         if (v && !v.parked && !v.targetSpot) bMobile.classList.add('active-choice');
         bMobile.addEventListener('click', () => { if (v) v.clearTarget(); showToast('Vehicle released — free to roam.'); renderOptionsPanel(); updateSelectionUI(); });
         panel.appendChild(bMobile);
         const bBlock = document.createElement('button');
-        bBlock.textContent = isWC ? '📍 Hold Position' : '📍 Hold & Deploy Gunners';
+        bBlock.textContent = isWC ? ':pin: Hold Position' : ':pin: Hold & Deploy Gunners';
         if (v && (v.parked || v.targetSpot)) bBlock.classList.add('active-choice');
         bBlock.addEventListener('click', () => {
             if (!v) return;
@@ -5213,9 +5339,9 @@ function renderOptionsPanel(){
         panel.appendChild(bBlock);
         if (isWC && v && v.alive){
             const toggle = document.createElement('button');
-            toggle.textContent = v.waterCannonOn ? '☣ Acid Cannon: ON' : '☣ Acid Cannon: OFF';
+            toggle.textContent = v.waterCannonOn ? ':hazard: Acid Cannon: ON' : ':hazard: Acid Cannon: OFF';
             toggle.classList.toggle('active-choice', v.waterCannonOn);
-            toggle.addEventListener('click', () => { v.waterCannonOn = !v.waterCannonOn; showToast(v.waterCannonOn ? '☣ Acid cannon engaged.' : '☣ Acid cannon off.'); renderOptionsPanel(); });
+            toggle.addEventListener('click', () => { v.waterCannonOn = !v.waterCannonOn; showToast(v.waterCannonOn ? ':hazard: Acid cannon engaged.' : ':hazard: Acid cannon off.'); renderOptionsPanel(); });
             panel.appendChild(toggle);
         }
         if (v && v.alive){
@@ -5223,8 +5349,8 @@ function renderOptionsPanel(){
             refillBtn.id = 'veh-refill-btn';
             refillBtn.addEventListener('click', () => {
                 if (!v.alive) return;
-                if (v.refill){ showToast('⛽ Already on the way to the station.'); return; }
-                if (v.ammo >= v.maxAmmo - 0.5){ showToast('⛽ Already full.'); return; }
+                if (v.refill){ showToast(':fuel: Already on the way to the station.'); return; }
+                if (v.ammo >= v.maxAmmo - 0.5){ showToast(':fuel: Already full.'); return; }
                 v.startRefillTrip(false);
                 renderOptionsPanel(); updateSelectionUI();
             });
@@ -5256,8 +5382,8 @@ function renderOptionsPanel(){
         b.textContent = t.label;
         if (t.key === 'pulse'){
             const pp = ensurePulse(sy);
-            if (pp.active) b.textContent = '💥 Pulse (' + Math.ceil(PULSE_MAX_ACTIVE - pp.used) + 's left)';
-            else if (pp.cooldown > 0){ b.textContent = '💥 Pulse (' + Math.ceil(pp.cooldown) + 's)'; b.classList.add('on-cooldown'); }
+            if (pp.active) b.textContent = ':burst: Pulse (' + Math.ceil(PULSE_MAX_ACTIVE - pp.used) + 's left)';
+            else if (pp.cooldown > 0){ b.textContent = ':burst: Pulse (' + Math.ceil(pp.cooldown) + 's)'; b.classList.add('on-cooldown'); }
         }
         if (sy.tactic === t.key && !sy.post) b.classList.add('active-choice');
         b.addEventListener('click', () => applyTactic(t.key));
@@ -5268,41 +5394,41 @@ function renderOptionsPanel(){
         w.className = 'info-line'; w.style.color = '#8ec8f0';
         const dirNames = { N:'north', S:'south', E:'east', W:'west' };
         const covered = sy.post.cover.map(d => dirNames[d]).join(' + ');
-        w.textContent = '🎯 JUNCTION POST (' + dirNames[sy.post.dir] + ') — covering ' + covered + '. Picking a formation clears the post.';
+        w.textContent = ':target: JUNCTION POST (' + dirNames[sy.post.dir] + ') — covering ' + covered + '. Picking a formation clears the post.';
         panel.appendChild(w);
         const clearBtn = document.createElement('button');
-        clearBtn.textContent = '✖ Clear post';
+        clearBtn.textContent = ':cross: Clear post';
         clearBtn.addEventListener('click', () => { sy.post = null; assignFormation(); renderOptionsPanel(); updateSelectionUI(); });
         panel.appendChild(clearBtn);
     }
     if (tacticIsPassive(sy.tactic) && sy.provokedTimer <= 0){
         const w = document.createElement('div');
         w.className = 'info-line'; w.style.color = '#8ec8f0';
-        w.textContent = '🕊 Holding fire — this posture will not engage unless attacked.';
+        w.textContent = ':dove: Holding fire — this posture will not engage unless attacked.';
         panel.appendChild(w);
     }
     if (sy.tactic === 'rest' && sy.autoWallTimer > 0){
         const w = document.createElement('div');
         w.className = 'info-line'; w.style.color = '#8ec8f0';
-        w.textContent = '🧱 Under attack — wall up for ' + Math.ceil(sy.autoWallTimer) + 's';
+        w.textContent = ':wall: Under attack — wall up for ' + Math.ceil(sy.autoWallTimer) + 's';
         panel.appendChild(w);
     }
     if (sy.provokedTimer > 0 && tacticIsPassive(sy.tactic)){
         const w = document.createElement('div');
         w.className = 'info-line'; w.style.color = '#ff8a5c';
-        w.textContent = '⚔ Provoked — engaging for ' + Math.ceil(sy.provokedTimer) + 's';
+        w.textContent = ':baton: Provoked — engaging for ' + Math.ceil(sy.provokedTimer) + 's';
         panel.appendChild(w);
     }
     if (game.mergedMode){
         const d = document.createElement('div');
         d.className = 'info-line'; d.style.color = '#ff8a5c'; d.style.fontWeight = 'bold';
-        d.textContent = '⚠ ALL UNITS MERGED';
+        d.textContent = ':warning: ALL UNITS MERGED';
         panel.appendChild(d);
     }
     const tip = document.createElement('div');
     tip.className = 'info-line';
     tip.style.cssText = 'color:#7fc47f;padding-top:6px;border-top:1px solid #232c3a;margin-top:4px';
-    tip.textContent = '💡 Tap a road dot to move the syndicate. Tap a junction post dot to give them a facing.';
+    tip.textContent = ':bulb: Tap a road dot to move the syndicate. Tap a junction post dot to give them a facing.';
     panel.appendChild(tip);
 }
 function updateMoveButtons(){
@@ -5336,7 +5462,7 @@ function spawnCrate(){
     if (!best) return;
     const amount = 14 + Math.floor(Math.random()*18);
     game.crates.push({ id:crateIdSeq++, x:best.x, y:best.y, amount, bob:Math.random()*10, life:0, flareT:0 });
-    showToast('📦 A supply crate has landed!');
+    showToast(':box: A supply crate has landed!');
 }
 function updateCrates(dt){
     for (let i = game.crates.length-1; i >= 0; i--){
@@ -5356,7 +5482,7 @@ function updateCrates(dt){
         if (!got && game.ambulance && game.ambulance.alive && Math.hypot(game.ambulance.x - c.x, game.ambulance.y - c.y) < TILE*1.4) got = true;
         if (got){
             game.supplies += c.amount;
-            showToast(`📦 +${c.amount} supplies`);
+            showToast(`:box: +${c.amount} supplies`);
             game.crates.splice(i, 1);
         }
     }
@@ -5461,6 +5587,9 @@ function startWave(){
     }
     game.waveSpawnQueue = [];
     let totalHp = 0;
+    // hounds: a pack every third wave from wave 3, plus the odd lone hound in between
+    let houndCount = 0;
+    if (wave >= 3){ if (wave % 3 === 0) houndCount = Math.min(5, 1 + Math.floor((wave - 3) / 6)); else if (wave >= 4 && Math.random() < 0.12) houndCount = 1; }
     for (const { squad, count } of createdSquads){
         for (let i = 0; i < count; i++){
             const roll2 = Math.random();
@@ -5475,12 +5604,17 @@ function startWave(){
             totalHp += ZOMBIE_TYPES[kind].hp;
         }
     }
+    for (let h = 0; h < houndCount; h++){
+        const sq = createdSquads[Math.floor(Math.random() * createdSquads.length)].squad;
+        game.waveSpawnQueue.push({ kind: 'hound', squadId: sq.id });
+        totalHp += ZOMBIE_TYPES.hound.hp;
+    }
     for (let i = game.waveSpawnQueue.length-1; i > 0; i--){
         const j = Math.floor(Math.random()*(i+1));
         [game.waveSpawnQueue[i], game.waveSpawnQueue[j]] = [game.waveSpawnQueue[j], game.waveSpawnQueue[i]];
     }
     game.waveTotalHp = totalHp;
-    game.totalRaidersInWave = zombieCount;
+    game.totalRaidersInWave = zombieCount + houndCount;
     game.waveSpawnTimer = 0;
     const el = document.getElementById('wave-banner');
     const objLabel = OBJECTIVE_LABELS[game.raidAI.objective] || '';
@@ -5488,7 +5622,8 @@ function startWave(){
     el.innerHTML = 'WAVE ' + game.waveNumber +
         '<br><span style="font-size:15px;letter-spacing:1px;color:#ffcc33">' + objLabel + '</span>' +
         '<br><span style="font-size:11px;letter-spacing:1px;color:#ff8a5c">' + tone +
-        ' · ' + gateCount + ' entr' + (gateCount === 1 ? 'y' : 'ies') + '</span>';
+        ' · ' + gateCount + ' entr' + (gateCount === 1 ? 'y' : 'ies') + '</span>' +
+        (houndCount ? '<br><span style="font-size:13px;letter-spacing:1px;color:#ff6a5c">:dog: ' + houndCount + (houndCount === 1 ? ' HOUND' : ' HOUNDS') + ' loose</span>' : '');
     el.classList.remove('show'); void el.offsetWidth; el.classList.add('show');
     spawnCrate();
 }
@@ -5912,7 +6047,7 @@ function drawRefillBays(ctx){
         ctx.strokeRect(sx - w/2, sy - h/2, w, h);
         ctx.setLineDash([]);
         ctx.fillStyle = 'rgba(255,214,74,0.55)'; ctx.font = 'bold 8px monospace'; ctx.textAlign = 'center';
-        ctx.fillText(idx === VEHICLE_SYNDICATE ? '⛽ ACID' : '⛽ AMMO', sx, sy + h/2 + 9);
+        { drawIcon(ctx, 'fuel', sx - 15, sy + h/2 + 5, 9); ctx.fillText(idx === VEHICLE_SYNDICATE ? 'ACID' : 'AMMO', sx + 4, sy + h/2 + 9); }
         ctx.restore();
     }
 }
@@ -5926,6 +6061,7 @@ function render(){
         const fade = Math.min(1, (b.life - b.t)/8);
         ctx.fillStyle = `rgba(${60 + (b.seed*10|0)%30},14,14,${0.28*fade})`;
         ctx.beginPath(); ctx.ellipse(sx, sy, 5 + (b.seed%3), 2.5 + (b.seed%2), 0, 0, Math.PI*2); ctx.fill();
+        drawCorpse(ctx, b, sx, sy);
     }
     drawRefillBays(ctx);
     game.k9s.forEach(k => { if (k.alive) k.drawLead(ctx); });
@@ -6100,7 +6236,7 @@ function drawMinimap(){
 function endGame(win){
     game.gameOver = true;
     const overlay = document.getElementById('gameover-overlay');
-    document.getElementById('gameover-title').textContent = win ? '🏆 Cordon Held' : '💥 Station Overrun';
+    document.getElementById('gameover-title').textContent = win ? ':trophy: Cordon Held' : ':burst: Station Overrun';
     document.getElementById('gameover-stats').innerHTML =
         `Waves survived: <b>${game.waveNumber - 1}</b><br>` +
         `Zombies put down: <b>${game.kills}</b><br>` +
@@ -6271,6 +6407,59 @@ function openMainMenu(){
     document.getElementById('menu-root').classList.remove('hidden');
     showMenuScreen('menu-main');
 }
+
+// ============================ TEST MODE ============================
+function applyTestUI(){
+    document.getElementById('test-fab').classList.toggle('show', settings.testMode);
+    document.getElementById('test-badge').classList.toggle('show', settings.testMode);
+    document.getElementById('fps-box').classList.toggle('show', settings.showFps);
+    const mt = document.getElementById('m-test');
+    if (mt) mt.textContent = ':bolt: TEST MODE: ' + (settings.testMode ? 'ON' : 'OFF');
+    if (!settings.testMode){ document.getElementById('test-panel').classList.remove('show'); game.testGod = false; game.timeScale = 1; }
+}
+let _fpsAcc = 0, _fpsN = 0, _fpsLast = 0;
+function updateFpsBox(t, rawDt){
+    if (!settings.showFps && !settings.testMode) return;
+    _fpsAcc += rawDt; _fpsN++;
+    if (t - _fpsLast < 500) return;
+    _fpsLast = t;
+    const fps = _fpsN / Math.max(0.001, _fpsAcc); _fpsAcc = 0; _fpsN = 0;
+    if (settings.showFps) document.getElementById('fps-box').textContent = Math.round(fps) + ' fps · ' + game.zombies.length + ' zombies · ' + game.officers.length + ' officers';
+    const info = document.getElementById('test-info');
+    if (info && settings.testMode) info.textContent = 'Wave ' + game.waveNumber + ' · ' + game.waveState + ' · ' + game.zombies.length + ' zombies · supplies ' + Math.floor(game.supplies);
+}
+function testSpawn(kind, n){
+    if (game.gameOver) return;
+    if (game.waveState === 'intermission') startWave();
+    let sq = null;
+    for (const q of game.squads.values()){ sq = q; break; }
+    if (!sq) return;
+    for (let i = 0; i < n; i++) game.waveSpawnQueue.push({ kind, squadId: sq.id });
+    game.totalRaidersInWave += n; game.waveTotalHp += n * ZOMBIE_TYPES[kind].hp;
+    showToast(':bolt: ' + n + ' x ' + ZOMBIE_TYPES[kind].name + ' incoming');
+}
+function setupTestTools(){
+    const $ = id => document.getElementById(id);
+    $('m-test').addEventListener('click', () => { settings.testMode = !settings.testMode; saveSettings(); applyTestUI(); });
+    $('test-fab').addEventListener('click', () => $('test-panel').classList.toggle('show'));
+    $('t-skip').addEventListener('click', () => { game.waveSpawnQueue = []; for (const z of game.zombies) z.alive = false; showToast(':play: Wave skipped'); });
+    $('t-next').addEventListener('click', () => { if (game.waveState === 'intermission') game.waveTimer = 0; else showToast('A wave is already running'); });
+    $('t-coins').addEventListener('click', () => { game.supplies += 100; showToast(':box: +100 supplies'); });
+    $('t-heal').addEventListener('click', () => {
+        for (const list of [game.officers, game.grabbers, game.handlers, game.commanders, game.acidTeams, game.k9s]) for (const o of list) if (o.alive && o.maxHp) o.hp = o.maxHp;
+        game.baseHp = BASE_MAX_HP; game.morale = MORALE_MAX; showToast(':plus: Everyone healed');
+    });
+    $('t-walkers').addEventListener('click', () => testSpawn('walker', 12));
+    $('t-hounds').addEventListener('click', () => testSpawn('hound', 3));
+    $('t-brutes').addEventListener('click', () => testSpawn('brute', 3));
+    $('t-spitters').addEventListener('click', () => testSpawn('spitter', 4));
+    const lvl = d => { game.waveNumber = Math.max(1, game.waveNumber + d); if (game.waveState === 'intermission') game.waveTimer = Math.min(game.waveTimer, 2); showToast(':wave: Next wave: ' + game.waveNumber); };
+    $('t-lvdn').addEventListener('click', () => lvl(-5)); $('t-lvup').addEventListener('click', () => lvl(5));
+    $('t-god').addEventListener('click', e => { game.testGod = !game.testGod; e.currentTarget.textContent = ':shield: God: ' + (game.testGod ? 'ON' : 'OFF'); e.currentTarget.classList.toggle('on', game.testGod); });
+    $('t-speed').addEventListener('click', e => { game.timeScale = ((game.timeScale || 1) % 3) + 1; e.currentTarget.textContent = ':bolt: Speed x' + game.timeScale; e.currentTarget.classList.toggle('on', game.timeScale > 1); });
+    window.cordonTest = { game, settings, testSpawn, startWave, Zombie };   // handy from the browser console while testing
+    applyTestUI();
+}
 function showMenuScreen(id){
     document.querySelectorAll('#menu-root .menu-screen').forEach(el => el.classList.toggle('show', el.id === id));
 }
@@ -6284,6 +6473,7 @@ function setupMenus(){
         } else game.playRequested = true;
     });
     document.getElementById('m-howto').addEventListener('click', () => showMenuScreen('menu-howto'));
+    setupTestTools();
     document.getElementById('m-back').addEventListener('click', () => showMenuScreen('menu-main'));
     document.getElementById('m-back-main').addEventListener('click', () => { window.location.href = 'index.html'; });
 }
@@ -6295,8 +6485,10 @@ function reportError(err){
     if (!_errorsSeen[key]){ _errorsSeen[key] = true; console.error('Outbreak loop error:', err); }
 }
 function loop(t){
-    const dt = Math.min(0.05, (t - (game.lastTime || t))/1000);
+    const rawDt = Math.min(0.05, (t - (game.lastTime || t))/1000);
+    const dt = rawDt * (settings.testMode ? (game.timeScale || 1) : 1);
     game.lastTime = t;
+    updateFpsBox(t, rawDt);
     if (!game.gameOver && !game.paused){
         try {
             updateWaves(dt);

@@ -471,29 +471,31 @@
         .sk-node.locked { opacity: .55; border-style: dashed; }
         .sk-reset { margin-top: 4px; padding: 6px 12px; border-radius: 8px; border: 2px solid #b04a3a; background: #fff0ee; color: #8a2a1c; font: 700 11.5px Tahoma, Verdana, sans-serif; cursor: pointer; }
     </style>
+    <link rel="stylesheet" href="assets/ui/moonroar.css">
+    <script src="assets/ui/moonroar.js"></script>
 </head>
 <body>
-    <div id="rotate-overlay">📱 Please rotate your device to landscape!</div>
+    <div id="rotate-overlay">:phone: Please rotate your device to landscape!</div>
     <canvas id="game"></canvas>
 
     <div id="left-dock">
         <div id="panel-view">
-            <div id="panel-header"><span id="panel-title">Tactics</span><button id="pause-btn" title="Pause">⏸</button></div>
+            <div id="panel-header"><span id="panel-title">Tactics</span><button id="pause-btn" title="Pause">:pause:</button></div>
             <div id="options-panel"></div>
         </div>
     </div>
 
     <div id="top-bar">
         <button id="send-arrest" class="train-btn arrest ready">
-            <span class="tlabel">🚔 Arrest Team</span>
+            <span class="tlabel">:car: Arrest Team</span>
             <span class="tsub" id="send-arrest-sub">S1 ready</span>
         </button>
         <button id="deploy-gas" class="train-btn gas ready">
-            <span class="tlabel">💨 Tear Gas</span>
+            <span class="tlabel">:gas: Tear Gas</span>
             <span class="tsub" id="deploy-gas-sub">S1 ready</span>
         </button>
         <button id="deploy-k9" class="train-btn k9 ready">
-            <span class="tlabel">🐕 K9</span>
+            <span class="tlabel">:dog: K9</span>
             <span class="tsub" id="deploy-k9-sub">S1 ready</span>
         </button>
     </div>
@@ -501,32 +503,32 @@
     <div id="right-dock">
         <canvas id="minimap" width="100" height="100"></canvas>
         <div id="stats-panel">
-            <div class="stat">🌊 <span id="wave">1</span></div>
-            <div class="stat">🚫 <span id="routed">0</span></div>
-            <div class="stat">🔒 <span id="arrested">0</span></div>
-            <div class="stat">🪙 <span id="coins">0</span></div>
+            <div class="stat">:wave: <span id="wave">1</span></div>
+            <div class="stat">:no: <span id="routed">0</span></div>
+            <div class="stat">:lock: <span id="arrested">0</span></div>
+            <div class="stat">:coin: <span id="coins">0</span></div>
         </div>
     </div>
 
     <div id="hud-topleft">
         <div id="status-panel">
             <div class="stat-line">
-                <span class="stat-icon">🏢</span>
+                <span class="stat-icon">:station:</span>
                 <div class="stat-track"><div class="stat-fill" id="base-hp-fill"></div></div>
                 <span class="stat-num" id="base-hp-num">100%</span>
             </div>
             <div class="stat-line">
-                <span class="stat-icon">👮</span>
+                <span class="stat-icon">:cop:</span>
                 <div class="stat-track"><div class="stat-fill troops" id="troop-fill"></div></div>
                 <span class="stat-num" id="troop-num">100%</span>
             </div>
             <div class="stat-line">
-                <span class="stat-icon">📢</span>
+                <span class="stat-icon">:megaphone:</span>
                 <div class="stat-track"><div class="stat-fill morale" id="morale-fill"></div></div>
                 <span class="stat-num" id="morale-num">100%</span>
             </div>
             <div class="stat-line">
-                <span class="stat-icon">⚖️</span>
+                <span class="stat-icon">:scales:</span>
                 <div class="stat-track"><div class="stat-fill public" id="public-morale-fill"></div></div>
                 <span class="stat-num" id="public-morale-num">100%</span>
             </div>
@@ -535,23 +537,45 @@
     </div>
 
     <div id="bottom-right-ui">
-        <button id="all-out-btn">🚨 ALL OUT</button>
-        <button id="all-units-btn">🪖 All Units On Me</button>
-        <button id="station-btn">🏢 Station</button>
+        <button id="all-out-btn">:siren: ALL OUT</button>
+        <button id="all-units-btn">:helmet: All Units On Me</button>
+        <button id="station-btn">:station: Station</button>
         <div id="syndicate-tabs">
             <button class="syn-btn" data-idx="0">S1</button>
             <button class="syn-btn" data-idx="1">S2</button>
             <button class="syn-btn" data-idx="2">S3</button>
-            <button class="syn-btn vehicle" data-idx="3">🚔</button>
-            <button class="syn-btn vehicle" data-idx="5">🚐</button>
+            <button class="syn-btn vehicle" data-idx="3">:car:</button>
+            <button class="syn-btn vehicle" data-idx="5">:van:</button>
         </div>
         <div id="dpad-container">
-            <button class="dpad-btn dpad-up" id="btn-up">▲</button>
-            <button class="dpad-btn dpad-left" id="btn-left">◀</button>
+            <button class="dpad-btn dpad-up" id="btn-up">:arrow_u:</button>
+            <button class="dpad-btn dpad-left" id="btn-left">:arrow_l:</button>
             <div class="dpad-btn dpad-center"></div>
-            <button class="dpad-btn dpad-right" id="btn-right">▶</button>
-            <button class="dpad-btn dpad-down" id="btn-down">▼</button>
+            <button class="dpad-btn dpad-right" id="btn-right">:play:</button>
+            <button class="dpad-btn dpad-down" id="btn-down">:arrow_d:</button>
         </div>
+    </div>
+
+    <div id="test-badge">TEST MODE</div>
+    <div id="fps-box"></div>
+    <button id="test-fab" class="test-btn">:bolt: TEST</button>
+    <div id="test-panel">
+        <h4>:bolt: Test tools</h4>
+        <div class="test-grid">
+            <button class="test-btn" id="t-skip">:play: Skip wave</button>
+            <button class="test-btn" id="t-next">:wave: Start next</button>
+            <button class="test-btn" id="t-coins">:coin: +1000</button>
+            <button class="test-btn" id="t-heal">:plus: Heal all</button>
+            <button class="test-btn" id="t-raiders">:crowd: +10 raiders</button>
+            <button class="test-btn" id="t-bruisers">:baton: +5 bruisers</button>
+            <button class="test-btn" id="t-protest">:placard: +8 protest</button>
+            <button class="test-btn" id="t-bricks">:brick: +4 bricks</button>
+            <button class="test-btn" id="t-lvdn">:arrow_d: Level &minus;5</button>
+            <button class="test-btn" id="t-lvup">:arrow_u: Level +5</button>
+            <button class="test-btn" id="t-god">:shield: God: OFF</button>
+            <button class="test-btn" id="t-speed">:bolt: Speed x1</button>
+        </div>
+        <div class="test-info" id="test-info"></div>
     </div>
 
     <div id="wave-banner"></div>
@@ -562,17 +586,17 @@
             <div id="gameover-title"></div>
             <div id="gameover-stats"></div>
             <div id="gameover-save"></div>
-            <button id="gameover-restart">🔄 Play Again</button>
-            <button id="gameover-skills">⭐ Spend Coins in Skills</button>
-            <button id="gameover-menu">🏠 Main Menu</button>
+            <button id="gameover-restart">:repeat: Play Again</button>
+            <button id="gameover-skills">:star: Spend Coins in Skills</button>
+            <button id="gameover-menu">:home: Main Menu</button>
         </div>
     </div>
 
     <div id="pause-overlay">
         <h2>PAUSED</h2>
-        <button class="xp-btn play" id="p-resume">▶ RESUME</button>
-        <button class="xp-btn" id="p-restart">↻ RESTART</button>
-        <button class="xp-btn" id="p-menu">⌂ MAIN MENU</button>
+        <button class="xp-btn play" id="p-resume">:play: RESUME</button>
+        <button class="xp-btn" id="p-restart">:repeat: RESTART</button>
+        <button class="xp-btn" id="p-menu">:home: MAIN MENU</button>
     </div>
 
     <div id="menu-root">
@@ -584,19 +608,19 @@
                 <div class="menu-stars"><img src="assets/ui/ui_star.png" alt=""><img src="assets/ui/ui_star.png" alt=""><img src="assets/ui/ui_star.png" alt=""><img src="assets/ui/ui_star_off.png" alt=""><img src="assets/ui/ui_star_off.png" alt=""></div>
             </div>
             <div class="menu-buttons">
-                <button class="xp-btn play" id="m-play">▶ PLAY</button>
-                <button class="xp-btn" id="m-skills"><img src="assets/ui/ui_star.png" alt="">SKILLS</button>
-                <button class="xp-btn" id="m-settings">⚙ SETTINGS</button>
-                <button class="xp-btn zombie" id="m-zombie">☣ ZOMBIE MODE</button>
+                <button class="xp-btn play" id="m-play">:play: PLAY</button>
+                <button class="xp-btn" id="m-skills"><span id="m-skills-label">:star: SKILLS</span></button>
+                <button class="xp-btn" id="m-settings">:gear: SETTINGS</button>
+                <button class="xp-btn zombie" id="m-zombie">:hazard: ZOMBIE MODE</button>
             </div>
-            <div class="menu-footer">Pixel UI art: Crusenho &amp; MinZiin (CC BY 4.0)</div>
+            <div class="menu-footer">UI art: MoonRoar by Studios SoulAres &middot; Menu art: Crusenho &amp; MinZiin (CC BY 4.0) &middot; Characters: CraftPix</div>
         </div>
         <div class="menu-screen" id="menu-skills">
             <div class="sk-window">
                 <div class="sk-bar">
-                    <button class="sk-pill" id="sk-back">◀ Back</button>
+                    <button class="sk-pill" id="sk-back">:arrow_l: Back</button>
                     <span class="sk-title">Skills</span>
-                    <span class="sk-coins" id="sk-coins">🪙 0</span>
+                    <span class="sk-coins" id="sk-coins">:coin: 0</span>
                 </div>
                 <div id="sk-msg">Clear levels to earn coins, then unlock anything in any order.</div>
                 <div class="sk-scroll">
@@ -606,14 +630,38 @@
                 </div>
             </div>
         </div>
-        <div class="menu-screen" id="menu-soon">
-            <button class="xp-btn" id="m-back">◀ BACK</button>
-            <div class="xp-window">
+        <div class="menu-screen" id="menu-settings">
+            <button class="xp-btn" id="m-back">:arrow_l: BACK</button>
+            <div class="xp-window set-window">
                 <div class="xp-title">Settings</div>
-                <div class="xp-body">
-                    <img src="assets/ui/ui_crystal_blue.png" alt="">
-                    <h2>Coming soon</h2>
-                    <p>Sound, controls and display options are still being built.</p>
+                <div class="xp-body set-body">
+                    <div class="set-list">
+                        <div class="set-row">
+                            <div class="set-txt"><b>:bolt: Test mode</b><small>Unlocks every skill, gives 99,999 coins and adds a TEST button in-game. It uses its own separate save, so your real progress is never touched.</small></div>
+                            <button class="set-btn" id="set-test">OFF</button>
+                        </div>
+                        <div class="set-row" id="set-level-row">
+                            <div class="set-txt"><b>Test start level</b><small>The level a test game begins at.</small></div>
+                            <button class="set-btn" id="set-level-dn">&minus;5</button>
+                            <button class="set-btn" id="set-level">1</button>
+                            <button class="set-btn" id="set-level-up">+5</button>
+                        </div>
+                        <div class="set-row">
+                            <div class="set-txt"><b>:eye: Show FPS</b><small>A small speed counter in the corner.</small></div>
+                            <button class="set-btn" id="set-fps">OFF</button>
+                        </div>
+                        <div class="set-row">
+                            <div class="set-txt"><b>:save: Save code</b><small>Copy your progress as text to keep somewhere safe, or paste a code here to restore it.</small></div>
+                            <button class="set-btn" id="set-copy">Copy</button>
+                            <button class="set-btn" id="set-load">Load</button>
+                        </div>
+                        <textarea class="set-code" id="set-code" placeholder="Your save code appears here. To restore, paste a code and press Load." spellcheck="false" autocomplete="off" autocapitalize="off"></textarea>
+                        <div class="set-row">
+                            <div class="set-txt"><b>:shield: Protect my save</b><small id="set-persist-txt">Asks the browser not to clear your save when it is short of space.</small></div>
+                            <button class="set-btn" id="set-persist">Ask</button>
+                        </div>
+                        <div class="set-note" id="set-msg"></div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -871,7 +919,7 @@
             }
             if (p.used >= PULSE_MAX_ACTIVE) {
                 stopPulse(sy); sy.tactic = 'wall';
-                showToast('💥 Pulse finished — cooldown ' + Math.ceil(p.cooldown) + 's.');
+                showToast(':burst: Pulse finished — cooldown ' + Math.ceil(p.cooldown) + 's.');
             }
         } else if (p.cooldown > 0) {
             p.cooldown = Math.max(0, p.cooldown - dt);
@@ -950,7 +998,7 @@
     }
     function reinforceBonus(host) { return Math.min(REINFORCE_MAX_RESIST, partnersOf(host).length * REINFORCE_RESIST_BONUS); }
     function unitLabel(idx) {
-        return idx === VEHICLE_SYNDICATE ? '🚔 Water cannon' : idx === VEHICLE_SYNDICATE_2 ? '🚐 Rubber van' : 'S' + (idx + 1);
+        return idx === VEHICLE_SYNDICATE ? ':car: Water cannon' : idx === VEHICLE_SYNDICATE_2 ? ':van: Rubber van' : 'S' + (idx + 1);
     }
     function isLinked(idx) { const sy = game.syndicates[idx]; return !!sy && sy.linkHost !== null && sy.linkHost !== undefined; }
     function releaseLink(idx, silent) {
@@ -958,7 +1006,7 @@
         if (!isLinked(idx)) return false;
         const host = sy.linkHost;
         sy.linkHost = null;
-        if (!silent) showToast('🤝 ' + unitLabel(idx) + ' released from S' + (host + 1) + '.');
+        if (!silent) showToast(':merge: ' + unitLabel(idx) + ' released from S' + (host + 1) + '.');
         assignFormation();
         return true;
     }
@@ -975,7 +1023,7 @@
         if (isVehicleIdx(partner)) { ps.linkAnchorX = undefined; postVehicleBehind(partner, host); }
         else syncLinkedState(partner);
         commanderShout(host, 'Reinforcements — close up on me!');
-        showToast('🤝 ' + unitLabel(partner) + ' is reinforcing S' + (host + 1) + '.');
+        showToast(':merge: ' + unitLabel(partner) + ' is reinforcing S' + (host + 1) + '.');
         assignFormation();
         return true;
     }
@@ -1006,7 +1054,7 @@
             if (!isLinked(i)) continue;
             const hostIdx = ps.linkHost, hs = game.syndicates[hostIdx];
             const hostHasOfficers = game.officers.some(o => o.alive && !o.isAllOut && o.syndicateIndex === hostIdx && o.state === 'active');
-            if (!hs || !hostHasOfficers) { releaseLink(i, true); showToast('🤝 ' + unitLabel(i) + ' released — S' + (hostIdx + 1) + ' has no officers left.'); renderOptionsPanel(); continue; }
+            if (!hs || !hostHasOfficers) { releaseLink(i, true); showToast(':merge: ' + unitLabel(i) + ' released — S' + (hostIdx + 1) + ' has no officers left.'); renderOptionsPanel(); continue; }
             if (isVehicleIdx(i)) {
                 ps.linkTimer = (ps.linkTimer || 0) - dt;
                 if (!hs.path && ps.linkTimer <= 0) {
@@ -1057,34 +1105,51 @@
     // ========== SAVE DATA & SKILLS ==========
     // Everything the player keeps between games lives in one small record in the
     // browser (localStorage): coins, unlocked skills, checkpoint and start mode.
-    const SAVE_KEY = 'cordon.save.v1';
-    const START_COINS = 0;                 // for testing, set this to e.g. 2000 and clear the save
+    // Settings live in their own record so test mode can be switched on and off without touching the real save.
+    const SETTINGS_KEY = 'cordon.settings.v1';
+    const SAVE_KEY_REAL = 'cordon.save.v1';
+    const SAVE_KEY_TEST = 'cordon.save.v1.test';   // test mode plays on a separate sandbox save
+    function loadSettings() {
+        const st = { testMode: false, showFps: false, testLevel: 1 };
+        try {
+            const d = JSON.parse(window.localStorage.getItem(SETTINGS_KEY) || '{}');
+            if (d && typeof d === 'object') {
+                st.testMode = !!d.testMode; st.showFps = !!d.showFps;
+                if (Number.isFinite(d.testLevel)) st.testLevel = Math.max(1, Math.min(500, Math.floor(d.testLevel)));
+            }
+        } catch (e) { }
+        return st;
+    }
+    let settings = loadSettings();
+    function saveSettings() { try { window.localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); } catch (e) { } }
+    function currentSaveKey() { return settings.testMode ? SAVE_KEY_TEST : SAVE_KEY_REAL; }
+    const START_COINS = 0;                 // starting coins for a brand-new save (test mode gives 99,999 instead)
     const CHECKPOINT_EVERY = 10;           // a checkpoint is banked every 10 levels cleared
     const COINS_BASE = 10, COINS_PER_LEVEL = 3, COINS_PER_ARREST = 1;
     const STRENGTH_PER_LEVEL = 0.10;       // +10% officer health and baton damage per training level
     const FORCE_SCALE = [0.55, 0.8, 1.0];  // raider numbers shrink while you only have 1 or 2 syndicates
 
     const SKILL_BRANCHES = [
-        { key: 'syndicates', title: '🪖 Syndicates & Teams', note: 'Each column is one syndicate of 15 officers. Its teams unlock on their own, so S1 can have a gas team while S3 has an arrest team and a commander.' },
-        { key: 'strength',   title: '💪 Officer Training',   note: 'Each level makes every officer tougher and hit harder.' },
-        { key: 'tactics',    title: '🧭 Tactics',            note: 'Unlock in any order. Rest and Wall are free.' },
-        { key: 'vehicles',   title: '🚔 Vehicles',           note: 'All three syndicates must be unlocked first.' },
-        { key: 'station',    title: '🏢 Station',            note: 'Repair crews and the ambulance work out of the station.' },
-        { key: 'command',    title: '📣 Command',            note: 'Big, expensive calls for when the street gets ugly.' },
+        { key: 'syndicates', title: ':helmet: Syndicates & Teams', note: 'Each column is one syndicate of 15 officers. Its teams unlock on their own, so S1 can have a gas team while S3 has an arrest team and a commander.' },
+        { key: 'strength',   title: ':dumbbell: Officer Training',   note: 'Each level makes every officer tougher and hit harder.' },
+        { key: 'tactics',    title: ':compass: Tactics',            note: 'Unlock in any order. Rest and Wall are free.' },
+        { key: 'vehicles',   title: ':car: Vehicles',           note: 'All three syndicates must be unlocked first.' },
+        { key: 'station',    title: ':station: Station',            note: 'Repair crews and the ambulance work out of the station.' },
+        { key: 'command',    title: ':megaphone: Command',            note: 'Big, expensive calls for when the street gets ugly.' },
     ];
     const SKILL_LIST = [];
     (function defineSkills() {
         const add = (key, branch, icon, name, desc, cost, req, extra) =>
             SKILL_LIST.push(Object.assign({ key, branch, icon, name, desc, cost, req: req || [] }, extra || {}));
         // syndicates and their per-syndicate teams
-        add('syn1', 'syndicates', '🪖', 'Syndicate 1', '15 shield officers.', 0, [], { free: true, col: 0 });
-        add('syn2', 'syndicates', '🪖', 'Syndicate 2', 'A second line of 15 officers.', 150, ['syn1'], { col: 1 });
-        add('syn3', 'syndicates', '🪖', 'Syndicate 3', 'A third line of 15 officers.', 400, ['syn2'], { col: 2 });
+        add('syn1', 'syndicates', ':helmet:', 'Syndicate 1', '15 shield officers.', 0, [], { free: true, col: 0 });
+        add('syn2', 'syndicates', ':helmet:', 'Syndicate 2', 'A second line of 15 officers.', 150, ['syn1'], { col: 1 });
+        add('syn3', 'syndicates', ':helmet:', 'Syndicate 3', 'A third line of 15 officers.', 400, ['syn2'], { col: 2 });
         const teams = [
-            ['arrest', '🚔', 'Arrest Team', 'Three officers grab raiders and run them to the station.', [80, 100, 120]],
-            ['gas',    '💨', 'Tear Gas Team', 'Gas officers hit the biggest crowd.', [100, 120, 140]],
-            ['k9',     '🐕', 'K9 Unit', 'A dog and handler that dash in.', [110, 130, 150]],
-            ['cmd',    '⭐', 'Commander', 'Boosts damage, speed and defence, and heals nearby officers.', [140, 160, 180]],
+            ['arrest', ':car:', 'Arrest Team', 'Three officers grab raiders and run them to the station.', [80, 100, 120]],
+            ['gas',    ':gas:', 'Tear Gas Team', 'Gas officers hit the biggest crowd.', [100, 120, 140]],
+            ['k9',     ':dog:', 'K9 Unit', 'A dog and handler that dash in.', [110, 130, 150]],
+            ['cmd',    ':star:', 'Commander', 'Boosts damage, speed and defence, and heals nearby officers.', [140, 160, 180]],
         ];
         for (let i = 0; i < 3; i++) {
             for (const t of teams) add(t[0] + (i + 1), 'syndicates', t[1], t[2], t[3], t[4][i], ['syn' + (i + 1)], { col: i });
@@ -1092,65 +1157,69 @@
         // officer training
         const ROMAN = ['I', 'II', 'III', 'IV', 'V'], TRAIN_COST = [60, 120, 200, 320, 480];
         for (let n = 1; n <= 5; n++) {
-            add('strength' + n, 'strength', '💪', 'Training ' + ROMAN[n - 1], '+' + Math.round(STRENGTH_PER_LEVEL * 100) + '% officer health and damage (total +' + Math.round(STRENGTH_PER_LEVEL * 100 * n) + '%).',
+            add('strength' + n, 'strength', ':dumbbell:', 'Training ' + ROMAN[n - 1], '+' + Math.round(STRENGTH_PER_LEVEL * 100) + '% officer health and damage (total +' + Math.round(STRENGTH_PER_LEVEL * 100 * n) + '%).',
                 TRAIN_COST[n - 1], n > 1 ? ['strength' + (n - 1)] : []);
         }
         // tactics
-        add('tactic_rest',       'tactics', '😌', 'Rest',        'Shields down, officers recover.', 0, [], { free: true });
-        add('tactic_wall',       'tactics', '🧱', 'Wall',        'A tight shield wall across the road.', 0, [], { free: true });
-        add('tactic_wedge',      'tactics', '🔺', 'Wedge',       'A pointed formation that pushes forward.', 40);
-        add('tactic_stackleft',  'tactics', '⬅️', 'Stack Left',  'Press the line against the left kerb.', 60);
-        add('tactic_stackright', 'tactics', '➡️', 'Stack Right', 'Press the line against the right kerb.', 60);
-        add('tactic_box',        'tactics', '📦', 'Box',         'Cover every side.', 90);
-        add('tactic_reinforce',  'tactics', '🤝', 'Reinforce',   'Pull another syndicate or a vehicle into this one for extra strength.', 120);
-        add('tactic_pulse',      'tactics', '💥', 'Pulse',       'Hold a wall while thirds of the line charge out in turn.', 140);
+        add('tactic_rest',       'tactics', ':moon:', 'Rest',        'Shields down, officers recover.', 0, [], { free: true });
+        add('tactic_wall',       'tactics', ':wall:', 'Wall',        'A tight shield wall across the road.', 0, [], { free: true });
+        add('tactic_wedge',      'tactics', ':wedge:', 'Wedge',       'A pointed formation that pushes forward.', 40);
+        add('tactic_stackleft',  'tactics', ':arrow_l:', 'Stack Left',  'Press the line against the left kerb.', 60);
+        add('tactic_stackright', 'tactics', ':arrow_r:', 'Stack Right', 'Press the line against the right kerb.', 60);
+        add('tactic_box',        'tactics', ':box:', 'Box',         'Cover every side.', 90);
+        add('tactic_reinforce',  'tactics', ':merge:', 'Reinforce',   'Pull another syndicate or a vehicle into this one for extra strength.', 120);
+        add('tactic_pulse',      'tactics', ':burst:', 'Pulse',       'Hold a wall while thirds of the line charge out in turn.', 140);
         // vehicles (need every syndicate first)
-        add('veh_water',  'vehicles', '🚔', 'Water Cannon', 'A cannon truck you park on the road dots.', 500, ['syn3']);
-        add('veh_rubber', 'vehicles', '🚐', 'Rubber Bullet Van', 'Parks up and puts out a firing team.', 650, ['syn3']);
+        add('veh_water',  'vehicles', ':car:', 'Water Cannon', 'A cannon truck you park on the road dots.', 500, ['syn3']);
+        add('veh_rubber', 'vehicles', ':van:', 'Rubber Bullet Van', 'Parks up and puts out a firing team.', 650, ['syn3']);
         // station
-        add('repair1',   'station', '👷', 'Repair Team 1', 'Escorted crew that fixes damaged buildings.', 120);
-        add('repair2',   'station', '👷', 'Repair Team 2', 'A second repair crew.', 220, ['repair1']);
-        add('ambulance', 'station', '🚑', 'Ambulance', 'Collects and treats injured officers.', 180);
+        add('repair1',   'station', ':worker:', 'Repair Team 1', 'Escorted crew that fixes damaged buildings.', 120);
+        add('repair2',   'station', ':worker:', 'Repair Team 2', 'A second repair crew.', 220, ['repair1']);
+        add('ambulance', 'station', ':ambulance:', 'Ambulance', 'Collects and treats injured officers.', 180);
         // command
-        add('allout',   'command', '🚨', 'All Out', 'A shield box of extra officers around the station.', 150);
-        add('mergeall', 'command', '🪖', 'All Units On Me', 'Every syndicate converges on the one you select.', 200);
+        add('allout',   'command', ':siren:', 'All Out', 'A shield box of extra officers around the station.', 150);
+        add('mergeall', 'command', ':helmet:', 'All Units On Me', 'Every syndicate converges on the one you select.', 200);
     })();
     const SKILLS = {};
     SKILL_LIST.forEach(s => { SKILLS[s.key] = s; });
 
-    function defaultProfile() { return { v: 1, coins: START_COINS, owned: {}, checkpoint: 1, bestLevel: 1, autoStart: true }; }
+    function defaultProfile() { return { v: 1, coins: settings.testMode ? 99999 : START_COINS, owned: {}, checkpoint: 1, bestLevel: 1, autoStart: true }; }
+    // Cleans up any saved data before it is used, so a damaged or hand-edited save can never break the game.
+    function applyProfileData(p, d) {
+        if (d && typeof d === 'object') {
+            if (Number.isFinite(d.coins)) p.coins = Math.max(0, Math.min(99999999, Math.floor(d.coins)));
+            if (d.owned && typeof d.owned === 'object') for (const k of Object.keys(d.owned)) if (SKILLS[k] && d.owned[k]) p.owned[k] = true;
+            if (Number.isFinite(d.bestLevel)) p.bestLevel = Math.max(1, Math.floor(d.bestLevel));
+            if (Number.isFinite(d.checkpoint)) p.checkpoint = 1 + Math.floor((Math.max(1, d.checkpoint) - 1) / CHECKPOINT_EVERY) * CHECKPOINT_EVERY;
+            if (typeof d.autoStart === 'boolean') p.autoStart = d.autoStart;
+        }
+        return p;
+    }
     function loadProfile() {
         const p = defaultProfile();
         try {
-            const raw = window.localStorage.getItem(SAVE_KEY);
-            const d = raw ? JSON.parse(raw) : null;
-            if (d && typeof d === 'object') {
-                if (Number.isFinite(d.coins)) p.coins = Math.max(0, Math.floor(d.coins));
-                if (d.owned && typeof d.owned === 'object') for (const k of Object.keys(d.owned)) if (SKILLS[k] && d.owned[k]) p.owned[k] = true;
-                if (Number.isFinite(d.bestLevel)) p.bestLevel = Math.max(1, Math.floor(d.bestLevel));
-                if (Number.isFinite(d.checkpoint)) p.checkpoint = 1 + Math.floor((Math.max(1, d.checkpoint) - 1) / CHECKPOINT_EVERY) * CHECKPOINT_EVERY;
-                if (typeof d.autoStart === 'boolean') p.autoStart = d.autoStart;
-            }
+            const raw = window.localStorage.getItem(currentSaveKey());
+            applyProfileData(p, raw ? JSON.parse(raw) : null);
         } catch (e) { /* storage blocked (private mode): the game still plays, it just can't remember */ }
         return p;
     }
     let profile = loadProfile();
-    function saveProfile() { try { window.localStorage.setItem(SAVE_KEY, JSON.stringify(profile)); } catch (e) { } }
+    function saveProfile() { try { window.localStorage.setItem(currentSaveKey(), JSON.stringify(profile)); } catch (e) { } }
     function resetProfile() { profile = defaultProfile(); saveProfile(); }
 
-    function skillOwned(key) { const s = SKILLS[key]; return !!s && (!!s.free || !!profile.owned[key]); }
+    function skillOwned(key) { const s = SKILLS[key]; return !!s && (settings.testMode || !!s.free || !!profile.owned[key]); }
     function skillMissing(key) { return SKILLS[key].req.filter(r => !skillOwned(r)); }
     function skillBuy(key) {
         const s = SKILLS[key];
         if (!s) return { ok: false, msg: '' };
         if (skillOwned(key)) return { ok: false, msg: s.name + ' is already unlocked.' };
         const missing = skillMissing(key);
-        if (missing.length) return { ok: false, msg: '🔒 Unlock ' + missing.map(r => SKILLS[r].name).join(' + ') + ' first.' };
+        if (missing.length) return { ok: false, msg: ':lock: Unlock ' + missing.map(r => SKILLS[r].name).join(' + ') + ' first.' };
         if (profile.coins < s.cost) return { ok: false, msg: 'Not enough coins: ' + (s.cost - profile.coins) + ' more needed.' };
         profile.coins -= s.cost;
         profile.owned[key] = true;
         saveProfile();
-        return { ok: true, msg: '✔ Unlocked ' + s.name + '!' };
+        return { ok: true, msg: ':check: Unlocked ' + s.name + '!' };
     }
     const TACTIC_SKILL = {
         rest: 'tactic_rest', wall: 'tactic_wall', wedge: 'tactic_wedge', stackleft: 'tactic_stackleft',
@@ -1166,7 +1235,7 @@
     function forceScale() { return FORCE_SCALE[Math.max(1, Math.min(3, game.syndicatesDeployed)) - 1]; }
 
     function isCheckpointLevel(level) { return level > 1 && (level - 1) % CHECKPOINT_EVERY === 0; }
-    function startLevel() { return profile.autoStart ? profile.checkpoint : 1; }
+    function startLevel() { if (settings.testMode) return Math.max(1, settings.testLevel || 1); return profile.autoStart ? profile.checkpoint : 1; }
     function levelCoins(level, arrests) { return COINS_BASE + COINS_PER_LEVEL * level + COINS_PER_ARREST * Math.max(0, arrests); }
     // Called when a level is cleared: pays out coins, tracks the best level and banks checkpoints.
     function bankLevelClear(cleared, arrests) {
@@ -1806,6 +1875,7 @@
     const ATLAS_TABLE = {"rb1_3":{"kind":"b","zone":"biz","wT":3,"hT":5,"src":"rb1","noflip":false,"x":740,"y":374,"w":48,"h":80},"rb1_3_v1":{"kind":"b","zone":"biz","wT":3,"hT":5,"src":"rb1","noflip":false,"x":790,"y":374,"w":48,"h":80},"rb1_4":{"kind":"b","zone":"biz","wT":4,"hT":7,"src":"rb1","noflip":false,"x":0,"y":146,"w":64,"h":112},"rb1_4_v1":{"kind":"b","zone":"biz","wT":4,"hT":7,"src":"rb1","noflip":false,"x":66,"y":146,"w":64,"h":112},"rb2_4":{"kind":"b","zone":"biz","wT":4,"hT":4,"src":"rb2","noflip":false,"x":874,"y":472,"w":64,"h":64},"rb2_4_v1":{"kind":"b","zone":"biz","wT":4,"hT":4,"src":"rb2","noflip":false,"x":940,"y":472,"w":64,"h":64},"rb2_5":{"kind":"b","zone":"biz","wT":5,"hT":5,"src":"rb2","noflip":false,"x":840,"y":374,"w":80,"h":80},"rb2_5_v1":{"kind":"b","zone":"biz","wT":5,"hT":5,"src":"rb2","noflip":false,"x":922,"y":374,"w":80,"h":80},"rb3_3":{"kind":"b","zone":"biz","wT":3,"hT":5,"src":"rb3","noflip":true,"x":0,"y":472,"w":48,"h":80},"rb3_4":{"kind":"b","zone":"biz","wT":4,"hT":6,"src":"rb3","noflip":true,"x":180,"y":260,"w":64,"h":96},"rb4_4":{"kind":"b","zone":"biz","wT":4,"hT":4,"src":"rb4","noflip":false,"x":0,"y":554,"w":64,"h":64},"rb4_4_v1":{"kind":"b","zone":"biz","wT":4,"hT":4,"src":"rb4","noflip":false,"x":66,"y":554,"w":64,"h":64},"rb4_5":{"kind":"b","zone":"biz","wT":5,"hT":5,"src":"rb4","noflip":false,"x":50,"y":472,"w":80,"h":80},"rb4_5_v1":{"kind":"b","zone":"biz","wT":5,"hT":5,"src":"rb4","noflip":false,"x":132,"y":472,"w":80,"h":80},"rb5_8":{"kind":"b","zone":"biz","wT":8,"hT":5,"src":"rb5","noflip":false,"x":214,"y":472,"w":128,"h":80},"rb5_10":{"kind":"b","zone":"biz","wT":10,"hT":6,"src":"rb5","noflip":false,"x":246,"y":260,"w":160,"h":96},"rb6_10":{"kind":"b","zone":"biz","wT":10,"hT":6,"src":"rb6","noflip":false,"x":408,"y":260,"w":160,"h":96},"rb6_12":{"kind":"b","zone":"biz","wT":12,"hT":7,"src":"rb6","noflip":false,"x":132,"y":146,"w":192,"h":112},"rb7_3":{"kind":"b","zone":"biz","wT":3,"hT":6,"src":"rb7","noflip":false,"x":570,"y":260,"w":48,"h":96},"rb7_3_v1":{"kind":"b","zone":"biz","wT":3,"hT":6,"src":"rb7","noflip":false,"x":620,"y":260,"w":48,"h":96},"rb7_4":{"kind":"b","zone":"biz","wT":4,"hT":8,"src":"rb7","noflip":false,"x":328,"y":0,"w":64,"h":128},"rb7_4_v1":{"kind":"b","zone":"biz","wT":4,"hT":8,"src":"rb7","noflip":false,"x":394,"y":0,"w":64,"h":128},"cb04_4":{"kind":"b","zone":"biz","wT":4,"hT":5,"src":"cb04","noflip":false,"x":344,"y":472,"w":64,"h":80},"cb04_5":{"kind":"b","zone":"biz","wT":5,"hT":6,"src":"cb04","noflip":false,"x":670,"y":260,"w":80,"h":96},"cb10_8":{"kind":"b","zone":"biz","wT":8,"hT":7,"src":"cb10","noflip":false,"x":326,"y":146,"w":128,"h":112},"cb10_10":{"kind":"b","zone":"biz","wT":10,"hT":8,"src":"cb10","noflip":false,"x":460,"y":0,"w":160,"h":128},"cb01_3":{"kind":"b","zone":"res","wT":3,"hT":7,"src":"cb01","noflip":false,"x":456,"y":146,"w":48,"h":112},"cb01_3_v1":{"kind":"b","zone":"res","wT":3,"hT":7,"src":"cb01","noflip":false,"x":506,"y":146,"w":48,"h":112},"cb01_4":{"kind":"b","zone":"res","wT":4,"hT":9,"src":"cb01","noflip":false,"x":0,"y":0,"w":64,"h":144},"cb01_4_v1":{"kind":"b","zone":"res","wT":4,"hT":9,"src":"cb01","noflip":false,"x":66,"y":0,"w":64,"h":144},"cb02_3":{"kind":"b","zone":"res","wT":3,"hT":5,"src":"cb02","noflip":false,"x":410,"y":472,"w":48,"h":80},"cb02_3_v1":{"kind":"b","zone":"res","wT":3,"hT":5,"src":"cb02","noflip":false,"x":460,"y":472,"w":48,"h":80},"cb02_4":{"kind":"b","zone":"res","wT":4,"hT":7,"src":"cb02","noflip":false,"x":556,"y":146,"w":64,"h":112},"cb02_4_v1":{"kind":"b","zone":"res","wT":4,"hT":7,"src":"cb02","noflip":false,"x":622,"y":146,"w":64,"h":112},"cb03_4":{"kind":"b","zone":"res","wT":4,"hT":5,"src":"cb03","noflip":false,"x":510,"y":472,"w":64,"h":80},"cb03_4_v1":{"kind":"b","zone":"res","wT":4,"hT":5,"src":"cb03","noflip":false,"x":576,"y":472,"w":64,"h":80},"cb03_5":{"kind":"b","zone":"res","wT":5,"hT":6,"src":"cb03","noflip":false,"x":752,"y":260,"w":80,"h":96},"cb03_5_v1":{"kind":"b","zone":"res","wT":5,"hT":6,"src":"cb03","noflip":false,"x":834,"y":260,"w":80,"h":96},"cb03_6":{"kind":"b","zone":"res","wT":6,"hT":7,"src":"cb03","noflip":false,"x":688,"y":146,"w":96,"h":112},"cb03_6_v1":{"kind":"b","zone":"res","wT":6,"hT":7,"src":"cb03","noflip":false,"x":786,"y":146,"w":96,"h":112},"cb06_3":{"kind":"b","zone":"res","wT":3,"hT":4,"src":"cb06","noflip":false,"x":132,"y":554,"w":48,"h":64},"cb06_3_v1":{"kind":"b","zone":"res","wT":3,"hT":4,"src":"cb06","noflip":false,"x":182,"y":554,"w":48,"h":64},"cb06_4":{"kind":"b","zone":"res","wT":4,"hT":6,"src":"cb06","noflip":false,"x":916,"y":260,"w":64,"h":96},"cb06_4_v1":{"kind":"b","zone":"res","wT":4,"hT":6,"src":"cb06","noflip":false,"x":0,"y":374,"w":64,"h":96},"cb08_4":{"kind":"b","zone":"res","wT":4,"hT":4,"src":"cb08","noflip":false,"x":232,"y":554,"w":64,"h":64},"cb08_4_v1":{"kind":"b","zone":"res","wT":4,"hT":4,"src":"cb08","noflip":false,"x":298,"y":554,"w":64,"h":64},"cb08_5":{"kind":"b","zone":"res","wT":5,"hT":6,"src":"cb08","noflip":false,"x":66,"y":374,"w":80,"h":96},"cb08_5_v1":{"kind":"b","zone":"res","wT":5,"hT":6,"src":"cb08","noflip":false,"x":148,"y":374,"w":80,"h":96},"cb09_4":{"kind":"b","zone":"res","wT":4,"hT":5,"src":"cb09","noflip":false,"x":642,"y":472,"w":64,"h":80},"cb09_4_v1":{"kind":"b","zone":"res","wT":4,"hT":5,"src":"cb09","noflip":false,"x":708,"y":472,"w":64,"h":80},"cb09_5":{"kind":"b","zone":"res","wT":5,"hT":6,"src":"cb09","noflip":false,"x":230,"y":374,"w":80,"h":96},"cb09_5_v1":{"kind":"b","zone":"res","wT":5,"hT":6,"src":"cb09","noflip":false,"x":312,"y":374,"w":80,"h":96},"cb05_3":{"kind":"b","zone":"ind","wT":3,"hT":5,"src":"cb05","noflip":false,"x":774,"y":472,"w":48,"h":80},"cb05_3_v1":{"kind":"b","zone":"ind","wT":3,"hT":5,"src":"cb05","noflip":false,"x":824,"y":472,"w":48,"h":80},"cb05_4":{"kind":"b","zone":"ind","wT":4,"hT":6,"src":"cb05","noflip":false,"x":394,"y":374,"w":64,"h":96},"cb05_4_v1":{"kind":"b","zone":"ind","wT":4,"hT":6,"src":"cb05","noflip":false,"x":460,"y":374,"w":64,"h":96},"cb05_5":{"kind":"b","zone":"ind","wT":5,"hT":8,"src":"cb05","noflip":false,"x":622,"y":0,"w":80,"h":128},"cb05_5_v1":{"kind":"b","zone":"ind","wT":5,"hT":8,"src":"cb05","noflip":false,"x":704,"y":0,"w":80,"h":128},"cb05_6":{"kind":"b","zone":"ind","wT":6,"hT":9,"src":"cb05","noflip":false,"x":132,"y":0,"w":96,"h":144},"cb05_6_v1":{"kind":"b","zone":"ind","wT":6,"hT":9,"src":"cb05","noflip":false,"x":230,"y":0,"w":96,"h":144},"cb07_3":{"kind":"b","zone":"ind","wT":3,"hT":4,"src":"cb07","noflip":false,"x":364,"y":554,"w":48,"h":64},"cb07_3_v1":{"kind":"b","zone":"ind","wT":3,"hT":4,"src":"cb07","noflip":false,"x":414,"y":554,"w":48,"h":64},"cb07_4":{"kind":"b","zone":"ind","wT":4,"hT":6,"src":"cb07","noflip":false,"x":526,"y":374,"w":64,"h":96},"cb07_4_v1":{"kind":"b","zone":"ind","wT":4,"hT":6,"src":"cb07","noflip":false,"x":592,"y":374,"w":64,"h":96},"cb07_5":{"kind":"b","zone":"ind","wT":5,"hT":7,"src":"cb07","noflip":false,"x":884,"y":146,"w":80,"h":112},"cb07_5_v1":{"kind":"b","zone":"ind","wT":5,"hT":7,"src":"cb07","noflip":false,"x":0,"y":260,"w":80,"h":112},"cb07_6":{"kind":"b","zone":"ind","wT":6,"hT":8,"src":"cb07","noflip":false,"x":786,"y":0,"w":96,"h":128},"cb07_6_v1":{"kind":"b","zone":"ind","wT":6,"hT":8,"src":"cb07","noflip":false,"x":884,"y":0,"w":96,"h":128},"cb08i_5":{"kind":"b","zone":"ind","wT":5,"hT":6,"src":"cb08i","noflip":false,"x":658,"y":374,"w":80,"h":96},"cb08i_6":{"kind":"b","zone":"ind","wT":6,"hT":7,"src":"cb08i","noflip":false,"x":82,"y":260,"w":96,"h":112},"bin_closed":{"kind":"p","cls":"bin","w":11,"h":17,"x":814,"y":554},"bin_open":{"kind":"p","cls":"bin","w":16,"h":17,"x":827,"y":554},"trashbag":{"kind":"p","cls":"bag","w":12,"h":11,"x":185,"y":620},"hydrant_r":{"kind":"p","cls":"hydrant","w":8,"h":14,"x":16,"y":620},"vend_beige":{"kind":"p","cls":"vending","w":25,"h":25,"x":665,"y":554},"vend_green":{"kind":"p","cls":"vending","w":14,"h":27,"x":610,"y":554},"vend_red":{"kind":"p","cls":"vending","w":21,"h":26,"x":642,"y":554},"vend_yellow":{"kind":"p","cls":"vending","w":14,"h":27,"x":626,"y":554},"lamp_dbl":{"kind":"p","cls":"lamp","w":25,"h":44,"x":510,"y":554},"box_h":{"kind":"p","cls":"box","w":10,"h":9,"x":296,"y":620},"box_v":{"kind":"p","cls":"box","w":11,"h":11,"x":199,"y":620},"box_open":{"kind":"p","cls":"box","w":12,"h":13,"x":121,"y":620},"bush1":{"kind":"p","cls":"plant","w":21,"h":17,"x":845,"y":554},"bush2":{"kind":"p","cls":"plant","w":21,"h":17,"x":868,"y":554},"plant1":{"kind":"p","cls":"pot","w":8,"h":17,"x":891,"y":554},"plant2":{"kind":"p","cls":"pot","w":16,"h":15,"x":946,"y":554},"plant3":{"kind":"p","cls":"pot","w":9,"h":14,"x":26,"y":620},"plant4":{"kind":"p","cls":"pot","w":8,"h":13,"x":135,"y":620},"plant5":{"kind":"p","cls":"pot","w":11,"h":15,"x":964,"y":554},"table_round":{"kind":"p","cls":"table","w":13,"h":10,"x":281,"y":620},"table_sq":{"kind":"p","cls":"table","w":12,"h":11,"x":212,"y":620},"table_red":{"kind":"p","cls":"table","w":16,"h":13,"x":145,"y":620},"chair_f":{"kind":"p","cls":"chair","w":7,"h":11,"x":226,"y":620},"chair_b":{"kind":"p","cls":"chair","w":7,"h":11,"x":235,"y":620},"chair_s":{"kind":"p","cls":"chair","w":7,"h":11,"x":244,"y":620},"chair_rf":{"kind":"p","cls":"chair","w":7,"h":11,"x":253,"y":620},"chair_rb":{"kind":"p","cls":"chair","w":8,"h":11,"x":262,"y":620},"chair_rs":{"kind":"p","cls":"chair","w":7,"h":11,"x":272,"y":620},"tree_a":{"kind":"p","cls":"tree","w":14,"h":36,"x":567,"y":554},"tree_b":{"kind":"p","cls":"tree","w":19,"h":46,"x":489,"y":554},"tree_c":{"kind":"p","cls":"tree","w":28,"h":40,"x":537,"y":554},"hoarding1":{"kind":"p","cls":"board","w":38,"h":20,"x":708,"y":554},"hoarding2":{"kind":"p","cls":"board","w":32,"h":20,"x":748,"y":554},"bench_f":{"kind":"p","cls":"bench","w":17,"h":15,"x":977,"y":554},"bench_s":{"kind":"p","cls":"bench","w":8,"h":20,"x":782,"y":554},"planter":{"kind":"p","cls":"planter","w":19,"h":14,"x":37,"y":620},"planter_b":{"kind":"p","cls":"planter","w":23,"h":14,"x":58,"y":620},"tyres":{"kind":"p","cls":"tyres","w":20,"h":13,"x":163,"y":620},"crate_a":{"kind":"p","cls":"box","w":12,"h":17,"x":901,"y":554},"crate_b":{"kind":"p","cls":"box","w":12,"h":17,"x":915,"y":554},"crate_iso":{"kind":"p","cls":"box","w":15,"h":16,"x":929,"y":554},"barrier":{"kind":"p","cls":"barrier","w":20,"h":18,"x":792,"y":554},"bin_c_open":{"kind":"p","cls":"bin","w":15,"h":15,"x":996,"y":554},"bin_c":{"kind":"p","cls":"bin","w":14,"h":15,"x":0,"y":620},"bin_lid":{"kind":"p","cls":"bag","w":13,"h":8,"x":308,"y":620},"utility":{"kind":"p","cls":"lamp","w":23,"h":56,"x":464,"y":554},"warn_sign":{"kind":"p","cls":"sign","w":12,"h":28,"x":583,"y":554},"round_sign":{"kind":"p","cls":"sign","w":11,"h":28,"x":597,"y":554},"ac_unit":{"kind":"p","cls":"machine","w":14,"h":22,"x":692,"y":554},"generator":{"kind":"p","cls":"machine","w":16,"h":14,"x":83,"y":620},"generator2":{"kind":"p","cls":"machine","w":18,"h":14,"x":101,"y":620}};
 
     ASSET_PATHS['units_sheet'] = 'assets/units/units_sheet.png';
+    ASSET_PATHS['raider_sheet'] = 'assets/raiders/raider_sheet.png';
     ASSET_PATHS['k9_sheet'] = 'assets/units/k9_gsd_sheet.png';
     ASSET_PATHS['amb_sheet'] = 'assets/map/vehicles/ambulance_sheet.png';
     ASSET_PATHS['gas_sheet'] = 'assets/fx/gas_plume_sheet.png';
@@ -3216,7 +3286,7 @@
             drawHpBar(ctx, sx, sy - 23, this.hp, this.maxHp, this.isAllOut ? '#ffb45c' : '#6cc4ff');
             if (this.isAllOut) {
                 ctx.fillStyle = '#ff8a5c'; ctx.font = 'bold 8px monospace'; ctx.textAlign = 'center';
-                ctx.fillText('⚡', sx, sy - 28);
+                drawIcon(ctx, 'bolt', sx, sy - 32, 11);
             } else if (this.state === 'retreating' || this.state === 'cooldown') {
                 ctx.fillStyle = this.state === 'retreating' ? '#ff4444' : '#ffaa00';
                 ctx.font = '8px monospace'; ctx.textAlign = 'center';
@@ -3314,10 +3384,13 @@
     }
     function drawHpBar(ctx, sx, sy, hp, maxHp, color) {
         if (hp >= maxHp) return;
-        const barW = 22;
-        ctx.fillStyle = 'rgba(0,0,0,0.5)'; ctx.fillRect(sx - barW/2, sy, barW, 3);
+        const barW = 22, x = Math.round(sx - barW / 2), y = Math.round(sy);
         const pct = Math.max(0, Math.min(1, hp / maxHp));
-        ctx.fillStyle = color; ctx.fillRect(sx - barW/2, sy, barW * pct, 3);
+        const w = Math.max(0, Math.round(barW * pct));
+        ctx.fillStyle = '#222034'; ctx.fillRect(x - 1, y - 1, barW + 2, 5);
+        ctx.fillStyle = '#4c4869'; ctx.fillRect(x, y, barW, 3);
+        ctx.fillStyle = color; ctx.fillRect(x, y, w, 3);
+        ctx.fillStyle = 'rgba(255,255,255,0.4)'; ctx.fillRect(x, y, w, 1);
     }
 
     // ========== ARREST OFFICER ==========
@@ -3441,7 +3514,7 @@
                     this.carryTimer = 0;
                     this.route = null;
                     this.routeStuck = 0;
-                    showToast('🔒 Raider arrested!');
+                    showToast(':lock: Raider arrested!');
                     return;
                 }
                 const bx = BASE_TILE_X * TILE, by = BASE_TILE_Y * TILE;
@@ -3459,7 +3532,7 @@
                     this.carryTimer = 0;
                     this.route = null;
                     this.routeStuck = 0;
-                    showToast('🔒 Raider arrested!');
+                    showToast(':lock: Raider arrested!');
                 } else {
                     this.isMoving = true;
                     this.moveToGoal(bx, by, dt, ARREST_OFFICER_SPEED);
@@ -3517,7 +3590,7 @@
                 this.route = null;
                 this.routeStuck = 0;
                 spawnHitEffect(grabTarget.x, grabTarget.y);
-                showToast('🚔 Arrest team has seized a raider!');
+                showToast(':car: Arrest team has seized a raider!');
                 return;
             }
 
@@ -3565,7 +3638,7 @@
                 ctx.fillStyle = '#ffcc33';
                 ctx.font = 'bold 10px monospace';
                 ctx.textAlign = 'center';
-                ctx.fillText('🔒', sx, sy - 28);
+                drawIcon(ctx, 'lock', sx, sy - 32, 11);
             } else if (this.lifeTimer < 8) {
                 ctx.fillStyle = '#9fb0c7';
                 ctx.font = '7px monospace';
@@ -3844,19 +3917,19 @@
 
             if (this.lifeTimer <= 0 && this.state !== 'return') {
                 this.headHome();
-                showToast('👷 Repair shift over — worker returning to station.');
+                showToast(':worker: Repair shift over — worker returning to station.');
             }
 
             if (this.escorts.length > 0 && this.escortsAlive() === 0 && this.state !== 'return') {
                 this.headHome();
-                showToast('👷 Escort wiped out — repair worker retreating!');
+                showToast(':worker: Escort wiped out — repair worker retreating!');
             }
 
             if (!this.isProtected()) this.unprotectedTimer += dt;
             else this.unprotectedTimer = Math.max(0, this.unprotectedTimer - dt * 2);
             if (this.unprotectedTimer > 5.0 && this.state !== 'return') {
                 this.headHome();
-                showToast('👷 Repair worker retreating — no protection!');
+                showToast(':worker: Repair worker retreating — no protection!');
             }
 
             if (this.state === 'return') {
@@ -3871,7 +3944,7 @@
             if (!this.targetBuilding || this.targetBuilding.hp >= this.targetBuilding.maxHp) {
                 this.targetBuilding = this.findNearestDamaged();
                 if (!this.targetBuilding) {
-                    showToast('👷 Nothing left to repair — worker returning to station.');
+                    showToast(':worker: Nothing left to repair — worker returning to station.');
                     this.headHome();
                     return;
                 }
@@ -3899,7 +3972,7 @@
                     const tidied = restoreFurnitureNear(b.tx, b.ty, TILE * 10);
                     markSceneryDirty();
                     this.targetBuilding = null;
-                    showToast(tidied > 0 ? '🔧 Building repaired and the street tidied up!' : '🔧 Building fully repaired!');
+                    showToast(tidied > 0 ? ':wrench: Building repaired and the street tidied up!' : ':wrench: Building fully repaired!');
                 }
             } else {
                 this.state = 'seek';
@@ -3922,10 +3995,10 @@
             drawHpBar(ctx, sx, sy - 23, this.hp, this.maxHp, '#ffcc33');
             if (this.state === 'repair') {
                 ctx.fillStyle = '#ffcc33'; ctx.font = 'bold 9px monospace'; ctx.textAlign = 'center';
-                ctx.fillText('🔧', sx, sy - 28);
+                drawIcon(ctx, 'wrench', sx, sy - 32, 11);
             } else if (this.state === 'return') {
                 ctx.fillStyle = '#a0d0ff'; ctx.font = '8px monospace'; ctx.textAlign = 'center';
-                ctx.fillText('↩', sx, sy - 28);
+                drawIcon(ctx, 'return', sx, sy - 32, 11);
             }
             if (this.lifeTimer > 0 && this.state !== 'return' && this.state !== 'repair') {
                 ctx.fillStyle = '#9fb0c7'; ctx.font = '7px monospace'; ctx.textAlign = 'center';
@@ -4164,10 +4237,10 @@
             drawHpBar(ctx, sx, sy - 23, this.hp, this.maxHp, '#d0d050');
             if (this.state === 'advancing') {
                 ctx.fillStyle = '#e0e070'; ctx.font = 'bold 8px monospace'; ctx.textAlign = 'center';
-                ctx.fillText('➤', sx, sy - 28);
+                drawIcon(ctx, 'arrow_r', sx, sy - 32, 11);
             } else if (this.state === 'spraying') {
                 ctx.fillStyle = '#f0f080'; ctx.font = 'bold 8px monospace'; ctx.textAlign = 'center';
-                ctx.fillText('💨', sx, sy - 28);
+                drawIcon(ctx, 'gas', sx, sy - 32, 11);
             }
         }
         drawGasCloud(ctx) {
@@ -4409,7 +4482,7 @@
             drawUnitSprite(ctx, this, UNIT_ROWS.commander);
             ctx.restore();
             ctx.fillStyle = '#ffe066'; ctx.font = 'bold 9px sans-serif'; ctx.textAlign = 'center';
-            ctx.fillText('★', sx, sy - 26);
+            drawIcon(ctx, 'star', sx, sy - 30, 11);
             if (this.shout) this.drawBubble(ctx, sx, sy - 31);
         }
         drawBubble(ctx, sx, sy) {
@@ -4511,7 +4584,7 @@
                 routedMove(this, base.x, base.y, dt, AMB_SPEED);
                 if (Math.hypot(base.x - this.x, base.y - this.y) < TILE * 2.5) {
                     this.alive = false; game.ambulanceCooldown = AMB_COOLDOWN;
-                    showToast('🚑 Ambulance back at the station.'); renderOptionsPanel();
+                    showToast(':ambulance: Ambulance back at the station.'); renderOptionsPanel();
                 }
             }
             this.moving = Math.hypot(this.x - px, this.y - py) > 0.05;
@@ -4552,15 +4625,15 @@
         }
     }
     function deployAmbulance() {
-        if (!skillOwned('ambulance')) { showToast('🔒 The ambulance is locked. Unlock it in Skills.'); return; }
-        if (game.ambulance && game.ambulance.alive) { showToast('🚑 The ambulance is already out.'); return; }
-        if ((game.ambulanceCooldown || 0) > 0) { showToast('🚑 Ambulance restocking — ' + Math.ceil(game.ambulanceCooldown) + 's.'); return; }
+        if (!skillOwned('ambulance')) { showToast(':lock: The ambulance is locked. Unlock it in Skills.'); return; }
+        if (game.ambulance && game.ambulance.alive) { showToast(':ambulance: The ambulance is already out.'); return; }
+        if ((game.ambulanceCooldown || 0) > 0) { showToast(':ambulance: Ambulance restocking — ' + Math.ceil(game.ambulanceCooldown) + 's.'); return; }
         const amb = new AmbulanceVehicle();
         let anyHurt = false;
         for (let i = 0; i < OFFICER_SYNDICATES; i++) if (amb.missing(i) > 2) { anyHurt = true; break; }
         game.ambulance = amb;
-        if (anyHurt) showToast('🚑 UK ambulance dispatched — it will treat the most injured syndicate.');
-        else showToast('🚑 Ambulance dispatched — nobody is hurt yet, so it will hold at the station until someone is.');
+        if (anyHurt) showToast(':ambulance: UK ambulance dispatched — it will treat the most injured syndicate.');
+        else showToast(':ambulance: Ambulance dispatched — nobody is hurt yet, so it will hold at the station until someone is.');
         renderOptionsPanel();
     }
     function updateAmbulance(dt) {
@@ -4678,7 +4751,7 @@
 
                 if (this.deployTimer <= 0) {
                     this.deployTimer = 0;
-                    showToast('🐕 K9 is returning to handler.');
+                    showToast(':dog: K9 is returning to handler.');
                 }
                 return;
             }
@@ -4750,7 +4823,7 @@
                 ctx.fillStyle = '#ff8a5c';
                 ctx.font = 'bold 8px monospace';
                 ctx.textAlign = 'center';
-                ctx.fillText('⚡', sx, sy - 18);
+                drawIcon(ctx, 'bolt', sx, sy - 22, 11);
             } else if (this.cooldownTimer > 0) {
                 ctx.fillStyle = '#8a919c';
                 ctx.font = '7px monospace';
@@ -4989,7 +5062,7 @@
                             this.routeIdx++;
                         } else {
                             this.clearTarget();
-                            showToast('🚙 No clear route to that blockade point.');
+                            showToast(':car: No clear route to that blockade point.');
                         }
                     }
                 }
@@ -5403,7 +5476,7 @@
     ];
     const RAIDER_SKIN = ['#c99a6e', '#8f6341', '#e0b48a', '#6e4a30', '#d6a97c'];
     const RAIDER_HEADWEAR = ['bare', 'cap', 'beanie', 'hood', 'balaclava', 'bandana'];
-    function makeRaiderOutfit(id, looksPeaceful) {
+    function makeRaiderOutfit(id, looksPeaceful, kind) {
         const rnd = mulberry32(id * 7919 + 1013);
         const pick = (arr) => arr[Math.floor(rnd() * arr.length)];
         const top = pick(RAIDER_TOPS);
@@ -5420,6 +5493,14 @@
             scarf: rnd() < 0.22 ? pick(RAIDER_TOPS)[0] : null,
             heightMul: 0.92 + rnd() * 0.18,
         };
+        // sprite look (row of raider_sheet.png), plus placard / weapon variety
+        const looks = RAIDER_LOOKS[kind] || RAIDER_LOOKS.standard;
+        out.look = looks[Math.floor(rnd() * looks.length)];
+        out.signStyle = Math.floor(rnd() * 5);
+        out.signInk = pick(['#c1434f', '#222034', '#3d6fb0', '#2f6a35', '#8a6420']);
+        out.signW = 12 + Math.floor(rnd() * 4);
+        out.stick = !looksPeaceful && kind === 'standard' && rnd() < 0.3;
+        if (looksPeaceful) out.sign = rnd() < 0.88;
         return out;
     }
 
@@ -5478,7 +5559,7 @@
 
             this.disguised = (kind === 'standard' || kind === 'bruiser') && Math.random() < 0.18;
             this.looksPeaceful = kind === 'crowd' || this.disguised;
-            this.outfit = makeRaiderOutfit(this.id, this.looksPeaceful);
+            this.outfit = makeRaiderOutfit(this.id, this.looksPeaceful, this.kind);
         }
         moveToward(tx, ty, dt, speed) {
             return steerUnit(this, tx, ty, dt, speed);
@@ -5983,39 +6064,109 @@
 
             if (this.kind === 'crowd') {
                 ctx.fillStyle = '#e8d9b0'; ctx.font = '9px monospace'; ctx.textAlign = 'center';
-                ctx.fillText(this.state === 'crowd_wait' ? '✋' : '🚶', sx, sy - 26);
+                drawIcon(ctx, this.state === 'crowd_wait' ? 'hand' : 'walk', sx, sy - 30, 11);
             } else if (this.gasStunTimer > 0) {
                 ctx.fillStyle = '#f0f080'; ctx.font = 'bold 9px monospace'; ctx.textAlign = 'center';
-                ctx.fillText('💫', sx, sy - 26);
+                drawIcon(ctx, 'dizzy', sx, sy - 30, 11);
             } else if (this.beingArrested) {
                 ctx.fillStyle = '#ffcc33'; ctx.font = 'bold 9px monospace'; ctx.textAlign = 'center';
-                ctx.fillText('🔒', sx, sy - 26);
+                drawIcon(ctx, 'lock', sx, sy - 30, 11);
             } else if (this.state === 'fleeing') {
                 ctx.fillStyle = '#ffffff'; ctx.font = 'bold 8px monospace'; ctx.textAlign = 'center';
-                ctx.fillText('🏃', sx, sy - 26);
+                drawIcon(ctx, 'run', sx, sy - 30, 11);
             } else if (this.state === 'holding' || this.state === 'resting') {
                 ctx.fillStyle = '#86cf72'; ctx.font = '8px monospace'; ctx.textAlign = 'center';
                 ctx.fillText('…', sx, sy - 26);
             } else if (this.state === 'ambushing') {
                 ctx.fillStyle = '#ffcc33'; ctx.font = '8px monospace'; ctx.textAlign = 'center';
-                ctx.fillText('👁', sx, sy - 26);
+                drawIcon(ctx, 'eye', sx, sy - 30, 11);
             } else if (this.state === 'withdrawing') {
                 ctx.fillStyle = '#a0d0ff'; ctx.font = '8px monospace'; ctx.textAlign = 'center';
-                ctx.fillText('↩', sx, sy - 26);
+                drawIcon(ctx, 'return', sx, sy - 30, 11);
             } else if (this.state === 'attacking_base') {
                 ctx.fillStyle = '#ff5a30'; ctx.font = 'bold 9px monospace'; ctx.textAlign = 'center';
-                ctx.fillText('🏢', sx, sy - 26);
+                drawIcon(ctx, 'station', sx, sy - 30, 11);
             } else if (this.state === 'vandal') {
                 ctx.fillStyle = '#ff8a5c'; ctx.font = '8px monospace'; ctx.textAlign = 'center';
-                ctx.fillText('💥', sx, sy - 26);
+                drawIcon(ctx, 'burst', sx, sy - 30, 11);
             } else if (this.kind === 'brickthrower') {
                 ctx.fillStyle = '#e8c08a'; ctx.font = '8px monospace'; ctx.textAlign = 'center';
-                ctx.fillText('🧱', sx, sy - 26);
+                drawIcon(ctx, 'wall', sx, sy - 30, 11);
             }
         }
     }
+    // ---- raider sprites: assets/raiders/raider_sheet.png (10 looks x 34 frames of 64px) ----
+    const RAIDER_FRAMES = { idle: [0, 6], walk: [6, 8], run: [14, 8], attack: [22, 5], hurt: [27, 3], dead: [30, 4] };
+    const RAIDER_LOOKS = {
+        standard: [0, 2, 4, 6, 8, 1, 5],
+        bruiser: [9, 6, 3, 7],
+        brickthrower: [7, 5, 3, 8],
+        crowd: [0, 2, 4, 1, 3, 5, 8],
+    };
+    const RAIDER_KIND_SCALE = { standard: 1, bruiser: 1.14, brickthrower: 1, crowd: 0.98 };
+    function drawRaiderSprite(ctx, u) {
+        const img = assets['raider_sheet'];
+        if (!img) return false;
+        const fit = u.outfit || (u.outfit = makeRaiderOutfit(u.id, u.kind === 'crowd', u.kind));
+        const now = game.lastTime || 0;
+        let anim = 'idle', f = 0;
+        if (u.hitAt && now - u.hitAt < 210) { anim = 'hurt'; f = Math.floor((now - u.hitAt) / 72); }
+        else if (u.attackFlash > 0) { anim = 'attack'; f = Math.floor((1 - u.attackFlash / 0.22) * 5); }
+        else if (u.isMoving) {
+            const fast = u.state === 'fleeing' || u.state === 'withdrawing';
+            anim = fast ? 'run' : 'walk'; f = Math.floor(u.animTimer * (fast ? 14 : 9));
+        } else f = Math.floor(u.animTimer * 5);
+        const fr = RAIDER_FRAMES[anim];
+        const col = fr[0] + (((f % fr[1]) + fr[1]) % fr[1]);
+        const sc = (fit.heightMul || 1) * (RAIDER_KIND_SCALE[u.kind] || 1);
+        const was = ctx.imageSmoothingEnabled; ctx.imageSmoothingEnabled = false;
+        ctx.drawImage(img, col * 64, (fit.look || 0) * 64, 64, 64, -16 * sc, -24.5 * sc, 32 * sc, 32 * sc);
+        ctx.imageSmoothingEnabled = was;
+        drawRaiderProps(ctx, u, fit, sc);
+        return true;
+    }
+    function drawRaiderProps(ctx, u, fit, sc) {
+        const attacking = u.attackFlash > 0;
+        const swing = attacking ? (1 - u.attackFlash / 0.22) : 0;
+        if (fit.sign && !attacking && u.state !== 'attacking_base' && u.state !== 'vandal' && u.state !== 'fleeing') {
+            // protest placard on a stick, held up in the front hand
+            const bob = Math.round(Math.sin(u.animTimer * (u.isMoving ? 8 : 2)) * 1);
+            const w = fit.signW, h = 9, bx = Math.round(3 - w / 2 + 3), by = Math.round(-23 * sc - h + bob);
+            ctx.fillStyle = '#6b4a2e'; ctx.fillRect(Math.round(4 * sc), by + h, 1, Math.round(-by - h - 8 * sc));
+            ctx.fillStyle = '#222034'; ctx.fillRect(bx - 1, by - 1, w + 2, h + 2);
+            ctx.fillStyle = fit.signColor; ctx.fillRect(bx, by, w, h);
+            ctx.fillStyle = 'rgba(34,32,52,0.18)'; ctx.fillRect(bx, by + h - 1, w, 1);
+            ctx.fillStyle = fit.signInk;
+            switch (fit.signStyle) {
+                case 0: ctx.fillRect(bx + 1, by + 2, w - 2, 2); ctx.fillRect(bx + 1, by + 5, w - 5, 2); break;
+                case 1: for (let k = 0; k < 7; k++) { ctx.fillRect(bx + 3 + k * 1, by + 1 + k, 1, 1); ctx.fillRect(bx + w - 4 - k * 1, by + 1 + k, 1, 1); } break;
+                case 2: ctx.fillRect(bx + 1, by + 1, w - 2, 1); ctx.fillRect(bx + 2, by + 3, w - 4, 1); ctx.fillRect(bx + 2, by + 5, w - 7, 1); ctx.fillRect(bx + 2, by + 7, w - 5, 1); break;
+                case 3: ctx.fillRect(bx, by, w, 2); ctx.fillRect(bx + 2, by + 4, w - 4, 1); ctx.fillRect(bx + 2, by + 6, w - 6, 1); break;
+                default: ctx.fillRect(bx + Math.floor(w / 2) - 1, by + 1, 2, 4); ctx.fillRect(bx + Math.floor(w / 2) - 1, by + 6, 2, 2); break;
+            }
+        }
+        if (u.kind === 'crowd') return;
+        ctx.save();
+        ctx.translate(5 * sc, -9 * sc);
+        if (u.kind === 'bruiser' || fit.stick) {
+            ctx.rotate(-0.35 + swing * 2.0);
+            ctx.fillStyle = '#222034'; ctx.fillRect(-1, -8 * sc - 1, 4, 8 * sc + 2);
+            ctx.fillStyle = u.kind === 'bruiser' ? '#8a6a44' : '#9a95c1'; ctx.fillRect(0, -8 * sc, 2, 8 * sc);
+            ctx.fillStyle = 'rgba(255,255,255,0.35)'; ctx.fillRect(0, -8 * sc, 1, 8 * sc);
+        } else if (u.kind === 'brickthrower') {
+            ctx.rotate(swing * 1.2);
+            ctx.fillStyle = '#222034'; ctx.fillRect(-3, -4, 7, 5);
+            ctx.fillStyle = '#d95763'; ctx.fillRect(-2, -3, 5, 3); ctx.fillStyle = '#f08a8a'; ctx.fillRect(-2, -3, 5, 1);
+        }
+        ctx.restore();
+        if (attacking) {
+            ctx.fillStyle = 'rgba(255,230,160,' + (u.attackFlash / 0.22).toFixed(2) + ')';
+            ctx.fillRect(Math.round(10 * sc), Math.round(-12 * sc), 3, 3);
+        }
+    }
     function drawRaiderFigure(ctx, u) {
-        const fit = u.outfit || (u.outfit = makeRaiderOutfit(u.id, u.kind === 'crowd'));
+        if (drawRaiderSprite(ctx, u)) return;
+        const fit = u.outfit || (u.outfit = makeRaiderOutfit(u.id, u.kind === 'crowd', u.kind));
         const walking = u.isMoving;
         const phase = u.animTimer * (walking ? 7 : 1.2);
         const amp = walking ? 1 : 0.12;
@@ -6177,12 +6328,13 @@
             game.buildingsDestroyed++;
             damageBase(6);
             markSceneryDirty();
-            showToast('🏚️ A building has been wrecked!');
+            showToast(':ruins: A building has been wrecked!');
         }
     }
 
     // ========== COMBAT ==========
     function damageBase(amount) {
+        if (game.testGod) return;
         game.baseHp = Math.max(0, game.baseHp - amount);
         game.baseRegenTimer = BASE_REGEN_DELAY;
     }
@@ -6193,6 +6345,7 @@
         }
         const mMult = moraleMult || 1.0;
         r.hp -= dmg;
+        r.hitAt = game.lastTime || 0;
         r.timeSinceDamage = 0;
         spawnHitEffect(r.x, r.y);
         if (game.waveTotalHp > 0 && r.kind !== 'crowd') {
@@ -6227,7 +6380,7 @@
             resist = sy ? Math.min(REINFORCE_MAX_RESIST, formationResistance(activeTacticOf(sy)) + reinforceBonus(hostIdx)) : 0;
         }
         const finalDmg = dmg * shieldMult * (1 - resist) * (o.syndicateIndex >= 0 ? cmdBoost(o.syndicateIndex, 'guard') : 1);
-        o.hp -= finalDmg;
+        if (!game.testGod) o.hp -= finalDmg;
 
         spawnHitEffect(o.x, o.y);
         if (o.hp <= 0 && o.alive) o.alive = false;
@@ -6567,7 +6720,7 @@
         };
     }
     function applyTactic(kind) {
-        if (!tacticUnlocked(kind)) { showToast('🔒 That tactic is locked. Unlock it in Skills.'); return; }
+        if (!tacticUnlocked(kind)) { showToast(':lock: That tactic is locked. Unlock it in Skills.'); return; }
         leaveLineIfPartner(game.selectedSyndicate);
         const sy = ensureSyndicateState(game.selectedSyndicate);
         const p = ensurePulse(sy);
@@ -6575,13 +6728,13 @@
         if (kind === 'pulse') {
             if (sy.tactic === 'pulse') {
                 stopPulse(sy); sy.tactic = 'wall';
-                showToast('💥 Pulse off — cooldown ' + Math.ceil(p.cooldown) + 's.');
+                showToast(':burst: Pulse off — cooldown ' + Math.ceil(p.cooldown) + 's.');
             } else if (p.cooldown > 0) {
-                showToast('💥 Pulse recharging — ' + Math.ceil(p.cooldown) + 's.');
+                showToast(':burst: Pulse recharging — ' + Math.ceil(p.cooldown) + 's.');
                 return;
             } else {
                 sy.tactic = 'pulse'; startPulse(sy);
-                showToast('💥 Pulse — the front rank steps out in fives, covered by the rank behind.');
+                showToast(':burst: Pulse — the front rank steps out in fives, covered by the rank behind.');
             }
         } else {
             if (sy.tactic === 'pulse') stopPulse(sy);
@@ -6711,7 +6864,7 @@
         updateSelectionUI();
         const dirNames = { N: 'north', S: 'south', E: 'east', W: 'west' };
         const covered = post.cover.map(d => dirNames[d]).join(', ');
-        showToast('🎯 Syndicate moving to ' + dirNames[post.dir] + ' post — covering ' + covered + '.');
+        showToast(':target: Syndicate moving to ' + dirNames[post.dir] + ' post — covering ' + covered + '.');
     }
 
     function updateSyndicateMovement(dt) {
@@ -6764,7 +6917,7 @@
 
     // ========== ALL UNITS ON ME ==========
     function toggleMergedMode() {
-        if (!skillOwned('mergeall')) { showToast('🔒 All Units On Me is locked. Unlock it in Skills.'); return; }
+        if (!skillOwned('mergeall')) { showToast(':lock: All Units On Me is locked. Unlock it in Skills.'); return; }
         if (game.syndicatesDeployed < 2) { showToast('Need at least 2 syndicates to merge.'); return; }
         if (game.mergedMode) {
             game.mergedMode = false;
@@ -6779,14 +6932,14 @@
     function updateMergedButton() {
         const btn = document.getElementById('all-units-btn');
         if (!btn) return;
-        if (!skillOwned('mergeall')) { btn.classList.remove('active'); btn.disabled = true; btn.textContent = '🔒 All Units On Me'; }
-        else if (game.mergedMode) { btn.disabled = false; btn.classList.add('active'); btn.textContent = '🔓 Release Units'; }
-        else { btn.disabled = false; btn.classList.remove('active'); btn.textContent = '🪖 All Units On Me'; }
+        if (!skillOwned('mergeall')) { btn.classList.remove('active'); btn.disabled = true; btn.textContent = ':lock: All Units On Me'; }
+        else if (game.mergedMode) { btn.disabled = false; btn.classList.add('active'); btn.textContent = ':unlock: Release Units'; }
+        else { btn.disabled = false; btn.classList.remove('active'); btn.textContent = ':helmet: All Units On Me'; }
     }
 
     // ========== ALL OUT ==========
     function triggerAllOut() {
-        if (!skillOwned('allout')) { showToast('🔒 All Out is locked. Unlock it in Skills.'); return; }
+        if (!skillOwned('allout')) { showToast(':lock: All Out is locked. Unlock it in Skills.'); return; }
         if (game.allOutCooldown > 0 || game.gameOver) return;
         game.allOutCooldown = ALL_OUT_COOLDOWN;
         game.allOutActive = ALL_OUT_DURATION;
@@ -6805,7 +6958,7 @@
                 game.officers.push(o);
             }
         }
-        showToast('🚨 ALL OUT! Shield box formed around the station!');
+        showToast(':siren: ALL OUT! Shield box formed around the station!');
         updateAllOutButton();
     }
     function updateAllOutButton() {
@@ -6813,13 +6966,13 @@
         if (!btn) return;
         if (!skillOwned('allout')) {
             btn.disabled = true; btn.classList.remove('ready');
-            btn.textContent = '🔒 ALL OUT';
+            btn.textContent = ':lock: ALL OUT';
         } else if (game.allOutCooldown > 0) {
             btn.disabled = true; btn.classList.remove('ready');
-            btn.textContent = '🚨 ALL OUT (' + Math.ceil(game.allOutCooldown) + 's)';
+            btn.textContent = ':siren: ALL OUT (' + Math.ceil(game.allOutCooldown) + 's)';
         } else {
             btn.disabled = false; btn.classList.add('ready');
-            btn.textContent = '🚨 ALL OUT';
+            btn.textContent = ':siren: ALL OUT';
         }
     }
 
@@ -6827,7 +6980,7 @@
     function sendInArrestTeamFor(idx, silent) {
         const say = m => { if (!silent) showToast(m); };
         if (idx >= OFFICER_SYNDICATES) { say('Vehicles have no arrest team.'); return false; }
-        if (!teamUnlocked('arrest', idx)) { say('🔒 S' + (idx + 1) + ' has no arrest team yet. Unlock it in Skills.'); return false; }
+        if (!teamUnlocked('arrest', idx)) { say(':lock: S' + (idx + 1) + ' has no arrest team yet. Unlock it in Skills.'); return false; }
         if (game.arrestCooldown[idx] > 0) {
             say('Arrest team for S' + (idx + 1) + ' is regrouping.');
             return false;
@@ -6882,7 +7035,7 @@
             }
         }
         game.arrestCooldown[idx] = ARREST_COOLDOWN;
-        showToast('🚔 Arrest team deploying behind Syndicate ' + (idx + 1) + '!');
+        showToast(':car: Arrest team deploying behind Syndicate ' + (idx + 1) + '!');
         commanderShout(idx, 'Arrest team — grab that one!');
         updateArrestButton();
         return true;
@@ -6904,7 +7057,7 @@
         let list = abilityIdxs();
         if (list[0] >= OFFICER_SYNDICATES) { btn.disabled = true; btn.classList.remove('ready'); sub.textContent = '—'; return; }
         list = list.filter(i => teamUnlocked('arrest', i));
-        if (!list.length) { btn.disabled = true; btn.classList.remove('ready'); sub.textContent = '🔒 locked'; return; }
+        if (!list.length) { btn.disabled = true; btn.classList.remove('ready'); sub.textContent = ':lock: locked'; return; }
         const cds = list.map(i => game.arrestCooldown[i] || 0);
         setAbilityButton(btn, sub, cds.filter(c => c <= 0).length, list.length, 'S' + (list[0] + 1), Math.min(...cds));
     }
@@ -6933,7 +7086,7 @@
     function deployTearGasFor(idx, silent) {
         const say = m => { if (!silent) showToast(m); };
         if (idx >= OFFICER_SYNDICATES) { say('Vehicles carry no tear gas.'); return false; }
-        if (!teamUnlocked('gas', idx)) { say('🔒 S' + (idx + 1) + ' has no tear gas team yet. Unlock it in Skills.'); return false; }
+        if (!teamUnlocked('gas', idx)) { say(':lock: S' + (idx + 1) + ' has no tear gas team yet. Unlock it in Skills.'); return false; }
         if (game.tearGasCooldown[idx] > 0) {
             say('Tear gas ready in ' + Math.ceil(game.tearGasCooldown[idx]) + 's.');
             return false;
@@ -6950,7 +7103,7 @@
         }
         const crowd = getGasTarget(idx, true);
         if (!crowd) {
-            say('💨 No raider crowd in reach yet — hold the gas until they close in.');
+            say(':gas: No raider crowd in reach yet — hold the gas until they close in.');
             return false;
         }
         for (const t of team) {
@@ -6960,7 +7113,7 @@
             t._route = null; t._routeGoal = null; t._progStuck = 0;
         }
         game.tearGasCooldown[idx] = TEAR_GAS_COOLDOWN;
-        showToast('💨 Tear gas moving on the biggest crowd (' + Math.max(1, Math.round(crowd.count)) + ' raiders)!');
+        showToast(':gas: Tear gas moving on the biggest crowd (' + Math.max(1, Math.round(crowd.count)) + ' raiders)!');
         commanderShout(idx, 'Gas team — deploy!');
         updateTearGasButton();
         return true;
@@ -6973,7 +7126,7 @@
         let list = abilityIdxs();
         if (list[0] >= OFFICER_SYNDICATES) { btn.disabled = true; btn.classList.remove('ready'); sub.textContent = '—'; return; }
         list = list.filter(i => teamUnlocked('gas', i));
-        if (!list.length) { btn.disabled = true; btn.classList.remove('ready'); sub.textContent = '🔒 locked'; return; }
+        if (!list.length) { btn.disabled = true; btn.classList.remove('ready'); sub.textContent = ':lock: locked'; return; }
         let ready = 0, minCd = Infinity, anyTeam = false, spraying = false;
         for (const i of list) {
             const team = game.tearGasOfficers.filter(t => t.alive && t.syndicateIndex === i);
@@ -6993,13 +7146,13 @@
     function deployK9For(idx, silent) {
         const say = m => { if (!silent) showToast(m); };
         if (idx >= OFFICER_SYNDICATES) { say('Vehicles have no K9 unit.'); return false; }
-        if (!teamUnlocked('k9', idx)) { say('🔒 S' + (idx + 1) + ' has no K9 yet. Unlock it in Skills.'); return false; }
+        if (!teamUnlocked('k9', idx)) { say(':lock: S' + (idx + 1) + ' has no K9 yet. Unlock it in Skills.'); return false; }
         const k9 = game.k9s.find(k => k.syndicateIndex === idx && k.alive);
         if (!k9) { say('No K9 available for this syndicate.'); return false; }
         if (k9.deployTimer > 0) { say('K9 already deployed.'); return false; }
         if (k9.cooldownTimer > 0) { say('K9 resting — ' + Math.ceil(k9.cooldownTimer) + 's until ready.'); return false; }
         if (k9.deploy()) {
-            showToast('🐕 K9 released!');
+            showToast(':dog: K9 released!');
             commanderShout(idx, 'K9 forward! Release the dog!');
             updateK9Button();
             return true;
@@ -7014,7 +7167,7 @@
         let list = abilityIdxs();
         if (list[0] >= OFFICER_SYNDICATES) { btn.disabled = true; btn.classList.remove('ready'); sub.textContent = '—'; return; }
         list = list.filter(i => teamUnlocked('k9', i));
-        if (!list.length) { btn.disabled = true; btn.classList.remove('ready'); sub.textContent = '🔒 locked'; return; }
+        if (!list.length) { btn.disabled = true; btn.classList.remove('ready'); sub.textContent = ':lock: locked'; return; }
         let ready = 0, minCd = Infinity, any = false, out = false;
         for (const i of list) {
             const k9 = game.k9s.find(k => k.syndicateIndex === i && k.alive);
@@ -7043,15 +7196,15 @@
     function deployRepairTeam(teamIdx, silent) {
         const say = m => { if (!silent) showToast(m); };
         if (teamIdx === undefined || teamIdx < 0) teamIdx = freeRepairTeam();
-        if (teamIdx < 0) { say(repairTeamUnlocked(0) ? '👷 All repair teams are out or recharging.' : '🔒 No repair team yet. Unlock one in Skills.'); return; }
-        if (!repairTeamUnlocked(teamIdx)) { say('🔒 Repair Team ' + (teamIdx + 1) + ' is locked. Unlock it in Skills.'); return; }
+        if (teamIdx < 0) { say(repairTeamUnlocked(0) ? ':worker: All repair teams are out or recharging.' : ':lock: No repair team yet. Unlock one in Skills.'); return; }
+        if (!repairTeamUnlocked(teamIdx)) { say(':lock: Repair Team ' + (teamIdx + 1) + ' is locked. Unlock it in Skills.'); return; }
         if ((game.repairCooldowns[teamIdx] || 0) > 0) {
-            say('👷 Repair team ' + (teamIdx + 1) + ' recharging — ' + Math.ceil(game.repairCooldowns[teamIdx]) + 's.');
+            say(':worker: Repair team ' + (teamIdx + 1) + ' recharging — ' + Math.ceil(game.repairCooldowns[teamIdx]) + 's.');
             return;
         }
-        if (repairTeamActive(teamIdx)) { say('👷 Repair team ' + (teamIdx + 1) + ' already deployed.'); return; }
+        if (repairTeamActive(teamIdx)) { say(':worker: Repair team ' + (teamIdx + 1) + ' already deployed.'); return; }
         if (!sceneryBuildings.some(b => b.hp < b.maxHp && b.frontX !== undefined)) {
-            say('👷 No damaged buildings — nothing to repair yet.');
+            say(':worker: No damaged buildings — nothing to repair yet.');
             return;
         }
         const sx = BASE_TILE_X * TILE, sy = BASE_TILE_Y * TILE;
@@ -7063,7 +7216,7 @@
         game.repairOfficers.push(r);
         r.spawnEscorts();
         game.repairWasActive = true;
-        showToast('👷 Repair team ' + (teamIdx + 1) + ' heading out with a 10-officer escort!');
+        showToast(':worker: Repair team ' + (teamIdx + 1) + ' heading out with a 10-officer escort!');
         renderOptionsPanel(); updateSelectionUI(); updateStationButton();
     }
     function updateStationButton() {
@@ -7072,9 +7225,9 @@
         const active = game.selectedSyndicate === STATION_INDEX;
         btn.classList.toggle('active', active);
         const out = game.repairOfficers.filter(r => r.alive).length;
-        if (out > 0) btn.textContent = '🏢 Station (👷×' + out + ')';
-        else if (game.repairCooldowns[0] > 0) btn.textContent = '🏢 Station (' + Math.ceil(game.repairCooldowns[0]) + 's)';
-        else btn.textContent = '🏢 Station';
+        if (out > 0) btn.textContent = ':station: Station (:worker:×' + out + ')';
+        else if (game.repairCooldowns[0] > 0) btn.textContent = ':station: Station (' + Math.ceil(game.repairCooldowns[0]) + 's)';
+        else btn.textContent = ':station: Station';
     }
 
     // ========== SPAWN ==========
@@ -7496,7 +7649,7 @@
                 game.waveNumber++;
                 game.waveTimer = 8;
                 game.fsClear = 0;
-                showToast('Level cleared! +' + paid.reward + ' 🪙' + (paid.checkpoint ? '  ·  💾 Checkpoint saved: Level ' + paid.next : ''));
+                showToast('Level cleared! +' + paid.reward + ' :coin:' + (paid.checkpoint ? '  ·  :save: Checkpoint saved: Level ' + paid.next : ''));
             } else {
                 game.fsClear = (game.fsClear || 0) + dt;
                 if (game.fsClear > FS.CLEAR_STALL) {
@@ -7827,13 +7980,13 @@
 
     // ========== LEFT PANEL UI ==========
     const FORMATION_DEFS = [
-        { key: 'rest', label: '😌 Rest' },
-        { key: 'wedge', label: '🔺 Wedge' },
-        { key: 'wall', label: '🧱 Wall' },
-        { key: 'stackleft', label: '⬅️ Stack Left' },
-        { key: 'stackright', label: '➡️ Stack Right' },
-        { key: 'box', label: '📦 Box' },
-        { key: 'pulse', label: '💥 Pulse' },
+        { key: 'rest', label: ':moon: Rest' },
+        { key: 'wedge', label: ':wedge: Wedge' },
+        { key: 'wall', label: ':wall: Wall' },
+        { key: 'stackleft', label: ':arrow_l: Stack Left' },
+        { key: 'stackright', label: ':arrow_r: Stack Right' },
+        { key: 'box', label: ':box: Box' },
+        { key: 'pulse', label: ':burst: Pulse' },
     ];
 
     function renderOptionsPanel() {
@@ -7849,32 +8002,32 @@
                 const b = document.createElement('button');
                 const active = repairTeamActive(t);
                 const cd = game.repairCooldowns[t] || 0;
-                if (!repairTeamUnlocked(t)) { b.textContent = '🔒 Repair Team ' + (t + 1); b.classList.add('locked'); }
-                else if (active) { b.textContent = '👷 Team ' + (t + 1) + ' (out)'; b.disabled = true; b.classList.add('active-choice'); }
-                else if (cd > 0) { b.textContent = '👷 Team ' + (t + 1) + ' (' + Math.ceil(cd) + 's)'; b.disabled = true; }
-                else b.textContent = '👷 Send Team ' + (t + 1);
+                if (!repairTeamUnlocked(t)) { b.textContent = ':lock: Repair Team ' + (t + 1); b.classList.add('locked'); }
+                else if (active) { b.textContent = ':worker: Team ' + (t + 1) + ' (out)'; b.disabled = true; b.classList.add('active-choice'); }
+                else if (cd > 0) { b.textContent = ':worker: Team ' + (t + 1) + ' (' + Math.ceil(cd) + 's)'; b.disabled = true; }
+                else b.textContent = ':worker: Send Team ' + (t + 1);
                 b.addEventListener('click', () => deployRepairTeam(t));
                 panel.appendChild(b);
             }
 
             const ab = document.createElement('button');
             const ambOut = game.ambulance && game.ambulance.alive, acd = game.ambulanceCooldown || 0;
-            if (!skillOwned('ambulance')) { ab.textContent = '🔒 Ambulance'; ab.classList.add('locked'); }
-            else if (ambOut) { ab.textContent = '🚑 Ambulance (out)'; ab.disabled = true; ab.classList.add('active-choice'); }
-            else if (acd > 0) { ab.textContent = '🚑 Ambulance (' + Math.ceil(acd) + 's)'; ab.disabled = true; }
-            else ab.textContent = '🚑 Send Ambulance';
+            if (!skillOwned('ambulance')) { ab.textContent = ':lock: Ambulance'; ab.classList.add('locked'); }
+            else if (ambOut) { ab.textContent = ':ambulance: Ambulance (out)'; ab.disabled = true; ab.classList.add('active-choice'); }
+            else if (acd > 0) { ab.textContent = ':ambulance: Ambulance (' + Math.ceil(acd) + 's)'; ab.disabled = true; }
+            else ab.textContent = ':ambulance: Send Ambulance';
             ab.addEventListener('click', deployAmbulance);
             panel.appendChild(ab);
 
             const auto = document.createElement('button');
-            auto.textContent = '🔁 Auto-Repair: ' + (game.autoRepair ? 'ON' : 'OFF');
+            auto.textContent = ':repeat: Auto-Repair: ' + (game.autoRepair ? 'ON' : 'OFF');
             if (game.autoRepair) auto.classList.add('active-choice');
-            if (!repairTeamUnlocked(0)) { auto.textContent = '🔒 Auto-Repair'; auto.classList.add('locked'); }
+            if (!repairTeamUnlocked(0)) { auto.textContent = ':lock: Auto-Repair'; auto.classList.add('locked'); }
             auto.addEventListener('click', () => {
-                if (!repairTeamUnlocked(0)) { showToast('🔒 Unlock a repair team in Skills first.'); return; }
+                if (!repairTeamUnlocked(0)) { showToast(':lock: Unlock a repair team in Skills first.'); return; }
                 game.autoRepair = !game.autoRepair;
-                showToast(game.autoRepair ? '🔁 Auto-repair ON — teams deploy once a building is over half wrecked.'
-                                         : '🔁 Auto-repair OFF.');
+                showToast(game.autoRepair ? ':repeat: Auto-repair ON — teams deploy once a building is over half wrecked.'
+                                         : ':repeat: Auto-repair OFF.');
                 renderOptionsPanel(); updateSelectionUI();
             });
             panel.appendChild(auto);
@@ -7905,10 +8058,10 @@
             b.textContent = t.label;
             if (t.key === 'pulse') {
                 const pp = ensurePulse(sy);
-                if (pp.active) b.textContent = '💥 Pulse (' + Math.ceil(PULSE_MAX_ACTIVE - pp.used) + 's left)';
-                else if (pp.cooldown > 0) { b.textContent = '💥 Pulse (' + Math.ceil(pp.cooldown) + 's)'; b.classList.add('on-cooldown'); }
+                if (pp.active) b.textContent = ':burst: Pulse (' + Math.ceil(PULSE_MAX_ACTIVE - pp.used) + 's left)';
+                else if (pp.cooldown > 0) { b.textContent = ':burst: Pulse (' + Math.ceil(pp.cooldown) + 's)'; b.classList.add('on-cooldown'); }
             }
-            if (!tacticUnlocked(t.key)) { b.textContent = '🔒 ' + t.label.replace(/^\S+\s/, ''); b.classList.add('locked'); }
+            if (!tacticUnlocked(t.key)) { b.textContent = ':lock: ' + t.label.replace(/^\S+\s/, ''); b.classList.add('locked'); }
             else if (sy.tactic === t.key && !sy.post) b.classList.add('active-choice');
             b.addEventListener('click', () => applyTactic(t.key));
             panel.appendChild(b);
@@ -7920,10 +8073,10 @@
             w.className = 'info-line'; w.style.color = '#8ec8f0';
             const dirNames = { N: 'north', S: 'south', E: 'east', W: 'west' };
             const covered = sy.post.cover.map(d => dirNames[d]).join(' + ');
-            w.textContent = '🎯 JUNCTION POST (' + dirNames[sy.post.dir] + ') — line covering ' + covered + ' approaches. Picking a formation clears the post.';
+            w.textContent = ':target: JUNCTION POST (' + dirNames[sy.post.dir] + ') — line covering ' + covered + ' approaches. Picking a formation clears the post.';
             panel.appendChild(w);
             const clearBtn = document.createElement('button');
-            clearBtn.textContent = '✖ Clear post (fall back to formation)';
+            clearBtn.textContent = ':cross: Clear post (fall back to formation)';
             clearBtn.addEventListener('click', () => {
                 sy.post = null;
                 assignFormation(); renderOptionsPanel(); updateSelectionUI();
@@ -7934,32 +8087,32 @@
         if (tacticIsPassive(sy.tactic) && sy.provokedTimer <= 0) {
             const w = document.createElement('div');
             w.className = 'info-line'; w.style.color = '#8ec8f0';
-            w.textContent = '🕊 Holding fire — this posture will not engage unless attacked. Raiders may walk right through.';
+            w.textContent = ':dove: Holding fire — this posture will not engage unless attacked. Raiders may walk right through.';
             panel.appendChild(w);
         }
         if (sy.tactic === 'rest' && sy.autoWallTimer > 0) {
             const w = document.createElement('div');
             w.className = 'info-line'; w.style.color = '#8ec8f0';
-            w.textContent = '🧱 Under attack — wall up for ' + Math.ceil(sy.autoWallTimer) + 's';
+            w.textContent = ':wall: Under attack — wall up for ' + Math.ceil(sy.autoWallTimer) + 's';
             panel.appendChild(w);
         }
         if (sy.provokedTimer > 0 && tacticIsPassive(sy.tactic)) {
             const w = document.createElement('div');
             w.className = 'info-line'; w.style.color = '#ff8a5c';
-            w.textContent = '⚔ Provoked — engaging for ' + Math.ceil(sy.provokedTimer) + 's';
+            w.textContent = ':baton: Provoked — engaging for ' + Math.ceil(sy.provokedTimer) + 's';
             panel.appendChild(w);
         }
         if (game.mergedMode) {
             const d = document.createElement('div');
             d.className = 'info-line'; d.style.color = '#ff8a5c'; d.style.fontWeight = 'bold';
-            d.textContent = '⚠ ALL UNITS MERGED';
+            d.textContent = ':warning: ALL UNITS MERGED';
             panel.appendChild(d);
         }
 
         const tip = document.createElement('div');
         tip.className = 'info-line';
         tip.style.cssText = 'color:#7fc47f;padding-top:6px;border-top:1px solid #232c3a;margin-top:4px';
-        tip.textContent = '💡 Tap a green dot on a road to send the syndicate there: they line up across the road to block it. Use the d-pad to turn them. Tap a junction post dot to cover a junction.';
+        tip.textContent = ':bulb: Tap a green dot on a road to send the syndicate there: they line up across the road to block it. Use the d-pad to turn them. Tap a junction post dot to cover a junction.';
         panel.appendChild(tip);
     }
 
@@ -7971,8 +8124,8 @@
 
         if (!tacticUnlocked('reinforce')) {
             const b = document.createElement('button');
-            b.textContent = '🔒 Reinforce'; b.classList.add('locked');
-            b.addEventListener('click', () => showToast('🔒 Reinforce is locked. Unlock it in Skills.'));
+            b.textContent = ':lock: Reinforce'; b.classList.add('locked');
+            b.addEventListener('click', () => showToast(':lock: Reinforce is locked. Unlock it in Skills.'));
             panel.appendChild(b);
             return;
         }
@@ -7980,10 +8133,10 @@
         note.className = 'info-line';
         if (isLinked(idx)) {
             note.style.color = '#8ec8f0';
-            note.textContent = '🤝 Fighting as part of S' + (hostOf(idx) + 1) + '. Give this syndicate any order to pull it out again.';
+            note.textContent = ':merge: Fighting as part of S' + (hostOf(idx) + 1) + '. Give this syndicate any order to pull it out again.';
             panel.appendChild(note);
             const rel = document.createElement('button');
-            rel.textContent = '✖ Leave S' + (hostOf(idx) + 1);
+            rel.textContent = ':cross: Leave S' + (hostOf(idx) + 1);
             rel.addEventListener('click', () => { releaseLink(idx, false); renderOptionsPanel(); updateSelectionUI(); });
             panel.appendChild(rel);
             return;
@@ -7998,7 +8151,7 @@
             const joined = game.syndicates[c].linkHost === idx;
             const elsewhere = isLinked(c) && !joined;
             const count = c < OFFICER_SYNDICATES ? ' (' + game.officers.filter(o => o.alive && !o.isAllOut && o.syndicateIndex === c).length + ')' : '';
-            b.textContent = joined ? '✔ ' + unitLabel(c) + count + ' — release' : '➕ ' + unitLabel(c) + count + (elsewhere ? ' (from S' + (hostOf(c) + 1) + ')' : '');
+            b.textContent = joined ? ':check: ' + unitLabel(c) + count + ' — release' : ':plus: ' + unitLabel(c) + count + (elsewhere ? ' (from S' + (hostOf(c) + 1) + ')' : '');
             if (joined) b.classList.add('active-choice');
             b.addEventListener('click', () => {
                 if (joined) releaseLink(c, false); else linkReinforce(idx, c);
@@ -8025,11 +8178,11 @@
         if (isLinked(idx)) {
             const lk = document.createElement('div');
             lk.className = 'info-line'; lk.style.color = '#8ec8f0';
-            lk.textContent = '🤝 Reinforcing S' + (hostOf(idx) + 1) + ' — it parks behind that line. Any order frees it.';
+            lk.textContent = ':merge: Reinforcing S' + (hostOf(idx) + 1) + ' — it parks behind that line. Any order frees it.';
             panel.appendChild(lk);
         }
         const bMobile = document.createElement('button');
-        bMobile.textContent = '🚔 Roam';
+        bMobile.textContent = ':car: Roam';
         if (v && !v.parked && !v.targetSpot) bMobile.classList.add('active-choice');
         bMobile.addEventListener('click', () => {
             leaveLineIfPartner(idx);
@@ -8040,7 +8193,7 @@
         panel.appendChild(bMobile);
 
         const bBlock = document.createElement('button');
-        bBlock.textContent = isRubber ? '📍 Hold & Deploy Team' : '📍 Hold Position';
+        bBlock.textContent = isRubber ? ':pin: Hold & Deploy Team' : ':pin: Hold Position';
         if (v && (v.parked || v.targetSpot)) bBlock.classList.add('active-choice');
         bBlock.addEventListener('click', () => {
             if (!v) return;
@@ -8065,7 +8218,7 @@
             if (!v) d.textContent = 'Vehicle unavailable.';
             else {
                 const parts = [];
-                if (v.parked) parts.push('📍 Holding position — the two-man team is out and firing baton rounds at any raider within range, one round each every 2 seconds.');
+                if (v.parked) parts.push(':pin: Holding position — the two-man team is out and firing baton rounds at any raider within range, one round each every 2 seconds.');
                 else if (v.targetSpot) parts.push('Driving to position…');
                 else parts.push('Roaming — tap the map or d-pad to send it to a road position. The team only deploys once parked.');
                 d.textContent = parts.join(' ');
@@ -8079,13 +8232,13 @@
         panel.appendChild(cLabel);
 
         const bWater = document.createElement('button');
-        bWater.textContent = '💧 Water Cannon';
+        bWater.textContent = ':drop: Water Cannon';
         if (v && v.waterCannonOn) bWater.classList.add('active-choice');
         bWater.addEventListener('click', () => {
             if (!v) return;
             v.waterCannonOn = !v.waterCannonOn;
-            if (v.waterCannonOn) showToast('💧 Water cannon engaged — firing at will.');
-            else showToast('💧 Water cannon off.');
+            if (v.waterCannonOn) showToast(':drop: Water cannon engaged — firing at will.');
+            else showToast(':drop: Water cannon off.');
             renderOptionsPanel(); updateSelectionUI();
         });
         panel.appendChild(bWater);
@@ -8095,10 +8248,10 @@
         if (!v) d.textContent = 'Vehicle unavailable.';
         else {
             const parts = [];
-            if (v.parked) parts.push('📍 Holding position.');
+            if (v.parked) parts.push(':pin: Holding position.');
             else if (v.targetSpot) parts.push('Driving to position…');
             else parts.push('Roaming — tap the map or d-pad to send it to a road position.');
-            if (v.waterCannonOn) parts.push('💧 Water cannon ON — auto-firing at nearby raiders.');
+            if (v.waterCannonOn) parts.push(':drop: Water cannon ON — auto-firing at nearby raiders.');
             d.textContent = parts.join(' ');
         }
         panel.appendChild(d);
@@ -8112,7 +8265,7 @@
             if (isVehicleIdx(idx)) {
                 const have = !!vehicleAt(idx);
                 b.disabled = !have;
-                b.textContent = (idx === VEHICLE_SYNDICATE ? '🚔' : '🚐') + (!have ? '🔒' : isLinked(idx) ? '🤝' : '');
+                b.textContent = (idx === VEHICLE_SYNDICATE ? ':car:' : ':van:') + (!have ? ':lock:' : isLinked(idx) ? ':merge:' : '');
                 b.classList.toggle('active', have && game.selectedSyndicate === idx);
                 return;
             }
@@ -8125,13 +8278,13 @@
                         : 0;
                 } else if (isLinked(idx)) {
                     count = game.officers.filter(o => o.alive && !o.isAllOut && o.syndicateIndex === idx && o.state === 'active').length;
-                    mark = '🤝';
+                    mark = ':merge:';
                 } else {
                     count = game.officers.filter(o => o.alive && !o.isAllOut && o.state === 'active' && hostOf(o.syndicateIndex) === idx).length;
                 }
             }
             b.disabled = !exists;
-            b.textContent = 'S' + (idx + 1) + (exists ? ' (' + count + ')' + mark : '🔒');
+            b.textContent = 'S' + (idx + 1) + (exists ? ' (' + count + ')' + mark : ':lock:');
             b.classList.toggle('active', idx === game.selectedSyndicate && exists);
         });
         updateStationButton();
@@ -8195,10 +8348,10 @@
             if (alive.length) {
                 let escorts = 0;
                 for (const rp of alive) for (const e of rp.escorts) if (e.alive) escorts++;
-                el.textContent = '🏢 Station — ' + alive.length + ' repair team(s) out (escorts ' + escorts + '/' + (alive.length * REPAIR_ESCORT_COUNT) + ')';
+                el.textContent = ':station: Station — ' + alive.length + ' repair team(s) out (escorts ' + escorts + '/' + (alive.length * REPAIR_ESCORT_COUNT) + ')';
             }
-            else if (game.repairCooldowns[0] > 0) el.textContent = '🏢 Station — repair teams recharging (' + Math.ceil(game.repairCooldowns[0]) + 's)';
-            else el.textContent = '🏢 Station — ' + (game.autoRepair ? 'auto-repair ON' : 'ready to deploy repair teams');
+            else if (game.repairCooldowns[0] > 0) el.textContent = ':station: Station — repair teams recharging (' + Math.ceil(game.repairCooldowns[0]) + 's)';
+            else el.textContent = ':station: Station — ' + (game.autoRepair ? 'auto-repair ON' : 'ready to deploy repair teams');
             updateStationButton();
             return;
         }
@@ -8207,12 +8360,12 @@
             const v = vehicleAt(idx);
             if (!v) { el.textContent = ''; return; }
             const isRubber = idx === VEHICLE_SYNDICATE_2;
-            let txt = (isRubber ? '🚐 Rubber Bullet Van — ' : '🚔 Water Cannon Vehicle — ');
+            let txt = (isRubber ? ':van: Rubber Bullet Van — ' : ':car: Water Cannon Vehicle — ');
             if (v.parked) txt += 'holding position';
             else if (v.targetSpot) txt += 'moving to position';
             else txt += 'mobile';
-            if (!isRubber && v.waterCannonOn) txt += ' · 💧 cannon ON';
-            if (isRubber && v.parked) txt += ' · 🔫 team deployed, firing';
+            if (!isRubber && v.waterCannonOn) txt += ' · :drop: cannon ON';
+            if (isRubber && v.parked) txt += ' · :gun: team deployed, firing';
             el.textContent = txt;
             return;
         }
@@ -8230,16 +8383,16 @@
         if (count === 0) { el.textContent = ''; return; }
         const dirNames = { N: 'north', S: 'south', E: 'east', W: 'west' };
         const tacticLabel = sy.post
-            ? ('🎯 ' + dirNames[sy.post.dir] + ' post (' + sy.post.cover.map(d => dirNames[d]).join('+') + ')')
+            ? (':target: ' + dirNames[sy.post.dir] + ' post (' + sy.post.cover.map(d => dirNames[d]).join('+') + ')')
             : ((FORMATION_DEFS.find(t => t.key === sy.tactic) || {}).label || sy.tactic);
         const resist = Math.round(Math.min(REINFORCE_MAX_RESIST, formationResistance(activeTacticOf(sy)) + reinforceBonus(idx)) * 100);
-        const bits = [prefix + ' — ' + count + ' officers — ' + tacticLabel + ' · 🛡 ' + resist + '%'];
-        if (!sy.post && tacticIsPassive(sy.tactic) && sy.provokedTimer <= 0) bits.push('🕊 holding fire');
-        if (sy.provokedTimer > 0 && tacticIsPassive(sy.tactic)) bits.push('⚔ provoked ' + Math.ceil(sy.provokedTimer) + 's');
-        if (sy.tactic === 'rest' && sy.autoWallTimer > 0) bits.push('🧱 wall ' + Math.ceil(sy.autoWallTimer) + 's');
-        if (isLinked(idx)) bits.push('🤝 with S' + (hostOf(idx) + 1));
-        else if (partnersOf(idx).length) bits.push('🤝 +' + partnersOf(idx).map(unitLabel).join(' +'));
-        if (sy.path) bits.push('➤ moving');
+        const bits = [prefix + ' — ' + count + ' officers — ' + tacticLabel + ' · :shield: ' + resist + '%'];
+        if (!sy.post && tacticIsPassive(sy.tactic) && sy.provokedTimer <= 0) bits.push(':dove: holding fire');
+        if (sy.provokedTimer > 0 && tacticIsPassive(sy.tactic)) bits.push(':baton: provoked ' + Math.ceil(sy.provokedTimer) + 's');
+        if (sy.tactic === 'rest' && sy.autoWallTimer > 0) bits.push(':wall: wall ' + Math.ceil(sy.autoWallTimer) + 's');
+        if (isLinked(idx)) bits.push(':merge: with S' + (hostOf(idx) + 1));
+        else if (partnersOf(idx).length) bits.push(':merge: +' + partnersOf(idx).map(unitLabel).join(' +'));
+        if (sy.path) bits.push(':arrow_r: moving');
         el.textContent = bits.join(' · ');
     }
 
@@ -8661,10 +8814,10 @@
     function endGame() {
         game.gameOver = true;
         const overlay = document.getElementById('gameover-overlay');
-        document.getElementById('gameover-title').textContent = '💥 Station Overrun';
+        document.getElementById('gameover-title').textContent = ':burst: Station Overrun';
         document.getElementById('gameover-save').textContent =
-            '🪙 +' + game.runCoins + ' coins this run (you have ' + profile.coins + ')  ·  ' +
-            (profile.checkpoint > 1 ? '💾 Checkpoint: Level ' + profile.checkpoint : 'Clear ' + CHECKPOINT_EVERY + ' levels to bank a checkpoint');
+            ':coin: +' + game.runCoins + ' coins this run (you have ' + profile.coins + ')  ·  ' +
+            (profile.checkpoint > 1 ? ':save: Checkpoint: Level ' + profile.checkpoint : 'Clear ' + CHECKPOINT_EVERY + ' levels to bank a checkpoint');
         document.getElementById('gameover-stats').textContent =
             'Levels cleared: ' + (game.waveNumber - game.startLevel) +
             '  •  Raiders routed: ' + game.routed +
@@ -8701,8 +8854,10 @@
         }
     }
     function loop(t) {
-        const dt = Math.min(0.05, (t - (game.lastTime || t)) / 1000);
+        const rawDt = Math.min(0.05, (t - (game.lastTime || t)) / 1000);
+        const dt = rawDt * (settings.testMode ? (game.timeScale || 1) : 1);
         game.lastTime = t;
+        updateFpsBox(t, rawDt);
         if (!game.gameOver && !game.paused) {
           try {
             updateWaves(dt);
@@ -8886,6 +9041,7 @@
         game.blockedEdges = new Set();
         game.blockadeVersion = 0;
         game.attackMarkers = [];
+        game.testGod = false; game.timeScale = 1;
     }
     function resizeCanvas() {
         const c = game.canvas;
@@ -8997,8 +9153,8 @@
     // The main-menu buttons carry the save info: PLAY shows the level you will start at, SKILLS shows your coins.
     function updateMenuNote() {
         const lv = startLevel();
-        document.getElementById('m-play').textContent = '▶ PLAY' + (lv > 1 ? ' · LEVEL ' + lv : '');
-        document.getElementById('m-skills').lastChild.nodeValue = 'SKILLS · 🪙 ' + profile.coins;
+        document.getElementById('m-play').textContent = ':play: PLAY' + (lv > 1 ? ' · LEVEL ' + lv : '') + (settings.testMode ? ' · TEST' : '');
+        document.getElementById('m-skills-label').textContent = ':star: SKILLS · :coin: ' + (settings.testMode ? 'TEST' : profile.coins);
     }
 
     // ========== SKILLS SCREEN ==========
@@ -9017,9 +9173,9 @@
         const b = document.createElement('button');
         b.className = 'sk-node ' + st;
         let status;
-        if (st === 'owned') status = s.free ? '✔ Included' : '✔ Unlocked';
-        else if (st === 'locked') status = '🔒 Needs ' + skillMissing(s.key).map(r => SKILLS[r].name).join(' + ');
-        else status = '🪙 ' + s.cost + (st === 'short' ? ' (' + (s.cost - profile.coins) + ' short)' : '');
+        if (st === 'owned') status = s.free ? ':check: Included' : ':check: Unlocked';
+        else if (st === 'locked') status = ':lock: Needs ' + skillMissing(s.key).map(r => SKILLS[r].name).join(' + ');
+        else status = ':coin: ' + s.cost + (st === 'short' ? ' (' + (s.cost - profile.coins) + ' short)' : '');
         for (const [cls, text] of [['sk-icon', s.icon], ['sk-name', s.name], ['sk-desc', s.desc], ['sk-status', status]]) {
             const span = document.createElement('span');
             span.className = cls; span.textContent = text;
@@ -9033,7 +9189,7 @@
         return b;
     }
     function renderSkills() {
-        document.getElementById('sk-coins').textContent = '🪙 ' + profile.coins;
+        document.getElementById('sk-coins').textContent = ':coin: ' + profile.coins;
 
         // progress + where the next game starts
         const prog = document.getElementById('sk-progress');
@@ -9056,9 +9212,9 @@
             b.addEventListener('click', fn);
             row.appendChild(b);
         };
-        seg((profile.autoStart && hasCp ? '● ' : '○ ') + (hasCp ? 'Start at my checkpoint (Level ' + profile.checkpoint + ')' : 'Start at my checkpoint (none yet)'),
+        seg((profile.autoStart && hasCp ? ':dot: ' : ':dot_off: ') + (hasCp ? 'Start at my checkpoint (Level ' + profile.checkpoint + ')' : 'Start at my checkpoint (none yet)'),
             profile.autoStart && hasCp, () => { profile.autoStart = true; saveProfile(); renderSkills(); });
-        seg((!(profile.autoStart && hasCp) ? '● ' : '○ ') + 'Start from the beginning (Level 1)',
+        seg((!(profile.autoStart && hasCp) ? ':dot: ' : ':dot_off: ') + 'Start from the beginning (Level 1)',
             !(profile.autoStart && hasCp), () => { profile.autoStart = false; saveProfile(); renderSkills(); });
         prog.appendChild(row);
         const hint = document.createElement('div');
@@ -9110,7 +9266,7 @@
             else { game.playRequested = true; document.getElementById('m-play').textContent = 'LOADING…'; }
         });
         document.getElementById('m-skills').addEventListener('click', openSkills);
-        document.getElementById('m-settings').addEventListener('click', () => showMenuScreen('menu-soon'));
+        document.getElementById('m-settings').addEventListener('click', openSettings);
         document.getElementById('sk-back').addEventListener('click', () => { updateMenuNote(); showMenuScreen('menu-main'); });
         document.getElementById('gameover-skills').addEventListener('click', openSkills);
         document.getElementById('sk-reset').addEventListener('click', e => {
@@ -9123,7 +9279,8 @@
             resetProfile(); renderSkills(); skillsMessage('All progress erased.', false);
         });
         document.getElementById('m-zombie').addEventListener('click', () => { window.location.href = 'zombie.html'; });
-        document.getElementById('m-back').addEventListener('click', () => showMenuScreen('menu-main'));
+        document.getElementById('m-back').addEventListener('click', () => { updateMenuNote(); showMenuScreen('menu-main'); });
+        setupSettingsAndTestTools();
         document.getElementById('pause-btn').addEventListener('click', () => {
             if (game.gameOver || game.paused) return;
             game.paused = true; document.getElementById('pause-overlay').classList.add('show');
@@ -9136,6 +9293,121 @@
         });
         document.getElementById('p-menu').addEventListener('click', openMainMenu);
         document.getElementById('gameover-menu').addEventListener('click', openMainMenu);
+    }
+
+    // ========== SETTINGS SCREEN, SAVE CODE & TEST TOOLS ==========
+    // Where your progress lives: the browser's localStorage (a small private notebook the browser keeps for this
+    // website). It survives closing the app and restarting the phone, but the browser can wipe it if you clear
+    // "site data", or if the phone is very short of space. The Save code below is your backup.
+    function settingsMsg(text, ok) {
+        const el = document.getElementById('set-msg');
+        el.textContent = text || ''; el.style.color = ok === false ? '#f6a6aa' : ok === true ? '#c8f2b4' : '';
+    }
+    function exportSaveCode() {
+        const payload = JSON.stringify({ game: 'cordon', v: 1, profile: { coins: profile.coins, owned: profile.owned, checkpoint: profile.checkpoint, bestLevel: profile.bestLevel, autoStart: profile.autoStart } });
+        return btoa(unescape(encodeURIComponent(payload)));
+    }
+    function importSaveCode(code) {
+        let d;
+        try { d = JSON.parse(decodeURIComponent(escape(atob(String(code).trim())))); } catch (e) { return false; }
+        if (!d || d.game !== 'cordon' || !d.profile) return false;
+        const p = applyProfileData(defaultProfile(), d.profile);
+        profile = p; saveProfile();
+        return true;
+    }
+    function refreshPersistText() {
+        const t = document.getElementById('set-persist-txt');
+        if (!(navigator.storage && navigator.storage.persisted)) { t.textContent = 'This browser cannot promise to keep your save. Use the Save code to back it up.'; return; }
+        navigator.storage.persisted().then(yes => {
+            t.textContent = yes ? 'Protected: the browser has promised to keep your save.' : 'Not protected yet. Tap Ask so the browser keeps your save even when space is short.';
+        }).catch(() => { });
+    }
+    function renderSettings() {
+        const on = settings.testMode;
+        const bt = document.getElementById('set-test'); bt.textContent = on ? 'ON' : 'OFF'; bt.classList.toggle('on', on);
+        const bf = document.getElementById('set-fps'); bf.textContent = settings.showFps ? 'ON' : 'OFF'; bf.classList.toggle('on', settings.showFps);
+        document.getElementById('set-level').textContent = settings.testLevel;
+        document.getElementById('set-level-row').style.opacity = on ? 1 : 0.45;
+        document.getElementById('set-code').value = '';
+        refreshPersistText();
+        applyTestUI();
+    }
+    function openSettings() { settingsMsg(''); renderSettings(); showMenuScreen('menu-settings'); }
+    function applyTestUI() {
+        document.getElementById('test-fab').classList.toggle('show', settings.testMode);
+        document.getElementById('test-badge').classList.toggle('show', settings.testMode);
+        document.getElementById('fps-box').classList.toggle('show', settings.showFps);
+        if (!settings.testMode) { document.getElementById('test-panel').classList.remove('show'); game.testGod = false; game.timeScale = 1; }
+    }
+    let _fpsAcc = 0, _fpsN = 0, _fpsLast = 0;
+    function updateFpsBox(t, rawDt) {
+        if (!settings.showFps && !settings.testMode) return;
+        _fpsAcc += rawDt; _fpsN++;
+        if (t - _fpsLast < 500) return;
+        _fpsLast = t;
+        const fps = _fpsN / Math.max(0.001, _fpsAcc); _fpsAcc = 0; _fpsN = 0;
+        if (settings.showFps) document.getElementById('fps-box').textContent = Math.round(fps) + ' fps · ' + game.raiders.length + ' raiders · ' + game.officers.length + ' officers';
+        const info = document.getElementById('test-info');
+        if (info && settings.testMode) info.textContent = 'Level ' + game.waveNumber + ' · ' + game.waveState + ' · ' + game.raiders.length + ' raiders · coins ' + profile.coins;
+    }
+    function testSpawn(kind, n) {
+        if (game.gameOver) return;
+        if (game.waveState === 'intermission') startWave();
+        let sq = null;
+        for (const q of game.squads.values()) { if (!q.isCrowd) { sq = q; break; } }
+        if (!sq) for (const q of game.squads.values()) { sq = q; break; }
+        if (!sq) return;
+        for (let i = 0; i < n; i++) game.waveSpawnQueue.push({ kind, squadId: sq.id });
+        game.totalRaidersInWave += n; game.waveTotalHp += n * RAIDER_TYPES[kind].hp;
+        showToast(':bolt: ' + n + ' x ' + RAIDER_TYPES[kind].name + ' on the way');
+    }
+    function setupSettingsAndTestTools() {
+        const $ = id => document.getElementById(id);
+        $('set-test').addEventListener('click', () => {
+            settings.testMode = !settings.testMode; saveSettings();
+            profile = loadProfile(); updateMenuNote(); renderSettings();
+            settingsMsg(settings.testMode ? 'Test mode ON. Skills and coins here are separate from your real save.' : 'Test mode OFF. Back to your real save.', true);
+        });
+        $('set-fps').addEventListener('click', () => { settings.showFps = !settings.showFps; saveSettings(); renderSettings(); });
+        const lv = d => { settings.testLevel = Math.max(1, Math.min(500, settings.testLevel + d)); saveSettings(); renderSettings(); };
+        $('set-level-dn').addEventListener('click', () => lv(-5)); $('set-level-up').addEventListener('click', () => lv(5));
+        $('set-level').addEventListener('click', () => { settings.testLevel = 1; saveSettings(); renderSettings(); });
+        $('set-copy').addEventListener('click', () => {
+            const code = exportSaveCode(), box = $('set-code'); box.value = code;
+            const done = () => settingsMsg('Save code copied. Paste it somewhere safe (notes app, email to yourself).', true);
+            if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(code).then(done, () => { box.select(); settingsMsg('Press and hold the code, then Copy.', null); });
+            else { box.select(); try { document.execCommand('copy'); done(); } catch (e) { settingsMsg('Press and hold the code, then Copy.', null); } }
+        });
+        $('set-load').addEventListener('click', () => {
+            const code = $('set-code').value.trim();
+            if (!code) { settingsMsg('Paste a save code into the box first, then press Load.', false); return; }
+            if (importSaveCode(code)) { updateMenuNote(); settingsMsg('Save loaded. Coins: ' + profile.coins + ', best level: ' + profile.bestLevel + '.', true); }
+            else settingsMsg('That code did not work. Check you copied all of it.', false);
+        });
+        $('set-persist').addEventListener('click', () => {
+            if (!(navigator.storage && navigator.storage.persist)) { settingsMsg('This browser does not support protected saves. Use the Save code.', false); return; }
+            navigator.storage.persist().then(ok => { refreshPersistText(); settingsMsg(ok ? 'Done. Your save is protected.' : 'The browser said not yet. Installing the game to your home screen usually helps.', ok); });
+        });
+
+        // --- in-game test panel ---
+        $('test-fab').addEventListener('click', () => $('test-panel').classList.toggle('show'));
+        $('t-skip').addEventListener('click', () => { game.waveSpawnQueue = []; for (const r of game.raiders) r.alive = false; showToast(':play: Wave skipped'); });
+        $('t-next').addEventListener('click', () => { if (game.waveState === 'intermission') game.waveTimer = 0; else showToast('A wave is already running'); });
+        $('t-coins').addEventListener('click', () => { profile.coins += 1000; saveProfile(); showToast(':coin: +1000 coins (test save)'); });
+        $('t-heal').addEventListener('click', () => {
+            for (const list of [game.officers, game.arrestOfficers, game.handlers, game.commanders, game.tearGasOfficers, game.k9s]) for (const o of list) if (o.alive && o.maxHp) o.hp = o.maxHp;
+            game.baseHp = BASE_MAX_HP; game.morale = MORALE_MAX; showToast(':plus: Everyone healed');
+        });
+        $('t-raiders').addEventListener('click', () => testSpawn('standard', 10));
+        $('t-bruisers').addEventListener('click', () => testSpawn('bruiser', 5));
+        $('t-protest').addEventListener('click', () => testSpawn('crowd', 8));
+        $('t-bricks').addEventListener('click', () => testSpawn('brickthrower', 4));
+        const lvl = d => { game.waveNumber = Math.max(1, game.waveNumber + d); if (game.waveState === 'intermission') game.waveTimer = Math.min(game.waveTimer, 2); showToast(':wave: Next level: ' + game.waveNumber); };
+        $('t-lvdn').addEventListener('click', () => lvl(-5)); $('t-lvup').addEventListener('click', () => lvl(5));
+        $('t-god').addEventListener('click', e => { game.testGod = !game.testGod; e.currentTarget.textContent = ':shield: God: ' + (game.testGod ? 'ON' : 'OFF'); e.currentTarget.classList.toggle('on', game.testGod); });
+        $('t-speed').addEventListener('click', e => { game.timeScale = ((game.timeScale || 1) % 3) + 1; e.currentTarget.textContent = ':bolt: Speed x' + game.timeScale; e.currentTarget.classList.toggle('on', game.timeScale > 1); });
+        applyTestUI();
+        if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => { });   // quietly ask the browser to keep the save
     }
     function bootWhenReady() {
         if (isLandscapeReady()) init();

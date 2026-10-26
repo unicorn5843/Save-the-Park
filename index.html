@@ -473,6 +473,64 @@
     </style>
     <link rel="stylesheet" href="assets/ui/moonroar.css">
     <script src="assets/ui/moonroar.js"></script>
+    <script src="js/campaign.js"></script>
+    <script src="js/audio.js"></script>
+    <style id="cordon-v2">
+        /* ===== v2 layout: no overlaps, syndicates in a column beside the d-pad ===== */
+        #bottom-right-ui { right: 6px; bottom: 44px; min-width: 0; gap: 5px; align-items: flex-end; flex-direction: column; }
+        #bottom-right-ui #cmd-buttons { display: flex; flex-direction: column; gap: 3px; width: 126px; }
+        #bottom-right-ui #cmd-buttons button {
+            width: 100%; padding: 2px 3px; min-height: 26px; font-size: 9.5px; letter-spacing: 0;
+            border-width: 5px 6px; border-image-width: 5px 6px; white-space: nowrap; overflow: hidden;
+        }
+        #bottom-right-ui #pad-row { display: flex; flex-direction: row; gap: 5px; align-items: stretch; }
+        #bottom-right-ui #syndicate-tabs {
+            display: flex; flex-direction: column; gap: 2px; width: 62px; padding: 0; min-width: 0;
+            border: 0; border-image: none; background: transparent; backdrop-filter: none;
+        }
+        #bottom-right-ui .syn-btn {
+            flex: 1 1 0; min-height: 0; padding: 0 1px; font-size: 9.5px; white-space: nowrap; overflow: hidden;
+            border-width: 5px 6px; border-image-width: 5px 6px; display: flex; align-items: center; justify-content: center;
+        }
+        #bottom-right-ui #dpad-container { width: 128px; height: 128px; margin: 0; }
+        /* ===== quick decisions strip (under the top bar) ===== */
+        #decision-bar { position: fixed; top: 76px; left: calc(50% + 82px); z-index: 94; display: flex; gap: 3px; }
+        #decision-bar button {
+            padding: 1px 4px; min-height: 22px; width: auto; margin: 0; font-size: 9px; white-space: nowrap; letter-spacing: 0;
+            border-width: 5px 6px; border-image-width: 5px 6px;
+        }
+        #decision-bar button:disabled { opacity: .55; }
+        /* ===== crowd mood bar ===== */
+        #opinion-fill.stat-fill { --c1: #ffe0a8; --c2: #f0a03c; --c3: #c9452a; background: linear-gradient(180deg, var(--c1), var(--c2) 55%, var(--c3)); }
+        #opinion-fill.calm { --c1: #c8f2b4; --c2: #6fd16a; --c3: #3a8f4b; }
+        #opinion-fill.tense { --c1: #fbe08a; --c2: #f4c542; --c3: #b9852a; }
+        #opinion-fill.furious { --c1: #f6a6aa; --c2: #d95763; --c3: #8e2a35; }
+        #mood-fill.stat-fill { --c1: #ffe0a8; --c2: #f0a03c; --c3: #c9452a; background: linear-gradient(180deg, var(--c1), var(--c2) 55%, var(--c3)); }
+        #mood-fill.calm { --c1: #c8f2b4; --c2: #6fd16a; --c3: #3a8f4b; }
+        #mood-fill.tense { --c1: #fbe08a; --c2: #f4c542; --c3: #b9852a; }
+        #mood-fill.furious { --c1: #f6a6aa; --c2: #d95763; --c3: #8e2a35; }
+        /* ===== decisions block (left panel) ===== */
+        #options-panel .dec-note { font-size: 9px; color: var(--dim, #b9b4e0); line-height: 1.25; padding: 0 2px 2px; }
+        #options-panel button .sub { display: block; font-size: 8.5px; font-weight: 500; opacity: .85; }
+        /* ===== chapter / story card ===== */
+        #chapter-overlay {
+            display: none; position: fixed; inset: 0; z-index: 160; align-items: center; justify-content: center;
+            background: rgba(10, 8, 24, .78); padding: 8px;
+        }
+        #chapter-overlay.show { display: flex; }
+        #chapter-card {
+            width: min(88vw, 560px); max-height: 92vh; overflow-y: auto; text-align: center;
+            border-style: solid; border-color: #222034; border-width: 8px; border-image: var(--mr-panel) 8 / 8px stretch;
+            background: rgba(54, 51, 76, .98) padding-box; color: #f1eefc; padding: 8px 14px 12px; image-rendering: pixelated;
+        }
+        #ch-kicker { font-size: 10px; letter-spacing: 2px; color: #f4c542; text-transform: uppercase; }
+        #ch-title { font-size: 22px; margin: 2px 0 0; color: #fff; text-shadow: 0 2px 0 #222034; }
+        #ch-cause { font-size: 12px; color: #9ad4ff; margin: 2px 0 6px; font-weight: 700; }
+        #ch-text { font-size: 12px; line-height: 1.4; color: #e6e2fb; margin: 4px 0; }
+        #ch-verdict { font-size: 11px; color: #f4c542; margin: 6px 0; line-height: 1.35; }
+        #ch-go { margin-top: 6px; }
+        #ch-stats { font-size: 10.5px; color: #b9b4e0; margin: 4px 0; line-height: 1.5; }
+    </style>
 </head>
 <body>
     <div id="rotate-overlay">:phone: Please rotate your device to landscape!</div>
@@ -483,6 +541,12 @@
             <div id="panel-header"><span id="panel-title">Tactics</span><button id="pause-btn" title="Pause">:pause:</button></div>
             <div id="options-panel"></div>
         </div>
+    </div>
+
+    <div id="decision-bar">
+        <button class="test-btn" id="dec-posture" title="Firm force or de-escalation">:baton: Firm</button>
+        <button class="test-btn" id="dec-overtime" title="Pay for overtime">:coin: Overtime</button>
+        <button class="test-btn" id="dec-backup" title="Call for backup">:siren: Backup</button>
     </div>
 
     <div id="top-bar">
@@ -532,14 +596,27 @@
                 <div class="stat-track"><div class="stat-fill public" id="public-morale-fill"></div></div>
                 <span class="stat-num" id="public-morale-num">100%</span>
             </div>
+            <div class="stat-line" title="Crowd mood">
+                <span class="stat-icon">:crowd:</span>
+                <div class="stat-track"><div class="stat-fill" id="mood-fill"></div></div>
+                <span class="stat-num" id="mood-num">Calm</span>
+            </div>
+            <div class="stat-line" title="Public opinion of the police">
+                <span class="stat-icon">:heart:</span>
+                <div class="stat-track"><div class="stat-fill" id="opinion-fill"></div></div>
+                <span class="stat-num" id="opinion-num">50</span>
+            </div>
         </div>
         <div id="selection-info"></div>
     </div>
 
     <div id="bottom-right-ui">
+        <div id="cmd-buttons">
         <button id="all-out-btn">:siren: ALL OUT</button>
         <button id="all-units-btn">:helmet: All Units On Me</button>
         <button id="station-btn">:station: Station</button>
+        </div>
+        <div id="pad-row">
         <div id="syndicate-tabs">
             <button class="syn-btn" data-idx="0">S1</button>
             <button class="syn-btn" data-idx="1">S2</button>
@@ -553,6 +630,7 @@
             <div class="dpad-btn dpad-center"></div>
             <button class="dpad-btn dpad-right" id="btn-right">:play:</button>
             <button class="dpad-btn dpad-down" id="btn-down">:arrow_d:</button>
+        </div>
         </div>
     </div>
 
@@ -589,6 +667,18 @@
             <button id="gameover-restart">:repeat: Play Again</button>
             <button id="gameover-skills">:star: Spend Coins in Skills</button>
             <button id="gameover-menu">:home: Main Menu</button>
+        </div>
+    </div>
+
+    <div id="chapter-overlay">
+        <div id="chapter-card">
+            <div id="ch-kicker"></div>
+            <h2 id="ch-title"></h2>
+            <div id="ch-cause"></div>
+            <div id="ch-stats"></div>
+            <p id="ch-text"></p>
+            <div id="ch-verdict"></div>
+            <button class="xp-btn play" id="ch-go">:play: BEGIN</button>
         </div>
     </div>
 
@@ -645,6 +735,18 @@
                             <button class="set-btn" id="set-level-dn">&minus;5</button>
                             <button class="set-btn" id="set-level">1</button>
                             <button class="set-btn" id="set-level-up">+5</button>
+                        </div>
+                        <div class="set-row">
+                            <div class="set-txt"><b>:megaphone: Sound</b><small>Sirens, chanting and impact sounds. The game makes them itself, no files needed.</small></div>
+                            <button class="set-btn" id="set-sound">ON</button>
+                        </div>
+                        <div class="set-row">
+                            <div class="set-txt"><b>:burst: Screen shake</b><small>A small shake on big impacts.</small></div>
+                            <button class="set-btn" id="set-shake">ON</button>
+                        </div>
+                        <div class="set-row">
+                            <div class="set-txt"><b>:placard: Show raider items</b><small>Placards, sticks and bricks on every raider. Off keeps the street tidy.</small></div>
+                            <button class="set-btn" id="set-items">OFF</button>
                         </div>
                         <div class="set-row">
                             <div class="set-txt"><b>:eye: Show FPS</b><small>A small speed counter in the corner.</small></div>
@@ -1034,19 +1136,71 @@
         ps.facingX = hs.facingX; ps.facingY = hs.facingY;
         ps.goalX = hs.goalX; ps.goalY = hs.goalY;
     }
+    // A vehicle that backs up a syndicate parks RIGHT BEHIND its rear rank, as far forward as it can go,
+    // so its range reaches past the line.  Junction block: just behind the wall on the front arm.
+    // Stacked: drives alongside, in the open lane.  Two vehicles: side by side.
+    function vehicleLineSig(hostIdx) {
+        const hs = game.syndicates[hostIdx];
+        return hs ? (hs.post ? hs.post.key : activeTacticOf(hs)) + '|' + (hs.facingX || 0) + ',' + (hs.facingY || 0) : '';
+    }
     function postVehicleBehind(vIdx, hostIdx) {
         const v = vehicleAt(vIdx), hs = game.syndicates[hostIdx], vs = game.syndicates[vIdx];
         if (!v || !hs || !vs) return;
         let fx = hs.facingX || 1, fy = hs.facingY || 0;
         if (Math.abs(fx) > Math.abs(fy)) { fx = Math.sign(fx) || 1; fy = 0; } else { fx = 0; fy = Math.sign(fy) || 1; }
-        const bx = hs.commandX - fx * TILE * 3.5, by = hs.commandY - fy * TILE * 3.5;
-        let best = null, bestD = Infinity;
-        for (const s of BLOCKADE_SPOTS) {
-            const d = Math.hypot(s.x - bx, s.y - by);
-            if (d < bestD) { bestD = d; best = s; }
+        const halfLen = TILE * WC_LENGTH_TILES / 2 + 3;
+        const host = game.officers.filter(o => o.alive && !o.isAllOut && o.state === 'active' && hostOf(o.syndicateIndex) === hostIdx);
+        const mates = [VEHICLE_SYNDICATE, VEHICLE_SYNDICATE_2].filter(i => i !== vIdx && vehicleAt(i) && game.syndicates[i] && game.syndicates[i].linkHost === hostIdx);
+        const slot = mates.length ? (vIdx > mates[0] ? 1 : -1) : 0;
+        const tac = activeTacticOf(hs);
+        let bx, by;
+        if (hs.post && roadLayout) {
+            const j = hs.post.junction, d = JUNCTION_DIR_VEC[hs.post.dir];
+            fx = d.fx; fy = d.fy;
+            const px = fy, py = -fx;
+            let rear = Infinity;
+            for (const o of host) {
+                if (o._postFacing && o._postFacing.x === d.fx && o._postFacing.y === d.fy)
+                    rear = Math.min(rear, (o.targetX - j.x) * d.fx + (o.targetY - j.y) * d.fy);
+            }
+            if (!isFinite(rear)) rear = roadLayout.half - TILE * 1.5;
+            const along = rear - halfLen - 5;
+            bx = j.x + d.fx * along + px * slot * TILE * 1.2;
+            by = j.y + d.fy * along + py * slot * TILE * 1.2;
+        } else {
+            const px = fy, py = -fx;
+            let rear = 0, mid = 0;
+            for (const o of host) {
+                const back = (hs.commandX - o.targetX) * fx + (hs.commandY - o.targetY) * fy;
+                rear = Math.max(rear, back); mid += back;
+            }
+            mid = host.length ? mid / host.length : TILE * 2;
+            if (tac === 'stackleft' || tac === 'stackright') {
+                const sign = tac === 'stackleft' ? -1 : 1;
+                const lane = -sign * TILE * 1.45;                         // the open lane, opposite the stack
+                const back = slot > 0 ? rear + halfLen + 5 : mid;       // 1st vehicle abreast, 2nd right behind the tail
+                bx = hs.commandX + px * lane - fx * back;
+                by = hs.commandY + py * lane - fy * back;
+            } else {
+                const back = rear + halfLen + 5;
+                bx = hs.commandX - fx * back + px * slot * TILE * 1.25;
+                by = hs.commandY - fy * back + py * slot * TILE * 1.25;
+            }
         }
-        vs.linkAnchorX = hs.commandX; vs.linkAnchorY = hs.commandY;
-        if (best) { v.setSpot(best); vs.commandX = best.x; vs.commandY = best.y; }
+        // keep it on the tarmac
+        let spot = null;
+        if (isValidPosition(bx, by) && isRoadAt(bx, by)) {
+            spot = { key: 'LV' + vIdx, dir: Math.abs(fx) > 0 ? 'h' : 'v', x: bx, y: by, edgeKey: findEdgeForSpot({ x: bx, y: by }), custom: true };
+        } else {
+            let bestD = Infinity;
+            for (const sp of BLOCKADE_SPOTS) { const d = Math.hypot(sp.x - bx, sp.y - by); if (d < bestD) { bestD = d; spot = sp; } }
+        }
+        vs.linkAnchorX = hs.commandX; vs.linkAnchorY = hs.commandY; vs.linkSig = vehicleLineSig(hostIdx);
+        if (!spot) return;
+        const cur = v.targetSpot;
+        if (!(cur && cur.custom && spot.custom && Math.hypot(cur.x - spot.x, cur.y - spot.y) < 5)) v.setSpot(spot);
+        v.faceAngle = Math.atan2(fy, fx);
+        vs.commandX = spot.x; vs.commandY = spot.y;
     }
     function updateLinks(dt) {
         for (let i = 0; i < game.syndicates.length; i++) {
@@ -1059,7 +1213,7 @@
                 ps.linkTimer = (ps.linkTimer || 0) - dt;
                 if (!hs.path && ps.linkTimer <= 0) {
                     ps.linkTimer = 1.0;
-                    if (ps.linkAnchorX === undefined || Math.hypot(hs.commandX - ps.linkAnchorX, hs.commandY - ps.linkAnchorY) > TILE * 2.5) postVehicleBehind(i, hostIdx);
+                    if (ps.linkAnchorX === undefined || ps.linkSig !== vehicleLineSig(hostIdx) || Math.hypot(hs.commandX - ps.linkAnchorX, hs.commandY - ps.linkAnchorY) > TILE * 2.5) postVehicleBehind(i, hostIdx);
                 }
             } else {
                 ps.path = null; ps.pathIdx = 0;
@@ -1110,11 +1264,11 @@
     const SAVE_KEY_REAL = 'cordon.save.v1';
     const SAVE_KEY_TEST = 'cordon.save.v1.test';   // test mode plays on a separate sandbox save
     function loadSettings() {
-        const st = { testMode: false, showFps: false, testLevel: 1 };
+        const st = { testMode: false, showFps: false, testLevel: 1, sound: true, shake: true, heldItems: false };
         try {
             const d = JSON.parse(window.localStorage.getItem(SETTINGS_KEY) || '{}');
             if (d && typeof d === 'object') {
-                st.testMode = !!d.testMode; st.showFps = !!d.showFps;
+                st.testMode = !!d.testMode; st.showFps = !!d.showFps; st.sound = d.sound !== false; st.shake = d.shake !== false; st.heldItems = !!d.heldItems;
                 if (Number.isFinite(d.testLevel)) st.testLevel = Math.max(1, Math.min(500, Math.floor(d.testLevel)));
             }
         } catch (e) { }
@@ -1249,6 +1403,306 @@
         return { reward, checkpoint, next };
     }
 
+
+    // ========== CAMPAIGN, CROWD MOOD, OPINION & DECISIONS (v2) ==========
+    const CAMP = window.CORDON_CAMPAIGN || { chapterLength: 10, chapters: [], opinionLabels: [] };
+    const FALLBACK_CHAPTER = {
+        id: 'street', city: 'The City', district: 'Main Street', title: 'Night Shift', cause: 'Unrest on the streets.',
+        intro: 'Hold the line.', introTrusted: '', introHostile: '', nights: [], night: 0.2, tint: '#1b2350',
+        zones: { res: 49, biz: 76 }, seed: 1, crowd: { protesters: 1, agitators: 1, rioters: 1, bricks: 1 }, startMood: 25,
+    };
+    let districtSeed = 0;
+    function chapterLen() { return CAMP.chapterLength || 10; }
+    function chapterIndex(level) { const n = CAMP.chapters.length || 1; return Math.floor((Math.max(1, level) - 1) / chapterLen()) % n; }
+    function chapterRound(level) { const n = CAMP.chapters.length || 1; return Math.floor((Math.max(1, level) - 1) / (chapterLen() * n)); }
+    function chapterFor(level) { return CAMP.chapters[chapterIndex(level)] || FALLBACK_CHAPTER; }
+    function nightOf(level) { return ((Math.max(1, level) - 1) % chapterLen()) + 1; }
+    function opinionInfo(v) {
+        for (const e of (CAMP.opinionLabels || [])) if (v >= e.min) return e;
+        return { name: 'Divided', headline: '' };
+    }
+    function applyDistrict(level) {
+        const ch = chapterFor(level);
+        ZONE_X_RES_MAX = ch.zones.res; ZONE_X_BIZ_MAX = ch.zones.biz; districtSeed = ch.seed | 0;
+        return ch;
+    }
+    function rebuildDistrict() {
+        applyDistrict(game.waveNumber);
+        game.townSeed = (Math.random() * 0x7fffffff) | 0;
+        generateMap(); buildTerrainCanvas(); buildMinimapTerrainCanvas();
+        for (const r of game.repairOfficers) r.targetBuilding = null;
+        game.baseHp = BASE_MAX_HP;
+    }
+
+    // ----- sound + shake helpers (safe to call anywhere) -----
+    function sfx(name, v) { if (window.CordonAudio && settings.sound) CordonAudio.play(name, v); }
+    function triggerShake(mag) { if (!settings.shake) return; game.shake = Math.min(9, Math.max(game.shake || 0, mag)); }
+
+    // ----- opinion & posture -----
+    function adjustOpinion(d) { game.opinion = Math.max(0, Math.min(100, game.opinion + d)); }
+    // Firm = faster, harder; crowds anger quicker.  Soft (de-escalation) = gentler; crowds cool down quicker.
+    function postureFx() { return game.posture === 'soft' ? { press: 0.6, calm: 1.5, dmg: 0.82 } : { press: 1.3, calm: 0.8, dmg: 1.12 }; }
+    function forceMult() { return postureFx().dmg * (game.overtime === 'paid' ? 1.2 : 1); }
+    function furyMult() { return 0.9 + 0.3 * (game.crowdMood || 0) / 100; }
+    function crowdTier(m) { return m < 30 ? 'Calm' : m < 55 ? 'Tense' : m < 80 ? 'Angry' : 'Furious'; }
+
+    // What tonight looks like, from the chapter and from how the city feels about you.
+    function levelMods(level) {
+        const ch = chapterFor(level), t = (game.opinion - 50) / 50;      // -1 hated ... +1 trusted
+        const c = ch.crowd || {};
+        return {
+            ch,
+            protesters: (c.protesters || 1) * (1 + 0.35 * t),
+            agitators: Math.max(0, (c.agitators || 0) * (1 - 0.5 * t)),
+            rioters: (c.rioters || 1) * (1 - 0.22 * t),
+            bricks: (c.bricks || 1) * (1 - 0.3 * t),
+            startMood: Math.max(0, Math.min(90, (ch.startMood || 25) - 22 * t)),
+            coinBonus: 1 + 0.15 * Math.max(0, t),
+        };
+    }
+
+    // Raise (+) or lower (-) the mood of every protester near a point.
+    function incite(x, y, rad, amt) {
+        for (const r of game.raiders) {
+            if (!r.alive || r.kind !== 'crowd' || r.agitator || r.state === 'fleeing') continue;
+            const d = Math.hypot(r.x - x, r.y - y);
+            if (d > rad) continue;
+            r.mood = Math.max(0, Math.min(100, r.mood + amt * (1 - 0.5 * d / rad)));
+        }
+    }
+    let _moodAudioT = 0;
+    function updateCrowdMood(dt) {
+        let n = 0, sum = 0, fighting = 0;
+        const agit = [];
+        for (const r of game.raiders) {
+            if (!r.alive || r.state === 'fleeing') continue;
+            if (r.kind === 'crowd') { if (r.agitator) agit.push(r); else { n++; sum += r.mood; } }
+            else if (r.state === 'fighting') fighting++;
+        }
+        game.fightHeat = fighting;
+        if (agit.length) {
+            for (const r of game.raiders) {
+                if (!r.alive || r.kind !== 'crowd' || r.agitator || r.state === 'fleeing') continue;
+                for (const a of agit) {
+                    if (Math.abs(a.x - r.x) < TILE * 8 && Math.abs(a.y - r.y) < TILE * 8) { r.mood = Math.min(100, r.mood + 2.2 * dt); break; }
+                }
+            }
+        }
+        const target = n ? sum / n : (game.waveStartMood || 0);
+        game.crowdMood += (target - game.crowdMood) * Math.min(1, dt * 2);
+        game.crowdCount = n;
+        _moodAudioT -= dt;
+        if (_moodAudioT <= 0 && window.CordonAudio) {
+            _moodAudioT = 0.6;
+            CordonAudio.setCrowd(game.crowdMood / 100, game.waveState === 'active' ? n / 16 : 0);
+        }
+    }
+    function onArrested(r) {
+        sfx('arrest');
+        if (r && r.kind === 'crowd') game.raidersDefeated = Math.max(0, game.raidersDefeated - 1);
+        if (r && r.kind === 'crowd' && r.agitator) {
+            incite(r.x, r.y, TILE * 16, -28);
+            adjustOpinion(3); game.waveStats.agitArrested++;
+            showToast(':cuffs: Agitator arrested. The crowd cools down.');
+        }
+    }
+
+    // ----- decisions -----
+    function overtimeCost() { return 40 + 8 * game.waveNumber; }
+    function backupCost() { return 60 + 10 * game.waveNumber; }
+    function togglePosture() {
+        game.posture = game.posture === 'soft' ? 'firm' : 'soft';
+        sfx('ui');
+        showToast(game.posture === 'soft'
+            ? ':dove: De-escalation: gentler officers. Crowds cool down faster. Opinion improves.'
+            : ':baton: Firm force: officers hit harder. Crowds get angry faster.');
+        renderOptionsPanel();
+    }
+    function buyOvertime() {
+        if (game.gameOver) return;
+        if (game.overtime === 'paid') { showToast(':coin: Overtime is already running.'); return; }
+        const cost = overtimeCost();
+        if (profile.coins < cost) { showToast(':coin: Overtime costs ' + cost + ' coins.'); sfx('bad'); return; }
+        profile.coins -= cost; saveProfile();
+        game.overtime = 'paid';
+        for (const o of game.officers) if (o.alive && !o.isAllOut) o.hp = Math.min(o.maxHp, o.hp + o.maxHp * 0.5);
+        game.morale = Math.min(MORALE_MAX, game.morale + 25);
+        sfx('coin');
+        showToast(':coin: Overtime paid (-' + cost + '). Officers recover and hit 20% harder this night, but start the next one tired.');
+        renderOptionsPanel();
+    }
+    function callBackup() {
+        if (game.gameOver) return;
+        if ((game.backupCooldown || 0) > 0) { showToast(':siren: More backup in ' + Math.ceil(game.backupCooldown) + 's.'); return; }
+        const need = [];
+        let total = 0;
+        for (let idx = 0; idx < game.syndicatesDeployed; idx++) {
+            const have = game.officers.filter(o => o.alive && !o.isAllOut && o.syndicateIndex === idx).length;
+            const n = Math.max(0, OFFICERS_PER_SYNDICATE - have);
+            need.push(n); total += n;
+        }
+        if (total === 0) { showToast(':helmet: Every syndicate is already at full strength.'); return; }
+        const cost = backupCost();
+        if (profile.coins < cost) { showToast(':coin: Backup costs ' + cost + ' coins.'); sfx('bad'); return; }
+        profile.coins -= cost; saveProfile();
+        const cx = BASE_TILE_X * TILE, cy = BASE_TILE_Y * TILE;
+        need.forEach((n, idx) => {
+            for (let i = 0; i < n; i++) {
+                let sx = cx, sy = cy;
+                for (let tries = 0; tries < 40; tries++) {
+                    const tx = cx + (Math.random() - 0.5) * TILE * 10, ty = cy + (Math.random() - 0.5) * TILE * 10;
+                    if (isValidOfficerPosition(tx, ty)) { sx = tx; sy = ty; break; }
+                }
+                game.officers.push(new Officer(sx, sy, idx));
+            }
+        });
+        game.backupCooldown = 90; game.waveStats.backups++;
+        adjustOpinion(-2);
+        incite(cx, cy, TILE * 60, 8 * postureFx().press);          // a bigger police presence puts crowds on edge
+        assignFormation();
+        if (window.CordonAudio && settings.sound) CordonAudio.siren(3);
+        showToast(':siren: Backup arrived: ' + total + ' officers (-' + cost + '). Crowds are uneasy and opinion dips.');
+        renderOptionsPanel();
+    }
+    function updateDecisionBar() {
+        const pb = document.getElementById('dec-posture'), ob = document.getElementById('dec-overtime'), bb = document.getElementById('dec-backup');
+        if (!pb) return;
+        const soft = game.posture === 'soft', paid = game.overtime === 'paid', cd = game.backupCooldown || 0;
+        const t1 = soft ? ':dove: Soft' : ':baton: Firm', t2 = paid ? ':coin: Overtime ON' : ':coin: OT ' + overtimeCost(), t3 = cd > 0 ? ':siren: ' + Math.ceil(cd) + 's' : ':siren: Backup ' + backupCost();
+        if (pb._t !== t1) { pb.textContent = pb._t = t1; }
+        if (ob._t !== t2) { ob.textContent = ob._t = t2; }
+        if (bb._t !== t3) { bb.textContent = bb._t = t3; }
+        pb.classList.toggle('on', soft); ob.classList.toggle('on', paid);
+        ob.disabled = paid; bb.disabled = cd > 0;
+    }
+    function setupDecisionBar() {
+        document.getElementById('dec-posture').addEventListener('click', togglePosture);
+        document.getElementById('dec-overtime').addEventListener('click', buyOvertime);
+        document.getElementById('dec-backup').addEventListener('click', callBackup);
+    }
+    function renderDecisionSection(panel) {
+        const lbl = document.createElement('div');
+        lbl.className = 'section-label'; lbl.textContent = 'Decisions';
+        panel.appendChild(lbl);
+
+        const soft = game.posture === 'soft';
+        const pb = document.createElement('button');
+        pb.textContent = soft ? ':dove: De-escalate' : ':baton: Firm Force';
+        if (soft) pb.classList.add('active-choice');
+        pb.addEventListener('click', togglePosture);
+        panel.appendChild(pb);
+        const pn = document.createElement('div');
+        pn.className = 'dec-note';
+        pn.textContent = soft ? 'Gentler. Crowds cool faster, opinion rises, but officers hit softer.'
+                              : 'Harder hits. Crowds anger faster and opinion falls.';
+        panel.appendChild(pn);
+
+        const ob = document.createElement('button');
+        const paid = game.overtime === 'paid';
+        ob.textContent = paid ? ':coin: Overtime (running)' : ':coin: Overtime ' + overtimeCost();
+        if (paid) { ob.disabled = true; ob.classList.add('active-choice'); }
+        ob.addEventListener('click', buyOvertime);
+        panel.appendChild(ob);
+
+        const bb = document.createElement('button');
+        const cd = game.backupCooldown || 0;
+        bb.textContent = cd > 0 ? ':siren: Backup (' + Math.ceil(cd) + 's)' : ':siren: Call Backup ' + backupCost();
+        if (cd > 0) bb.disabled = true;
+        bb.addEventListener('click', callBackup);
+        panel.appendChild(bb);
+        const dn = document.createElement('div');
+        dn.className = 'dec-note';
+        dn.textContent = 'Overtime: heal and +20% damage, tired next night. Backup: refills syndicates, unsettles crowds.';
+        panel.appendChild(dn);
+    }
+
+    // ----- end of a night: opinion verdict -----
+    function endOfNight(reward) {
+        const st = game.waveStats, before = game.opinion;
+        let d = 0;
+        if (st.hadCrowd && st.turned === 0) d += 3;                   // a peaceful night
+        d += game.posture === 'soft' ? 2 : -0.5;
+        if (game.overtime === 'paid') { d -= 1; game.overtimeTired = true; game.overtime = 'ready'; }
+        adjustOpinion(d);
+        game.opinion += (50 - game.opinion) * 0.08;                    // memories fade a little each night
+        let bonus = 0;
+        if (st.coinBonus > 1) { bonus = Math.round(reward * (st.coinBonus - 1)); profile.coins += bonus; game.runCoins += bonus; saveProfile(); }
+        const lab = opinionInfo(game.opinion);
+        return '  ·  Opinion ' + Math.round(before) + '→' + Math.round(game.opinion) + ' (' + lab.name + ')' + (bonus ? '  ·  +' + bonus + ' goodwill' : '');
+    }
+
+    // ----- chapter / story card -----
+    function showChapterCard(level) {
+        const ch = chapterFor(level), n = nightOf(level), round = chapterRound(level);
+        const $ = id => document.getElementById(id);
+        const op = opinionInfo(game.opinion);
+        $('ch-kicker').textContent = 'Chapter ' + (chapterIndex(level) + 1) + (round > 0 ? ' · round ' + (round + 1) : '') + ' · ' + ch.city;
+        $('ch-title').textContent = ch.title;
+        $('ch-cause').textContent = ch.cause;
+        $('ch-stats').textContent = ch.district + '  ·  Night ' + n + ' of ' + chapterLen() + '  ·  Public opinion ' + Math.round(game.opinion) + ' (' + op.name + ')';
+        let txt = ch.intro || '';
+        if (game.opinion >= 65 && ch.introTrusted) txt += ' ' + ch.introTrusted;
+        else if (game.opinion <= 35 && ch.introHostile) txt += ' ' + ch.introHostile;
+        $('ch-text').textContent = txt;
+        $('ch-verdict').textContent = level > 1 ? op.headline : '';
+        game.chapterCardOpen = true; game.paused = true;
+        $('chapter-overlay').classList.add('show');
+        sfx('ui');
+    }
+    function setupChapterCard() {
+        document.getElementById('ch-go').addEventListener('click', () => {
+            document.getElementById('chapter-overlay').classList.remove('show');
+            game.chapterCardOpen = false; game.paused = false;
+            if (window.CordonAudio) { CordonAudio.unlock(); }
+            sfx('horn', 0.7);
+        });
+    }
+
+    // ----- night overlay: darkness + glowing lamps + flashing lights -----
+    const _glow = {};
+    function glowSprite(rgb) {
+        if (_glow[rgb]) return _glow[rgb];
+        const c = document.createElement('canvas'); c.width = c.height = 128;
+        const g = c.getContext('2d'), gr = g.createRadialGradient(64, 64, 0, 64, 64, 64);
+        gr.addColorStop(0, 'rgba(' + rgb + ',1)'); gr.addColorStop(0.45, 'rgba(' + rgb + ',0.35)'); gr.addColorStop(1, 'rgba(' + rgb + ',0)');
+        g.fillStyle = gr; g.fillRect(0, 0, 128, 128);
+        return (_glow[rgb] = c);
+    }
+    function nightLevel() {
+        const ch = chapterFor(game.waveNumber);
+        return Math.max(0, Math.min(0.7, (ch.night || 0) + (50 - game.opinion) / 100 * 0.12));
+    }
+    function drawNight(ctx) {
+        const n = nightLevel();
+        if (n < 0.05) return;
+        const ch = chapterFor(game.waveNumber), cam = game.camera;
+        ctx.save();
+        ctx.globalAlpha = Math.min(0.75, n * 1.25); ctx.fillStyle = ch.tint || '#101a40';
+        ctx.fillRect(0, 0, game.width, game.height);
+        ctx.globalCompositeOperation = 'lighter';
+        if (!game._lamps) game._lamps = sceneryProps.filter(p => p.key === 'lamp_dbl' || p.key === 'prop_lamp_uk');
+        const R = TILE * 5, a = Math.min(0.7, n * 1.3), warm = glowSprite('255,208,130');
+        ctx.globalAlpha = a;
+        for (const p of game._lamps) {
+            if (!p.alive) continue;
+            const x = p.tx * TILE - cam.x, y = p.ty * TILE - p.h * 0.8 - cam.y;
+            if (x < -R || y < -R || x > game.width + R || y > game.height + R) continue;
+            ctx.drawImage(warm, x - R, y - R, R * 2, R * 2);
+        }
+        const t = (game.lastTime || 0) / 1000;
+        for (const v of [game.vehicle, game.vehicle2]) {
+            if (!v || !v.alive) continue;
+            const x = v.x - cam.x, y = v.y - cam.y;
+            if (x < -R || y < -R || x > game.width + R || y > game.height + R) continue;
+            ctx.globalAlpha = Math.min(0.8, a + 0.2);
+            ctx.drawImage(glowSprite(Math.floor(t * 4 + (v.lightPhase || 0)) % 2 ? '255,70,70' : '80,140,255'), x - R * 0.8, y - R * 0.8, R * 1.6, R * 1.6);
+        }
+        ctx.globalAlpha = Math.min(0.8, a + 0.1);
+        const sx = BASE_TILE_X * TILE + 8 - cam.x, sy = (STATION_TY0 - 0.35) * TILE - 30 - cam.y;
+        ctx.drawImage(glowSprite('90,150,255'), sx - R, sy - R, R * 2, R * 2);
+        ctx.restore();
+    }
+
     // ========== GAME STATE ==========
     let map = [];
     let toastTimer = null;
@@ -1324,6 +1778,11 @@
         attackMarkers: [],
 
         raidAI: { objective: 'base' },
+
+        // --- v2: campaign, crowd mood, opinion, decisions ---
+        opinion: 50, posture: 'firm', overtime: 'ready', overtimeTired: false, backupCooldown: 0,
+        crowdMood: 0, waveStartMood: 25, fightHeat: 0, shake: 0, chapterCardOpen: false, _lamps: null,
+        waveStats: { calmed: 0, turned: 0, hurt: 0, agitArrested: 0, backups: 0, startOpinion: 50, coinBonus: 1, hadCrowd: false },
     };
 
     // ========== ROAD GRAPH ==========
@@ -1781,6 +2240,7 @@
         return false;
     }
     function generateMap() {
+        game._lamps = null;
         map = [];
         for (let y = 0; y < MAP_H; y++) {
             const row = new Uint8Array(MAP_W);
@@ -1896,8 +2356,8 @@
         return n - Math.floor(n);
     }
 
-    const ZONE_X_RES_MAX = 49;
-    const ZONE_X_BIZ_MAX = 76;
+    let ZONE_X_RES_MAX = 49;      // changed per district (see js/campaign.js)
+    let ZONE_X_BIZ_MAX = 76;
     function zoneAt(tx) { return tx <= ZONE_X_RES_MAX ? 'res' : (tx <= ZONE_X_BIZ_MAX ? 'biz' : 'ind'); }
     const ZONES = {
         res: { name: 'Residential', garden: 1, sideGap: 0.55,
@@ -1953,7 +2413,7 @@
     function placeSceneryBuildings() {
         sceneryBuildings = [];
         if (!BUILDING_CATALOGUE) BUILDING_CATALOGUE = buildCatalogue();
-        const rnd = mulberry32(MAP_W * 131 + MAP_H * 7 + 12345);
+        const rnd = mulberry32(MAP_W * 131 + MAP_H * 7 + 12345 + districtSeed * 977);
         const W = MAP_W, H = MAP_H;
         cityKind = new Uint8Array(W * H);
         const isWalk = (x, y) => { const t = map[y][x]; return t === TILE_ROAD || t === TILE_SIDEWALK || t === TILE_BASE; };
@@ -2113,7 +2573,7 @@
         const def = FURN[cls] || FURN.misc;
         const indestructible = !(def.hp > 0);
         return {
-            key, tx, ty, w, h, atlas, cls, flip: !!flip, vehicle: cls === 'vehicle',
+            key, tx, ty, w, h, atlas, cls, flip: UPRIGHT_CLASSES[cls] ? false : !!flip, vehicle: cls === 'vehicle',
             hp: indestructible ? 1 : def.hp, maxHp: indestructible ? 1 : def.hp,
             alive: true, indestructible,
         };
@@ -2134,7 +2594,8 @@
         return list[0][0];
     }
 
-    const LAMP_KEY = { res: 'prop_lamp_uk', biz: 'lamp_dbl', ind: 'prop_streetlight' };
+    const LAMP_KEY = { res: 'prop_lamp_uk', biz: 'lamp_dbl', ind: 'lamp_dbl' };   // all symmetrical, upright posts
+    const UPRIGHT_CLASSES = { lamp: 1, light: 1, belisha: 1, sign: 1 };      // poles are never mirrored or tipped over
     const SIDEWALK_DENSITY = { res: 0.16, biz: 0.24, ind: 0.13 };
     const SIDEWALK_MIX = {
         res: [['prop_bench', 5], ['bin_c', 4], ['bin_c_open', 2], ['prop_bin2', 2], ['prop_postbox_uk', 3], ['prop_phonebox_uk', 1],
@@ -2167,13 +2628,13 @@
     };
     function placeSceneryProps() {
         sceneryProps = [];
-        const rnd = mulberry32(MAP_W * 977 + MAP_H * 31 + 99);
+        const rnd = mulberry32(MAP_W * 977 + MAP_H * 31 + 99 + districtSeed * 131);
         const W = MAP_W, H = MAP_H;
         const occ = new Uint8Array(W * H);
         const placed = [];
         const near = (ax, ay, d) => { for (const q of placed) if (Math.abs(q.x - ax) < d && Math.abs(q.y - ay) < d && Math.hypot(q.x - ax, q.y - ay) < d) return true; return false; };
         const mix = (list) => { const m = list.filter(e => propAvailable(e[0])); return m.length ? wpick(m, rnd) : null; };
-        const add = (key, tx, ty, flip) => { const p = makeProp(tx, ty, key, undefined, flip); if (p) sceneryProps.push(p); return p; };
+        const add = (key, tx, ty, flip) => { if (key === 'prop_streetlight') key = 'lamp_dbl'; const p = makeProp(tx, ty, key, undefined, flip); if (p) sceneryProps.push(p); return p; };
 
         for (let y = 1; y < H - 1; y++) for (let x = 1; x < W - 1; x++) {
             if (map[y][x] !== TILE_SIDEWALK) continue;
@@ -2402,6 +2863,13 @@
             }
         };
         const dull = ['#555', '#6a6a6a', '#3d3d3d', '#7a6a58'];
+        if (UPRIGHT_CLASSES[p.cls]) {
+            // broken pole: stays standing as a stump (never lies sideways)
+            t.save(); t.beginPath(); t.rect(bx - p.w, by - p.h * 0.45, p.w * 2, p.h * 0.45 + 3); t.clip();
+            t.globalAlpha = 0.92; drawPropSprite(t, p, bx - p.w / 2, by - p.h * 0.92, p.w, p.h); t.restore();
+            debris(6, ['#3d3d3d', '#6a6a6a', '#d8c060'], p.w * 1.2);
+            return;
+        }
         if (wk === 'tip' || wk === 'scatter' || wk === 'geyser') {
             t.save(); t.translate(bx, by); t.rotate(dir * (wk === 'scatter' ? 1.2 : 1.45));
             t.globalAlpha = 0.92;
@@ -3508,6 +3976,7 @@
                     game.arrested++;
                     game.raidersDefeated++;
                     game.raiderGroupMorale = Math.max(0, game.raiderGroupMorale - 12);
+                    onArrested(r);
                     spawnHitEffect(r.x, r.y);
                     this.carrying = null;
                     this.state = 'returning';
@@ -3526,6 +3995,7 @@
                     game.arrested++;
                     game.raidersDefeated++;
                     game.raiderGroupMorale = Math.max(0, game.raiderGroupMorale - 12);
+                    onArrested(r);
                     spawnHitEffect(r.x, r.y);
                     this.carrying = null;
                     this.state = 'returning';
@@ -3573,11 +4043,11 @@
                 const maxRangeSq = ARREST_GRAB_RANGE * ARREST_GRAB_RANGE;
                 for (const r of game.raiders) {
                     if (!r.alive || r.state === 'fleeing' || r.beingArrested) continue;
-                    if (r.kind === 'crowd') continue;
+                    if (r.kind === 'crowd' && !(r.agitator && r.spotted)) continue;
                     if (Math.hypot(r.x - anchorX, r.y - anchorY) > ARREST_MAX_RANGE_FROM_SYNDICATE) continue;
                     const dSq = (r.x - this.x) ** 2 + (r.y - this.y) ** 2;
                     if (dSq > maxRangeSq) continue;
-                    const strength = r.maxHp + r.hp * 0.3;
+                    const strength = r.maxHp + r.hp * 0.3 + (r.agitator ? 1000 : 0);
                     if (strength > best) { best = strength; grabTarget = r; }
                 }
             }
@@ -3597,10 +4067,10 @@
             let chaseTarget = null, chaseBest = Infinity;
             for (const r of game.raiders) {
                 if (!r.alive || r.state === 'fleeing' || r.beingArrested) continue;
-                if (r.kind === 'crowd') continue;
+                if (r.kind === 'crowd' && !(r.agitator && r.spotted)) continue;
                 if (Math.hypot(r.x - anchorX, r.y - anchorY) > ARREST_MAX_RANGE_FROM_SYNDICATE) continue;
                 const d = Math.hypot(r.x - this.x, r.y - this.y);
-                const priority = (r.kind === 'brickthrower') ? d * 0.35 : d;
+                const priority = (r.kind === 'brickthrower' || r.agitator) ? d * 0.35 : d;
                 if (priority < chaseBest) { chaseBest = priority; chaseTarget = r; }
             }
 
@@ -4209,6 +4679,9 @@
                     r.state = 'gas_stunned';
                     if (r.kind === 'crowd') {
                         loseMorale(9);
+                        r.mood = Math.min(100, r.mood + 40);
+                        incite(r.x, r.y, TILE * 9, 12 * postureFx().press);
+                        adjustOpinion(-0.6); game.waveStats.hurt++;
                     } else {
                         game.raiderGroupMorale = Math.max(0, game.raiderGroupMorale - TEAR_GAS_HIT_MORALE);
                         game.waveMoralePct = Math.max(0, game.waveMoralePct - 6);
@@ -4895,6 +5368,7 @@
         }
         setSpot(spot) {
             if (!spot || this.targetSpot === spot) return;
+            this.faceAngle = undefined;
             this.targetSpot = spot;
             this.parked = false;
             this.stuckTimer = 0;
@@ -5036,6 +5510,7 @@
                 if (routeDone && dist < 3) {
                     this.parked = true;
                     this.stuckTimer = 0;
+                    if (this.faceAngle !== undefined) this.targetAngle = this.faceAngle;
                 } else {
                     if (this.parked) { this.parked = false; clearBlockades(); }
                     const step = Math.min(dist, VEHICLE_SPEED * TILE * dt);
@@ -5189,6 +5664,7 @@
                 this.waterTimer -= dt;
                 if (this.waterTimer <= 0 && target) {
                     this.waterPhase = 'burst';
+                    sfx('water', 0.7); triggerShake(1.4);
                     this.waterTimer = WATER_CANNON_BURST_DURATION;
                     this.waterTickTimer = 0;
                 }
@@ -5507,7 +5983,7 @@
     const STUCK_LIMIT_MOVE = 6, STUCK_LIMIT_FLEE = 3.5, STUCK_LIMIT_WAIT = 35, STUCK_FADE_TIME = 1.6;
 
     class Raider {
-        constructor(kind, spawnNodeId, squadId, spawnX, spawnY) {
+        constructor(kind, spawnNodeId, squadId, spawnX, spawnY, opts) {
             this.id = raiderIdSeq++;
             this.kind = kind;
             this.spawnNodeId = spawnNodeId || 'N18';
@@ -5547,6 +6023,14 @@
             this.crowdHoldX = spawnX;
             this.crowdHoldY = spawnY;
             this.crowdWander = Math.random() * 10;
+            // crowd mood (protesters + agitators). 0 calm ... 100 furious.
+            this.agitator = !!(opts && opts.agitator);
+            const m0 = game.waveStartMood === undefined ? 25 : game.waveStartMood;
+            this.mood = Math.max(0, Math.min(100, m0 + (Math.random() - 0.5) * 18));
+            this.baseMood = this.mood;
+            this.moodHot = 0; this.moodCalm = 0;
+            this.spotted = false; this.spotT = 0; this.agitT = 3 + Math.random() * 4;
+            this.atStation = false;
 
             this.route = null;
             this.routeIdx = 0;
@@ -5560,6 +6044,7 @@
             this.disguised = (kind === 'standard' || kind === 'bruiser') && Math.random() < 0.18;
             this.looksPeaceful = kind === 'crowd' || this.disguised;
             this.outfit = makeRaiderOutfit(this.id, this.looksPeaceful, this.kind);
+            if (this.agitator) { this.outfit.headwear = ['hood', 'bandana', 'balaclava'][this.id % 3]; this.outfit.sign = false; this.outfit.hiVis = false; }
         }
         moveToward(tx, ty, dt, speed) {
             return steerUnit(this, tx, ty, dt, speed);
@@ -5662,52 +6147,113 @@
             return false;
         }
 
+        // --- mood: what is it about the street right now that is calming or winding this person up? ---
+        updateMood(dt) {
+            const P = postureFx();
+            let near = null, nd = Infinity;
+            for (const o of game.officers) {
+                if (!o.alive || o.isAllOut || o.state !== 'active') continue;
+                const d = Math.hypot(o.x - this.x, o.y - this.y);
+                if (d < nd) { nd = d; near = o; }
+            }
+            this.nearOfficer = near; this.nearDist = nd;
+            let delta = this.mood > this.baseMood ? -0.25 : 0.05;       // slowly drifts back to its own baseline
+            if (near && nd < TILE * 7) {
+                const sy = game.syndicates[hostOf(near.syndicateIndex)];
+                if (sy && syndicateIsPassive(sy)) delta -= 1.4 * P.calm;              // resting / stacked officers: calming
+                else if (sy) {
+                    const tac = activeTacticOf(sy);
+                    if (tac === 'wall' || tac === 'box') delta += (nd < TILE * 4 ? 1.5 : 0.8) * P.press;   // blocked, pressed
+                    else delta += 1.6 * P.press;                                      // wedge / pulse: advancing on them
+                }
+            }
+            if (game.fightHeat > 0) delta += Math.min(0.6, game.fightHeat * 0.03);   // violence nearby is catching
+            if (this.atStation) delta += 0.35;                                         // a long sit-in wears tempers
+            this.mood = Math.max(0, Math.min(100, this.mood + delta * dt));
+        }
+        marchStep(dt, speed) {
+            if (!this.route || this.routeVersion !== game.blockadeVersion) { this.goalNodeId = 'B54'; this.recomputeRoute(); }
+            while (this.route && this.routeIdx < this.route.length) {
+                const node = getNode(this.route[this.routeIdx]);
+                if (!node) { this.routeIdx++; continue; }
+                const tx = node.x * TILE, ty = node.y * TILE;
+                if (Math.hypot(tx - this.x, ty - this.y) < 12) { this.routeIdx++; continue; }
+                this.state = 'crowd_move';
+                this.moveToward(tx, ty, dt, speed);
+                return true;
+            }
+            return false;
+        }
+        turnViolent() {
+            const pct = Math.max(0.3, this.hp / this.maxHp), roll = Math.random();
+            const kind = roll < 0.12 ? 'brickthrower' : roll < 0.3 ? 'bruiser' : 'standard';
+            this.kind = kind; this.def = RAIDER_TYPES[kind];
+            this.maxHp = Math.round(this.def.hp * (game.waveIntensity || 1)); this.hp = Math.max(10, this.maxHp * pct);
+            this.state = 'advancing'; this.looksPeaceful = false; this.agitator = false;
+            this.outfit = makeRaiderOutfit(this.id, false, kind); this.outfit.sign = false;
+            this.goalNodeId = null; this.route = null; this.routeVersion = -1; this.repathTimer = 0;
+            this.atkTimer = this.def.atkCooldown * 0.5; this.engaged = false;
+            game.totalRaidersInWave++; game.waveTotalHp += this.def.hp;
+            game.waveStats.turned++; adjustOpinion(-1.5);
+            incite(this.x, this.y, TILE * 8, 12);                       // anger spreads
+            sfx('riot'); triggerShake(2);
+            if (!game._turnToast || (game.lastTime || 0) - game._turnToast > 6000) { game._turnToast = game.lastTime || 1; showToast(':burst: Protesters have turned violent!'); }
+        }
+        goHome() {
+            game.waveStats.calmed++; adjustOpinion(0.6);
+            this.calmHome = true;
+            this.startFleeing();
+        }
+        agitate(dt) {
+            if (this.nearOfficer && this.nearDist < TILE * 9) this.spotT += dt; else this.spotT = Math.max(0, this.spotT - dt * 0.5);
+            if (this.spotT > 2.5) this.spotted = true;
+            this.agitT -= dt;
+            const o = this.nearOfficer;
+            if (this.agitT <= 0 && o && this.nearDist < TILE * 14 && this.nearDist > TILE * 3) {
+                this.agitT = 6 + Math.random() * 5;
+                this.attackFlash = 0.25; this.spotted = true;
+                game.projectiles.push({ sx: this.x, sy: this.y - 12, tx: o.x + (Math.random() - 0.5) * TILE, ty: o.y + (Math.random() - 0.5) * TILE,
+                                        t: 0, duration: 0.8, dmg: 5, aoe: TILE * 1.2 });
+                incite(this.x, this.y, TILE * 10, 18);
+                sfx('glass', 0.6);
+                if (!game._agitToast || (game.lastTime || 0) - game._agitToast > 15000) { game._agitToast = game.lastTime || 1; showToast(':eye: An agitator is throwing bottles. Arrest them to calm the crowd.'); }
+            }
+        }
         updateCrowd(dt) {
             this.animTimer += dt;
             this.crowdWander += dt;
             if (this.gasStunTimer > 0) { this.gasStunTimer -= dt; this.isMoving = false; return; }
+            this.updateMood(dt);
 
-            let best = null, bestD = Infinity;
-            for (const o of game.officers) {
-                if (!o.alive || o.isAllOut || o.state !== 'active') continue;
-                const sy = game.syndicates[o.syndicateIndex];
-                if (!sy || !syndicateIsPassive(sy)) continue;
-                const d = Math.hypot(o.x - this.x, o.y - this.y);
-                if (d < bestD) { bestD = d; best = o; }
-            }
+            if (!this.agitator) {
+                if (this.mood >= 85) { this.moodHot += dt; if (this.moodHot > 1.8) { this.turnViolent(); return; } }
+                else this.moodHot = Math.max(0, this.moodHot - dt);
+                if (this.mood <= 5) { this.moodCalm += dt; if (this.moodCalm > 3) { this.goHome(); return; } }
+                else this.moodCalm = Math.max(0, this.moodCalm - dt);
+            } else this.agitate(dt);
 
-            if (!best) {
-                for (const o of game.officers) {
-                    if (!o.alive || o.isAllOut || o.state !== 'active') continue;
-                    const d = Math.hypot(o.x - this.x, o.y - this.y);
-                    if (d < TILE * 6) {
-                        this.state = 'crowd_wait';
-                        this.isMoving = false;
-                        return;
-                    }
+            // How does the nearest line of officers treat us?
+            const near = this.nearOfficer, nd = this.nearDist;
+            if (near && nd < TILE * 3.4) {
+                const sy = game.syndicates[hostOf(near.syndicateIndex)];
+                if (sy && !syndicateIsPassive(sy)) {
+                    // a wall, wedge or box in the way: stop, face them and shout
+                    this.state = 'crowd_wait'; this.isMoving = false;
+                    const dx = near.x - this.x, dy = near.y - this.y, d = Math.hypot(dx, dy) || 1;
+                    this.dir = { x: dx / d, y: dy / d };
+                    return;
                 }
-                this.state = 'crowd_wait';
-                const wob = Math.sin(this.crowdWander * 0.8 + this.id) * TILE * 0.6;
-                const tx = this.crowdHoldX + wob;
-                const ty = this.crowdHoldY + Math.cos(this.crowdWander * 0.6 + this.id) * TILE * 0.6;
-                if (Math.hypot(tx - this.x, ty - this.y) > TILE * 0.8) {
-                    this.state = 'crowd_move';
-                    this.moveToward(tx, ty, dt, this.def.speed * 0.6);
-                } else this.isMoving = false;
-                return;
+                if (sy && nd < TILE * 3.4) {
+                    // resting / stacked: they just let us through
+                    const hi = hostOf(near.syndicateIndex), now = game.lastTime || 0;
+                    if (now - (sy._passAt || -1e9) > 25000) { sy._passAt = now; commanderShout(hi, 'Peaceful crowd. Let them through.'); }
+                }
             }
-
-            const stopDist = TILE * 3.4;
-            if (bestD > stopDist) {
-                this.state = 'crowd_move';
-                this.moveToward(best.x, best.y, dt, this.def.speed * 0.85);
-            } else {
-                this.state = 'crowd_wait';
-                this.isMoving = false;
-                const dx = best.x - this.x, dy = best.y - this.y;
-                const d = Math.hypot(dx, dy) || 1;
-                this.dir = { x: dx / d, y: dy / d };
-            }
+            if (this.marchStep(dt, this.def.speed * (nd < TILE * 4 ? 0.75 : 0.95))) return;
+            // reached the station: stand and chant
+            this.atStation = true; this.state = 'crowd_wait'; this.isMoving = false;
+            const bx = BASE_TILE_X * TILE - this.x, by = BASE_TILE_Y * TILE - this.y, bd = Math.hypot(bx, by) || 1;
+            this.dir = { x: bx / bd, y: by / bd };
         }
 
         update(dt) {
@@ -5914,12 +6460,12 @@
                 if (this.atkTimer <= 0) {
                     this.atkTimer = this.def.atkCooldown;
                     this.attackFlash = 0.22;
-                    dealDamageToOfficer(target, this.def.damage * this.dmgMult);
+                    dealDamageToOfficer(target, this.def.damage * this.dmgMult * furyMult());
                 }
                 return;
             }
 
-            let spd = this.def.speed;
+            let spd = this.def.speed * (0.95 + 0.12 * (game.crowdMood || 0) / 100);
             if (this.kind === 'bruiser') {
                 this.surgeTimer -= dt;
                 if (this.surgeTimer <= 0) { spd *= 1.8; if (this.surgeTimer < -0.6) this.surgeTimer = 2 + Math.random() * 3; }
@@ -6060,11 +6606,20 @@
             drawRaiderFigure(ctx, this);
             ctx.restore();
             if (this.state === 'fading') return;
+            if (this.kind === 'crowd' && this.state !== 'fleeing') {
+                const m = this.agitator ? (this.spotted ? 100 : 0) : this.mood;
+                if (m > 38) {
+                    ctx.strokeStyle = this.agitator ? 'rgba(255,150,40,0.95)'
+                        : 'rgba(255,' + Math.round(210 - (m - 38) * 2.6) + ',70,' + Math.min(0.85, (m - 30) / 60).toFixed(2) + ')';
+                    ctx.lineWidth = 1.5; ctx.beginPath(); ctx.ellipse(sx, sy + 1, 7, 3, 0, 0, Math.PI * 2); ctx.stroke();
+                }
+            }
             drawHpBar(ctx, sx, sy - 21, this.hp, this.maxHp, this.state === 'fleeing' ? '#aaaaaa' : this.beingArrested ? '#ffcc33' : this.kind === 'crowd' ? '#c8b48a' : '#ff8a5c');
 
             if (this.kind === 'crowd') {
-                ctx.fillStyle = '#e8d9b0'; ctx.font = '9px monospace'; ctx.textAlign = 'center';
-                drawIcon(ctx, this.state === 'crowd_wait' ? 'hand' : 'walk', sx, sy - 30, 11);
+                // only flag what matters: a spotted agitator, or a crowd about to boil over
+                if (this.agitator && this.spotted) drawIcon(ctx, 'eye', sx, sy - 30, 12);
+                else if (!this.agitator && this.mood >= 65) drawIcon(ctx, 'burst', sx, sy - 30, 11);
             } else if (this.gasStunTimer > 0) {
                 ctx.fillStyle = '#f0f080'; ctx.font = 'bold 9px monospace'; ctx.textAlign = 'center';
                 drawIcon(ctx, 'dizzy', sx, sy - 30, 11);
@@ -6128,7 +6683,8 @@
     function drawRaiderProps(ctx, u, fit, sc) {
         const attacking = u.attackFlash > 0;
         const swing = attacking ? (1 - u.attackFlash / 0.22) : 0;
-        if (fit.sign && !attacking && u.state !== 'attacking_base' && u.state !== 'vandal' && u.state !== 'fleeing') {
+        const showAll = !!settings.heldItems;
+        if (fit.sign && (showAll || u.id % 5 === 0) && !u.agitator && !attacking && u.state !== 'attacking_base' && u.state !== 'vandal' && u.state !== 'fleeing') {
             // protest placard on a stick, held up in the front hand
             const bob = Math.round(Math.sin(u.animTimer * (u.isMoving ? 8 : 2)) * 1);
             const w = fit.signW, h = 9, bx = Math.round(3 - w / 2 + 3), by = Math.round(-23 * sc - h + bob);
@@ -6146,6 +6702,7 @@
             }
         }
         if (u.kind === 'crowd') return;
+        if (!showAll && !attacking && !(u.kind === 'brickthrower' && swing > 0)) return;   // weapons only show mid-swing
         ctx.save();
         ctx.translate(5 * sc, -9 * sc);
         if (u.kind === 'bruiser' || fit.stick) {
@@ -6328,6 +6885,7 @@
             game.buildingsDestroyed++;
             damageBase(6);
             markSceneryDirty();
+            sfx('slam'); triggerShake(5);
             showToast(':ruins: A building has been wrecked!');
         }
     }
@@ -6337,13 +6895,21 @@
         if (game.testGod) return;
         game.baseHp = Math.max(0, game.baseHp - amount);
         game.baseRegenTimer = BASE_REGEN_DELAY;
+        if (amount >= 3) { sfx('slam', 0.7); triggerShake(Math.min(5, 1.5 + amount * 0.15)); }
     }
     function dealDamageToRaider(r, dmg, moraleMult) {
         if (r.state === 'fleeing' || r.beingArrested) return;
+        dmg *= forceMult();
+        if (r.kind === 'crowd' && !(r.agitator && r.spotted)) {
+            r.mood = Math.min(100, r.mood + 34);                         // hitting a peaceful protester enrages them and everyone watching
+            incite(r.x, r.y, TILE * 7, 11 * postureFx().press);
+            adjustOpinion(-0.25); game.waveStats.hurt++;
+        }
+        sfx(dmg >= 25 ? 'slam' : 'hit', dmg >= 25 ? 0.7 : 0.55);
         if (raiderIsNonHostile(r)) {
             game.moraleDrain += (r.kind === 'crowd' ? 0.85 : 0.3);
         }
-        const mMult = moraleMult || 1.0;
+        const mMult = (moraleMult || 1.0) * (1.25 - 0.5 * (game.crowdMood || 0) / 100);
         r.hp -= dmg;
         r.hitAt = game.lastTime || 0;
         r.timeSinceDamage = 0;
@@ -6383,6 +6949,7 @@
         if (!game.testGod) o.hp -= finalDmg;
 
         spawnHitEffect(o.x, o.y);
+        sfx('shield', 0.5);
         if (o.hp <= 0 && o.alive) o.alive = false;
     }
     function spawnHitEffect(x, y) { game.effects.push({ x, y, t: 0, life: 0.25 }); }
@@ -6444,6 +7011,7 @@
                     }
                 }
                 spawnHitEffect(p.tx, p.ty);
+                sfx('brick', 0.7); triggerShake(1.2);
                 damageFurnitureInRadius(p.tx, p.ty, p.aoe, p.dmg * 1.5);
                 game.projectiles.splice(i, 1);
             }
@@ -6859,6 +7427,8 @@
         const sy = ensureSyndicateState(game.selectedSyndicate);
         sy.post = post;
         sy.arriveAxis = null;
+        if (sy.tactic === 'pulse') stopPulse(sy);
+        sy.tactic = 'wall'; sy.autoWallTimer = 0;   // a junction block always forms a wall
         pathSyndicateTo(sy, post.junction.x, post.junction.y);
         assignFormation();
         updateSelectionUI();
@@ -6959,6 +7529,8 @@
             }
         }
         showToast(':siren: ALL OUT! Shield box formed around the station!');
+        if (window.CordonAudio && settings.sound) CordonAudio.siren(3);
+        sfx('horn'); triggerShake(3);
         updateAllOutButton();
     }
     function updateAllOutButton() {
@@ -7115,6 +7687,7 @@
         game.tearGasCooldown[idx] = TEAR_GAS_COOLDOWN;
         showToast(':gas: Tear gas moving on the biggest crowd (' + Math.max(1, Math.round(crowd.count)) + ' raiders)!');
         commanderShout(idx, 'Gas team — deploy!');
+        sfx('gas');
         updateTearGasButton();
         return true;
     }
@@ -7153,6 +7726,7 @@
         if (k9.cooldownTimer > 0) { say('K9 resting — ' + Math.ceil(k9.cooldownTimer) + 's until ready.'); return false; }
         if (k9.deploy()) {
             showToast(':dog: K9 released!');
+            sfx('dog');
             commanderShout(idx, 'K9 forward! Release the dog!');
             updateK9Button();
             return true;
@@ -7343,6 +7917,14 @@
 
         const wave = game.waveNumber;
         game.waveIntensity = 1 + (wave - 1) * 0.045;
+        const mods = levelMods(wave);
+        game.waveStartMood = mods.startMood; game.crowdMood = mods.startMood;
+        game.waveStats = { calmed: 0, turned: 0, hurt: 0, agitArrested: 0, backups: 0, startOpinion: game.opinion, coinBonus: mods.coinBonus, hadCrowd: false };
+        if (game.overtimeTired) {
+            game.overtimeTired = false;
+            for (const o of game.officers) if (o.alive && !o.isAllOut) o.hp = Math.max(1, o.hp * 0.85);
+            showToast('Officers are tired after last night\'s overtime.');
+        }
 
         // Buildings are a lure — the real threat is officers and the station.
         const ai = game.raidAI;
@@ -7353,8 +7935,10 @@
         else ai.objective = 'hunt';
 
         // Raider count and gate spread scale up harder — closes the easy-corner exploit.
-        const raiderCount = Math.max(6, Math.round((24 + wave * 8 + Math.floor(wave * wave * 0.4)) * forceScale()));
-        const crowdCount = wave <= 1 ? 0 : Math.min(24, 5 + wave * 2);
+        const raiderCount = Math.max(6, Math.round((24 + wave * 8 + Math.floor(wave * wave * 0.4)) * forceScale() * mods.rioters));
+        const crowdCount = Math.max(0, Math.min(34, Math.round((4 + nightOf(wave) * 2) * mods.protesters + wave * 0.5)));
+        const agitatorCount = crowdCount > 0 ? Math.round(mods.agitators * (0.5 + nightOf(wave) * 0.4)) : 0;
+        game.waveStats.hadCrowd = crowdCount > 0;
 
         const maxGates = Math.min(ALL_EXITS.length, 2 + Math.floor(wave / 2));
         const gateCount = Math.max(2, Math.min(ALL_EXITS.length, 1 + Math.floor(Math.random() * maxGates)));
@@ -7394,12 +7978,13 @@
             for (let i = 0; i < count; i++) {
                 const roll2 = Math.random();
                 let kind = 'standard';
-                if (roll2 < 0.15) kind = 'brickthrower';
-                else if (roll2 < 0.40) kind = 'bruiser';
+                if (roll2 < 0.15 * mods.bricks) kind = 'brickthrower';
+                else if (roll2 < 0.15 * mods.bricks + 0.25) kind = 'bruiser';
                 game.waveSpawnQueue.push({ kind, squadId: squad.id });
                 totalHp += RAIDER_TYPES[kind].hp;
             }
         }
+        const crowdSquadIds = [];
         if (crowdCount > 0) {
             const crowdSquads = Math.min(2, Math.max(1, Math.floor(gateCount / 2)));
             for (let c = 0; c < crowdSquads; c++) {
@@ -7410,7 +7995,11 @@
                 game.squads.set(squad.id, squad);
                 const per = Math.max(3, Math.floor(crowdCount / crowdSquads));
                 for (let i = 0; i < per; i++) game.waveSpawnQueue.push({ kind: 'crowd', squadId: squad.id });
+                crowdSquadIds.push(squad.id);
             }
+        }
+        for (let i = 0; i < agitatorCount && crowdSquadIds.length; i++) {
+            game.waveSpawnQueue.push({ kind: 'crowd', agitator: true, squadId: crowdSquadIds[i % crowdSquadIds.length] });
         }
 
         for (let i = game.waveSpawnQueue.length - 1; i > 0; i--) {
@@ -7423,6 +8012,8 @@
         game.waveSpawnTimer = 0;
         announceWave(exits.length, gateCount);
         commanderShoutAll('Here they come — hold the line!');
+        if (window.CordonAudio && settings.sound) CordonAudio.siren(3.2, 0.8);
+        renderOptionsPanel();
     }
 
     // ========== RAIDER FAILSAFE ==========
@@ -7609,7 +8200,7 @@
                         sx = startNode.x * TILE;
                         sy = startNode.y * TILE;
                     }
-                    const r = new Raider(entry.kind, squad.spawnNodeId, squad.id, sx, sy);
+                    const r = new Raider(entry.kind, squad.spawnNodeId, squad.id, sx, sy, entry);
                     r.goalNodeId = r.pickGoalNode();
                     r.recomputeRoute();
                     r.routeIdx = Math.min(1, Math.max(0, r.route.length - 1));
@@ -7649,7 +8240,11 @@
                 game.waveNumber++;
                 game.waveTimer = 8;
                 game.fsClear = 0;
-                showToast('Level cleared! +' + paid.reward + ' :coin:' + (paid.checkpoint ? '  ·  :save: Checkpoint saved: Level ' + paid.next : ''));
+                const verdict = endOfNight(paid.reward);
+                sfx('coin');
+                showToast('Night cleared! +' + paid.reward + ' :coin:' + verdict + (paid.checkpoint ? '  ·  :save: Checkpoint: Level ' + paid.next : ''));
+                if (nightOf(game.waveNumber) === 1) { rebuildDistrict(); showChapterCard(game.waveNumber); }
+                renderOptionsPanel();
             } else {
                 game.fsClear = (game.fsClear || 0) + dt;
                 if (game.fsClear > FS.CLEAR_STALL) {
@@ -7775,7 +8370,9 @@
         const el = document.getElementById('wave-banner');
         const objLabel = OBJECTIVE_LABELS[game.raidAI.objective] || '';
         const tone = WAVE_TONES[Math.min(6, Math.ceil(game.waveNumber / 2))] || 'Escalating Assault';
-        el.innerHTML = 'WAVE ' + game.waveNumber +
+        const beat = (chapterFor(game.waveNumber).nights || [])[nightOf(game.waveNumber) - 1] || '';
+        el.innerHTML = 'NIGHT ' + nightOf(game.waveNumber) + ' · ' + chapterFor(game.waveNumber).city.toUpperCase() +
+            '<br><span style="font-size:13px;letter-spacing:1px;color:#9ad4ff">' + beat + '</span>' +
             '<br><span style="font-size:15px;letter-spacing:1px;color:#ffcc33">' + objLabel + '</span>' +
             '<br><span style="font-size:11px;letter-spacing:1px;color:#ff8a5c">' + tone +
             ' · ' + gateCount + ' entr' + (gateCount === 1 ? 'y' : 'ies') + '</span>';
@@ -8040,11 +8637,13 @@
                 'building drops below 50% health. Damaged buildings right now: ' + damaged + '. ' +
                 'Low public morale slows the crews down. The ambulance drives to the most injured syndicate and heals everyone nearby (90s restock).';
             panel.appendChild(info);
+            renderDecisionSection(panel);
             return;
         }
 
         if (isVehicleIdx(game.selectedSyndicate)) {
             renderVehiclePanel(panel, game.selectedSyndicate);
+            renderDecisionSection(panel);
             return;
         }
 
@@ -8109,6 +8708,7 @@
             panel.appendChild(d);
         }
 
+        renderDecisionSection(panel);
         const tip = document.createElement('div');
         tip.className = 'info-line';
         tip.style.cssText = 'color:#7fc47f;padding-top:6px;border-top:1px solid #232c3a;margin-top:4px';
@@ -8411,7 +9011,7 @@
 
         const aliveOfficers = game.officers.filter(o => o.alive).length;
         const cap = Math.max(1, game.syndicatesDeployed) * OFFICERS_PER_SYNDICATE;
-        const troopPct = aliveOfficers / cap;
+        const troopPct = Math.min(1, aliveOfficers / cap);
         document.getElementById('troop-fill').style.width = Math.round(troopPct * 100) + '%';
         document.getElementById('troop-num').textContent = Math.round(troopPct * 100) + '%';
 
@@ -8425,6 +9025,16 @@
         pubFill.className = 'stat-fill public' + (pubPct < 0.25 ? ' crit' : pubPct < 0.5 ? ' low' : '');
         document.getElementById('public-morale-num').textContent = Math.round(pubPct * 100) + '%';
 
+        const mood = Math.max(0, Math.min(100, game.crowdMood || 0));
+        const moodFill = document.getElementById('mood-fill');
+        moodFill.style.width = Math.round(mood) + '%';
+        moodFill.className = 'stat-fill' + (mood < 30 ? ' calm' : mood < 55 ? ' tense' : mood < 80 ? '' : ' furious');
+        document.getElementById('mood-num').textContent = (game.crowdCount > 0 || game.waveState === 'active') ? crowdTier(mood) : '—';
+        const opF = document.getElementById('opinion-fill'), opV = Math.max(0, Math.min(100, game.opinion));
+        opF.style.width = Math.round(opV) + '%';
+        opF.className = 'stat-fill' + (opV >= 55 ? ' calm' : opV >= 35 ? ' tense' : ' furious');
+        document.getElementById('opinion-num').textContent = Math.round(opV);
+        updateDecisionBar();
         renderSyndicateTabs(); updateMoveButtons(); updateMergedButton(); updateAllOutButton();
         updateArrestButton(); updateTearGasButton(); updateK9Button();
         updateStationButton();
@@ -8583,7 +9193,13 @@
 
     function render() {
         const ctx = game.ctx;
+        ctx.save();
         ctx.clearRect(0, 0, game.width, game.height);
+        const shk = game.shake > 0.05 ? game.shake : 0;
+        if (shk) ctx.translate((Math.random() - 0.5) * shk * 2, (Math.random() - 0.5) * shk * 2);
+        try { renderScene(ctx); } finally { ctx.restore(); }
+    }
+    function renderScene(ctx) {
         drawWorldAndClouds(ctx);
 
         game.k9s.forEach(k => { if (k.alive) k.drawLead(ctx); });
@@ -8613,6 +9229,7 @@
         drawEffects(ctx);
 
         game.tearGasOfficers.forEach(t => { if (t.alive) t.drawGasCloud(ctx); });
+        drawNight(ctx);
 
         // Radiating rings over active hotspots (buildings, station, officers under fire)
         drawAttackRings(ctx);
@@ -8824,7 +9441,8 @@
             '  •  Arrested: ' + game.arrested +
             '  •  Buildings lost: ' + game.buildingsDestroyed +
             '  •  Street furniture smashed: ' + (game.furnitureDestroyed || 0) +
-            '  •  Public morale: ' + Math.round(game.morale) + '%';
+            '  •  Public morale: ' + Math.round(game.morale) + '%' +
+            '  •  Public opinion: ' + Math.round(game.opinion) + ' (' + opinionInfo(game.opinion).name + ')';
         overlay.classList.add('show');
     }
     function restartGame() {
@@ -8834,6 +9452,7 @@
         game.waveNumber = startLevel();
         game.startLevel = game.waveNumber;
         rebuildRoadNetwork();
+        applyDistrict(game.waveNumber);
         generateMap(); buildTerrainCanvas(); buildMinimapTerrainCanvas();
         spawnStartingForce();
         game.selectedSyndicate = 0;
@@ -8842,6 +9461,7 @@
         updateMergedButton(); updateAllOutButton();
         updateArrestButton(); updateTearGasButton(); updateK9Button();
         updateStationButton();
+        showChapterCard(game.waveNumber);
     }
 
     // ========== MAIN LOOP ==========
@@ -8862,6 +9482,9 @@
           try {
             updateWaves(dt);
             updateSquadAI(dt);
+            updateCrowdMood(dt);
+            if (game.shake > 0) game.shake = Math.max(0, game.shake - dt * 14);
+            if (game.backupCooldown > 0) { game.backupCooldown -= dt; if (game.backupCooldown <= 0) { game.backupCooldown = 0; renderOptionsPanel(); } }
 
             game.dangerTimer -= dt;
             if (game.dangerTimer <= 0) { game.dangerTimer = 0.7; computeRoadDanger(); }
@@ -9042,6 +9665,10 @@
         game.blockadeVersion = 0;
         game.attackMarkers = [];
         game.testGod = false; game.timeScale = 1;
+        game.opinion = 50; game.posture = 'firm'; game.overtime = 'ready'; game.overtimeTired = false; game.backupCooldown = 0;
+        game.crowdMood = 0; game.waveStartMood = 25; game.fightHeat = 0; game.shake = 0; game.chapterCardOpen = false; game._lamps = null;
+        game.waveStats = { calmed: 0, turned: 0, hurt: 0, agitArrested: 0, backups: 0, startOpinion: 50, coinBonus: 1, hadCrowd: false };
+        if (window.CordonAudio) CordonAudio.silence();
     }
     function resizeCanvas() {
         const c = game.canvas;
@@ -9107,6 +9734,8 @@
         setupMinimapDPR();
         setupEvents();
         setupBottomRightUI();
+        setupChapterCard();
+        setupDecisionBar();
         document.getElementById('gameover-restart').addEventListener('click', restartGame);
         setupMenus();
         window.addEventListener('resize', () => setTimeout(rebuildWorldForScreenSize, 50));
@@ -9256,7 +9885,7 @@
         document.getElementById('menu-root').classList.add('hidden');
         updateMenuNote();
         restartGame();
-        game.paused = false;
+        game.paused = game.chapterCardOpen === true;
         if (!game.loopStarted) { game.loopStarted = true; requestAnimationFrame(loop); }
     }
     function setupMenus() {
@@ -9326,6 +9955,7 @@
         const on = settings.testMode;
         const bt = document.getElementById('set-test'); bt.textContent = on ? 'ON' : 'OFF'; bt.classList.toggle('on', on);
         const bf = document.getElementById('set-fps'); bf.textContent = settings.showFps ? 'ON' : 'OFF'; bf.classList.toggle('on', settings.showFps);
+        [['set-sound', 'sound'], ['set-shake', 'shake'], ['set-items', 'heldItems']].forEach(([id, k]) => { const b = document.getElementById(id); if (b) { b.textContent = settings[k] ? 'ON' : 'OFF'; b.classList.toggle('on', !!settings[k]); } });
         document.getElementById('set-level').textContent = settings.testLevel;
         document.getElementById('set-level-row').style.opacity = on ? 1 : 0.45;
         document.getElementById('set-code').value = '';
@@ -9369,6 +9999,10 @@
             settingsMsg(settings.testMode ? 'Test mode ON. Skills and coins here are separate from your real save.' : 'Test mode OFF. Back to your real save.', true);
         });
         $('set-fps').addEventListener('click', () => { settings.showFps = !settings.showFps; saveSettings(); renderSettings(); });
+        $('set-sound').addEventListener('click', () => { settings.sound = !settings.sound; saveSettings(); renderSettings(); if (window.CordonAudio) { CordonAudio.setEnabled(settings.sound); CordonAudio.unlock(); CordonAudio.play('ui'); } });
+        $('set-shake').addEventListener('click', () => { settings.shake = !settings.shake; saveSettings(); renderSettings(); if (settings.shake) triggerShake(4); });
+        $('set-items').addEventListener('click', () => { settings.heldItems = !settings.heldItems; saveSettings(); renderSettings(); });
+        if (window.CordonAudio) CordonAudio.setEnabled(settings.sound);
         const lv = d => { settings.testLevel = Math.max(1, Math.min(500, settings.testLevel + d)); saveSettings(); renderSettings(); };
         $('set-level-dn').addEventListener('click', () => lv(-5)); $('set-level-up').addEventListener('click', () => lv(5));
         $('set-level').addEventListener('click', () => { settings.testLevel = 1; saveSettings(); renderSettings(); });

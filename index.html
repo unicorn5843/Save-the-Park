@@ -111,14 +111,14 @@
             background: rgba(13, 16, 23, 0.82); border: 1px solid #2e3a4f;
             border-radius: 7px; padding: 5px 7px; display: flex; flex-direction: column; gap: 4px;
             backdrop-filter: blur(5px); box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
-            width: 210px;
+            width: 152px; gap: 2px;
             box-sizing: border-box;
             flex: 0 0 auto;
         }
-        .stat-line { display: flex; align-items: center; gap: 5px; }
+        .stat-line { display: flex; align-items: center; gap: 4px; }
         .stat-icon { font-size: 11px; width: 15px; text-align: center; flex: 0 0 auto; }
         .stat-track {
-            flex: 1 1 auto; height: 9px; min-width: 100px;
+            flex: 1 1 auto; height: 7px; min-width: 56px;
             background: #0d1017; border: 1px solid #2e3a4f; border-radius: 5px; overflow: hidden;
         }
         .stat-fill {
@@ -132,10 +132,10 @@
         .stat-fill.low { background: linear-gradient(180deg, #e8b24e, #b06a20); }
         .stat-fill.crit { background: linear-gradient(180deg, #e86858, #a02020); }
         .stat-num {
-            font-size: 9px; color: #ffcc33; font-weight: 700; min-width: 40px; text-align: right;
+            font-size: 8.5px; color: #ffcc33; font-weight: 700; min-width: 30px; text-align: right;
             font-variant-numeric: tabular-nums; flex: 0 0 auto;
         }
-        #selection-info:empty { display: none; }
+        #selection-info, #selection-info:empty { display: none !important; }
         #selection-info {
             color: #e8edf5; background: rgba(13, 16, 23, 0.82); border: 1px solid #2e3a4f;
             padding: 5px 10px; border-radius: 7px; font-size: 11px;
@@ -332,15 +332,26 @@
         .dpad-right { grid-column: 3; grid-row: 2; }
         .dpad-down { grid-column: 2; grid-row: 3; }
 
-        #toast {
-            position: fixed; bottom: 54px; left: 50%; transform: translateX(-50%);
-            background: rgba(13, 16, 23, 0.9); border: 1px solid #2e3a4f; color: #e8edf5;
-            padding: 7px 16px; border-radius: 18px; font-size: 12px; font-weight: 600;
-            letter-spacing: 0.3px; opacity: 0; transition: opacity 0.25s ease;
-            pointer-events: none; z-index: 97; max-width: 60vw; text-align: center;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
+        /* messages stack in a column above the ad strip, clear of the side panels, so they never overlap each other */
+        #msg-stack {
+            position: fixed; left: 212px; right: 152px; bottom: 52px;
+            display: flex; flex-direction: column; align-items: center; gap: 5px;
+            z-index: 97; pointer-events: none;
         }
-        #toast.show { opacity: 1; }
+        .msg {
+            background: rgba(13, 16, 23, 0.92); border: 1px solid #2e3a4f; color: #e8edf5;
+            padding: 5px 14px; border-radius: 16px; font-size: 12px; font-weight: 600; line-height: 1.25;
+            letter-spacing: 0.3px; text-align: center; max-width: 100%; box-sizing: border-box;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
+            animation: msgIn 0.22s ease-out; transition: opacity 0.35s ease;
+        }
+        .msg.out { opacity: 0; }
+        .msg.alert { background: rgba(58, 12, 12, 0.94); border-color: #ff5a4a; color: #ffe3de; }
+        .msg.wave { border-radius: 10px; padding: 7px 20px; border-color: #ffcc33; background: rgba(18, 22, 34, 0.94); }
+        .msg .w-title { font-size: 16px; font-weight: 800; letter-spacing: 2px; color: #fff; }
+        .msg .w-beat { font-size: 11px; color: #9ad4ff; letter-spacing: 0.6px; margin-top: 1px; }
+        .msg .w-obj { font-size: 10.5px; color: #ffcc33; letter-spacing: 0.6px; margin-top: 1px; }
+        @keyframes msgIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
 
         #gameover-overlay {
             display: none; position: fixed; inset: 0; background: rgba(6, 7, 10, 0.9); z-index: 998;
@@ -361,20 +372,6 @@
         }
         #gameover-restart:active { transform: scale(0.97); }
 
-        #wave-banner {
-            position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
-            color: #fff; font-size: 28px; font-weight: bold;
-            text-shadow: 0 0 20px rgba(255, 180, 40, 0.8), 0 2px 8px rgba(0, 0, 0, 0.8);
-            z-index: 95; pointer-events: none; opacity: 0;
-            transition: opacity 0.5s ease; letter-spacing: 2px; text-align: center;
-        }
-        #wave-banner.show { opacity: 1; animation: wavePulse 1.5s ease-out forwards; }
-        @keyframes wavePulse {
-            0% { opacity: 0; transform: translate(-50%, -50%) scale(0.7); }
-            30% { opacity: 1; transform: translate(-50%, -50%) scale(1.1); }
-            70% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
-            100% { opacity: 0; transform: translate(-50%, -50%) scale(1.2); }
-        }
 
         /* ===== 2000s MAIN MENU ===== */
         #menu-root { position: fixed; inset: 0; z-index: 600; display: flex;
@@ -474,6 +471,10 @@
     <link rel="stylesheet" href="assets/ui/moonroar.css">
     <script src="assets/ui/moonroar.js"></script>
     <script src="js/campaign.js"></script>
+    <script src="js/maps/mapkit.js"></script>
+    <script src="js/maps/base.js"></script>
+    <script src="js/maps/promenade.js"></script>
+    <script src="js/difficulty.js"></script>
     <script src="js/audio.js"></script>
     <style id="cordon-v2">
         /* ===== v2 layout: no overlaps, syndicates in a column beside the d-pad ===== */
@@ -551,7 +552,7 @@
 
     <div id="top-bar">
         <button id="send-arrest" class="train-btn arrest ready">
-            <span class="tlabel">:car: Arrest Team</span>
+            <span class="tlabel">:car: Arrest</span>
             <span class="tsub" id="send-arrest-sub">S1 ready</span>
         </button>
         <button id="deploy-gas" class="train-btn gas ready">
@@ -644,7 +645,9 @@
             <button class="test-btn" id="t-next">:wave: Start next</button>
             <button class="test-btn" id="t-coins">:coin: +1000</button>
             <button class="test-btn" id="t-heal">:plus: Heal all</button>
-            <button class="test-btn" id="t-raiders">:crowd: +10 raiders</button>
+            <button class="test-btn" id="t-raiders">:crowd: +10 rioters</button>
+            <button class="test-btn" id="t-hidden">:eye: +3 hidden rioters</button>
+            <button class="test-btn" id="t-event">:siren: Next riot event</button>
             <button class="test-btn" id="t-bruisers">:baton: +5 bruisers</button>
             <button class="test-btn" id="t-protest">:placard: +8 protest</button>
             <button class="test-btn" id="t-bricks">:brick: +4 bricks</button>
@@ -652,12 +655,12 @@
             <button class="test-btn" id="t-lvup">:arrow_u: Level +5</button>
             <button class="test-btn" id="t-god">:shield: God: OFF</button>
             <button class="test-btn" id="t-speed">:bolt: Speed x1</button>
+            <button class="test-btn" id="t-map">:map: Map: ...</button>
         </div>
         <div class="test-info" id="test-info"></div>
     </div>
 
-    <div id="wave-banner"></div>
-    <div id="toast"></div>
+    <div id="msg-stack"></div>
     <div id="ad-banner">AD SPACE — replace with your ad network code</div>
     <div id="gameover-overlay">
         <div id="gameover-panel">
@@ -736,6 +739,10 @@
                             <button class="set-btn" id="set-level">1</button>
                             <button class="set-btn" id="set-level-up">+5</button>
                         </div>
+                        <div class="set-row" id="set-map-row">
+                            <div class="set-txt"><b>:map: Map</b><small id="set-map-txt">Tap to cycle. Auto follows the campaign; pick one to test a street layout. Applies the next time you start a game.</small></div>
+                            <button class="set-btn" id="set-map" style="min-width:104px">Auto</button>
+                        </div>
                         <div class="set-row">
                             <div class="set-txt"><b>:megaphone: Sound</b><small>Sirens, chanting and impact sounds. The game makes them itself, no files needed.</small></div>
                             <button class="set-btn" id="set-sound">ON</button>
@@ -745,7 +752,7 @@
                             <button class="set-btn" id="set-shake">ON</button>
                         </div>
                         <div class="set-row">
-                            <div class="set-txt"><b>:placard: Show raider items</b><small>Placards, sticks and bricks on every raider. Off keeps the street tidy.</small></div>
+                            <div class="set-txt"><b>:placard: Show rioter items</b><small>Placards, sticks and bricks on every rioter. Off keeps the street tidy.</small></div>
                             <button class="set-btn" id="set-items">OFF</button>
                         </div>
                         <div class="set-row">
@@ -777,12 +784,12 @@
     // ========== CONSTANTS ==========
     let MAP_W = 108, MAP_H = 77;
     const TILE = 16;
-    const MIN_PLAY_W = 108, MIN_PLAY_H = 77;
+    let MIN_PLAY_W = 108, MIN_PLAY_H = 77;      // set per map (see js/maps/)
     function computeMapSize() {
         MAP_W = Math.max(MIN_PLAY_W, Math.ceil(game.width / TILE) + 20);
         MAP_H = Math.max(MIN_PLAY_H, Math.ceil(game.height / TILE) + 16);
     }
-    const TILE_ROAD = 0, TILE_SIDEWALK = 1, TILE_BLOCK = 2, TILE_BASE = 3, TILE_STATION = 4;
+    const TILE_ROAD = 0, TILE_SIDEWALK = 1, TILE_BLOCK = 2, TILE_BASE = 3, TILE_STATION = 4, TILE_SEA = 5;
     const MINIMAP_MAX_W = 112, MINIMAP_MAX_H = 76;
     let MINIMAP_SCALE = 1, MINIMAP_W = 100, MINIMAP_H = 70;
     function computeMinimapSize() {
@@ -792,21 +799,11 @@
     }
 
     const ROAD_W = 6;
-    const ROAD_Y_TOP = 14;
-    const ROAD_Y_BOTTOM = 38;
-    const ROAD_X_START = 8;
-    const ROAD_X_END = 98;
-    const JUNCTION_XS = [30, 54, 78];
-    const ENTRY_XS = [18, 90];
-    const BOTTOM_ENTRY_XS = [12, 96];
-    const ROAD_Y_SOUTH = 62;
-    const SOUTH_LINK_XS = [30, 78];
-    const SOUTH_GATE_XS = [54];
-    const SOUTH_JUNCTION_XS = [12, 30, 54, 78, 96];
-    const STATION_TX0 = 48, STATION_TY0 = 43, STATION_TW = 12, STATION_TH = 9;
-
-    const BASE_TILE_X = 54;
-    const BASE_TILE_Y = ROAD_Y_BOTTOM;
+    // ---- everything below is filled in by applyMap() from the map files in js/maps/ ----
+    let MAP_ID = 'base', MAP_DEF = null, MAPGEO = null;
+    let STATION_TX0 = 48, STATION_TY0 = 43, STATION_TW = 12, STATION_TH = 9;
+    let BASE_TILE_X = 54, BASE_TILE_Y = 38, BASE_NODE_ID = 'B54';
+    let EXIT_NODE_IDS = [];
 
     const OFFICERS_PER_ROW = ROAD_W + 1;
     const ROW_SPACING = 1.2;
@@ -822,14 +819,15 @@
     function setVehicleAt(idx, v) { if (idx === VEHICLE_SYNDICATE) game.vehicle = v; else if (idx === VEHICLE_SYNDICATE_2) game.vehicle2 = v; }
     const BASE_MAX_HP = 900;
 
-    const SYNDICATE_START_X = [46, 54, 62];
-    const SYNDICATE_START_Y = [ROAD_Y_BOTTOM, ROAD_Y_BOTTOM, ROAD_Y_BOTTOM];
+    let SYNDICATE_START_X = [46, 54, 62];
+    let SYNDICATE_START_Y = [38, 38, 38];
 
     const ALL_OUT_DURATION = 20;
     const ALL_OUT_COOLDOWN = 55;
     const ALL_OUT_HOLD_RADIUS = TILE * 6;
 
-    const ALL_OUT_BOX_TILES = (() => {
+    let ALL_OUT_BOX_TILES = [];
+    function buildAllOutBox() {
         const slots = [];
         const cy = BASE_TILE_Y;
         const cx = BASE_TILE_X;
@@ -840,8 +838,8 @@
         for (let y = topY + 1; y <= bottomY; y++) slots.push({ tx: leftX, ty: y });
         for (let y = topY + 1; y <= bottomY; y++) slots.push({ tx: rightX, ty: y });
         for (let x = leftX + 1; x <= rightX - 1; x++) slots.push({ tx: x, ty: topY });
-        return slots;
-    })();
+        ALL_OUT_BOX_TILES = slots;
+    }
 
     const ARREST_TEAM_SIZE = 3;
     const ARREST_COOLDOWN = 40;
@@ -850,6 +848,10 @@
     const ARREST_GRAB_RANGE = TILE * 4.5;
     const ARREST_MAX_RANGE_FROM_SYNDICATE = TILE * 10;
     const ARREST_TEAM_LIFETIME = 45;
+    const ARREST_REACH = TILE * 16;             // how far from the line an arrest officer will go for a rioter
+    const ARREST_SORTIE_TIME = 28;              // seconds an officer looks for a rioter before heading back
+    const ARREST_LOST_RECOVERY = 35;            // an officer who falls is replaced after this many seconds
+    const GAS_REFILL_TIME = 3.5;                // seconds spent refilling at the station
 
     const TEAR_GAS_TEAM_SIZE = 2;
     const TEAR_GAS_COOLDOWN = 45;
@@ -1176,7 +1178,7 @@
             }
             mid = host.length ? mid / host.length : TILE * 2;
             if (tac === 'stackleft' || tac === 'stackright') {
-                const sign = tac === 'stackleft' ? -1 : 1;
+                const sign = tac === 'stackleft' ? 1 : -1;
                 const lane = -sign * TILE * 1.45;                         // the open lane, opposite the stack
                 const back = slot > 0 ? rear + halfLen + 5 : mid;       // 1st vehicle abreast, 2nd right behind the tail
                 bx = hs.commandX + px * lane - fx * back;
@@ -1264,12 +1266,13 @@
     const SAVE_KEY_REAL = 'cordon.save.v1';
     const SAVE_KEY_TEST = 'cordon.save.v1.test';   // test mode plays on a separate sandbox save
     function loadSettings() {
-        const st = { testMode: false, showFps: false, testLevel: 1, sound: true, shake: true, heldItems: false };
+        const st = { testMode: false, showFps: false, testLevel: 1, sound: true, shake: true, heldItems: false, mapPick: 'auto' };
         try {
             const d = JSON.parse(window.localStorage.getItem(SETTINGS_KEY) || '{}');
             if (d && typeof d === 'object') {
                 st.testMode = !!d.testMode; st.showFps = !!d.showFps; st.sound = d.sound !== false; st.shake = d.shake !== false; st.heldItems = !!d.heldItems;
                 if (Number.isFinite(d.testLevel)) st.testLevel = Math.max(1, Math.min(500, Math.floor(d.testLevel)));
+                if (typeof d.mapPick === 'string') st.mapPick = d.mapPick;
             }
         } catch (e) { }
         return st;
@@ -1300,7 +1303,7 @@
         add('syn2', 'syndicates', ':helmet:', 'Syndicate 2', 'A second line of 15 officers.', 150, ['syn1'], { col: 1 });
         add('syn3', 'syndicates', ':helmet:', 'Syndicate 3', 'A third line of 15 officers.', 400, ['syn2'], { col: 2 });
         const teams = [
-            ['arrest', ':car:', 'Arrest Team', 'Three officers grab raiders and run them to the station.', [80, 100, 120]],
+            ['arrest', ':car:', 'Arrest Team', 'Three arrest officers, one sent per tap. Each grabs a rioter, carries them all the way to the station, and is ready again once back on the line. Only rioters can be arrested.', [80, 100, 120]],
             ['gas',    ':gas:', 'Tear Gas Team', 'Gas officers hit the biggest crowd.', [100, 120, 140]],
             ['k9',     ':dog:', 'K9 Unit', 'A dog and handler that dash in.', [110, 130, 150]],
             ['cmd',    ':star:', 'Commander', 'Boosts damage, speed and defence, and heals nearby officers.', [140, 160, 180]],
@@ -1318,8 +1321,8 @@
         add('tactic_rest',       'tactics', ':moon:', 'Rest',        'Shields down, officers recover.', 0, [], { free: true });
         add('tactic_wall',       'tactics', ':wall:', 'Wall',        'A tight shield wall across the road.', 0, [], { free: true });
         add('tactic_wedge',      'tactics', ':wedge:', 'Wedge',       'A pointed formation that pushes forward.', 40);
-        add('tactic_stackleft',  'tactics', ':arrow_l:', 'Stack Left',  'Press the line against the left kerb.', 60);
-        add('tactic_stackright', 'tactics', ':arrow_r:', 'Stack Right', 'Press the line against the right kerb.', 60);
+        add('tactic_stackleft',  'tactics', ':arrow_l:', 'File Left',  'Officers form a single file along the left kerb as the line faces. Calm, and keeps the right side of the road open.', 60);
+        add('tactic_stackright', 'tactics', ':arrow_r:', 'File Right', 'Officers form a single file along the right kerb as the line faces. Calm, and keeps the left side of the road open.', 60);
         add('tactic_box',        'tactics', ':box:', 'Box',         'Cover every side.', 90);
         add('tactic_reinforce',  'tactics', ':merge:', 'Reinforce',   'Pull another syndicate or a vehicle into this one for extra strength.', 120);
         add('tactic_pulse',      'tactics', ':burst:', 'Pulse',       'Hold a wall while thirds of the line charge out in turn.', 140);
@@ -1428,16 +1431,108 @@
     }
     function rebuildDistrict() {
         applyDistrict(game.waveNumber);
+        const wantMap = mapIdForLevel(game.waveNumber);
+        if (wantMap !== MAP_ID) { switchMap(wantMap); return; }
         game.townSeed = (Math.random() * 0x7fffffff) | 0;
         generateMap(); buildTerrainCanvas(); buildMinimapTerrainCanvas();
         for (const r of game.repairOfficers) r.targetBuilding = null;
         game.baseHp = BASE_MAX_HP;
     }
 
+    // Move to a different street layout in the middle of a game (new chapter, or the map picker in test mode).
+    // Everybody walks out of the new station; the station itself is repaired.
+    function switchMap(id) {
+        applyMap(id);
+        rebuildRoadNetwork();
+        game.townSeed = (Math.random() * 0x7fffffff) | 0;
+        clearBlockades();
+        game.blockadeVersion++;
+        game.raiders = []; game.projectiles = []; game.effects = []; game.attackMarkers = [];
+        game.waveSpawnQueue = [];
+        game.riot = null; game.squads = new Map();                 // a night in progress is dropped: the new streets get a fresh one
+        if (game.waveState === 'active') { game.waveState = 'intermission'; game.waveTimer = 2.5; }
+        game.repairOfficers = []; game.repairEscorts = [];
+        game.ambulance = null; game.ambulanceCooldown = 0;
+        generateMap(); buildTerrainCanvas(); buildMinimapTerrainCanvas();
+        const near = (rad) => {
+            const cx = BASE_TILE_X * TILE, cy = BASE_TILE_Y * TILE;
+            for (let tries = 0; tries < 60; tries++) {
+                const tx = cx + (Math.random() - 0.5) * TILE * rad, ty = cy + (Math.random() - 0.5) * TILE * rad;
+                if (isValidOfficerPosition(tx, ty)) return { x: tx, y: ty };
+            }
+            return { x: cx, y: cy };
+        };
+        for (const list of [game.officers, game.handlers, game.k9s, game.arrestOfficers, game.tearGasOfficers, game.commanders]) {
+            for (const u of list) {
+                if (!u.alive) continue;
+                const p = near(10); u.x = p.x; u.y = p.y;
+                u._route = null; u.route = null; u.carrying = null; u.returningHome = false;
+                if (u.state === 'returning' || u.state === 'spraying' || u.state === 'advancing' || u.state === 'refilling') u.state = 'escort';
+            }
+        }
+        game.syndicates.forEach((sy, idx) => {
+            if (!sy || isVehicleIdx(idx)) return;
+            sy.commandX = (SYNDICATE_START_X[idx] !== undefined ? SYNDICATE_START_X[idx] : BASE_TILE_X + idx * 8) * TILE;
+            sy.commandY = (SYNDICATE_START_Y[idx] !== undefined ? SYNDICATE_START_Y[idx] : BASE_TILE_Y) * TILE;
+            sy.goalX = sy.commandX; sy.goalY = sy.commandY; sy.path = null; sy.pathIdx = 0; sy.post = null;
+        });
+        for (const veh of [game.vehicle, game.vehicle2]) {
+            if (!veh) continue;
+            veh.clearTarget();
+            veh.x = (BASE_TILE_X + (veh.kind === 'rubberbullet' ? -14 : -10)) * TILE + TILE / 2; veh.y = BASE_TILE_Y * TILE + TILE / 2;
+            const sy = game.syndicates[veh.syndicateIndex];
+            if (sy) { sy.commandX = veh.x; sy.commandY = veh.y; }
+        }
+        game.baseHp = BASE_MAX_HP;
+        assignFormation();
+        game.camGlide = 1.4;
+        renderOptionsPanel(); renderSyndicateTabs();
+    }
+
     // ----- sound + shake helpers (safe to call anywhere) -----
     function sfx(name, v) { if (window.CordonAudio && settings.sound) CordonAudio.play(name, v); }
     function triggerShake(mag) { if (!settings.shake) return; game.shake = Math.min(9, Math.max(game.shake || 0, mag)); }
 
+    // The emergency tone: used whenever rioters cause fresh trouble (not just at the start of a night).
+    function riotAlert(msg) {
+        const now = game.lastTime || 0;
+        triggerShake(2);
+        if (window.CordonAudio && settings.sound && now - (game._alertSirenT || -1e9) > 7000) { game._alertSirenT = now; CordonAudio.siren(2.6, 0.75); }
+        if (msg && now - (game._alertToastT || -1e9) > 1800) { game._alertToastT = now; pushMsg({ text: msg, cls: 'alert', ttl: 3600, key: msg }); }
+    }
+    // How strongly is a spot held by officers? (resting lines count for little, walls and boxes for a lot)
+    function defenceAround(x, y, rad) {
+        let s = 0;
+        for (const o of game.officers) {
+            if (!o.alive || o.isAllOut || o.state !== 'active') continue;
+            if (Math.abs(o.x - x) > rad || Math.abs(o.y - y) > rad) continue;
+            if (Math.hypot(o.x - x, o.y - y) > rad) continue;
+            const sy = game.syndicates[hostOf(o.syndicateIndex)];
+            s += (sy && syndicateIsPassive(sy)) ? 0.35 : 1;
+        }
+        return s;
+    }
+    function compassOf(nodeId) {
+        const n = getNode(nodeId);
+        if (!n) return 'the edge';
+        const dx = n.x - MAP_W / 2, dy = n.y - MAP_H / 2;
+        if (Math.abs(dx) * (MAP_H / MAP_W) > Math.abs(dy)) return dx < 0 ? 'the west' : 'the east';
+        return dy < 0 ? 'the north' : 'the south';
+    }
+    // A protest has a plan. "rally": walk to the station and hold a rally. "march": walk past the station and on to
+    // the far side of town. Either way, being stopped from finishing it makes people angry.
+    function makeProtestPlan(spawnExitId) {
+        const s = getNode(spawnExitId);
+        const far = [];
+        for (const id of EXIT_NODE_IDS) {
+            const n = getNode(id);
+            if (!n || id === spawnExitId || !s) continue;
+            far.push({ id, d: Math.hypot(n.x - s.x, n.y - s.y) });
+        }
+        far.sort((a, b) => b.d - a.d);
+        const pick = far.length ? far[Math.floor(Math.random() * Math.min(2, far.length))].id : null;
+        return { type: (pick && Math.random() < 0.45) ? 'march' : 'rally', exitId: pick, rallyTime: 28 + Math.random() * 16 };
+    }
     // ----- opinion & posture -----
     function adjustOpinion(d) { game.opinion = Math.max(0, Math.min(100, game.opinion + d)); }
     // Firm = faster, harder; crowds anger quicker.  Soft (de-escalation) = gentler; crowds cool down quicker.
@@ -1480,11 +1575,16 @@
             else if (r.state === 'fighting') fighting++;
         }
         game.fightHeat = fighting;
+        game._trouble = [];
+        for (const r of game.raiders) {
+            if (!r.alive || r.kind === 'crowd' || r.state === 'fleeing') continue;
+            if (r.state === 'fighting' || r.state === 'vandal' || r.state === 'attacking_base' || r.state === 'brick_kiting' || r.attackFlash > 0) game._trouble.push({ x: r.x, y: r.y });
+        }
         if (agit.length) {
             for (const r of game.raiders) {
                 if (!r.alive || r.kind !== 'crowd' || r.agitator || r.state === 'fleeing') continue;
                 for (const a of agit) {
-                    if (Math.abs(a.x - r.x) < TILE * 8 && Math.abs(a.y - r.y) < TILE * 8) { r.mood = Math.min(100, r.mood + 2.2 * dt); break; }
+                    if (Math.abs(a.x - r.x) < TILE * 8 && Math.abs(a.y - r.y) < TILE * 8) { r.mood = Math.min(100, r.mood + 0.35 * dt); break; }
                 }
             }
         }
@@ -1499,12 +1599,16 @@
     }
     function onArrested(r) {
         sfx('arrest');
-        if (r && r.kind === 'crowd') game.raidersDefeated = Math.max(0, game.raidersDefeated - 1);
-        if (r && r.kind === 'crowd' && r.agitator) {
-            incite(r.x, r.y, TILE * 16, -28);
-            adjustOpinion(3); game.waveStats.agitArrested++;
-            showToast(':cuffs: Agitator arrested. The crowd cools down.');
-        }
+        if (!r || r.kind === 'crowd') return;
+        // A rioter locked up: the crowd settles, public opinion improves and the chiefs are pleased (better rewards).
+        incite(r.x, r.y, TILE * 18, -24);
+        adjustOpinion(1.2);
+        const st = game.waveStats;
+        st.rioterArrests = (st.rioterArrests || 0) + 1;
+        const pay = 2 + Math.floor(game.waveNumber / 3);
+        profile.coins += pay; game.runCoins += pay; saveProfile();
+        game.crowdMood = Math.max(0, game.crowdMood - 4);
+        showToast(':lock: Rioter locked up. Chiefs pleased +' + pay + ' :coin:');
     }
 
     // ----- decisions -----
@@ -1617,6 +1721,36 @@
     }
 
     // ----- end of a night: opinion verdict -----
+    // How hard was that night? Feeds the adaptive difficulty (see js/difficulty.js).
+    function judgeNight() {
+        if (!window.CordonDifficulty || !game.perfStart) return '';
+        const ps = game.perfStart;
+        const alive = game.officers.filter(o => o.alive && !o.isAllOut);
+        let hp = 0, mx = 0;
+        for (const o of alive) { hp += o.hp; mx += o.maxHp; }
+        const res = CordonDifficulty.waveEnded({
+            baseLoss: Math.max(0, (ps.baseHp - game.baseHp) / BASE_MAX_HP),
+            officerHealth: mx > 0 ? hp / mx : 0,
+            officersLost: ps.officers > 0 ? Math.max(0, ps.officers - alive.length) / ps.officers : 0,
+            buildingsLost: Math.max(0, (game.buildingsDestroyed || 0) - ps.buildings),
+        });
+        game.perfStart = null;
+        if (res.delta >= 0.05) return '  ·  Next night will be tougher';
+        if (res.delta <= -0.05) return '  ·  Next night eased off';
+        return '';
+    }
+    // Blocked marches that never get to finish build up grievance. It lasts from night to night and makes the crowd quicker to riot.
+    function updateGrievance() {
+        const st = game.waveStats, before = game.grievance || 0;
+        const total = Math.max(1, st.protesters || 0);
+        const failFrac = (st.blockedFails || 0) / total;
+        let g = before, note = '';
+        if ((st.blockedFails || 0) >= 3 || failFrac > 0.25) { g = Math.min(100, before + 12 + failFrac * 30); note = '  ·  The marchers were stopped. Anger is building'; }
+        else if ((st.blockedFails || 0) === 0 && (st.completed || 0) > 0) { g = Math.max(0, before - 10); }
+        else g = Math.max(0, before - 3);
+        game.grievance = g;
+        return note;
+    }
     function endOfNight(reward) {
         const st = game.waveStats, before = game.opinion;
         let d = 0;
@@ -1627,8 +1761,14 @@
         game.opinion += (50 - game.opinion) * 0.08;                    // memories fade a little each night
         let bonus = 0;
         if (st.coinBonus > 1) { bonus = Math.round(reward * (st.coinBonus - 1)); profile.coins += bonus; game.runCoins += bonus; saveProfile(); }
+        const arrests = st.rioterArrests || 0;
+        if (arrests > 0) {
+            const chief = Math.round(reward * Math.min(0.8, 0.07 * arrests));
+            if (chief > 0) { bonus += chief; profile.coins += chief; game.runCoins += chief; saveProfile(); }
+        }
+        const grievNote = updateGrievance();
         const lab = opinionInfo(game.opinion);
-        return '  ·  Opinion ' + Math.round(before) + '→' + Math.round(game.opinion) + ' (' + lab.name + ')' + (bonus ? '  ·  +' + bonus + ' goodwill' : '');
+        return grievNote + '  ·  Opinion ' + Math.round(before) + '→' + Math.round(game.opinion) + ' (' + lab.name + ')' + (bonus ? '  ·  +' + bonus + (arrests > 0 ? ' goodwill & chiefs\' commendation' : ' goodwill') : '');
     }
 
     // ----- chapter / story card -----
@@ -1705,7 +1845,6 @@
 
     // ========== GAME STATE ==========
     let map = [];
-    let toastTimer = null;
     let game = {
         canvas: null, ctx: null, minimapCtx: null,
         width: 0, height: 0,
@@ -1734,6 +1873,9 @@
         allOutActive: 0,
 
         arrestCooldown: [0, 0, 0, 0],
+        arrestLost: [[], [], [], []],
+        riot: null,
+        grievance: 0,
         tearGasCooldown: [0, 0, 0, 0],
         gasTargets: [null, null, null, null],
 
@@ -1782,9 +1924,34 @@
         // --- v2: campaign, crowd mood, opinion, decisions ---
         opinion: 50, posture: 'firm', overtime: 'ready', overtimeTired: false, backupCooldown: 0,
         crowdMood: 0, waveStartMood: 25, fightHeat: 0, shake: 0, chapterCardOpen: false, _lamps: null,
-        waveStats: { calmed: 0, turned: 0, hurt: 0, agitArrested: 0, backups: 0, startOpinion: 50, coinBonus: 1, hadCrowd: false },
+        waveStats: { calmed: 0, turned: 0, hurt: 0, agitArrested: 0, backups: 0, startOpinion: 50, coinBonus: 1, hadCrowd: false, rioterArrests: 0, blockedFails: 0, rerouted: 0, completed: 0, protesters: 0, revealed: 0 },
     };
 
+    // ========== MAP SELECTION (map files live in js/maps/) ==========
+    // Which map a level uses: the Settings > Map pick wins (for testing), otherwise the campaign chapter says.
+    function mapIdForLevel(level) {
+        if (settings.mapPick && settings.mapPick !== 'auto' && CordonMaps.has(settings.mapPick)) return settings.mapPick;
+        const ch = chapterFor(level);
+        return (ch.mapId && CordonMaps.has(ch.mapId)) ? ch.mapId : CordonMaps.DEFAULT;
+    }
+    // Loads a map definition into the game's working values (base spot, exits, station, sizes...).
+    function applyMap(id) {
+        const def = CordonMaps.get(id);
+        MAP_DEF = def; MAP_ID = def.id;
+        MIN_PLAY_W = def.w || 108; MIN_PLAY_H = def.h || 77;
+        computeMapSize(); computeMinimapSize();
+        STATION_TX0 = def.station.x0; STATION_TY0 = def.station.y0; STATION_TW = def.station.w; STATION_TH = def.station.h;
+        BASE_TILE_X = def.base.x; BASE_TILE_Y = def.base.y; BASE_NODE_ID = def.baseNode;
+        EXIT_NODE_IDS = def.exits.slice();
+        const st = def.start || {};
+        const so = st.syndicates || [[-8, 0], [0, 0], [8, 0]];
+        SYNDICATE_START_X = so.map(o => BASE_TILE_X + o[0]);
+        SYNDICATE_START_Y = so.map(o => BASE_TILE_Y + o[1]);
+        refreshStationEnter(); buildAllOutBox();
+        STATION_LAMP.x = BASE_TILE_X * TILE + 8;
+        MAPGEO = CordonMaps.build(def, { W: MAP_W, H: MAP_H });
+        const tb = document.getElementById('t-map'); if (tb) tb.textContent = ':map: ' + def.name;
+    }
     // ========== ROAD GRAPH ==========
     let ROAD_NODES = [];
     let ROAD_EDGES = [];
@@ -1792,23 +1959,8 @@
     let BLOCKADE_SPOTS = [];
     let JUNCTION_POSTS = [];
 
-    const EXIT_NODE_IDS = ['N18', 'N30', 'N54', 'N78', 'N90', 'S12', 'S54', 'S96'];
-
     function buildRoadNodes() {
-        const nodes = [];
-        const push = (id, x, y) => nodes.push({ id, x, y });
-        [18, 30, 54, 78, 90].forEach(x => push('T' + x, x, ROAD_Y_TOP));
-        [12, 18, 30, 54, 78, 90, 96].forEach(x => push('B' + x, x, ROAD_Y_BOTTOM));
-        push('N18', 18, 1.5);
-        push('N30', 30, 1.5);
-        push('N54', 54, 1.5);
-        push('N78', 78, 1.5);
-        push('N90', 90, 1.5);
-        push('S12', 12, MAP_H - 1.5);
-        push('S96', 96, MAP_H - 1.5);
-        SOUTH_JUNCTION_XS.forEach(x => push('C' + x, x, ROAD_Y_SOUTH));
-        push('S54', 54, MAP_H - 1.5);
-        return nodes;
+        return MAPGEO.nodes().map(n => ({ id: n.id, x: n.x, y: n.y }));
     }
     function getNode(id) { return ROAD_NODES.find(n => n.id === id); }
     function edgeKey(a, b) { return a < b ? a + '|' + b : b + '|' + a; }
@@ -1882,46 +2034,9 @@
 
     function buildBlockadeSpots() {
         BLOCKADE_SPOTS = [];
-        const hw = ROAD_W / 2;
-        const junctionMargin = hw + 1.5;
-
-        for (const roadY of [ROAD_Y_TOP, ROAD_Y_BOTTOM, ROAD_Y_SOUTH]) {
-            for (let tx = Math.ceil(ROAD_X_START); tx <= Math.floor(ROAD_X_END); tx++) {
-                if (!tileIsRoad(tx, roadY)) continue;
-                let nearJunction = false;
-                for (const jx of (roadY === ROAD_Y_SOUTH ? SOUTH_JUNCTION_XS : JUNCTION_XS)) {
-                    if (Math.abs(tx - jx) < junctionMargin) { nearJunction = true; break; }
-                }
-                if (nearJunction) continue;
-                const spot = {
-                    key: 'H' + roadY + '_' + tx,
-                    dir: 'h',
-                    x: tx * TILE + TILE / 2,
-                    y: roadY * TILE + TILE / 2,
-                };
-                spot.edgeKey = findEdgeForSpot(spot);
-                if (spot.edgeKey) BLOCKADE_SPOTS.push(spot);
-            }
-        }
-
-        const verticalRoads = new Set([...ENTRY_XS, ...JUNCTION_XS, ...BOTTOM_ENTRY_XS, ...SOUTH_GATE_XS]);
-        for (const roadX of verticalRoads) {
-            for (let ty = 1; ty < MAP_H; ty++) {
-                if (!tileIsRoad(roadX, ty)) continue;
-                let onHorizontal = false;
-                for (const roadY of [ROAD_Y_TOP, ROAD_Y_BOTTOM, ROAD_Y_SOUTH]) {
-                    if (Math.abs(ty - roadY) < junctionMargin) { onHorizontal = true; break; }
-                }
-                if (onHorizontal) continue;
-                const spot = {
-                    key: 'V' + roadX + '_' + ty,
-                    dir: 'v',
-                    x: roadX * TILE + TILE / 2,
-                    y: ty * TILE + TILE / 2,
-                };
-                spot.edgeKey = findEdgeForSpot(spot);
-                if (spot.edgeKey) BLOCKADE_SPOTS.push(spot);
-            }
+        for (const spot of MAPGEO.blockadeSpots(TILE)) {
+            spot.edgeKey = findEdgeForSpot(spot);
+            if (spot.edgeKey) BLOCKADE_SPOTS.push(spot);
         }
     }
 
@@ -1961,6 +2076,7 @@
     }
 
     function rebuildRoadNetwork() {
+        MAPGEO = CordonMaps.build(MAP_DEF || CordonMaps.get('base'), { W: MAP_W, H: MAP_H });
         buildRoadGraph();
         buildBlockadeSpots();
         buildJunctionPosts();
@@ -2037,7 +2153,7 @@
         return null;
     }
 
-    function findPathSmart(startId, goalId, blockPenalty, dangerScale) {
+    function findPathSmart(startId, goalId, blockPenalty, dangerScale, avoid, avoidPen) {
         if (!startId || !goalId) return null;
         if (startId === goalId) return [startId];
         const dist = new Map([[startId, 0]]);
@@ -2072,6 +2188,7 @@
                 let w = Math.hypot(nbNode.x - curNode.x, nbNode.y - curNode.y);
                 if (blocked && blocked.size && blocked.has(edgeKey(cur, nb.id))) w += blockPenalty;
                 if (danger && dangerScale) w += (danger.get(nb.id) || 0) * dangerScale;
+                if (avoid && avoid.has(nb.id)) w += (avoidPen || 60);
                 const nd = (dist.get(cur) ?? 0) + w;
                 if (nd < (dist.get(nb.id) ?? Infinity)) {
                     dist.set(nb.id, nd);
@@ -2201,44 +2318,8 @@
     }
 
     // ========== MAP GENERATION ==========
-    function tileIsRoad(tx, ty) {
-        const hw = ROAD_W / 2;
-        if (ty >= ROAD_Y_TOP - hw && ty <= ROAD_Y_TOP + hw && tx >= ROAD_X_START && tx <= ROAD_X_END) return true;
-        if (ty >= ROAD_Y_BOTTOM - hw && ty <= ROAD_Y_BOTTOM + hw && tx >= ROAD_X_START && tx <= ROAD_X_END) return true;
-        for (let jx of JUNCTION_XS) {
-            if (tx >= jx - hw && tx <= jx + hw && ty >= 0 && ty <= ROAD_Y_BOTTOM + hw) return true;
-        }
-        for (let ex of ENTRY_XS) {
-            if (tx >= ex - hw && tx <= ex + hw && ty >= 0 && ty <= ROAD_Y_BOTTOM + hw) return true;
-        }
-        for (let ex of BOTTOM_ENTRY_XS) {
-            if (tx >= ex - hw && tx <= ex + hw && ty >= ROAD_Y_BOTTOM - hw && ty <= MAP_H) return true;
-        }
-        if (ty >= ROAD_Y_SOUTH - hw && ty <= ROAD_Y_SOUTH + hw && tx >= ROAD_X_START && tx <= ROAD_X_END) return true;
-        for (let jx of SOUTH_LINK_XS) if (tx >= jx - hw && tx <= jx + hw && ty >= ROAD_Y_BOTTOM && ty <= ROAD_Y_SOUTH + hw) return true;
-        for (let gx of SOUTH_GATE_XS) if (tx >= gx - hw && tx <= gx + hw && ty >= ROAD_Y_SOUTH - hw && ty <= MAP_H) return true;
-        return false;
-    }
-    function tileIsSidewalk(tx, ty) {
-        if (tileIsRoad(tx, ty)) return false;
-        const pad = 1.5;
-        const hw = ROAD_W / 2 + pad;
-        if (ty >= ROAD_Y_TOP - hw && ty <= ROAD_Y_TOP + hw && tx >= ROAD_X_START - pad && tx <= ROAD_X_END + pad) return true;
-        if (ty >= ROAD_Y_BOTTOM - hw && ty <= ROAD_Y_BOTTOM + hw && tx >= ROAD_X_START - pad && tx <= ROAD_X_END + pad) return true;
-        for (let jx of JUNCTION_XS) {
-            if (tx >= jx - hw && tx <= jx + hw && ty >= -pad && ty <= ROAD_Y_BOTTOM + hw + pad) return true;
-        }
-        for (let ex of ENTRY_XS) {
-            if (tx >= ex - hw && tx <= ex + hw && ty >= 0 && ty <= ROAD_Y_BOTTOM + hw) return true;
-        }
-        for (let ex of BOTTOM_ENTRY_XS) {
-            if (tx >= ex - hw && tx <= ex + hw && ty >= ROAD_Y_BOTTOM - hw && ty <= MAP_H) return true;
-        }
-        if (ty >= ROAD_Y_SOUTH - hw && ty <= ROAD_Y_SOUTH + hw && tx >= ROAD_X_START - pad && tx <= ROAD_X_END + pad) return true;
-        for (let jx of SOUTH_LINK_XS) if (tx >= jx - hw && tx <= jx + hw && ty >= ROAD_Y_BOTTOM && ty <= ROAD_Y_SOUTH + hw) return true;
-        for (let gx of SOUTH_GATE_XS) if (tx >= gx - hw && tx <= gx + hw && ty >= ROAD_Y_SOUTH - hw && ty <= MAP_H) return true;
-        return false;
-    }
+    function tileIsRoad(tx, ty) { return MAPGEO.isRoad(tx, ty); }
+    function tileIsSidewalk(tx, ty) { return MAPGEO.isSidewalk(tx, ty); }
     function generateMap() {
         game._lamps = null;
         map = [];
@@ -2248,6 +2329,7 @@
                 let t = TILE_BLOCK;
                 if (tileIsRoad(x, y)) t = TILE_ROAD;
                 else if (tileIsSidewalk(x, y)) t = TILE_SIDEWALK;
+                else if (MAPGEO.isSea(x, y) || MAPGEO.isSand(x, y)) t = TILE_SEA;
                 row[x] = t;
             }
             map.push(row);
@@ -2923,17 +3005,17 @@
     let roadLayout = null;
     function computeRoadLayout() {
         const half = (ROAD_W + 1) * TILE / 2;
-        const H = [ROAD_Y_TOP, ROAD_Y_BOTTOM, ROAD_Y_SOUTH].map(ty => ({ c: (ty + 0.5) * TILE, a: ROAD_X_START * TILE, b: (ROAD_X_END + 1) * TILE }));
-        const V = [];
-        [...ENTRY_XS, ...JUNCTION_XS].forEach(tx => V.push({ c: (tx + 0.5) * TILE, a: 0, b: ((SOUTH_LINK_XS.includes(tx) ? ROAD_Y_SOUTH : ROAD_Y_BOTTOM) + ROAD_W / 2 + 1) * TILE, tx }));
-        SOUTH_GATE_XS.forEach(tx => V.push({ c: (tx + 0.5) * TILE, a: (ROAD_Y_SOUTH - ROAD_W / 2) * TILE, b: MAP_H * TILE, tx, bottomEntry: true }));
-        BOTTOM_ENTRY_XS.forEach(tx => V.push({ c: (tx + 0.5) * TILE, a: (ROAD_Y_BOTTOM - ROAD_W / 2) * TILE, b: MAP_H * TILE, tx, bottomEntry: true }));
+        const lr = MAPGEO.layoutRoads(TILE);
+        const H = lr.H, V = lr.V;
+        const sig = (MAP_DEF && MAP_DEF.signals) || { row: -1, xs: [] };
         const base = { x0: (BASE_TILE_X - 2) * TILE, x1: (BASE_TILE_X + 2) * TILE, y0: (BASE_TILE_Y - 2) * TILE, y1: (BASE_TILE_Y + 3) * TILE };
         const stationRect = { x0: STATION_TX0 * TILE, x1: (STATION_TX0 + STATION_TW) * TILE, y0: STATION_TY0 * TILE, y1: (STATION_TY0 + STATION_TH) * TILE };
         const junctions = [];
         V.forEach(v => H.forEach((h, hi) => {
             if (h.c < v.a || h.c > v.b) return;
-            const j = { x: v.c, y: h.c, top: hi === 0, tx: v.tx, vBottomEntry: !!v.bottomEntry, arms: {} };
+            if (v.c < h.a - half || v.c > h.b + half) return;      // this east-west road never reaches that street
+            const onSig = h.row === sig.row;
+            const j = { x: v.c, y: h.c, top: onSig, signal: onSig && sig.xs.indexOf(v.tx) >= 0, tx: v.tx, vBottomEntry: !!v.bottomEntry, arms: {} };
             j.arms.n = v.a < h.c - half - 1;
             j.arms.s = v.b > h.c + half + 1;
             j.arms.e = h.b > v.c + half + 1;
@@ -2982,26 +3064,18 @@
             }
         });
         L.junctions.forEach(j => {
-            if (!j.top || j.vBottomEntry || !JUNCTION_XS.includes(j.tx)) return;
+            if (!j.signal || j.vBottomEntry) return;
             const d = 56 + 50;
             if (j.arms.n) addFurniture(px2t(j.x + half + 8), px2t(j.y - d), 'prop_trafficlight_a', TRAFFICLIGHT_DRAW_H);
             if (j.arms.s) addFurniture(px2t(j.x - half - 8), px2t(j.y + d), 'prop_trafficlight_a', TRAFFICLIGHT_DRAW_H);
             if (j.arms.e) addFurniture(px2t(j.x + d), px2t(j.y + half + 8), 'prop_trafficlight_a', TRAFFICLIGHT_DRAW_H);
             if (j.arms.w) addFurniture(px2t(j.x - d), px2t(j.y - half - 8), 'prop_trafficlight_a', TRAFFICLIGHT_DRAW_H);
         });
-        const northWalkY = px2t(L.H[0].c - half - 8), southWalkY = px2t(L.H[1].c + half + 8);
-        const vx = tx => (tx + 0.5) * TILE;
-        addFurniture(px2t(vx(JUNCTION_XS[0]) - half - 8), northWalkY, 'sign_pedestrian', SIGN_DRAW_H.sign_pedestrian);
-        addFurniture(px2t(vx(ENTRY_XS[0]) + half + 8), northWalkY, 'sign_50', SIGN_DRAW_H.sign_50);
-        addFurniture(px2t(vx(ENTRY_XS[1]) - half - 8), northWalkY, 'sign_50', SIGN_DRAW_H.sign_50);
-        addFurniture(px2t(vx(BOTTOM_ENTRY_XS[0]) + half + 8), southWalkY, 'sign_noentry', SIGN_DRAW_H.sign_noentry);
-        addFurniture(BASE_TILE_X - 4.2, southWalkY, 'sign_busstop', SIGN_DRAW_H.sign_busstop);
-        addFurniture(BASE_TILE_X - 2.2, southWalkY, 'sign_20', SIGN_DRAW_H.sign_20);
-        addFurniture(BASE_TILE_X + 2.2, southWalkY, 'sign_stop', SIGN_DRAW_H.sign_stop);
-        addFurniture(BASE_TILE_X + 4.2, southWalkY, 'sign_parking', SIGN_DRAW_H.sign_parking);
-        addDecal(BASE_TILE_X, ROAD_Y_BOTTOM - ROAD_W / 2 + 0.9, 'tex_stopmark');
-        addDecal(JUNCTION_XS[1] - 2, ROAD_Y_TOP + 1.5, 'tex_manhole1');
-        addDecal(JUNCTION_XS[2] + 2, ROAD_Y_BOTTOM + 1.5, 'tex_manhole2');
+        // signs and road paint that belong to this particular map live in js/maps/<map>.js
+        if (MAP_DEF && typeof MAP_DEF.decorate === 'function') {
+            MAP_DEF.decorate({ L: L, half: half, TILE: TILE, px2t: px2t, addFurniture: addFurniture, addDecal: addDecal,
+                               drawH: Object.assign({}, PROP_DRAW_H, SIGN_DRAW_H) });
+        }
     }
 
     // ========== PARKED VEHICLES ==========
@@ -3120,11 +3194,33 @@
         g.addColorStop(0, '#2c3a52'); g.addColorStop(1, '#1e2838');
         t.fillStyle = g; t.fillRect(px, py, TILE, TILE);
     }
+    // Sea and beach (only maps with a "sea" entry use these tiles).
+    function paintSea(t, px, py, tx, ty) {
+        const sd = seedFromXY(tx, ty);
+        if (MAPGEO && MAPGEO.isSand(tx, ty)) {
+            const wet = ty === (MAP_DEF.sea.y1) ? 1 : 0;
+            t.fillStyle = wet ? '#6f6a55' : (sd > 0.5 ? '#8a8163' : '#847b5f');
+            t.fillRect(px, py, TILE, TILE);
+            t.fillStyle = 'rgba(0,0,0,0.14)';
+            t.fillRect(px + sd * 12, py + ((sd * 7.7) % 1) * 12, 2, 1);
+            t.fillRect(px + ((sd * 3.9) % 1) * 12, py + ((sd * 5.3) % 1) * 12, 1, 1);
+            if (wet) { t.fillStyle = 'rgba(190,215,225,0.25)'; t.fillRect(px, py, TILE, 3); }
+            return;
+        }
+        const deep = Math.min(1, ty / Math.max(1, (MAP_DEF.sea.y1 - 1)));
+        const r = Math.round(14 + deep * 8), g = Math.round(46 + deep * 24), b = Math.round(70 + deep * 26);
+        t.fillStyle = 'rgb(' + r + ',' + g + ',' + b + ')';
+        t.fillRect(px, py, TILE, TILE);
+        t.fillStyle = 'rgba(160,205,225,0.10)';
+        t.fillRect(px + ((sd * 11.3) % 1) * 10, py + ((sd * 6.1) % 1) * 12, 5, 1);
+        if (ty === MAP_DEF.sea.y1 - 1) { t.fillStyle = 'rgba(220,240,245,0.35)'; t.fillRect(px, py + TILE - 3, TILE, 2); }
+    }
     function paintTerrainTile(t, px, py, tile, tx, ty) {
         if (tile === TILE_ROAD) paintRoad(t, px, py, tx, ty);
         else if (tile === TILE_SIDEWALK) paintSidewalk(t, px, py, tx, ty);
         else if (tile === TILE_BASE) paintBase(t, px, py);
         else if (tile === TILE_STATION) paintSidewalk(t, px, py, tx, ty);
+        else if (tile === TILE_SEA) paintSea(t, px, py, tx, ty);
         else paintBlock(t, px, py, tx, ty);
     }
     function roadish(tx, ty) {
@@ -3198,7 +3294,7 @@
         });
         const box = assets['road_box'];
         if (box) L.junctions.forEach(j => {
-            if (j.top && !j.isBase && JUNCTION_XS.includes(j.tx)) t.drawImage(box, j.x - half, j.y - half, half * 2, half * 2);
+            if (j.signal && !j.isBase) t.drawImage(box, j.x - half, j.y - half, half * 2, half * 2);
         });
         L.zebras.forEach(z => { const img = assets[z.img]; if (img) t.drawImage(img, z.x, z.y, z.w, z.h); });
         const gw = assets['road_giveway'], slow = assets['road_slow'];
@@ -3277,7 +3373,7 @@
         t.fillStyle = '#1c2028'; t.fillRect(0, 0, MINIMAP_W, MINIMAP_H);
         for (let y = 0; y < MAP_H; y++) for (let x = 0; x < MAP_W; x++) {
             const tile = map[y][x];
-            t.fillStyle = tile === TILE_ROAD ? '#3a3f47' : (tile === TILE_BASE || tile === TILE_STATION) ? '#3a4a68' : tile === TILE_SIDEWALK ? '#4a4f57' : ((cityKind && cityKind[y * MAP_W + x] === 1) ? ZONES[zoneAt(x)].minimapBld : ZONES[zoneAt(x)].minimap);
+            t.fillStyle = tile === TILE_SEA ? (MAPGEO.isSand(x, y) ? '#6d6650' : '#1b3a52') : tile === TILE_ROAD ? '#3a3f47' : (tile === TILE_BASE || tile === TILE_STATION) ? '#3a4a68' : tile === TILE_SIDEWALK ? '#4a4f57' : ((cityKind && cityKind[y * MAP_W + x] === 1) ? ZONES[zoneAt(x)].minimapBld : ZONES[zoneAt(x)].minimap);
             t.fillRect(x * MINIMAP_SCALE, y * MINIMAP_SCALE, Math.ceil(MINIMAP_SCALE), Math.ceil(MINIMAP_SCALE));
         }
         game.minimapTerrainCanvas = c;
@@ -3375,10 +3471,12 @@
         return dist;
     }
 
-    const STATION_ENTER = {
-        x0: (BASE_TILE_X - 2.6) * TILE, x1: (BASE_TILE_X + 2.6) * TILE,
-        y0: (BASE_TILE_Y - 3.6) * TILE, y1: (BASE_TILE_Y + 3.0) * TILE,
-    };
+    const STATION_ENTER = { x0: 0, x1: 0, y0: 0, y1: 0 };
+    function refreshStationEnter() {
+        STATION_ENTER.x0 = (BASE_TILE_X - 2.6) * TILE; STATION_ENTER.x1 = (BASE_TILE_X + 2.6) * TILE;
+        STATION_ENTER.y0 = (BASE_TILE_Y - 3.6) * TILE; STATION_ENTER.y1 = (BASE_TILE_Y + 3.0) * TILE;
+    }
+    refreshStationEnter();
     function isAtStation(x, y) {
         return x >= STATION_ENTER.x0 && x <= STATION_ENTER.x1 &&
                y >= STATION_ENTER.y0 && y <= STATION_ENTER.y1;
@@ -3552,7 +3650,7 @@
             this.retreatIdx = 0;
             const start = nearestRoadNode(this.x, this.y);
             if (start) {
-                const path = findPath(start.id, 'B54', null);
+                const path = findPath(start.id, BASE_NODE_ID, null);
                 if (path) {
                     for (const id of path) {
                         const n = getNode(id);
@@ -3864,6 +3962,35 @@
     // ========== ARREST OFFICER ==========
     const ARREST_PALETTE = { cloth: '#1a3050', dark: '#0e1c33', vest: '#ffcc33', vestDark: '#b08820', cuff: '#e8e8e8', flag: '#c53040' };
     let arrestIdSeq = 1;
+    // Only someone who is actually rioting can be arrested (protesters and hidden troublemakers cannot).
+    function isArrestable(r) {
+        return !!(r && r.alive && !r.beingArrested && r.kind !== 'crowd' && r.state !== 'fleeing' && r.state !== 'fading');
+    }
+    function arrestAnchor(idx) {
+        const sy = game.syndicates[idx];
+        const mine = game.officers.filter(o => o.alive && !o.isAllOut && o.syndicateIndex === idx && o.state === 'active');
+        if (mine.length) { let cx = 0, cy = 0; for (const o of mine) { cx += o.x; cy += o.y; } return { x: cx / mine.length, y: cy / mine.length }; }
+        return sy ? { x: sy.commandX, y: sy.commandY } : { x: BASE_TILE_X * TILE, y: BASE_TILE_Y * TILE };
+    }
+    function findArrestTarget(idx, self) {
+        const a = arrestAnchor(idx);
+        const fromX = self ? self.x : a.x, fromY = self ? self.y : a.y;
+        let best = null, bestScore = Infinity;
+        for (const r of game.raiders) {
+            if (!isArrestable(r)) continue;
+            if (Math.hypot(r.x - a.x, r.y - a.y) > ARREST_REACH) continue;
+            if (game.arrestOfficers.some(o => o.alive && o !== self && o.target === r)) continue;     // someone is already on them
+            const d = Math.hypot(r.x - fromX, r.y - fromY);
+            const score = r.kind === 'brickthrower' ? d * 0.4 : d;
+            if (score < bestScore) { bestScore = score; best = r; }
+        }
+        return best;
+    }
+    function arrestChargesFor(idx) {
+        const out = game.arrestOfficers.filter(a => a.alive && a.syndicateIndex === idx).length;
+        const lost = (game.arrestLost[idx] || []).length;
+        return Math.max(0, ARREST_TEAM_SIZE - out - lost);
+    }
     class ArrestOfficer {
         constructor(x, y, syndicateIndex) {
             this.id = arrestIdSeq++;
@@ -3888,6 +4015,11 @@
             this.routeStuck = 0;
             this._lastReturnDist = undefined;
             this._returnStuckTime = 0;
+            this.target = null;          // the rioter this officer is going for
+            this.rejoining = false;      // walking back to the line after a delivery / a fruitless search
+            this.completed = false;      // true once the officer is safely back (the charge returns)
+            this.sortieT = 0;
+            this._carryStuck = 0;
         }
 
         moveToGoal(gx, gy, dt, speed) {
@@ -3934,164 +4066,85 @@
             this.routeIdx = 0;
         }
 
+        deliverPrisoner() {
+            const r = this.carrying;
+            if (!r) return;
+            r.alive = false;
+            r.beingArrested = false;
+            game.arrested++;
+            game.raidersDefeated++;
+            game.raiderGroupMorale = Math.max(0, game.raiderGroupMorale - 12);
+            onArrested(r);
+            spawnHitEffect(r.x, r.y);
+            this.carrying = null; this.target = null;
+            this.rejoining = true; this.state = 'returning';
+            this.route = null; this.routeStuck = 0; this._carryStuck = 0;
+        }
         update(dt) {
             if (!this.alive) return;
             this.animTimer += dt;
             if (this.attackFlash > 0) this.attackFlash = Math.max(0, this.attackFlash - dt);
-
-            if (!this.returningHome) {
-                this.lifeTimer -= dt;
-                if (this.lifeTimer <= 0 && !this.carrying) {
-                    this.returningHome = true;
-                    this.route = null;
-                    this.routeStuck = 0;
-                    this._lastReturnDist = undefined;
-                    this._returnStuckTime = 0;
-                }
-            }
-            if (this.returningHome) {
-                const bx = BASE_TILE_X * TILE, by = BASE_TILE_Y * TILE;
-                const d = Math.hypot(bx - this.x, by - this.y);
-                if (d < TILE * 1.5 || isAtStation(this.x, this.y)) { this.alive = false; return; }
-                if (this._lastReturnDist !== undefined && this._lastReturnDist - d < 0.05) {
-                    this._returnStuckTime = (this._returnStuckTime || 0) + dt;
-                } else {
-                    this._returnStuckTime = Math.max(0, (this._returnStuckTime || 0) - dt * 0.5);
-                }
-                this._lastReturnDist = d;
-                if (this._returnStuckTime > 6) { this.alive = false; return; }
-                this.moveToGoal(bx, by, dt, ARREST_OFFICER_SPEED);
-                return;
-            }
-
+            this.sortieT += dt;
             const sy = game.syndicates[this.syndicateIndex];
-            if (!sy) return;
+            const bx = BASE_TILE_X * TILE, by = BASE_TILE_Y * TILE;
 
+            // 1) carrying a rioter: the whole way to the station door, no shortcuts
             if (this.carrying) {
-                this.carryTimer += dt;
-                if (this.carryTimer > 12) {
-                    const r = this.carrying;
-                    r.alive = false;
-                    r.beingArrested = false;
-                    game.arrested++;
-                    game.raidersDefeated++;
-                    game.raiderGroupMorale = Math.max(0, game.raiderGroupMorale - 12);
-                    onArrested(r);
-                    spawnHitEffect(r.x, r.y);
-                    this.carrying = null;
-                    this.state = 'returning';
-                    this.carryTimer = 0;
-                    this.route = null;
-                    this.routeStuck = 0;
-                    showToast(':lock: Raider arrested!');
+                const r = this.carrying;
+                if (!r.alive || r.state === 'fleeing') {
+                    r.beingArrested = false; r.arrestOfficer = null;
+                    this.carrying = null; this.rejoining = true; this.route = null;
                     return;
                 }
-                const bx = BASE_TILE_X * TILE, by = BASE_TILE_Y * TILE;
                 const d = Math.hypot(bx - this.x, by - this.y);
-                if (d < TILE * 1.6) {
-                    const r = this.carrying;
-                    r.alive = false;
-                    r.beingArrested = false;
-                    game.arrested++;
-                    game.raidersDefeated++;
-                    game.raiderGroupMorale = Math.max(0, game.raiderGroupMorale - 12);
-                    onArrested(r);
-                    spawnHitEffect(r.x, r.y);
-                    this.carrying = null;
-                    this.state = 'returning';
-                    this.carryTimer = 0;
-                    this.route = null;
-                    this.routeStuck = 0;
-                    showToast(':lock: Raider arrested!');
-                } else {
-                    this.isMoving = true;
-                    this.moveToGoal(bx, by, dt, ARREST_OFFICER_SPEED);
-                    if (this.carrying) {
-                        this.carrying.x = this.x + this.dir.x * -TILE * 0.6;
-                        this.carrying.y = this.y + this.dir.y * -TILE * 0.6;
-                    }
+                if (d < TILE * 1.6 || isAtStation(this.x, this.y)) { this.deliverPrisoner(); return; }
+                this.isMoving = true;
+                const before = d;
+                this.moveToGoal(bx, by, dt, ARREST_OFFICER_SPEED * 0.95);
+                r.x = this.x - this.dir.x * TILE * 0.6;
+                r.y = this.y - this.dir.y * TILE * 0.6;
+                if (before - Math.hypot(bx - this.x, by - this.y) < 0.05) this._carryStuck += dt; else this._carryStuck = Math.max(0, this._carryStuck - dt);
+                if (this._carryStuck > 6) {          // jammed: step out onto the road and carry on
+                    this._carryStuck = 0;
+                    const n = nearestRoadNode(this.x, this.y);
+                    if (n) { this.x = n.x * TILE; this.y = n.y * TILE; this.route = null; }
                 }
                 return;
             }
 
-            let aliveSyndicate = game.officers.filter(o => o.alive && !o.isAllOut && o.syndicateIndex === this.syndicateIndex && o.state === 'active');
-            if (aliveSyndicate.length === 0) aliveSyndicate = game.officers.filter(o => o.alive && !o.isAllOut && o.syndicateIndex === this.syndicateIndex);
-
-            let anchorX, anchorY;
-            if (aliveSyndicate.length > 0) {
-                let cx = 0, cy = 0;
-                for (const o of aliveSyndicate) { cx += o.x; cy += o.y; }
-                cx /= aliveSyndicate.length; cy /= aliveSyndicate.length;
-                anchorX = cx; anchorY = cy;
-            } else {
-                anchorX = sy.commandX; anchorY = sy.commandY;
-            }
-
-            let fx = sy.facingX || 1, fy = sy.facingY || 0;
-            if (Math.abs(fx) > Math.abs(fy)) { fx = Math.sign(fx) || 1; fy = 0; }
-            else { fx = 0; fy = Math.sign(fy) || 1; }
-            const px = fy, py = -fx;
-
-            const brick = game.raiders.find(r =>
-                r.alive && !r.beingArrested && r.kind === 'brickthrower' &&
-                Math.hypot(r.x - this.x, r.y - this.y) < ARREST_GRAB_RANGE &&
-                Math.hypot(r.x - anchorX, r.y - anchorY) < ARREST_MAX_RANGE_FROM_SYNDICATE
-            );
-            let grabTarget = brick || null;
-            if (!grabTarget) {
-                let best = -Infinity;
-                const maxRangeSq = ARREST_GRAB_RANGE * ARREST_GRAB_RANGE;
-                for (const r of game.raiders) {
-                    if (!r.alive || r.state === 'fleeing' || r.beingArrested) continue;
-                    if (r.kind === 'crowd' && !(r.agitator && r.spotted)) continue;
-                    if (Math.hypot(r.x - anchorX, r.y - anchorY) > ARREST_MAX_RANGE_FROM_SYNDICATE) continue;
-                    const dSq = (r.x - this.x) ** 2 + (r.y - this.y) ** 2;
-                    if (dSq > maxRangeSq) continue;
-                    const strength = r.maxHp + r.hp * 0.3 + (r.agitator ? 1000 : 0);
-                    if (strength > best) { best = strength; grabTarget = r; }
+            // 2) heading back to the line (after a delivery, or nobody left to arrest)
+            if (this.rejoining) {
+                let anchorX = sy ? sy.commandX : bx, anchorY = sy ? sy.commandY : by;
+                let fx = sy ? (sy.facingX || 1) : 1, fy = sy ? (sy.facingY || 0) : 0;
+                if (Math.abs(fx) > Math.abs(fy)) { fx = Math.sign(fx) || 1; fy = 0; } else { fx = 0; fy = Math.sign(fy) || 1; }
+                const tx = anchorX - fx * TILE * 4.5 + fy * this.slotOffset * TILE, ty = anchorY - fy * TILE * 4.5 - fx * this.slotOffset * TILE;
+                const g = clampOfficerTarget(tx, ty);
+                if (Math.hypot(g.x - this.x, g.y - this.y) < TILE * 2.4 || this.sortieT > 80) {
+                    this.completed = true; this.alive = false;       // back on the line: the arrest button charges up again
+                    return;
                 }
-            }
-            if (grabTarget) {
-                this.carrying = grabTarget;
-                grabTarget.beingArrested = true;
-                grabTarget.arrestOfficer = this;
-                this.state = 'grabbing';
-                this.carryTimer = 0;
-                this.route = null;
-                this.routeStuck = 0;
-                spawnHitEffect(grabTarget.x, grabTarget.y);
-                showToast(':car: Arrest team has seized a raider!');
+                this.isMoving = true;
+                this.moveToGoal(g.x, g.y, dt, ARREST_OFFICER_SPEED * 1.1);
                 return;
             }
 
-            let chaseTarget = null, chaseBest = Infinity;
-            for (const r of game.raiders) {
-                if (!r.alive || r.state === 'fleeing' || r.beingArrested) continue;
-                if (r.kind === 'crowd' && !(r.agitator && r.spotted)) continue;
-                if (Math.hypot(r.x - anchorX, r.y - anchorY) > ARREST_MAX_RANGE_FROM_SYNDICATE) continue;
-                const d = Math.hypot(r.x - this.x, r.y - this.y);
-                const priority = (r.kind === 'brickthrower' || r.agitator) ? d * 0.35 : d;
-                if (priority < chaseBest) { chaseBest = priority; chaseTarget = r; }
+            // 3) looking for / chasing a rioter (only people who are actually rioting)
+            this.lifeTimer -= dt;
+            if (this.lifeTimer <= 0) { this.rejoining = true; this.route = null; return; }
+            let t = this.target;
+            if (!isArrestable(t)) t = this.target = findArrestTarget(this.syndicateIndex, this);
+            if (!t) { this.rejoining = true; this.route = null; return; }
+            const dd = Math.hypot(t.x - this.x, t.y - this.y);
+            if (dd < TILE * 2.1) {
+                this.carrying = t;
+                t.beingArrested = true; t.arrestOfficer = this;
+                this.state = 'grabbing'; this.carryTimer = 0; this.route = null; this.routeStuck = 0; this._carryStuck = 0;
+                spawnHitEffect(t.x, t.y);
+                showToast(':car: Arrest officer has seized a rioter and is taking them to the station!');
+                return;
             }
-
-            let targetX, targetY;
-            if (chaseTarget) {
-                const dxc = chaseTarget.x - this.x, dyc = chaseTarget.y - this.y;
-                const dc = Math.hypot(dxc, dyc) || 1;
-                const stop = ARREST_GRAB_RANGE * 0.6;
-                targetX = chaseTarget.x - (dxc / dc) * stop + px * this.slotOffset * TILE * 0.4;
-                targetY = chaseTarget.y - (dyc / dc) * stop + py * this.slotOffset * TILE * 0.4;
-            } else if (sy.tactic === 'box') {
-                targetX = anchorX + px * this.slotOffset * TILE * 0.7;
-                targetY = anchorY + py * this.slotOffset * TILE * 0.7;
-            } else {
-                const back = TILE * 4.5;
-                targetX = anchorX + px * (this.slotOffset * TILE) - fx * back;
-                targetY = anchorY + py * (this.slotOffset * TILE) - fy * back;
-            }
-
-            this.moveToGoal(targetX, targetY, dt, ARREST_OFFICER_SPEED);
-            if (this.state === 'returning' && !this.carrying) this.state = 'escort';
+            this.isMoving = true;
+            this.moveToGoal(t.x, t.y, dt, ARREST_OFFICER_SPEED * 1.25);
         }
 
         draw(ctx) {
@@ -4538,6 +4591,8 @@
             this.retargetTimer = 0;
             this.advanceTimer = 0;
             this.returnTimer = 0;
+            this.refilled = true;        // false from the moment gas is used until the canister is refilled at the station
+            this.refillTimer = 0;
             this._route = null; this._routeIdx = 0; this._routeGoal = null; this._progStuck = 0;
         }
         computePositions() {
@@ -4583,7 +4638,8 @@
             else this.setAim(Math.atan2(this.faceY, this.faceX));
         }
         beginReturn() {
-            this.state = 'returning';
+            // after spraying the gas officers go back to the station for a refill before they can be sent again
+            this.state = this.refilled ? 'returning' : 'refill_run';
             this.returnTimer = 0;
             this.crowd = null;
             this._route = null; this._routeGoal = null; this._progStuck = 0;
@@ -4644,6 +4700,24 @@
                 this.setAim(this.aimAngle);
                 this.applyGasEffects(dt);
                 if (this.sprayTimer <= 0) this.beginReturn();
+            } else if (this.state === 'refill_run') {
+                this.returnTimer += dt;
+                const bx = BASE_TILE_X * TILE, by = BASE_TILE_Y * TILE;
+                if (Math.hypot(bx - this.x, by - this.y) < TILE * 1.8 || isAtStation(this.x, this.y) || this.returnTimer > 45) {
+                    this.state = 'refilling'; this.refillTimer = GAS_REFILL_TIME; this.isMoving = false;
+                } else {
+                    routedMove(this, bx, by, dt, TEAR_GAS_SPEED * 1.35);
+                }
+            } else if (this.state === 'refilling') {
+                this.refillTimer -= dt; this.isMoving = false;
+                if (this.refillTimer <= 0) {
+                    this.refilled = true; this.state = 'returning'; this.returnTimer = 0;
+                    this._route = null; this._routeGoal = null; this._progStuck = 0;
+                    if (!game.tearGasOfficers.some(t => t.alive && t.syndicateIndex === this.syndicateIndex && !t.refilled)) {
+                        showToast(':gas: S' + (this.syndicateIndex + 1) + ' gas team refilled and heading back.');
+                        updateTearGasButton();
+                    }
+                }
             } else if (this.state === 'returning') {
                 this.returnTimer += dt;
                 const d = Math.hypot(this.escortX - this.x, this.escortY - this.y);
@@ -4896,8 +4970,8 @@
         rest: ['Stand easy — shields down!', 'Rest the line!'],
         wedge: ['Wedge formation — on me!', 'Form wedge!'],
         wall: ['Shield wall — close ranks!', 'Wall! Lock shields!'],
-        stackleft: ['Stack left — hug the buildings!'],
-        stackright: ['Stack right — shoulders to the wall!'],
+        stackleft: ['File left — hug the kerb!'],
+        stackright: ['File right — shoulders to the kerb!'],
         box: ['Box formation — cover all sides!'],
         pulse: ['Pulse! Front rank — go, go, go!'],
     };
@@ -4908,7 +4982,11 @@
         if (!c || (c.shout && c.shout.t > 1.9 && c.shout.text === text)) return;
         c.shout = { text, t: 2.8 };
     }
-    function commanderShoutAll(text) { game.commanders.forEach(c => { if (c.alive) c.shout = { text, t: 2.8 }; }); }
+    function commanderShoutAll(text) {
+        const sel = game.commanders.find(c => c.alive && c.syndicateIndex === game.selectedSyndicate);
+        const one = sel || game.commanders.find(c => c.alive);
+        if (one) one.shout = { text, t: 2.8 };
+    }
     let commanderIdSeq = 1;
     class Commander {
         constructor(x, y, syndicateIndex) {
@@ -4964,14 +5042,15 @@
             ctx.globalAlpha = a;
             ctx.font = 'bold 9px "Segoe UI", Tahoma, sans-serif';
             const w = ctx.measureText(txt).width + 12, h = 15;
-            let x = Math.max(w / 2 + 4, Math.min(game.width - w / 2 - 4, sx));
-            const y = sy - h - 4;
+            const minX = 142 + w / 2, maxX = game.width - 152 - w / 2;
+            let x = Math.max(minX, Math.min(Math.max(minX, maxX), sx));
+            const y = Math.max(64, Math.min(game.height - 70 - h, sy - h - 4));
             ctx.fillStyle = 'rgba(255,255,255,0.96)'; ctx.strokeStyle = '#143a8a'; ctx.lineWidth = 1.2;
             ctx.beginPath();
             if (ctx.roundRect) ctx.roundRect(x - w / 2, y, w, h, 5); else ctx.rect(x - w / 2, y, w, h);
             ctx.fill(); ctx.stroke();
-            ctx.beginPath(); ctx.moveTo(sx - 3, y + h); ctx.lineTo(sx, y + h + 5); ctx.lineTo(sx + 3, y + h); ctx.closePath();
-            ctx.fill(); ctx.stroke();
+            if (Math.abs(sx - x) < w / 2 - 6 && Math.abs(y - (sy - h - 4)) < 2) { ctx.beginPath(); ctx.moveTo(sx - 3, y + h); ctx.lineTo(sx, y + h + 5); ctx.lineTo(sx + 3, y + h); ctx.closePath();
+            ctx.fill(); ctx.stroke(); }
             ctx.fillStyle = '#0b2a6b'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
             ctx.fillText(txt, x, y + h / 2 + 0.5);
             ctx.restore();
@@ -4990,9 +5069,68 @@
     // ========== AMBULANCE ==========
     const AMB_CELL = 140, AMB_SCALE = (TILE * 3.3) / 103;
     const AMB_COOLDOWN = 90, AMB_STAY = 35, AMB_HEAL = 16, AMB_RADIUS = TILE * 7, AMB_SPEED = 5.0;
+    // Emergency vehicles stay on the road: they follow the road centre lines (clear of parked cars, never touching a pavement
+    // or a building) and wait short of a roadblock instead of driving through it.
+    function snapToRoadLine(x, y) {
+        let best = null, bd = Infinity;
+        for (const e of ROAD_EDGES) {
+            const a = getNode(e.a), b = getNode(e.b);
+            if (!a || !b) continue;
+            const ax = a.x * TILE, ay = a.y * TILE, bx = b.x * TILE, by = b.y * TILE;
+            let px, py;
+            if (e.dir === 'h') { px = Math.max(Math.min(ax, bx), Math.min(Math.max(ax, bx), x)); py = ay; }
+            else { px = ax; py = Math.max(Math.min(ay, by), Math.min(Math.max(ay, by), y)); }
+            const dd = Math.hypot(px - x, py - y);
+            if (dd < bd) { bd = dd; best = { x: px, y: py, e: e }; }
+        }
+        return best;
+    }
+    function vehicleRoute(sx, sy, gx, gy) {
+        const S = snapToRoadLine(sx, sy), G = snapToRoadLine(gx, gy);
+        if (!S || !G) return null;
+        if (S.e === G.e) return [{ x: sx, y: sy }, { x: S.x, y: S.y, key: S.e.key }, { x: G.x, y: G.y, key: G.e.key }];
+        let best = null, bestLen = Infinity;
+        const ends = e => [getNode(e.a), getNode(e.b)];
+        for (const n1 of ends(S.e)) for (const n2 of ends(G.e)) {
+            if (!n1 || !n2) continue;
+            const path = findPathSmart(n1.id, n2.id, 400, 0);
+            if (!path) continue;
+            let len = Math.hypot(n1.x * TILE - S.x, n1.y * TILE - S.y) + Math.hypot(G.x - n2.x * TILE, G.y - n2.y * TILE);
+            for (let i = 1; i < path.length; i++) { const a = getNode(path[i - 1]), b = getNode(path[i]); len += Math.hypot((a.x - b.x) * TILE, (a.y - b.y) * TILE); }
+            if (len < bestLen) { bestLen = len; best = { n1: n1, path: path }; }
+        }
+        if (!best) return null;
+        const wps = [{ x: sx, y: sy }, { x: S.x, y: S.y, key: S.e.key }];
+        let prevId = null;
+        for (const id of best.path) {
+            const n = getNode(id);
+            wps.push({ x: n.x * TILE, y: n.y * TILE, key: prevId ? edgeKey(prevId, id) : S.e.key });
+            prevId = id;
+        }
+        wps.push({ x: G.x, y: G.y, key: G.e.key });
+        return wps;
+    }
+    function vehicleMove(u, gx, gy, dt, speed) {
+        const moved = !u._vGoal || Math.hypot(u._vGoal.x - gx, u._vGoal.y - gy) > TILE * 3 || u._vVersion !== game.blockadeVersion;
+        if (!u._vRoute || moved) { u._vRoute = vehicleRoute(u.x, u.y, gx, gy); u._vGoal = { x: gx, y: gy }; u._vVersion = game.blockadeVersion; u._vIdx = 1; u._vWait = 0; }
+        const R = u._vRoute;
+        if (!R) return;
+        while (u._vIdx < R.length && Math.hypot(R[u._vIdx].x - u.x, R[u._vIdx].y - u.y) < TILE * 0.5) u._vIdx++;
+        if (u._vIdx >= R.length) return;
+        const wp = R[u._vIdx];
+        if (u._vIdx >= 3 && wp.key && game.blockedEdges && game.blockedEdges.has(wp.key)) {      // a roadblock ahead: wait, then look for another way
+            u._vWait = (u._vWait || 0) + dt;
+            if (u._vWait > 5) { u._vRoute = null; u._vWait = 0; }
+            return;
+        }
+        const dx = wp.x - u.x, dy = wp.y - u.y, dd = Math.hypot(dx, dy) || 1;
+        const step = Math.min(dd, speed * TILE * dt);
+        u.x += dx / dd * step; u.y += dy / dd * step;
+        u.dir = { x: dx / dd, y: dy / dd };
+    }
     class AmbulanceVehicle {
         constructor() {
-            this.x = (BASE_TILE_X - 3) * TILE; this.y = (ROAD_Y_BOTTOM + 1.2) * TILE;
+            this.x = (BASE_TILE_X - 3) * TILE; this.y = (BASE_TILE_Y + 1.2) * TILE;
             this.dir = { x: 1, y: 0 }; this.angle = 0;
             this.alive = true; this.state = 'waiting'; this.timer = 0; this.waitTimer = 12;
             this.target = -1; this.pick = 0; this.lightPhase = Math.random() * 10; this.healed = 0;
@@ -5014,7 +5152,7 @@
             if (!this.alive) return;
             this.lightPhase += dt;
             const px = this.x, py = this.y;
-            const base = { x: (BASE_TILE_X - 3) * TILE, y: (ROAD_Y_BOTTOM + 1.2) * TILE };
+            const base = { x: (BASE_TILE_X - 3) * TILE, y: (BASE_TILE_Y + 1.2) * TILE };
             if (this.state === 'waiting' || this.state === 'responding' || this.state === 'treating') {
                 this.pick -= dt;
                 if (this.pick <= 0 || this.state === 'waiting') {
@@ -5026,7 +5164,7 @@
             }
             if (this.state === 'waiting') {
                 this.waitTimer -= dt;
-                routedMove(this, base.x, base.y, dt, AMB_SPEED);
+                vehicleMove(this, base.x, base.y, dt, AMB_SPEED);
                 if (this.target >= 0) this.state = 'responding';
                 else if (this.waitTimer <= 0) { this.state = 'returning'; }
             } else if (this.state === 'responding') {
@@ -5037,7 +5175,7 @@
                     let fx = (sy && sy.facingX) || 1, fy = (sy && sy.facingY) || 0;
                     if (Math.abs(fx) > Math.abs(fy)) { fx = Math.sign(fx) || 1; fy = 0; } else { fx = 0; fy = Math.sign(fy) || 1; }
                     const g = clampOfficerTarget(c.x - fx * TILE * 6, c.y - fy * TILE * 6);
-                    routedMove(this, g.x, g.y, dt, AMB_SPEED);
+                    vehicleMove(this, g.x, g.y, dt, AMB_SPEED);
                     if (Math.hypot(c.x - this.x, c.y - this.y) < AMB_RADIUS * 0.8) { this.state = 'treating'; this.timer = AMB_STAY; }
                 }
             } else if (this.state === 'treating') {
@@ -5054,7 +5192,7 @@
                 this.healed = any ? 0 : this.healed + dt;
                 if (this.timer <= 0 || this.healed > 5) this.state = 'returning';
             } else if (this.state === 'returning') {
-                routedMove(this, base.x, base.y, dt, AMB_SPEED);
+                vehicleMove(this, base.x, base.y, dt, AMB_SPEED);
                 if (Math.hypot(base.x - this.x, base.y - this.y) < TILE * 2.5) {
                     this.alive = false; game.ambulanceCooldown = AMB_COOLDOWN;
                     showToast(':ambulance: Ambulance back at the station.'); renderOptionsPanel();
@@ -5343,8 +5481,8 @@
         constructor(syndicateIndex, kind) {
             this.syndicateIndex = syndicateIndex;
             this.kind = kind || 'watercannon';
-            this.x = this.kind === 'rubberbullet' ? 40 * TILE + TILE / 2 : 44 * TILE + TILE / 2;
-            this.y = ROAD_Y_BOTTOM * TILE + TILE / 2;
+            this.x = (BASE_TILE_X + (this.kind === 'rubberbullet' ? -14 : -10)) * TILE + TILE / 2;
+            this.y = BASE_TILE_Y * TILE + TILE / 2;
             this.angle = 0;
             this.targetAngle = 0;
             this.lightPhase = Math.random() * 10;
@@ -5412,7 +5550,7 @@
                     if (!starts.includes(e.b)) starts.push(e.b);
                 }
             }
-            if (starts.length === 0) starts.push('B54');
+            if (starts.length === 0) starts.push(BASE_NODE_ID);
 
             let bestPath = null, bestCost = Infinity;
             for (const sId of starts) {
@@ -5931,7 +6069,7 @@
 
     // ========== RAIDER ==========
     const RAIDER_TYPES = {
-        standard:     { name: 'Raider',        hp: 66,  damage: 6,  meleeRange: 1.2,  atkCooldown: 1.10, speed: 1.7, weight: 60, color: '#8a4a34', dark: '#4a2418' },
+        standard:     { name: 'Rioter',        hp: 66,  damage: 6,  meleeRange: 1.2,  atkCooldown: 1.10, speed: 1.7, weight: 60, color: '#8a4a34', dark: '#4a2418' },
         bruiser:      { name: 'Bruiser',       hp: 132, damage: 12, meleeRange: 1.35, atkCooldown: 1.30, speed: 1.4, weight: 25, color: '#7a2c2c', dark: '#3f1616' },
         brickthrower: { name: 'Brick Thrower', hp: 100, damage: 5,  meleeRange: 1.1,  atkCooldown: 1.85, speed: 1.2, weight: 10, color: '#a0704a', dark: '#4a2a18' },
         crowd:        { name: 'Protester',     hp: 46,  damage: 0,  meleeRange: 1.0,  atkCooldown: 2.5,  speed: 1.55, weight: 0, color: '#b8925e', dark: '#5c452a' },
@@ -6031,6 +6169,15 @@
             this.moodHot = 0; this.moodCalm = 0;
             this.spotted = false; this.spotT = 0; this.agitT = 3 + Math.random() * 4;
             this.atStation = false;
+            // protest plan + frustration (protesters), cover (hidden rioters), cunning (rioters)
+            const _sq = game.squads && game.squads.get(this.squadId);
+            this.plan = (_sq && _sq.plan) || (kind === 'crowd' ? { type: 'rally', exitId: null, rallyTime: 35 } : null);
+            this.legIdx = 0; this.blockedT = 0; this.rerouteCd = 0; this.avoidSet = null; this.detouring = false; this.detourUntil = 0;
+            this.noWay = false; this.frustrated = false; this.blockedCounted = false; this.rallyT = 0; this.pressT = 0;
+            this.revealT = this.agitator ? (55 + Math.random() * 70) * (1 - Math.min(0.6, (game.grievance || 0) / 160)) : 0;
+            this.forceReveal = false;
+            this.softTarget = null; this.softUntil = 0; this.cunning = Math.random();
+            if (kind === 'crowd' && !this.agitator && game.waveStats) game.waveStats.protesters = (game.waveStats.protesters || 0) + 1;
 
             this.route = null;
             this.routeIdx = 0;
@@ -6076,12 +6223,55 @@
                 if (path && path.length) this.fleeRoute = path;
             }
         }
+        // Rioters notice a strong line and go for an easier target instead (an undefended building, a repair crew).
+        pickEasierTarget() {
+            const now = game.lastTime || 0;
+            if (this.softTarget && now < this.softUntil) {
+                const t = this.softTarget;
+                if (t.type === 'building' && t.ref.alive && t.ref.frontX !== undefined) { const n = nearestRoadNode(t.ref.frontX, t.ref.frontY); if (n) return n.id; }
+                if (t.type === 'unit' && t.ref.alive) { const n = nearestRoadNode(t.ref.x, t.ref.y); if (n) return n.id; }
+                this.softTarget = null;
+            }
+            if (this.cunning < 0.35) return null;                         // the hotheads just charge
+            const here = defenceAround(this.x, this.y, TILE * 10);
+            if (here < 7) return null;
+            let best = null, bestScore = Infinity;
+            const dTo = (x, y) => Math.hypot(x - this.x, y - this.y) / TILE;
+            for (const b of sceneryBuildings) {
+                if (!b.alive || b.frontX === undefined || b.hp <= 0) continue;
+                const dd = dTo(b.frontX, b.frontY);
+                if (dd > 45) continue;
+                const sc = dd + defenceAround(b.frontX, b.frontY, TILE * 9) * 4;
+                if (sc < bestScore) { bestScore = sc; best = { type: 'building', ref: b }; }
+            }
+            for (const rp of game.repairOfficers) {
+                if (!rp.alive) continue;
+                const dd = dTo(rp.x, rp.y);
+                if (dd > 45) continue;
+                const sc = dd + defenceAround(rp.x, rp.y, TILE * 9) * 4 - 6;
+                if (sc < bestScore) { bestScore = sc; best = { type: 'unit', ref: rp }; }
+            }
+            const obj = getNode(BASE_NODE_ID);
+            const direct = obj ? dTo(obj.x * TILE, obj.y * TILE) + here * 4 : Infinity;
+            if (best && bestScore < direct) {
+                this.softTarget = best; this.softUntil = now + 9000;
+                const p = best.type === 'building' ? { x: best.ref.frontX, y: best.ref.frontY } : { x: best.ref.x, y: best.ref.y };
+                const n = nearestRoadNode(p.x, p.y);
+                if (n) return n.id;
+            }
+            return null;
+        }
+        crowdGoal() {
+            if (this.plan && this.plan.type === 'march' && this.legIdx === 1 && this.plan.exitId) return this.plan.exitId;
+            return BASE_NODE_ID;
+        }
         pickGoalNode() {
             const ai = game.raidAI;
+            if (this.kind !== 'crowd') { const soft = this.pickEasierTarget(); if (soft) return soft; }
             if (ai.objective === 'hunt') {
                 const o = this.nearestActiveOfficer();
                 if (o) { const n = nearestRoadNode(o.x, o.y); if (n) return n.id; }
-                return 'B54';
+                return BASE_NODE_ID;
             }
             if (ai.objective === 'buildings') {
                 if (!this.targetBuilding || !this.targetBuilding.alive) this.targetBuilding = pickRaidBuilding(this);
@@ -6089,15 +6279,16 @@
                     const n = nearestRoadNode(this.targetBuilding.frontX, this.targetBuilding.frontY);
                     if (n) return n.id;
                 }
-                return 'B54';
+                return BASE_NODE_ID;
             }
-            return 'B54';
+            return BASE_NODE_ID;
         }
         recomputeRoute() {
             const start = nearestRoadNode(this.x, this.y);
             if (!start) { this.route = null; return; }
-            const goal = this.goalNodeId || 'B54';
-            let path = findPathSmart(start.id, goal, 28, 2.4);
+            const goal = this.goalNodeId || BASE_NODE_ID;
+            // rioters read the street harder than protesters do: a strong line in the way sends them round another road
+            let path = findPathSmart(start.id, goal, 28, this.kind === 'crowd' ? 2.4 : 5.0, this.avoidSet, 400);
             if (!path) path = findPath(start.id, goal, null);
             this.route = path || [start.id];
             this.routeIdx = 1;
@@ -6172,7 +6363,8 @@
             this.mood = Math.max(0, Math.min(100, this.mood + delta * dt));
         }
         marchStep(dt, speed) {
-            if (!this.route || this.routeVersion !== game.blockadeVersion) { this.goalNodeId = 'B54'; this.recomputeRoute(); }
+            const wantGoal = this.crowdGoal();
+            if (!this.route || this.routeVersion !== game.blockadeVersion || this.goalNodeId !== wantGoal) { this.goalNodeId = wantGoal; this.recomputeRoute(); }
             while (this.route && this.routeIdx < this.route.length) {
                 const node = getNode(this.route[this.routeIdx]);
                 if (!node) { this.routeIdx++; continue; }
@@ -6184,25 +6376,76 @@
             }
             return false;
         }
-        turnViolent() {
-            const pct = Math.max(0.3, this.hp / this.maxHp), roll = Math.random();
-            const kind = roll < 0.12 ? 'brickthrower' : roll < 0.3 ? 'bruiser' : 'standard';
+        // The one place where somebody stops being a protester (or a hidden troublemaker) and starts rioting.
+        becomeRioter(kind) {
+            const pct = Math.max(0.3, this.hp / this.maxHp);
             this.kind = kind; this.def = RAIDER_TYPES[kind];
             this.maxHp = Math.round(this.def.hp * (game.waveIntensity || 1)); this.hp = Math.max(10, this.maxHp * pct);
-            this.state = 'advancing'; this.looksPeaceful = false; this.agitator = false;
+            this.state = 'advancing'; this.looksPeaceful = false; this.agitator = false; this.plan = null;
             this.outfit = makeRaiderOutfit(this.id, false, kind); this.outfit.sign = false;
-            this.goalNodeId = null; this.route = null; this.routeVersion = -1; this.repathTimer = 0;
-            this.atkTimer = this.def.atkCooldown * 0.5; this.engaged = false;
+            this.goalNodeId = null; this.route = null; this.routeVersion = -1; this.repathTimer = 0; this.avoidSet = null;
+            this.atkTimer = this.def.atkCooldown * 0.5; this.engaged = false; this.atStation = false;
             game.totalRaidersInWave++; game.waveTotalHp += this.def.hp;
-            game.waveStats.turned++; adjustOpinion(-1.5);
-            incite(this.x, this.y, TILE * 8, 12);                       // anger spreads
-            sfx('riot'); triggerShake(2);
-            if (!game._turnToast || (game.lastTime || 0) - game._turnToast > 6000) { game._turnToast = game.lastTime || 1; showToast(':burst: Protesters have turned violent!'); }
         }
-        goHome() {
-            game.waveStats.calmed++; adjustOpinion(0.6);
+        turnViolent() {
+            const roll = Math.random();
+            this.becomeRioter(roll < 0.12 ? 'brickthrower' : roll < 0.3 ? 'bruiser' : 'standard');
+            game.waveStats.turned++; adjustOpinion(-1.5);
+            incite(this.x, this.y, TILE * 8, 6);                        // anger spreads, but less than it used to
+            sfx('riot');
+            riotAlert(':burst: The crowd has turned. Protesters are rioting!');
+        }
+        // A hidden rioter shows their hand.
+        breakCover() {
+            const roll = Math.random();
+            this.becomeRioter(roll < 0.18 ? 'brickthrower' : roll < 0.40 ? 'bruiser' : 'standard');
+            game.waveStats.revealed = (game.waveStats.revealed || 0) + 1;
+            incite(this.x, this.y, TILE * 10, 16);
+            sfx('riot');
+            riotAlert(':siren: Rioters have broken cover in the crowd!');
+        }
+        // A protest that has done what it came to do goes home peacefully.
+        completePlan() {
+            game.waveStats.completed = (game.waveStats.completed || 0) + 1;
+            game.waveStats.calmed++; adjustOpinion(0.3);
             this.calmHome = true;
             this.startFleeing();
+        }
+        // Hidden rioters wait for their moment: a timer, pressure from a line of officers, or an angry crowd.
+        watchForCover(dt) {
+            this.revealT -= dt;
+            const near = this.nearOfficer, nd = this.nearDist;
+            const sy = near ? game.syndicates[hostOf(near.syndicateIndex)] : null;
+            if (near && nd < TILE * 6 && sy && !syndicateIsPassive(sy)) this.pressT += dt; else this.pressT = Math.max(0, this.pressT - dt);
+            const G = game.grievance || 0;
+            const hotCrowd = game.crowdMood > 72 - G * 0.15;
+            if (this.forceReveal || this.revealT <= 0 || this.pressT > 5 || (hotCrowd && Math.random() < dt * 0.25)) this.breakCover();
+        }
+        // The march is stopped by a line of officers: look for another street; if there is none, tempers fray.
+        tryAnotherWay(sy) {
+            this.rerouteCd = 4;
+            const avoid = new Set();
+            for (const n of ROAD_NODES) if (Math.hypot(n.x * TILE - sy.commandX, n.y * TILE - sy.commandY) < TILE * 11) avoid.add(n.id);
+            const start = nearestRoadNode(this.x, this.y);
+            if (!start) return false;
+            const path = findPathSmart(start.id, this.crowdGoal(), 28, 2.4, avoid, 400);
+            const clear = path && path.length > 1 && path.every((id, i) => i === 0 || !avoid.has(id));
+            if (clear) {
+                this.avoidSet = avoid; this.route = path; this.routeIdx = 0; this.routeVersion = game.blockadeVersion;
+                this.goalNodeId = this.crowdGoal(); this.detouring = true; this.detourUntil = (game.waveClock || 0) + 14;
+                this.blockedT = 0; this.noWay = false;
+                game.waveStats.rerouted = (game.waveStats.rerouted || 0) + 1;
+                return true;
+            }
+            this.noWay = true;
+            return false;
+        }
+        walkingAwayFrom(o) {
+            if (!this.route || this.routeIdx >= this.route.length) return false;
+            const wp = getNode(this.route[this.routeIdx]);
+            if (!wp) return false;
+            const vx = wp.x * TILE - this.x, vy = wp.y * TILE - this.y, ox = o.x - this.x, oy = o.y - this.y;
+            return vx * ox + vy * oy < 0;
         }
         agitate(dt) {
             if (this.nearOfficer && this.nearDist < TILE * 9) this.spotT += dt; else this.spotT = Math.max(0, this.spotT - dt * 0.5);
@@ -6224,36 +6467,84 @@
             this.crowdWander += dt;
             if (this.gasStunTimer > 0) { this.gasStunTimer -= dt; this.isMoving = false; return; }
             this.updateMood(dt);
+            if (this.rerouteCd > 0) this.rerouteCd -= dt;
+            const G = game.grievance || 0;
 
             if (!this.agitator) {
-                if (this.mood >= 85) { this.moodHot += dt; if (this.moodHot > 1.8) { this.turnViolent(); return; } }
+                // wound up too far, protesters riot. A run of blocked marches makes that happen quicker.
+                const hotAt = 85 - G * 0.2, hotFor = Math.max(0.7, 1.8 - G * 0.011);
+                if (this.mood >= hotAt) { this.moodHot += dt; if (this.moodHot > hotFor) { this.turnViolent(); return; } }
                 else this.moodHot = Math.max(0, this.moodHot - dt);
-                if (this.mood <= 5) { this.moodCalm += dt; if (this.moodCalm > 3) { this.goHome(); return; } }
-                else this.moodCalm = Math.max(0, this.moodCalm - dt);
-            } else this.agitate(dt);
+            } else {
+                this.watchForCover(dt);
+                if (this.kind !== 'crowd') return;                 // showed their hand this frame
+            }
+
+            // forget a detour once it has done its job
+            if (this.avoidSet && !this.detouring && (game.waveClock || 0) > this.detourUntil) this.avoidSet = null;
+            if (this.detouring && (game.waveClock || 0) > this.detourUntil) this.detouring = false;
+
+            // trouble close by (rioters fighting): the march holds back until it has passed
+            if (game._trouble && game._trouble.length) {
+                for (const t of game._trouble) {
+                    if (Math.abs(t.x - this.x) < TILE * 6 && Math.abs(t.y - this.y) < TILE * 6 && Math.hypot(t.x - this.x, t.y - this.y) < TILE * 6) {
+                        this.state = 'crowd_wait'; this.isMoving = false;
+                        this.mood = Math.min(100, this.mood + 0.2 * dt);
+                        const dx = t.x - this.x, dy = t.y - this.y, dd = Math.hypot(dx, dy) || 1;
+                        this.dir = { x: dx / dd, y: dy / dd };
+                        return;
+                    }
+                }
+            }
 
             // How does the nearest line of officers treat us?
             const near = this.nearOfficer, nd = this.nearDist;
+            let blocked = false;
             if (near && nd < TILE * 3.4) {
                 const sy = game.syndicates[hostOf(near.syndicateIndex)];
                 if (sy && !syndicateIsPassive(sy)) {
-                    // a wall, wedge or box in the way: stop, face them and shout
-                    this.state = 'crowd_wait'; this.isMoving = false;
-                    const dx = near.x - this.x, dy = near.y - this.y, d = Math.hypot(dx, dy) || 1;
-                    this.dir = { x: dx / d, y: dy / d };
-                    return;
-                }
-                if (sy && nd < TILE * 3.4) {
-                    // resting / stacked: they just let us through
+                    blocked = true;
+                    this.blockedT += dt;
+                    // another way round if there is one
+                    if (this.blockedT > 1.0 && this.rerouteCd <= 0 && !this.noWay) this.tryAnotherWay(sy);
+                    else if (this.noWay && this.rerouteCd <= 0) this.tryAnotherWay(sy);
+                    if (!(this.detouring && this.walkingAwayFrom(near))) {
+                        // stopped: face them and shout. No way round means the march cannot be finished.
+                        this.state = 'crowd_wait'; this.isMoving = false;
+                        const dx = near.x - this.x, dy = near.y - this.y, dd = Math.hypot(dx, dy) || 1;
+                        this.dir = { x: dx / dd, y: dy / dd };
+                        if (this.noWay || this.blockedT > 4) {
+                            const P = postureFx();
+                            this.mood = Math.min(100, this.mood + (1.6 + G * 0.02) * P.press * dt);
+                            this.frustrated = true;
+                        }
+                        if (this.blockedT > 6 && !this.blockedCounted) { this.blockedCounted = true; game.waveStats.blockedFails = (game.waveStats.blockedFails || 0) + 1; }
+                        return;
+                    }
+                } else if (sy && nd < TILE * 3.4) {
+                    // resting / filed: they just let us through
                     const hi = hostOf(near.syndicateIndex), now = game.lastTime || 0;
                     if (now - (sy._passAt || -1e9) > 25000) { sy._passAt = now; commanderShout(hi, 'Peaceful crowd. Let them through.'); }
                 }
             }
+            if (!blocked) { this.blockedT = Math.max(0, this.blockedT - dt * 0.8); if (this.blockedT <= 0) { this.noWay = false; this.frustrated = false; } }
+
             if (this.marchStep(dt, this.def.speed * (nd < TILE * 4 ? 0.75 : 0.95))) return;
-            // reached the station: stand and chant
+            this.reachedGoal(dt);
+        }
+        // The end of the route: a march moves on to its far exit; a rally stands at the station for a while, then goes home.
+        reachedGoal(dt) {
+            const plan = this.plan;
+            if (plan && plan.type === 'march' && plan.exitId) {
+                if (this.legIdx === 0) { this.legIdx = 1; this.route = null; return; }
+                this.completePlan(); return;
+            }
             this.atStation = true; this.state = 'crowd_wait'; this.isMoving = false;
             const bx = BASE_TILE_X * TILE - this.x, by = BASE_TILE_Y * TILE - this.y, bd = Math.hypot(bx, by) || 1;
             this.dir = { x: bx / bd, y: by / bd };
+            this.rallyT += dt;
+            const need = (plan && plan.rallyTime) || 35;
+            if ((this.rallyT > need && this.mood < 70) || this.rallyT > need + 45) this.completePlan();
         }
 
         update(dt) {
@@ -7201,7 +7492,7 @@
             return;
         }
         if (tactic === 'stackleft' || tactic === 'stackright') {
-            const sign = tactic === 'stackleft' ? -1 : 1;
+            const sign = tactic === 'stackleft' ? 1 : -1;
             const files = 3;
             const edgeOffset = sign * (ROAD_W / 2 - 0.55) * TILE;
             let i = 0, rank = 0;
@@ -7255,7 +7546,7 @@
     function ensureSyndicateState(idx) {
         if (!game.syndicates[idx]) {
             const startX = (SYNDICATE_START_X[idx] !== undefined) ? SYNDICATE_START_X[idx] : (BASE_TILE_X + idx * 8);
-            const startY = (SYNDICATE_START_Y[idx] !== undefined) ? SYNDICATE_START_Y[idx] : ROAD_Y_BOTTOM;
+            const startY = (SYNDICATE_START_Y[idx] !== undefined) ? SYNDICATE_START_Y[idx] : BASE_TILE_Y;
             game.syndicates[idx] = {
                 tactic: 'rest', commandX: startX * TILE, commandY: startY * TILE,
                 facingX: -1, facingY: 0, autoWallTimer: 0, provokedTimer: 0,
@@ -7282,8 +7573,8 @@
         idx = idx === undefined ? VEHICLE_SYNDICATE : idx;
         game.syndicates[idx] = {
             tactic: 'blockade',
-            commandX: idx === VEHICLE_SYNDICATE_2 ? 40 * TILE + TILE / 2 : 44 * TILE + TILE / 2,
-            commandY: ROAD_Y_BOTTOM * TILE + TILE / 2,
+            commandX: (BASE_TILE_X + (idx === VEHICLE_SYNDICATE_2 ? -14 : -10)) * TILE + TILE / 2,
+            commandY: BASE_TILE_Y * TILE + TILE / 2,
             facingX: -1, facingY: 0, linkHost: null,
         };
     }
@@ -7485,6 +7776,45 @@
         }
     }
 
+    // ========== AUTO-FACE ==========
+    // A line that is standing still turns by itself to face the nearest threat (rioters first, then the crowd).
+    function updateAutoFacing(dt) {
+        game._faceT = (game._faceT || 0) - dt;
+        if (game._faceT > 0) return;
+        game._faceT = 0.3;
+        for (let i = 0; i < OFFICER_SYNDICATES; i++) {
+            const sy = game.syndicates[i];
+            if (!sy || sy.post || hostOf(i) !== i) continue;         // junction blocks keep the arm they hold; linked lines follow their host
+            if (sy.path && sy.path.length) continue;                 // marching: face the way you are going
+            const mine = game.officers.filter(o => o.alive && !o.isAllOut && o.state === 'active' && hostOf(o.syndicateIndex) === i);
+            if (!mine.length) continue;
+            let cx = 0, cy = 0;
+            for (const o of mine) { cx += o.x; cy += o.y; }
+            cx /= mine.length; cy /= mine.length;
+            let best = null, bestScore = Infinity;
+            for (const r of game.raiders) {
+                if (!r.alive || r.state === 'fleeing' || r.beingArrested) continue;
+                const d2 = Math.hypot(r.x - cx, r.y - cy);
+                const hostile = r.kind !== 'crowd';
+                if (d2 > (hostile ? TILE * 26 : TILE * 13)) continue;
+                const score = hostile ? d2 : d2 + TILE * 20;          // rioters always matter more than the crowd
+                if (score < bestScore) { bestScore = score; best = r; }
+            }
+            if (!best) continue;
+            const dx = best.x - cx, dy = best.y - cy;
+            const horiz = sy.facingY === 0;
+            let nfx = sy.facingX, nfy = sy.facingY;
+            if (horiz) {
+                if (Math.abs(dy) > Math.abs(dx) * 1.35 && Math.abs(dy) > TILE * 3) { nfx = 0; nfy = Math.sign(dy) || 1; }
+                else if (Math.abs(dx) > TILE * 3) { nfx = Math.sign(dx); nfy = 0; }
+            } else {
+                if (Math.abs(dx) > Math.abs(dy) * 1.35 && Math.abs(dx) > TILE * 3) { nfx = Math.sign(dx) || 1; nfy = 0; }
+                else if (Math.abs(dy) > TILE * 3) { nfx = 0; nfy = Math.sign(dy); }
+            }
+            if (nfx !== sy.facingX || nfy !== sy.facingY) { sy.facingX = nfx; sy.facingY = nfy; }
+        }
+    }
+
     // ========== ALL UNITS ON ME ==========
     function toggleMergedMode() {
         if (!skillOwned('mergeall')) { showToast(':lock: All Units On Me is locked. Unlock it in Skills.'); return; }
@@ -7551,64 +7881,33 @@
     // ========== ARREST TEAM ==========
     function sendInArrestTeamFor(idx, silent) {
         const say = m => { if (!silent) showToast(m); };
-        if (idx >= OFFICER_SYNDICATES) { say('Vehicles have no arrest team.'); return false; }
-        if (!teamUnlocked('arrest', idx)) { say(':lock: S' + (idx + 1) + ' has no arrest team yet. Unlock it in Skills.'); return false; }
-        if (game.arrestCooldown[idx] > 0) {
-            say('Arrest team for S' + (idx + 1) + ' is regrouping.');
+        if (idx >= OFFICER_SYNDICATES) { say('Vehicles have no arrest officers.'); return false; }
+        if (!teamUnlocked('arrest', idx)) { say(':lock: S' + (idx + 1) + ' has no arrest officers yet. Unlock them in Skills.'); return false; }
+        if (arrestChargesFor(idx) <= 0) {
+            say('All three S' + (idx + 1) + ' arrest officers are out. Each is ready again once it is back from the station.');
             return false;
         }
         const sy = ensureSyndicateState(idx);
         if (!sy) return false;
+        const target = findArrestTarget(idx, null);
+        if (!target) { say(':cuffs: No rioters in reach to arrest. Protesters cannot be arrested.'); return false; }
 
         let fx = sy.facingX || 1, fy = sy.facingY || 0;
         if (Math.abs(fx) > Math.abs(fy)) { fx = Math.sign(fx) || 1; fy = 0; }
         else { fx = 0; fy = Math.sign(fy) || 1; }
         const px = fy, py = -fx;
-        const back = TILE * 4;
-        const baseX = sy.commandX - fx * back;
-        const baseY = sy.commandY - fy * back;
-
-        const existing = game.arrestOfficers.filter(a => a.alive && a.syndicateIndex === idx);
-
-        if (existing.length >= ARREST_TEAM_SIZE) {
-            existing.forEach((a, i) => {
-                const off = (i - (ARREST_TEAM_SIZE - 1) / 2) * TILE * 1.5;
-                let sx = baseX + px * off;
-                let sy2 = baseY + py * off;
-                if (!isValidOfficerPosition(sx, sy2)) {
-                    const snapped = snapToTileCenter(baseX, baseY);
-                    sx = snapped.x; sy2 = snapped.y;
-                }
-                a.x = sx; a.y = sy2;
-                a.hp = a.maxHp;
-                if (a.carrying) { a.carrying.beingArrested = false; a.carrying.arrestOfficer = null; a.carrying = null; }
-                a.carrying = null;
-                a.carryTimer = 0;
-                a.state = 'escort';
-                a.lifeTimer = ARREST_TEAM_LIFETIME;
-                a.returningHome = false;
-                a.route = null; a.routeIdx = 0; a.routeStuck = 0;
-                a._lastReturnDist = undefined;
-                a._returnStuckTime = 0;
-            });
-        } else {
-            game.arrestOfficers = game.arrestOfficers.filter(a => a.alive);
-            for (let i = 0; i < ARREST_TEAM_SIZE; i++) {
-                const off = (i - (ARREST_TEAM_SIZE - 1) / 2) * TILE * 1.5;
-                let sx = baseX + px * off;
-                let sy2 = baseY + py * off;
-                if (!isValidOfficerPosition(sx, sy2)) {
-                    const snapped = snapToTileCenter(baseX, baseY);
-                    sx = snapped.x; sy2 = snapped.y;
-                }
-                const a = new ArrestOfficer(sx, sy2, idx);
-                a.slotOffset = (i - (ARREST_TEAM_SIZE - 1) / 2) * 1.2;
-                game.arrestOfficers.push(a);
-            }
-        }
-        game.arrestCooldown[idx] = ARREST_COOLDOWN;
-        showToast(':car: Arrest team deploying behind Syndicate ' + (idx + 1) + '!');
-        commanderShout(idx, 'Arrest team — grab that one!');
+        const slot = arrestChargesFor(idx) - 2;                       // spread the three officers out a little
+        let sx = sy.commandX - fx * TILE * 4 + px * slot * TILE * 1.4;
+        let sy2 = sy.commandY - fy * TILE * 4 + py * slot * TILE * 1.4;
+        if (!isValidOfficerPosition(sx, sy2)) { const s = snapToTileCenter(sy.commandX - fx * TILE * 4, sy.commandY - fy * TILE * 4); sx = s.x; sy2 = s.y; }
+        const a = new ArrestOfficer(sx, sy2, idx);
+        a.slotOffset = slot * 1.2;
+        a.target = target;
+        a.lifeTimer = ARREST_SORTIE_TIME;
+        game.arrestOfficers.push(a);
+        const left = arrestChargesFor(idx);
+        showToast(':car: Arrest officer sent from S' + (idx + 1) + ' (' + left + ' left)');
+        commanderShout(idx, 'Arrest officer — grab that one!');
         updateArrestButton();
         return true;
     }
@@ -7630,8 +7929,11 @@
         if (list[0] >= OFFICER_SYNDICATES) { btn.disabled = true; btn.classList.remove('ready'); sub.textContent = '—'; return; }
         list = list.filter(i => teamUnlocked('arrest', i));
         if (!list.length) { btn.disabled = true; btn.classList.remove('ready'); sub.textContent = ':lock: locked'; return; }
-        const cds = list.map(i => game.arrestCooldown[i] || 0);
-        setAbilityButton(btn, sub, cds.filter(c => c <= 0).length, list.length, 'S' + (list[0] + 1), Math.min(...cds));
+        let have = 0;
+        for (const i of list) have += arrestChargesFor(i);
+        const max = list.length * ARREST_TEAM_SIZE;
+        if (have > 0) { btn.disabled = false; btn.classList.add('ready'); sub.textContent = have + ' of ' + max + ' ready'; }
+        else { btn.disabled = true; btn.classList.remove('ready'); sub.textContent = 'all out'; }
     }
 
     function abilityIdxs() {
@@ -7655,14 +7957,11 @@
     }
 
     // ========== TEAR GAS ==========
+    function gasTeamReady(team) { return team.length > 0 && team.every(t => t.refilled && (t.state === 'escort' || t.state === 'returning')); }
     function deployTearGasFor(idx, silent) {
         const say = m => { if (!silent) showToast(m); };
         if (idx >= OFFICER_SYNDICATES) { say('Vehicles carry no tear gas.'); return false; }
         if (!teamUnlocked('gas', idx)) { say(':lock: S' + (idx + 1) + ' has no tear gas team yet. Unlock it in Skills.'); return false; }
-        if (game.tearGasCooldown[idx] > 0) {
-            say('Tear gas ready in ' + Math.ceil(game.tearGasCooldown[idx]) + 's.');
-            return false;
-        }
         const team = game.tearGasOfficers.filter(t => t.alive && t.syndicateIndex === idx);
         if (team.length === 0) {
             say('Every gas officer of this syndicate has fallen.');
@@ -7673,19 +7972,23 @@
             say('Tear gas team already engaged.');
             return false;
         }
+        if (!team.every(t => t.refilled)) {
+            say(':gas: The gas team is still on its way back from the station with a refill.');
+            return false;
+        }
         const crowd = getGasTarget(idx, true);
         if (!crowd) {
-            say(':gas: No raider crowd in reach yet — hold the gas until they close in.');
+            say(':gas: No rioters in reach yet — hold the gas until they close in.');
             return false;
         }
         for (const t of team) {
             t.state = 'advancing';
             t.crowd = crowd;
             t.advanceTimer = 0;
+            t.refilled = false;
             t._route = null; t._routeGoal = null; t._progStuck = 0;
         }
-        game.tearGasCooldown[idx] = TEAR_GAS_COOLDOWN;
-        showToast(':gas: Tear gas moving on the biggest crowd (' + Math.max(1, Math.round(crowd.count)) + ' raiders)!');
+        showToast(':gas: Tear gas moving on the biggest group of rioters (' + Math.max(1, Math.round(crowd.count)) + ')!');
         commanderShout(idx, 'Gas team — deploy!');
         sfx('gas');
         updateTearGasButton();
@@ -7700,19 +8003,18 @@
         if (list[0] >= OFFICER_SYNDICATES) { btn.disabled = true; btn.classList.remove('ready'); sub.textContent = '—'; return; }
         list = list.filter(i => teamUnlocked('gas', i));
         if (!list.length) { btn.disabled = true; btn.classList.remove('ready'); sub.textContent = ':lock: locked'; return; }
-        let ready = 0, minCd = Infinity, anyTeam = false, spraying = false;
+        let ready = 0, anyTeam = false, out = false, refilling = false;
         for (const i of list) {
             const team = game.tearGasOfficers.filter(t => t.alive && t.syndicateIndex === i);
             if (!team.length) continue;
             anyTeam = true;
-            if (team.some(t => t.state === 'spraying' || t.state === 'advancing')) { spraying = true; continue; }
-            const cd = game.tearGasCooldown[i] || 0;
-            if (cd <= 0) ready++; else minCd = Math.min(minCd, cd);
+            if (team.some(t => t.state === 'spraying' || t.state === 'advancing')) { out = true; continue; }
+            if (team.every(t => t.refilled)) ready++; else refilling = true;
         }
         const lbl = 'S' + (list[0] + 1);
         if (!anyTeam) { setAbilityButton(btn, sub, 0, list.length, lbl, 0, lbl + ' unavailable'); return; }
-        if (!ready && spraying && minCd === Infinity) { setAbilityButton(btn, sub, 0, list.length, lbl, 0, list.length > 1 ? 'spraying' : lbl + ' spraying'); return; }
-        setAbilityButton(btn, sub, ready, list.length, lbl, minCd === Infinity ? 0 : minCd);
+        if (ready) { setAbilityButton(btn, sub, ready, list.length, lbl, 0); return; }
+        setAbilityButton(btn, sub, 0, list.length, lbl, 0, out ? 'spraying' : (refilling ? 'refilling' : 'not ready'));
     }
 
     // ========== K9 ==========
@@ -7862,8 +8164,6 @@
     // ========== WAVES ==========
     const OBJECTIVE_LABELS = { base: 'Reach the Station', buildings: 'Vandalize the City', hunt: 'Attack the Officers' };
 
-    const ALL_EXITS = ['N18', 'N30', 'N54', 'N78', 'N90', 'S12', 'S54', 'S96'];
-
     const WAVE_TONES = {
         1: 'Probing Advance',
         2: 'Twin Thrust',
@@ -7877,7 +8177,7 @@
         const n = getNode(exitId);
         if (!n) return 1;
         let score = 0;
-        const path = findPathWeighted(exitId, 'B54', null);
+        const path = findPathWeighted(exitId, BASE_NODE_ID, null);
         const pts = [];
         if (path && path.length > 1) {
             for (let i = 0; i < path.length - 1; i++) {
@@ -7916,10 +8216,12 @@
         game.raiderGroupMorale = 100;
 
         const wave = game.waveNumber;
-        game.waveIntensity = 1 + (wave - 1) * 0.045;
+        game.waveIntensity = (1 + (wave - 1) * 0.045) * ((window.CordonDifficulty ? CordonDifficulty.tune().hp : 1));
+        const aliveNow = game.officers.filter(o => o.alive && !o.isAllOut);
+        game.perfStart = { baseHp: game.baseHp, officers: aliveNow.length, buildings: game.buildingsDestroyed || 0 };
         const mods = levelMods(wave);
         game.waveStartMood = mods.startMood; game.crowdMood = mods.startMood;
-        game.waveStats = { calmed: 0, turned: 0, hurt: 0, agitArrested: 0, backups: 0, startOpinion: game.opinion, coinBonus: mods.coinBonus, hadCrowd: false };
+        game.waveStats = { calmed: 0, turned: 0, hurt: 0, agitArrested: 0, backups: 0, startOpinion: game.opinion, coinBonus: mods.coinBonus, hadCrowd: false, rioterArrests: 0, blockedFails: 0, rerouted: 0, completed: 0, protesters: 0, revealed: 0 };
         if (game.overtimeTired) {
             game.overtimeTired = false;
             for (const o of game.officers) if (o.alive && !o.isAllOut) o.hp = Math.max(1, o.hp * 0.85);
@@ -7934,15 +8236,19 @@
         else if (roll < 0.55) ai.objective = 'buildings';
         else ai.objective = 'hunt';
 
-        // Raider count and gate spread scale up harder — closes the easy-corner exploit.
-        const raiderCount = Math.max(6, Math.round((24 + wave * 8 + Math.floor(wave * wave * 0.4)) * forceScale() * mods.rioters));
-        const crowdCount = Math.max(0, Math.min(34, Math.round((4 + nightOf(wave) * 2) * mods.protesters + wave * 0.5)));
-        const agitatorCount = crowdCount > 0 ? Math.round(mods.agitators * (0.5 + nightOf(wave) * 0.4)) : 0;
-        game.waveStats.hadCrowd = crowdCount > 0;
+        // How the night goes: a peaceful crowd marches in first. Rioters are hidden in it, arrive later, or are made by a crowd that turns.
+        const D = (window.CordonDifficulty && CordonDifficulty.tune) ? CordonDifficulty.tune(game) : { rioters: 1, protesters: 1, hidden: 1, pace: 1, mood: 0 };
+        game.diffTune = D;
+        const G = game.grievance || 0;
+        const raiderCount = Math.max(5, Math.round((24 + wave * 8 + Math.floor(wave * wave * 0.4)) * forceScale() * mods.rioters * D.rioters));
+        const crowdCount = Math.max(4, Math.min(38, Math.round(((4 + nightOf(wave) * 2) * mods.protesters + wave * 0.5) * D.protesters)));
+        const hiddenCount = wave < 2 ? 0 : Math.max(1, Math.round(mods.agitators * (1.2 + nightOf(wave) * 0.6) * D.hidden) + Math.floor(G / 25));
+        game.waveStats.hadCrowd = true;
+        game.waveStartMood = Math.min(95, game.waveStartMood + G * 0.12 + (D.mood || 0)); game.crowdMood = game.waveStartMood;
 
-        const maxGates = Math.min(ALL_EXITS.length, 2 + Math.floor(wave / 2));
-        const gateCount = Math.max(2, Math.min(ALL_EXITS.length, 1 + Math.floor(Math.random() * maxGates)));
-        const shuffled = ALL_EXITS.slice();
+        const maxGates = Math.min(EXIT_NODE_IDS.length, 2 + Math.floor(wave / 2));
+        const gateCount = Math.max(2, Math.min(EXIT_NODE_IDS.length, 1 + Math.floor(Math.random() * maxGates)));
+        const shuffled = EXIT_NODE_IDS.slice();
         for (let i = shuffled.length - 1; i > 0; i--) {
             const j = Math.floor(Math.random() * (i + 1));
             [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
@@ -7972,41 +8278,65 @@
             squad.role = (r < 0.55) ? 'main' : (r < 0.8) ? 'flank' : 'distraction';
         }
 
+        // The rioters are split into arrival groups that turn up at different times (see the riot director).
         game.waveSpawnQueue = [];
         let totalHp = 0;
-        for (const { squad, count } of createdSquads) {
-            for (let i = 0; i < count; i++) {
-                const roll2 = Math.random();
-                let kind = 'standard';
-                if (roll2 < 0.15 * mods.bricks) kind = 'brickthrower';
-                else if (roll2 < 0.15 * mods.bricks + 0.25) kind = 'bruiser';
-                game.waveSpawnQueue.push({ kind, squadId: squad.id });
-                totalHp += RAIDER_TYPES[kind].hp;
+        const groupN = Math.max(1, Math.min(createdSquads.length, 3, 1 + Math.floor(wave / 3) + (D.pace > 1.15 ? 1 : 0)));
+        const groups = [];
+        for (let g = 0; g < groupN; g++) groups.push([]);
+        createdSquads.forEach((c, i) => groups[i % groupN].push(c));
+        const events = [];
+        for (const grp of groups) {
+            const sq = [];
+            for (const { squad, count } of grp) {
+                const kinds = [];
+                for (let i = 0; i < count; i++) {
+                    const roll2 = Math.random();
+                    let kind = 'standard';
+                    if (roll2 < 0.15 * mods.bricks) kind = 'brickthrower';
+                    else if (roll2 < 0.15 * mods.bricks + 0.25) kind = 'bruiser';
+                    kinds.push(kind);
+                    totalHp += RAIDER_TYPES[kind].hp;
+                }
+                sq.push({ squad, kinds });
             }
+            events.push({ type: 'arrive', squads: sq });
         }
+        if (hiddenCount > 0) events.push({ type: 'reveal', frac: 0.5 });
+        if (hiddenCount > 2 || wave >= 4) events.push({ type: 'reveal', frac: 1 });
+        if (wave >= 3 && Math.random() < 0.7) events.push({ type: 'flare' });
+        for (let i = events.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [events[i], events[j]] = [events[j], events[i]];
+        }
+        if (events.length > 1 && events[0].type === 'flare') { const k = events.findIndex(e => e.type !== 'flare'); if (k > 0) [events[0], events[k]] = [events[k], events[0]]; }
+
+        // the peaceful crowd (and anyone hiding in it) marches in straight away, with a plan
         const crowdSquadIds = [];
-        if (crowdCount > 0) {
-            const crowdSquads = Math.min(2, Math.max(1, Math.floor(gateCount / 2)));
-            for (let c = 0; c < crowdSquads; c++) {
-                const exit = exits[Math.floor(Math.random() * exits.length)];
-                const squad = new RaiderSquad(game.nextSquadId++, exit, 'sneaky');
-                squad.isCrowd = true;
-                squad.role = 'crowd';
-                game.squads.set(squad.id, squad);
-                const per = Math.max(3, Math.floor(crowdCount / crowdSquads));
-                for (let i = 0; i < per; i++) game.waveSpawnQueue.push({ kind: 'crowd', squadId: squad.id });
-                crowdSquadIds.push(squad.id);
-            }
+        const crowdSquads = Math.min(2, Math.max(1, Math.floor(gateCount / 2)));
+        for (let c = 0; c < crowdSquads; c++) {
+            const exit = exits[Math.floor(Math.random() * exits.length)];
+            const squad = new RaiderSquad(game.nextSquadId++, exit, 'sneaky');
+            squad.isCrowd = true;
+            squad.role = 'crowd';
+            squad.plan = makeProtestPlan(exit);
+            game.squads.set(squad.id, squad);
+            const per = Math.max(3, Math.floor(crowdCount / crowdSquads));
+            for (let i = 0; i < per; i++) game.waveSpawnQueue.push({ kind: 'crowd', squadId: squad.id });
+            crowdSquadIds.push(squad.id);
         }
-        for (let i = 0; i < agitatorCount && crowdSquadIds.length; i++) {
+        for (let i = 0; i < hiddenCount && crowdSquadIds.length; i++) {
             game.waveSpawnQueue.push({ kind: 'crowd', agitator: true, squadId: crowdSquadIds[i % crowdSquadIds.length] });
         }
-
         for (let i = game.waveSpawnQueue.length - 1; i > 0; i--) {
             const j = Math.floor(Math.random() * (i + 1));
             [game.waveSpawnQueue[i], game.waveSpawnQueue[j]] = [game.waveSpawnQueue[j], game.waveSpawnQueue[i]];
         }
-
+        const pace = D.pace || 1;
+        game.riot = {
+            events, nextAt: Math.max(14, (30 + Math.random() * 14 - G * 0.12) / pace), gap: Math.max(15, (36 - wave * 0.8) / pace),
+            calmT: 0, calmArmed: false, active: 0, peaceT: 0, dispersed: false, maxActive: 8 + wave,
+        };
         game.waveTotalHp = totalHp;
         game.totalRaidersInWave = raiderCount;
         game.waveSpawnTimer = 0;
@@ -8099,12 +8429,12 @@
             if (!isCrowd && f.still < 10) combatActive++;
         }
 
-        if (combatAlive > 0 && combatActive === 0 && game.waveSpawnQueue.length === 0) {
+        if (combatAlive > 0 && combatActive === 0 && game.waveSpawnQueue.length === 0 && !(game.riot && game.riot.events.length)) {
             game.fsIdle = (game.fsIdle || 0) + dt;
             if (game.fsIdle > FS.WAVE_IDLE && !game.fsIdleFired) {
                 game.fsIdleFired = true;
                 disperseRaiders();
-                showToast('Raiders have lost heart and are leaving');
+                showToast('The rioters have lost heart and are leaving');
             }
         } else {
             game.fsIdle = 0; game.fsIdleFired = false;
@@ -8112,6 +8442,7 @@
 
         if (game.waveSpawnQueue.length === 0) {
             if (game.waveClock > FS.WAVE_HARD_CAP && !game.fsCapFired) {
+                if (game.riot) game.riot.events = [];
                 game.fsCapFired = true;
                 disperseRaiders();
                 showToast('The disturbance is breaking up');
@@ -8211,20 +8542,17 @@
         }
 
         raiderFailsafe(dt);
+        updateRiotDirector(dt);
 
-        const anyCombat = game.raiders.some(r => r.alive && r.kind !== 'crowd');
-        if (!anyCombat) {
-            for (const r of game.raiders) {
-                if (r.alive && r.kind === 'crowd' && r.state !== 'fleeing') r.startFleeing();
-            }
-        }
-
-        const anyLeft = game.raiders.some(r => r.alive) || game.waveSpawnQueue.length > 0;
+        const eventsPending = !!(game.riot && game.riot.events.length > 0);
+        const hiddenAlive = game.raiders.some(r => r.alive && r.kind === 'crowd' && r.agitator);
+        const anyLeft = game.raiders.some(r => r.alive) || game.waveSpawnQueue.length > 0 || eventsPending;
         const moraleBroken = game.waveMoralePct <= 0;
-        const routedEnough = (game.raidersDefeated / Math.max(1, game.totalRaidersInWave)) >= 0.95;
+        const routedEnough = !eventsPending && !hiddenAlive && (game.raidersDefeated / Math.max(1, game.totalRaidersInWave)) >= 0.95;
 
         if (moraleBroken || routedEnough) {
             game.waveSpawnQueue = [];
+            if (game.riot) game.riot.events = [];
             for (const r of game.raiders) {
                 if (r.alive && r.state !== 'fleeing' && !r.beingArrested) { r.startFleeing(); if (r.kind !== 'crowd') game.routed++; }
             }
@@ -8240,7 +8568,8 @@
                 game.waveNumber++;
                 game.waveTimer = 8;
                 game.fsClear = 0;
-                const verdict = endOfNight(paid.reward);
+                let verdict = endOfNight(paid.reward);
+                verdict += judgeNight();
                 sfx('coin');
                 showToast('Night cleared! +' + paid.reward + ' :coin:' + verdict + (paid.checkpoint ? '  ·  :save: Checkpoint: Level ' + paid.next : ''));
                 if (nightOf(game.waveNumber) === 1) { rebuildDistrict(); showChapterCard(game.waveNumber); }
@@ -8257,12 +8586,75 @@
         if (game.baseHp <= 0 && !game.gameOver) endGame();
     }
 
+    // ========== RIOT DIRECTOR ==========
+    // A night is a protest. Trouble comes in bursts so the player is never sure what is next: rioters arrive from an edge,
+    // hidden troublemakers break cover, or the mood of the crowd flips. When the street settles the protest carries on.
+    function fireRiotEvent(ev) {
+        const R = game.riot;
+        if (ev.type === 'reveal') {
+            const hidden = game.raiders.filter(r => r.alive && r.kind === 'crowd' && r.agitator && r.state !== 'fleeing');
+            if (!hidden.length) ev = { type: 'flare' };
+            else {
+                hidden.sort((a, b) => { const na = a.nearDist === undefined ? 1e9 : a.nearDist, nb = b.nearDist === undefined ? 1e9 : b.nearDist; return na - nb; });
+                const n = Math.max(1, Math.ceil(hidden.length * (ev.frac || 0.5)));
+                hidden[0].breakCover();
+                for (let i = 1; i < n; i++) { hidden[i].forceReveal = true; hidden[i].revealT = Math.min(hidden[i].revealT, 0.4 + i * 0.5); }
+                return;
+            }
+        }
+        if (ev.type === 'arrive') {
+            const places = [];
+            for (const g of ev.squads) {
+                for (const kind of g.kinds) game.waveSpawnQueue.push({ kind, squadId: g.squad.id });
+                places.push(compassOf(g.squad.spawnNodeId));
+            }
+            const uniq = places.filter((p, i) => places.indexOf(p) === i);
+            riotAlert(':siren: Rioters are arriving from ' + uniq.join(' and ') + '!');
+            commanderShoutAll('More rioters on the way in — brace!');
+            return;
+        }
+        if (ev.type === 'flare') {
+            const prot = game.raiders.filter(r => r.alive && r.kind === 'crowd' && !r.agitator && r.state !== 'fleeing');
+            if (!prot.length) return;
+            const c = prot[Math.floor(Math.random() * prot.length)];
+            incite(c.x, c.y, TILE * 9, 32);
+            riotAlert(':burst: The mood of the crowd is turning ugly!');
+        }
+    }
+    function updateRiotDirector(dt) {
+        const R = game.riot;
+        if (!R) return;
+        let active = 0;
+        for (const r of game.raiders) if (r.alive && r.kind !== 'crowd' && r.state !== 'fleeing' && r.state !== 'fading') active++;
+        R.active = active;
+        if (active === 0) R.calmT += dt; else { R.calmT = 0; R.calmArmed = false; }
+        if (R.calmT > 6 && !R.calmArmed) {
+            R.calmArmed = true;                              // the street has settled: the march carries on, but not for long
+            if (R.events.length) R.nextAt = Math.min(R.nextAt, game.waveClock + 12 + Math.random() * 12);
+        }
+        if (R.events.length && game.waveClock >= R.nextAt) {
+            if (active <= R.maxActive) {
+                fireRiotEvent(R.events.shift());
+                R.nextAt = game.waveClock + R.gap * (0.7 + Math.random() * 0.7);
+            } else R.nextAt = game.waveClock + 4;            // plenty out there already: hold the next lot back a moment
+        }
+        const hiddenLeft = game.raiders.some(r => r.alive && r.kind === 'crowd' && r.agitator);
+        if (!R.events.length && !hiddenLeft && active === 0 && game.waveSpawnQueue.length === 0) {
+            R.peaceT += dt;
+            if (R.peaceT > 80 && !R.dispersed) {             // nothing left to happen: a calm protest packs up
+                R.dispersed = true;
+                for (const r of game.raiders) if (r.alive && r.kind === 'crowd' && r.state !== 'fleeing') r.completePlan();
+                showToast(':dove: The protest is over. The marchers are heading home.');
+            }
+        } else R.peaceT = 0;
+    }
+
     // ========== SQUAD AI DIRECTOR ==========
     function enterWallState(squad) {
         squad.state = 'wall';
         squad.stateTimer = 3 + Math.random() * 2;
         const c = squad.centroid;
-        const obj = getNode('B54');
+        const obj = getNode(BASE_NODE_ID);
         const ox = obj ? obj.x * TILE : c.x;
         const oy = obj ? obj.y * TILE : c.y;
         const dx = ox - c.x, dy = oy - c.y;
@@ -8366,27 +8758,42 @@
         }
     }
 
+    // Messages: a short column (max 3) so nothing ever draws on top of anything else.
+    function dropMsg(el, now) {
+        if (!el || !el.parentNode) return;
+        clearTimeout(el._t);
+        if (now) { el.remove(); return; }
+        el.classList.add('out');
+        setTimeout(() => { if (el.parentNode) el.remove(); }, 380);
+    }
+    function pushMsg(o) {
+        const box = document.getElementById('msg-stack');
+        if (!box) return;
+        if (o.key) {
+            for (const c of box.children) {
+                if (c.dataset.key === o.key && !c.classList.contains('out')) { clearTimeout(c._t); c._t = setTimeout(() => dropMsg(c), o.ttl); return; }
+            }
+        }
+        const el = document.createElement('div');
+        el.className = 'msg' + (o.cls ? ' ' + o.cls : '');
+        if (o.key) el.dataset.key = o.key;
+        if (o.html) el.innerHTML = o.html; else el.textContent = o.text;
+        box.appendChild(el);
+        while (box.children.length > 3) dropMsg(box.firstChild, true);
+        el._t = setTimeout(() => dropMsg(el), o.ttl);
+    }
     function announceWave(gateCount, maxGates) {
-        const el = document.getElementById('wave-banner');
-        const objLabel = OBJECTIVE_LABELS[game.raidAI.objective] || '';
-        const tone = WAVE_TONES[Math.min(6, Math.ceil(game.waveNumber / 2))] || 'Escalating Assault';
+        const tone = WAVE_TONES[Math.min(6, Math.ceil(game.waveNumber / 2))] || 'Escalating Protest';
         const beat = (chapterFor(game.waveNumber).nights || [])[nightOf(game.waveNumber) - 1] || '';
-        el.innerHTML = 'NIGHT ' + nightOf(game.waveNumber) + ' · ' + chapterFor(game.waveNumber).city.toUpperCase() +
-            '<br><span style="font-size:13px;letter-spacing:1px;color:#9ad4ff">' + beat + '</span>' +
-            '<br><span style="font-size:15px;letter-spacing:1px;color:#ffcc33">' + objLabel + '</span>' +
-            '<br><span style="font-size:11px;letter-spacing:1px;color:#ff8a5c">' + tone +
-            ' · ' + gateCount + ' entr' + (gateCount === 1 ? 'y' : 'ies') + '</span>';
-        el.classList.remove('show'); void el.offsetWidth; el.classList.add('show');
+        pushMsg({
+            cls: 'wave', ttl: 5200,
+            html: '<div class="w-title">NIGHT ' + nightOf(game.waveNumber) + ' · ' + chapterFor(game.waveNumber).city.toUpperCase() + '</div>' +
+                  (beat ? '<div class="w-beat">' + beat + '</div>' : '') +
+                  '<div class="w-obj">' + tone + ' · ' + gateCount + ' entr' + (gateCount === 1 ? 'y' : 'ies') + '</div>',
+        });
     }
 
-    function showToast(msg) {
-        const t = document.getElementById('toast');
-        if (!t) return;
-        t.textContent = msg;
-        t.classList.add('show');
-        clearTimeout(toastTimer);
-        toastTimer = setTimeout(() => t.classList.remove('show'), 2100);
-    }
+    function showToast(msg) { pushMsg({ text: msg, ttl: 2600, key: msg }); }
 
     // ========== INPUT ==========
     function setupEvents() {
@@ -8580,8 +8987,8 @@
         { key: 'rest', label: ':moon: Rest' },
         { key: 'wedge', label: ':wedge: Wedge' },
         { key: 'wall', label: ':wall: Wall' },
-        { key: 'stackleft', label: ':arrow_l: Stack Left' },
-        { key: 'stackright', label: ':arrow_r: Stack Right' },
+        { key: 'stackleft', label: ':arrow_l: File Left' },
+        { key: 'stackright', label: ':arrow_r: File Right' },
         { key: 'box', label: ':box: Box' },
         { key: 'pulse', label: ':burst: Pulse' },
     ];
@@ -8686,7 +9093,7 @@
         if (tacticIsPassive(sy.tactic) && sy.provokedTimer <= 0) {
             const w = document.createElement('div');
             w.className = 'info-line'; w.style.color = '#8ec8f0';
-            w.textContent = ':dove: Holding fire — this posture will not engage unless attacked. Raiders may walk right through.';
+            w.textContent = ':dove: Holding fire — this posture will not engage unless attacked. Protesters may walk right through.';
             panel.appendChild(w);
         }
         if (sy.tactic === 'rest' && sy.autoWallTimer > 0) {
@@ -8818,7 +9225,7 @@
             if (!v) d.textContent = 'Vehicle unavailable.';
             else {
                 const parts = [];
-                if (v.parked) parts.push(':pin: Holding position — the two-man team is out and firing baton rounds at any raider within range, one round each every 2 seconds.');
+                if (v.parked) parts.push(':pin: Holding position — the two-man team is out and firing baton rounds at any rioter within range, one round each every 2 seconds.');
                 else if (v.targetSpot) parts.push('Driving to position…');
                 else parts.push('Roaming — tap the map or d-pad to send it to a road position. The team only deploys once parked.');
                 d.textContent = parts.join(' ');
@@ -8851,7 +9258,7 @@
             if (v.parked) parts.push(':pin: Holding position.');
             else if (v.targetSpot) parts.push('Driving to position…');
             else parts.push('Roaming — tap the map or d-pad to send it to a road position.');
-            if (v.waterCannonOn) parts.push(':drop: Water cannon ON — auto-firing at nearby raiders.');
+            if (v.waterCannonOn) parts.push(':drop: Water cannon ON — auto-firing at nearby rioters.');
             d.textContent = parts.join(' ');
         }
         panel.appendChild(d);
@@ -9216,7 +9623,7 @@
         game.commanders.forEach(c => { if (c.alive) all.push(c); });
         for (const pv of parkedVehicles) all.push(pv);
         if (game.ambulance && game.ambulance.alive) all.push(game.ambulance);
-        STATION_LAMP.y = (STATION_TY0 - 0.35) * TILE;
+        STATION_LAMP.x = BASE_TILE_X * TILE + 8; STATION_LAMP.y = (STATION_TY0 - 0.35) * TILE;
         all.push(STATION_LAMP);
         all.sort((a, b) => a.y - b.y);
         all.forEach(u => u.draw(ctx));
@@ -9430,6 +9837,7 @@
     // ========== GAME OVER ==========
     function endGame() {
         game.gameOver = true;
+        if (window.CordonDifficulty) CordonDifficulty.gameOver();
         const overlay = document.getElementById('gameover-overlay');
         document.getElementById('gameover-title').textContent = ':burst: Station Overrun';
         document.getElementById('gameover-save').textContent =
@@ -9437,7 +9845,7 @@
             (profile.checkpoint > 1 ? ':save: Checkpoint: Level ' + profile.checkpoint : 'Clear ' + CHECKPOINT_EVERY + ' levels to bank a checkpoint');
         document.getElementById('gameover-stats').textContent =
             'Levels cleared: ' + (game.waveNumber - game.startLevel) +
-            '  •  Raiders routed: ' + game.routed +
+            '  •  Rioters routed: ' + game.routed +
             '  •  Arrested: ' + game.arrested +
             '  •  Buildings lost: ' + game.buildingsDestroyed +
             '  •  Street furniture smashed: ' + (game.furnitureDestroyed || 0) +
@@ -9451,6 +9859,8 @@
         initGameState();
         game.waveNumber = startLevel();
         game.startLevel = game.waveNumber;
+        if (window.CordonDifficulty) { CordonDifficulty.init(settings.testMode ? 'cordon.difficulty.test' : 'cordon.difficulty.v1', !settings.testMode); CordonDifficulty.newRun(); }
+        applyMap(mapIdForLevel(game.waveNumber));
         rebuildRoadNetwork();
         applyDistrict(game.waveNumber);
         generateMap(); buildTerrainCanvas(); buildMinimapTerrainCanvas();
@@ -9474,7 +9884,7 @@
         }
     }
     function loop(t) {
-        const rawDt = Math.min(0.05, (t - (game.lastTime || t)) / 1000);
+        const rawDt = Math.max(0, Math.min(0.05, (t - (game.lastTime || t)) / 1000));
         const dt = rawDt * (settings.testMode ? (game.timeScale || 1) : 1);
         game.lastTime = t;
         updateFpsBox(t, rawDt);
@@ -9490,12 +9900,12 @@
             if (game.dangerTimer <= 0) { game.dangerTimer = 0.7; computeRoadDanger(); }
 
             if (game.allOutCooldown > 0) game.allOutCooldown = Math.max(0, game.allOutCooldown - dt);
-            for (let i = 0; i < game.arrestCooldown.length; i++) {
-                if (game.arrestCooldown[i] > 0) game.arrestCooldown[i] = Math.max(0, game.arrestCooldown[i] - dt);
+            for (let i = 0; i < game.arrestLost.length; i++) {          // fallen arrest officers are replaced after a while
+                const L = game.arrestLost[i];
+                for (let k = L.length - 1; k >= 0; k--) { L[k] -= dt; if (L[k] <= 0) L.splice(k, 1); }
             }
-            for (let i = 0; i < game.tearGasCooldown.length; i++) {
-                if (game.tearGasCooldown[i] > 0) game.tearGasCooldown[i] = Math.max(0, game.tearGasCooldown[i] - dt);
-            }
+            game._gasBtnT = (game._gasBtnT || 0) - dt;
+            if (game._gasBtnT <= 0) { game._gasBtnT = 0.4; updateTearGasButton(); updateArrestButton(); }
             for (let i = 0; i < REPAIR_TEAM_COUNT; i++) {
                 if (game.repairCooldowns[i] > 0) game.repairCooldowns[i] = Math.max(0, game.repairCooldowns[i] - dt);
             }
@@ -9540,6 +9950,7 @@
 
             for (let pi = 0; pi < OFFICER_SYNDICATES; pi++) updatePulse(game.syndicates[pi], pi, dt);
             updateSyndicateMovement(dt);
+            updateAutoFacing(dt);
             updateLinks(dt);
             assignFormation();
             game.attackerCounts.clear();
@@ -9570,7 +9981,13 @@
                 game.raiders = game.raiders.filter(r => r.alive);
             }
             if (game.arrestOfficers.length > 0 && game.arrestOfficers.some(a => !a.alive)) {
+                for (const a of game.arrestOfficers) {
+                    if (a.alive || a.completed) continue;
+                    if (a.carrying) { a.carrying.beingArrested = false; a.carrying.arrestOfficer = null; a.carrying = null; }
+                    if (game.arrestLost[a.syndicateIndex]) game.arrestLost[a.syndicateIndex].push(ARREST_LOST_RECOVERY);   // this officer fell
+                }
                 game.arrestOfficers = game.arrestOfficers.filter(a => a.alive);
+                updateArrestButton();
             }
             if (game.handlers.length > 0 && game.handlers.some(h => !h.alive)) {
                 game.handlers = game.handlers.filter(h => h.alive);
@@ -9622,6 +10039,8 @@
         game.allOutCooldown = 0;
         game.allOutActive = 0;
         game.arrestCooldown = [0, 0, 0, 0];
+        game.arrestLost = [[], [], [], []];
+        game.riot = null; game.grievance = 0;
         game.tearGasCooldown = [0, 0, 0, 0];
         game.gasTargets = [null, null, null, null];
         game.repairOfficers = [];
@@ -9667,7 +10086,7 @@
         game.testGod = false; game.timeScale = 1;
         game.opinion = 50; game.posture = 'firm'; game.overtime = 'ready'; game.overtimeTired = false; game.backupCooldown = 0;
         game.crowdMood = 0; game.waveStartMood = 25; game.fightHeat = 0; game.shake = 0; game.chapterCardOpen = false; game._lamps = null;
-        game.waveStats = { calmed: 0, turned: 0, hurt: 0, agitArrested: 0, backups: 0, startOpinion: 50, coinBonus: 1, hadCrowd: false };
+        game.waveStats = { calmed: 0, turned: 0, hurt: 0, agitArrested: 0, backups: 0, startOpinion: 50, coinBonus: 1, hadCrowd: false, rioterArrests: 0, blockedFails: 0, rerouted: 0, completed: 0, protesters: 0, revealed: 0 };
         if (window.CordonAudio) CordonAudio.silence();
     }
     function resizeCanvas() {
@@ -9743,7 +10162,8 @@
 
         initGameState();
         resizeCanvas();
-        computeMapSize(); computeMinimapSize();
+        if (window.CordonDifficulty) CordonDifficulty.init(settings.testMode ? 'cordon.difficulty.test' : 'cordon.difficulty.v1', !settings.testMode);
+        applyMap(mapIdForLevel(startLevel()));
         rebuildRoadNetwork();
         loadAssets(() => {
             generateMap(); buildTerrainCanvas(); buildMinimapTerrainCanvas();
@@ -9957,6 +10377,7 @@
         const bf = document.getElementById('set-fps'); bf.textContent = settings.showFps ? 'ON' : 'OFF'; bf.classList.toggle('on', settings.showFps);
         [['set-sound', 'sound'], ['set-shake', 'shake'], ['set-items', 'heldItems']].forEach(([id, k]) => { const b = document.getElementById(id); if (b) { b.textContent = settings[k] ? 'ON' : 'OFF'; b.classList.toggle('on', !!settings[k]); } });
         document.getElementById('set-level').textContent = settings.testLevel;
+        { const mb = document.getElementById('set-map'); if (mb) { const m = CordonMaps.has(settings.mapPick) ? CordonMaps.get(settings.mapPick).name : 'Auto (campaign)'; mb.textContent = m; mb.classList.toggle('on', settings.mapPick !== 'auto'); } }
         document.getElementById('set-level-row').style.opacity = on ? 1 : 0.45;
         document.getElementById('set-code').value = '';
         refreshPersistText();
@@ -9976,9 +10397,9 @@
         if (t - _fpsLast < 500) return;
         _fpsLast = t;
         const fps = _fpsN / Math.max(0.001, _fpsAcc); _fpsAcc = 0; _fpsN = 0;
-        if (settings.showFps) document.getElementById('fps-box').textContent = Math.round(fps) + ' fps · ' + game.raiders.length + ' raiders · ' + game.officers.length + ' officers';
+        if (settings.showFps) document.getElementById('fps-box').textContent = Math.round(fps) + ' fps · ' + game.raiders.length + ' people · ' + game.officers.length + ' officers';
         const info = document.getElementById('test-info');
-        if (info && settings.testMode) info.textContent = 'Level ' + game.waveNumber + ' · ' + game.waveState + ' · ' + game.raiders.length + ' raiders · coins ' + profile.coins;
+        if (info && settings.testMode) info.textContent = 'Level ' + game.waveNumber + ' · ' + game.waveState + ' · ' + game.raiders.length + ' people · coins ' + profile.coins;
     }
     function testSpawn(kind, n) {
         if (game.gameOver) return;
@@ -9995,10 +10416,17 @@
         const $ = id => document.getElementById(id);
         $('set-test').addEventListener('click', () => {
             settings.testMode = !settings.testMode; saveSettings();
+            if (window.CordonDifficulty) CordonDifficulty.init(settings.testMode ? 'cordon.difficulty.test' : 'cordon.difficulty.v1', !settings.testMode);
             profile = loadProfile(); updateMenuNote(); renderSettings();
             settingsMsg(settings.testMode ? 'Test mode ON. Skills and coins here are separate from your real save.' : 'Test mode OFF. Back to your real save.', true);
         });
         $('set-fps').addEventListener('click', () => { settings.showFps = !settings.showFps; saveSettings(); renderSettings(); });
+        $('set-map').addEventListener('click', () => {
+            const ids = ['auto'].concat(CordonMaps.list().map(m => m.id));
+            const i = Math.max(0, ids.indexOf(settings.mapPick));
+            settings.mapPick = ids[(i + 1) % ids.length]; saveSettings(); renderSettings();
+            settingsMsg(settings.mapPick === 'auto' ? 'Map: Auto. The campaign decides.' : 'Map: ' + CordonMaps.get(settings.mapPick).name + '. Start or restart a game to play it.', true);
+        });
         $('set-sound').addEventListener('click', () => { settings.sound = !settings.sound; saveSettings(); renderSettings(); if (window.CordonAudio) { CordonAudio.setEnabled(settings.sound); CordonAudio.unlock(); CordonAudio.play('ui'); } });
         $('set-shake').addEventListener('click', () => { settings.shake = !settings.shake; saveSettings(); renderSettings(); if (settings.shake) triggerShake(4); });
         $('set-items').addEventListener('click', () => { settings.heldItems = !settings.heldItems; saveSettings(); renderSettings(); });
@@ -10038,6 +10466,28 @@
         $('t-bricks').addEventListener('click', () => testSpawn('brickthrower', 4));
         const lvl = d => { game.waveNumber = Math.max(1, game.waveNumber + d); if (game.waveState === 'intermission') game.waveTimer = Math.min(game.waveTimer, 2); showToast(':wave: Next level: ' + game.waveNumber); };
         $('t-lvdn').addEventListener('click', () => lvl(-5)); $('t-lvup').addEventListener('click', () => lvl(5));
+        const mapBtn = () => { const b = $('t-map'); if (b) b.textContent = ':map: ' + CordonMaps.get(MAP_ID).name; };
+        $('t-map').addEventListener('click', () => {
+            const ids = CordonMaps.list().map(m => m.id);
+            const next = ids[(Math.max(0, ids.indexOf(MAP_ID)) + 1) % ids.length];
+            settings.mapPick = next; saveSettings();
+            switchMap(next); mapBtn(); showToast(':map: ' + CordonMaps.get(next).name);
+        });
+        mapBtn();
+        $('t-hidden').addEventListener('click', () => {
+            const sq = [...game.squads.values()].find(s => s.isCrowd) || null;
+            if (!sq) { showToast('Start a night first, so there is a protest to hide in.'); return; }
+            const nodeId = sq.spawnNodeId, n = getNode(nodeId);
+            for (let i = 0; i < 3; i++) {
+                const r = new Raider('crowd', nodeId, sq.id, n.x * TILE + (Math.random() - 0.5) * TILE * 2, n.y * TILE, { agitator: true });
+                r.goalNodeId = BASE_NODE_ID; r.recomputeRoute(); game.raiders.push(r);
+            }
+            showToast('Three hidden rioters have joined the march.');
+        });
+        $('t-event').addEventListener('click', () => {
+            if (!game.riot || !game.riot.events.length) { showToast('No riot events left this night.'); return; }
+            fireRiotEvent(game.riot.events.shift());
+        });
         $('t-god').addEventListener('click', e => { game.testGod = !game.testGod; e.currentTarget.textContent = ':shield: God: ' + (game.testGod ? 'ON' : 'OFF'); e.currentTarget.classList.toggle('on', game.testGod); });
         $('t-speed').addEventListener('click', e => { game.timeScale = ((game.timeScale || 1) % 3) + 1; e.currentTarget.textContent = ':bolt: Speed x' + game.timeScale; e.currentTarget.classList.toggle('on', game.timeScale > 1); });
         applyTestUI();

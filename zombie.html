@@ -70,10 +70,10 @@
         display: flex; flex-direction: column; gap: 4px; max-width: 320px; pointer-events: none; }
     #status-panel { background: rgba(8,14,12,.85); border: 1px solid #1d2a2e;
         border-radius: 7px; padding: 5px 7px; display: flex; flex-direction: column; gap: 4px;
-        backdrop-filter: blur(5px); box-shadow: 0 2px 8px rgba(0,0,0,.5); width: 220px; }
-    .stat-line { display: flex; align-items: center; gap: 5px; }
+        backdrop-filter: blur(5px); box-shadow: 0 2px 8px rgba(0,0,0,.5); width: 152px; }
+    .stat-line { display: flex; align-items: center; gap: 4px; }
     .stat-icon { font-size: 11px; width: 15px; text-align: center; flex: 0 0 auto; }
-    .stat-track { flex: 1 1 auto; height: 9px; min-width: 100px;
+    .stat-track { flex: 1 1 auto; height: 7px; min-width: 56px;
         background: #060a0c; border: 1px solid #1d2a2e; border-radius: 5px; overflow: hidden; }
     .stat-fill { height: 100%; width: 100%;
         background: linear-gradient(180deg,#6cc4ff,#2a7fc9);
@@ -86,9 +86,9 @@
     .stat-fill.hope { background: linear-gradient(180deg,#c89cff,#7a4ac9); }
     .stat-fill.low { background: linear-gradient(180deg,#e8b24e,#b06a20); }
     .stat-fill.crit { background: linear-gradient(180deg,#e86858,#a02020); }
-    .stat-num { font-size: 9px; color: #7dffa0; font-weight: 700; min-width: 42px;
+    .stat-num { font-size: 8.5px; color: #7dffa0; font-weight: 700; min-width: 30px;
         text-align: right; font-variant-numeric: tabular-nums; flex: 0 0 auto; }
-    #selection-info:empty { display: none; }
+    #selection-info, #selection-info:empty { display: none !important; }
     #selection-info { color: #d8e8dc; background: rgba(8,14,12,.85); border: 1px solid #1d2a2e;
         padding: 5px 10px; border-radius: 7px; font-size: 11px;
         backdrop-filter: blur(5px); font-weight: 500; }
@@ -167,24 +167,19 @@
     .dpad-right { grid-column: 3; grid-row: 2; }
     .dpad-down { grid-column: 2; grid-row: 3; }
 
-    #toast { position: fixed; bottom: 54px; left: 50%; transform: translateX(-50%);
-        background: rgba(6,10,10,.95); border: 1px solid #2a4a3a; color: #d8f0d8;
-        padding: 7px 16px; border-radius: 18px; font-size: 12px; font-weight: 600;
-        letter-spacing: .3px; opacity: 0; transition: opacity .25s ease;
-        pointer-events: none; z-index: 97; max-width: 60vw; text-align: center;
-        box-shadow: 0 2px 10px rgba(0,0,0,.6); }
-    #toast.show { opacity: 1; }
-
-    #wave-banner { position: fixed; top: 40%; left: 50%; transform: translate(-50%,-50%);
-        color: #ff4444; font-size: 30px; font-weight: 900;
-        text-shadow: 0 0 20px rgba(255,60,40,.85), 0 2px 8px rgba(0,0,0,.9);
-        z-index: 95; pointer-events: none; opacity: 0;
-        transition: opacity .5s ease; letter-spacing: 3px; text-align: center; }
-    #wave-banner.show { opacity: 1; animation: wavePulse 2.2s ease-out forwards; }
-    @keyframes wavePulse { 0% { opacity: 0; transform: translate(-50%,-50%) scale(.6); }
-        25% { opacity: 1; transform: translate(-50%,-50%) scale(1.12); }
-        75% { opacity: 1; transform: translate(-50%,-50%) scale(1); }
-        100% { opacity: 0; transform: translate(-50%,-50%) scale(1.2); } }
+    /* messages stack in a column above the ad strip, clear of the side panels, so they never overlap each other */
+    #msg-stack { position: fixed; left: 212px; right: 232px; bottom: 52px; display: flex; flex-direction: column;
+        align-items: center; gap: 5px; z-index: 97; pointer-events: none; }
+    .msg { background: rgba(6,10,10,.94); border: 1px solid #2a4a3a; color: #d8f0d8; padding: 5px 14px; border-radius: 16px;
+        font-size: 12px; font-weight: 600; line-height: 1.25; letter-spacing: .3px; text-align: center; max-width: 100%;
+        box-sizing: border-box; box-shadow: 0 2px 10px rgba(0,0,0,.6); animation: msgIn .22s ease-out; transition: opacity .35s ease; }
+    .msg.out { opacity: 0; }
+    .msg.alert { background: rgba(58,12,12,.94); border-color: #ff5a4a; color: #ffe3de; }
+    .msg.wave { border-radius: 10px; padding: 7px 20px; border-color: #ff6a4a; background: rgba(12,16,14,.95); }
+    .msg .w-title { font-size: 16px; font-weight: 800; letter-spacing: 2px; color: #fff; }
+    .msg .w-obj { font-size: 10.5px; color: #ffcc33; letter-spacing: .6px; margin-top: 1px; }
+    .msg .w-tone { font-size: 10.5px; color: #ff8a5c; letter-spacing: .6px; margin-top: 1px; }
+    @keyframes msgIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
 
     #gameover-overlay { display: none; position: fixed; inset: 0; background: rgba(2,4,4,.94); z-index: 998;
         align-items: center; justify-content: center; flex-direction: column; }
@@ -391,8 +386,7 @@
         <div class="test-info" id="test-info"></div>
     </div>
 
-    <div id="wave-banner"></div>
-    <div id="toast"></div>
+    <div id="msg-stack"></div>
     <div id="ad-banner">AD SPACE — replace with your ad network code</div>
 
     <div id="gameover-overlay">
@@ -421,6 +415,7 @@
                 <button class="xp-btn" id="m-play">:play: PLAY</button>
                 <button class="xp-btn grey" id="m-howto">:book: HOW TO PLAY</button>
                 <button class="xp-btn grey" id="m-test">:bolt: TEST MODE: OFF</button>
+                <button class="xp-btn grey" id="m-map">:map: MAP: AUTO</button>
                 <button class="xp-btn blood" id="m-back-main">:arrow_l: MAIN GAME</button>
             </div>
             <div class="menu-footer">Cordon: Outbreak Mode — all abilities unlocked.<br>UI art: MoonRoar by Studios SoulAres · Zombie &amp; character sprites: CraftPix</div>
@@ -444,6 +439,10 @@
         </div>
     </div>
 
+<script src="js/maps/mapkit.js"></script>
+<script src="js/maps/base.js"></script>
+<script src="js/maps/promenade.js"></script>
+<script src="js/difficulty.js"></script>
 <script>
 /* ============================================================================
  * CORDON: OUTBREAK MODE
@@ -468,12 +467,12 @@
 // ============================ CONSTANTS ============================
 let MAP_W = 108, MAP_H = 77;
 const TILE = 16;
-const MIN_PLAY_W = 108, MIN_PLAY_H = 77;
+let MIN_PLAY_W = 108, MIN_PLAY_H = 77;      // set per map (see js/maps/)
 function computeMapSize(){
     MAP_W = Math.max(MIN_PLAY_W, Math.ceil(game.width/TILE) + 20);
     MAP_H = Math.max(MIN_PLAY_H, Math.ceil(game.height/TILE) + 16);
 }
-const TILE_ROAD = 0, TILE_SIDEWALK = 1, TILE_BLOCK = 2, TILE_BASE = 3, TILE_STATION = 4;
+const TILE_ROAD = 0, TILE_SIDEWALK = 1, TILE_BLOCK = 2, TILE_BASE = 3, TILE_STATION = 4, TILE_SEA = 5;
 const MINIMAP_MAX_W = 112, MINIMAP_MAX_H = 76;
 let MINIMAP_SCALE = 1, MINIMAP_W = 100, MINIMAP_H = 70;
 function computeMinimapSize(){
@@ -483,16 +482,11 @@ function computeMinimapSize(){
 }
 
 const ROAD_W = 6;
-const ROAD_Y_TOP = 14, ROAD_Y_BOTTOM = 38, ROAD_Y_SOUTH = 62;
-const ROAD_X_START = 8, ROAD_X_END = 98;
-const JUNCTION_XS = [30, 54, 78];
-const ENTRY_XS = [18, 90];
-const BOTTOM_ENTRY_XS = [12, 96];
-const SOUTH_LINK_XS = [30, 78];
-const SOUTH_GATE_XS = [54];
-const SOUTH_JUNCTION_XS = [12, 30, 54, 78, 96];
-const STATION_TX0 = 48, STATION_TY0 = 43, STATION_TW = 12, STATION_TH = 9;
-const BASE_TILE_X = 54, BASE_TILE_Y = ROAD_Y_BOTTOM;
+// ---- everything below is filled in by applyMap() from the map files in js/maps/ ----
+let MAP_ID = 'base', MAP_DEF = null, MAPGEO = null;
+let STATION_TX0 = 48, STATION_TY0 = 43, STATION_TW = 12, STATION_TH = 9;
+let BASE_TILE_X = 54, BASE_TILE_Y = 38, BASE_NODE_ID = 'B54';
+let EXIT_NODE_IDS = [];
 
 const OFFICERS_PER_ROW = ROAD_W + 1;
 const ROW_SPACING = 1.2, COL_SPACING = 1.1, WALL_COL_SPACING = 1.42;
@@ -508,13 +502,14 @@ function vehicleAt(idx){
 }
 const BASE_MAX_HP = 900;
 
-const SYNDICATE_START_X = [46, 54, 62];
-const SYNDICATE_START_Y = [ROAD_Y_BOTTOM, ROAD_Y_BOTTOM, ROAD_Y_BOTTOM];
+let SYNDICATE_START_X = [46, 54, 62];
+let SYNDICATE_START_Y = [38, 38, 38];
 
 const ALL_OUT_DURATION = 20;
 const ALL_OUT_COOLDOWN = 55;
 const ALL_OUT_HOLD_RADIUS = TILE*6;
-const ALL_OUT_BOX_TILES = (() => {
+let ALL_OUT_BOX_TILES = [];
+function buildAllOutBox(){
     const slots = [];
     const cy = BASE_TILE_Y, cx = BASE_TILE_X;
     const topY = cy - 5, bottomY = cy + 2;
@@ -522,8 +517,8 @@ const ALL_OUT_BOX_TILES = (() => {
     for (let y = topY + 1; y <= bottomY; y++) slots.push({ tx: leftX, ty: y });
     for (let y = topY + 1; y <= bottomY; y++) slots.push({ tx: rightX, ty: y });
     for (let x = leftX + 1; x <= rightX - 1; x++) slots.push({ tx: x, ty: topY });
-    return slots;
-})();
+    ALL_OUT_BOX_TILES = slots;
+}
 
 // Grabber
 const GRABBER_TEAM_SIZE = 3;
@@ -533,6 +528,10 @@ const GRABBER_SPEED = 2.9;
 const GRABBER_RANGE = TILE*4.5;
 const GRABBER_MAX_RANGE_FROM_SYNDICATE = TILE*10;
 const GRABBER_LIFETIME = 45;
+const GRABBER_REACH = TILE*16;            // how far from the line a grabber will go for a zombie
+const GRABBER_SORTIE_TIME = 28;           // seconds a grabber looks for a target before heading back
+const GRABBER_LOST_RECOVERY = 35;         // a grabber who falls is replaced after this many seconds
+const ACID_REFILL_TIME = 3.5;             // seconds spent refilling at the station
 
 // Acid officers
 const ACID_TEAM_SIZE = 2;
@@ -718,7 +717,6 @@ const BASE_REGEN_RATE = 3.2;
 
 // ============================ GAME STATE ============================
 let map = [];
-let toastTimer = null;
 let game = {
     canvas:null, ctx:null, minimapCtx:null,
     width:0, height:0,
@@ -752,6 +750,7 @@ let game = {
 
     acidCooldown: [0,0,0,0],
     grabberCooldown: [0,0,0,0],
+    grabberLost: [[],[],[],[]],
     vehicles: {},
 
     morale: MORALE_MAX,
@@ -783,23 +782,34 @@ let game = {
     rubberTracers: [],
 };
 
+// ============================ MAP SELECTION (map files live in js/maps/) ============================
+// Settings > Map (main game) or the MAP button here picks one; "auto" is the original streets.
+function mapIdForRun(){
+    if (settings.mapPick && settings.mapPick !== 'auto' && CordonMaps.has(settings.mapPick)) return settings.mapPick;
+    return CordonMaps.DEFAULT;
+}
+function applyMap(id){
+    const def = CordonMaps.get(id);
+    MAP_DEF = def; MAP_ID = def.id;
+    MIN_PLAY_W = def.w || 108; MIN_PLAY_H = def.h || 77;
+    computeMapSize(); computeMinimapSize();
+    STATION_TX0 = def.station.x0; STATION_TY0 = def.station.y0; STATION_TW = def.station.w; STATION_TH = def.station.h;
+    BASE_TILE_X = def.base.x; BASE_TILE_Y = def.base.y; BASE_NODE_ID = def.baseNode;
+    EXIT_NODE_IDS = def.exits.slice();
+    const st = def.start || {};
+    const so = st.syndicates || [[-8,0],[0,0],[8,0]];
+    SYNDICATE_START_X = so.map(o => BASE_TILE_X + o[0]);
+    SYNDICATE_START_Y = so.map(o => BASE_TILE_Y + o[1]);
+    refreshStationEnter(); buildAllOutBox();
+    MAPGEO = CordonMaps.build(def, { W: MAP_W, H: MAP_H });
+}
 // ============================ ROAD GRAPH ============================
 let ROAD_NODES = [], ROAD_EDGES = [], ROAD_ADJ = new Map();
 let BLOCKADE_SPOTS = [];
 let JUNCTION_POSTS = [];
-const EXIT_NODE_IDS = ['N18','N30','N54','N78','N90','S12','S54','S96'];
 
 function buildRoadNodes(){
-    const nodes = [];
-    const push = (id,x,y) => nodes.push({ id, x, y });
-    [18,30,54,78,90].forEach(x => push('T'+x, x, ROAD_Y_TOP));
-    [12,18,30,54,78,90,96].forEach(x => push('B'+x, x, ROAD_Y_BOTTOM));
-    push('N18', 18, 1.5); push('N30', 30, 1.5); push('N54', 54, 1.5);
-    push('N78', 78, 1.5); push('N90', 90, 1.5);
-    push('S12', 12, MAP_H-1.5); push('S96', 96, MAP_H-1.5);
-    SOUTH_JUNCTION_XS.forEach(x => push('C'+x, x, ROAD_Y_SOUTH));
-    push('S54', 54, MAP_H-1.5);
-    return nodes;
+    return MAPGEO.nodes().map(n => ({ id: n.id, x: n.x, y: n.y }));
 }
 function getNode(id){ return ROAD_NODES.find(n => n.id === id); }
 function edgeKey(a,b){ return a < b ? a+'|'+b : b+'|'+a; }
@@ -868,34 +878,9 @@ function findEdgeForSpot(spot){
 }
 function buildBlockadeSpots(){
     BLOCKADE_SPOTS = [];
-    const hw = ROAD_W / 2;
-    const junctionMargin = hw + 1.5;
-    for (const roadY of [ROAD_Y_TOP, ROAD_Y_BOTTOM, ROAD_Y_SOUTH]){
-        for (let tx = Math.ceil(ROAD_X_START); tx <= Math.floor(ROAD_X_END); tx++){
-            if (!tileIsRoad(tx, roadY)) continue;
-            let nearJunction = false;
-            for (const jx of (roadY === ROAD_Y_SOUTH ? SOUTH_JUNCTION_XS : JUNCTION_XS)){
-                if (Math.abs(tx - jx) < junctionMargin){ nearJunction = true; break; }
-            }
-            if (nearJunction) continue;
-            const spot = { key:'H'+roadY+'_'+tx, dir:'h', x:tx*TILE + TILE/2, y:roadY*TILE + TILE/2 };
-            spot.edgeKey = findEdgeForSpot(spot);
-            if (spot.edgeKey) BLOCKADE_SPOTS.push(spot);
-        }
-    }
-    const verticalRoads = new Set([...ENTRY_XS, ...JUNCTION_XS, ...BOTTOM_ENTRY_XS, ...SOUTH_GATE_XS]);
-    for (const roadX of verticalRoads){
-        for (let ty = 1; ty < MAP_H; ty++){
-            if (!tileIsRoad(roadX, ty)) continue;
-            let onHorizontal = false;
-            for (const roadY of [ROAD_Y_TOP, ROAD_Y_BOTTOM, ROAD_Y_SOUTH]){
-                if (Math.abs(ty - roadY) < junctionMargin){ onHorizontal = true; break; }
-            }
-            if (onHorizontal) continue;
-            const spot = { key:'V'+roadX+'_'+ty, dir:'v', x:roadX*TILE + TILE/2, y:ty*TILE + TILE/2 };
-            spot.edgeKey = findEdgeForSpot(spot);
-            if (spot.edgeKey) BLOCKADE_SPOTS.push(spot);
-        }
+    for (const spot of MAPGEO.blockadeSpots(TILE)){
+        spot.edgeKey = findEdgeForSpot(spot);
+        if (spot.edgeKey) BLOCKADE_SPOTS.push(spot);
     }
 }
 function findPath(startId, goalId, blockedSet){
@@ -1066,31 +1051,8 @@ function computeRoadDanger(){
 }
 
 // ============================ TILE HELPERS ============================
-function tileIsRoad(tx, ty){
-    const hw = ROAD_W/2;
-    if (ty >= ROAD_Y_TOP - hw && ty <= ROAD_Y_TOP + hw && tx >= ROAD_X_START && tx <= ROAD_X_END) return true;
-    if (ty >= ROAD_Y_BOTTOM - hw && ty <= ROAD_Y_BOTTOM + hw && tx >= ROAD_X_START && tx <= ROAD_X_END) return true;
-    for (const jx of JUNCTION_XS) if (tx >= jx-hw && tx <= jx+hw && ty >= 0 && ty <= ROAD_Y_BOTTOM+hw) return true;
-    for (const ex of ENTRY_XS) if (tx >= ex-hw && tx <= ex+hw && ty >= 0 && ty <= ROAD_Y_BOTTOM+hw) return true;
-    for (const ex of BOTTOM_ENTRY_XS) if (tx >= ex-hw && tx <= ex+hw && ty >= ROAD_Y_BOTTOM-hw && ty <= MAP_H) return true;
-    if (ty >= ROAD_Y_SOUTH - hw && ty <= ROAD_Y_SOUTH + hw && tx >= ROAD_X_START && tx <= ROAD_X_END) return true;
-    for (const jx of SOUTH_LINK_XS) if (tx >= jx-hw && tx <= jx+hw && ty >= ROAD_Y_BOTTOM && ty <= ROAD_Y_SOUTH+hw) return true;
-    for (const gx of SOUTH_GATE_XS) if (tx >= gx-hw && tx <= gx+hw && ty >= ROAD_Y_SOUTH-hw && ty <= MAP_H) return true;
-    return false;
-}
-function tileIsSidewalk(tx, ty){
-    if (tileIsRoad(tx,ty)) return false;
-    const pad = 1.5, hw = ROAD_W/2 + pad;
-    if (ty >= ROAD_Y_TOP - hw && ty <= ROAD_Y_TOP + hw && tx >= ROAD_X_START-pad && tx <= ROAD_X_END+pad) return true;
-    if (ty >= ROAD_Y_BOTTOM - hw && ty <= ROAD_Y_BOTTOM + hw && tx >= ROAD_X_START-pad && tx <= ROAD_X_END+pad) return true;
-    for (const jx of JUNCTION_XS) if (tx >= jx-hw && tx <= jx+hw && ty >= -pad && ty <= ROAD_Y_BOTTOM+hw+pad) return true;
-    for (const ex of ENTRY_XS) if (tx >= ex-hw && tx <= ex+hw && ty >= 0 && ty <= ROAD_Y_BOTTOM+hw) return true;
-    for (const ex of BOTTOM_ENTRY_XS) if (tx >= ex-hw && tx <= ex+hw && ty >= ROAD_Y_BOTTOM-hw && ty <= MAP_H) return true;
-    if (ty >= ROAD_Y_SOUTH - hw && ty <= ROAD_Y_SOUTH + hw && tx >= ROAD_X_START-pad && tx <= ROAD_X_END+pad) return true;
-    for (const jx of SOUTH_LINK_XS) if (tx >= jx-hw && tx <= jx+hw && ty >= ROAD_Y_BOTTOM && ty <= ROAD_Y_SOUTH+hw) return true;
-    for (const gx of SOUTH_GATE_XS) if (tx >= gx-hw && tx <= gx+hw && ty >= ROAD_Y_SOUTH-hw && ty <= MAP_H) return true;
-    return false;
-}
+function tileIsRoad(tx, ty){ return MAPGEO.isRoad(tx, ty); }
+function tileIsSidewalk(tx, ty){ return MAPGEO.isSidewalk(tx, ty); }
 
 // ============================ JUNCTION POSTS ============================
 const JUNCTION_DIRS = ['N','S','E','W'];
@@ -1124,6 +1086,7 @@ function postDotPos(post){
     return { x: post.junction.x + d.fx*16, y: post.junction.y + d.fy*16 };
 }
 function rebuildRoadNetwork(){
+    MAPGEO = CordonMaps.build(MAP_DEF || CordonMaps.get('base'), { W: MAP_W, H: MAP_H });
     buildRoadGraph();
     buildBlockadeSpots();
     buildJunctionPosts();
@@ -1156,14 +1119,14 @@ const STATION_ATLAS = { x:692, y:640, w:192, h:144 };
 // Both games read the same record, so one switch controls both.
 const SETTINGS_KEY = 'cordon.settings.v1';
 function loadSettings(){
-    const st = { testMode: false, showFps: false };
-    try { const d = JSON.parse(window.localStorage.getItem(SETTINGS_KEY) || '{}'); if (d && typeof d === 'object'){ st.testMode = !!d.testMode; st.showFps = !!d.showFps; } } catch (e) {}
+    const st = { testMode: false, showFps: false, mapPick: 'auto' };
+    try { const d = JSON.parse(window.localStorage.getItem(SETTINGS_KEY) || '{}'); if (d && typeof d === 'object'){ st.testMode = !!d.testMode; st.showFps = !!d.showFps; if (typeof d.mapPick === 'string') st.mapPick = d.mapPick; } } catch (e) {}
     return st;
 }
 let settings = loadSettings();
 function saveSettings(){
     // merge, so we never wipe the main game's other settings
-    try { const d = JSON.parse(window.localStorage.getItem(SETTINGS_KEY) || '{}') || {}; d.testMode = settings.testMode; d.showFps = settings.showFps; window.localStorage.setItem(SETTINGS_KEY, JSON.stringify(d)); } catch (e) {}
+    try { const d = JSON.parse(window.localStorage.getItem(SETTINGS_KEY) || '{}') || {}; d.testMode = settings.testMode; d.showFps = settings.showFps; d.mapPick = settings.mapPick; window.localStorage.setItem(SETTINGS_KEY, JSON.stringify(d)); } catch (e) {}
 }
 
 const ASSET_PATHS = {
@@ -1268,6 +1231,7 @@ function generateMap(){
             let t = TILE_BLOCK;
             if (tileIsRoad(x,y)) t = TILE_ROAD;
             else if (tileIsSidewalk(x,y)) t = TILE_SIDEWALK;
+            else if (MAPGEO.isSea(x,y) || MAPGEO.isSand(x,y)) t = TILE_SEA;
             row[x] = t;
         }
         map.push(row);
@@ -1477,17 +1441,17 @@ function finalizeScenery(){
 // ============================ ROAD LAYOUT ============================
 function computeRoadLayout(){
     const half = (ROAD_W + 1) * TILE / 2;
-    const H = [ROAD_Y_TOP, ROAD_Y_BOTTOM, ROAD_Y_SOUTH].map(ty => ({ c:(ty+0.5)*TILE, a:ROAD_X_START*TILE, b:(ROAD_X_END+1)*TILE }));
-    const V = [];
-    [...ENTRY_XS, ...JUNCTION_XS].forEach(tx => V.push({ c:(tx+0.5)*TILE, a:0, b:((SOUTH_LINK_XS.includes(tx) ? ROAD_Y_SOUTH : ROAD_Y_BOTTOM) + ROAD_W/2 + 1)*TILE, tx }));
-    SOUTH_GATE_XS.forEach(tx => V.push({ c:(tx+0.5)*TILE, a:(ROAD_Y_SOUTH - ROAD_W/2)*TILE, b:MAP_H*TILE, tx, bottomEntry:true }));
-    BOTTOM_ENTRY_XS.forEach(tx => V.push({ c:(tx+0.5)*TILE, a:(ROAD_Y_BOTTOM - ROAD_W/2)*TILE, b:MAP_H*TILE, tx, bottomEntry:true }));
+    const lr = MAPGEO.layoutRoads(TILE);
+    const H = lr.H, V = lr.V;
+    const sig = (MAP_DEF && MAP_DEF.signals) || { row: -1, xs: [] };
     const base = { x0:(BASE_TILE_X-2)*TILE, x1:(BASE_TILE_X+2)*TILE, y0:(BASE_TILE_Y-2)*TILE, y1:(BASE_TILE_Y+3)*TILE };
     const stationRect = { x0:STATION_TX0*TILE, x1:(STATION_TX0+STATION_TW)*TILE, y0:STATION_TY0*TILE, y1:(STATION_TY0+STATION_TH)*TILE };
     const junctions = [];
     V.forEach(v => H.forEach((h, hi) => {
         if (h.c < v.a || h.c > v.b) return;
-        const j = { x:v.c, y:h.c, top:hi===0, tx:v.tx, vBottomEntry:!!v.bottomEntry, arms:{} };
+        if (v.c < h.a - half || v.c > h.b + half) return;
+        const onSig = h.row === sig.row;
+        const j = { x:v.c, y:h.c, top:onSig, signal:onSig && sig.xs.indexOf(v.tx) >= 0, tx:v.tx, vBottomEntry:!!v.bottomEntry, arms:{} };
         j.arms.n = v.a < h.c - half - 1;
         j.arms.s = v.b > h.c + half + 1;
         j.arms.e = h.b > v.c + half + 1;
@@ -1566,8 +1530,8 @@ class WreckVehicle {
 // Where the two vehicle refill bays are (on the road in front of the station). Kept clear of wrecks.
 function stationBaySpots(){
     const out = {};
-    out[VEHICLE_SYNDICATE]   = { x: (BASE_TILE_X - 5) * TILE + TILE / 2, y: ROAD_Y_BOTTOM * TILE + TILE / 2 };
-    out[VEHICLE_SYNDICATE_2] = { x: (BASE_TILE_X + 5) * TILE + TILE / 2, y: ROAD_Y_BOTTOM * TILE + TILE / 2 };
+    out[VEHICLE_SYNDICATE]   = { x: (BASE_TILE_X - 5) * TILE + TILE / 2, y: BASE_TILE_Y * TILE + TILE / 2 };
+    out[VEHICLE_SYNDICATE_2] = { x: (BASE_TILE_X + 5) * TILE + TILE / 2, y: BASE_TILE_Y * TILE + TILE / 2 };
     return out;
 }
 // Scatter wrecks along the kerbs. Uses the town seed, so every new game gets a different arrangement
@@ -1655,11 +1619,31 @@ function paintBase(t, px, py){
     g.addColorStop(0, '#101822'); g.addColorStop(1, '#080e18');
     t.fillStyle = g; t.fillRect(px, py, TILE, TILE);
 }
+// Sea and beach (only maps with a "sea" entry use these tiles).
+function paintSea(t, px, py, tx, ty){
+    const sd = seedFromXY(tx, ty);
+    if (MAPGEO && MAPGEO.isSand(tx, ty)){
+        const wet = ty === (MAP_DEF.sea.y1) ? 1 : 0;
+        t.fillStyle = wet ? '#5c5a48' : (sd > 0.5 ? '#767052' : '#6f694d');
+        t.fillRect(px, py, TILE, TILE);
+        t.fillStyle = 'rgba(0,0,0,0.16)';
+        t.fillRect(px + sd*12, py + ((sd*7.7)%1)*12, 2, 1);
+        if (wet){ t.fillStyle = 'rgba(170,200,205,0.20)'; t.fillRect(px, py, TILE, 3); }
+        return;
+    }
+    const deep = Math.min(1, ty / Math.max(1, (MAP_DEF.sea.y1 - 1)));
+    t.fillStyle = 'rgb(' + Math.round(12 + deep*8) + ',' + Math.round(38 + deep*22) + ',' + Math.round(54 + deep*22) + ')';
+    t.fillRect(px, py, TILE, TILE);
+    t.fillStyle = 'rgba(150,195,205,0.09)';
+    t.fillRect(px + ((sd*11.3)%1)*10, py + ((sd*6.1)%1)*12, 5, 1);
+    if (ty === MAP_DEF.sea.y1 - 1){ t.fillStyle = 'rgba(210,230,235,0.30)'; t.fillRect(px, py + TILE - 3, TILE, 2); }
+}
 function paintTerrainTile(t, px, py, tile, tx, ty){
     if (tile === TILE_ROAD) paintRoad(t, px, py, tx, ty);
     else if (tile === TILE_SIDEWALK) paintSidewalk(t, px, py, tx, ty);
     else if (tile === TILE_BASE) paintBase(t, px, py);
     else if (tile === TILE_STATION) paintSidewalk(t, px, py, tx, ty);
+    else if (tile === TILE_SEA) paintSea(t, px, py, tx, ty);
     else paintBlock(t, px, py, tx, ty);
 }
 function roadish(tx, ty){
@@ -1720,7 +1704,7 @@ function drawLaneMarkings(t){
     });
     const box = assets['road_box'];
     if (box) L.junctions.forEach(j => {
-        if (j.top && !j.isBase && JUNCTION_XS.includes(j.tx)) t.drawImage(box, j.x - half, j.y - half, half*2, half*2);
+        if (j.signal && !j.isBase) t.drawImage(box, j.x - half, j.y - half, half*2, half*2);
     });
     L.zebras.forEach(z => { const img = assets[z.img]; if (img) t.drawImage(img, z.x, z.y, z.w, z.h); });
     const gw = assets['road_giveway'], slow = assets['road_slow'];
@@ -1828,7 +1812,8 @@ function buildMinimapTerrainCanvas(){
     t.fillStyle = '#0a0e0c'; t.fillRect(0, 0, MINIMAP_W, MINIMAP_H);
     for (let y = 0; y < MAP_H; y++) for (let x = 0; x < MAP_W; x++){
         const tile = map[y][x];
-        t.fillStyle = tile === TILE_ROAD ? '#252a2c'
+        t.fillStyle = tile === TILE_SEA ? (MAPGEO.isSand(x, y) ? '#58553f' : '#14303f')
+                    : tile === TILE_ROAD ? '#252a2c'
                     : (tile === TILE_BASE || tile === TILE_STATION) ? '#3a4a68'
                     : tile === TILE_SIDEWALK ? '#2a2e30'
                     : ((cityKind && cityKind[y*MAP_W+x] === 1) ? ZONES[zoneAt(x)].minimapBld : ZONES[zoneAt(x)].minimap);
@@ -2092,10 +2077,12 @@ const OFFICER = {
     walkSpeed: 3.6, sprintSpeed: 6.5, lungeRange: 2.1, restRegen: 8,
     retreatHpPct: 0.30, cooldownTime: 60, disperseDamageMult: 3.0,
 };
-const STATION_ENTER = {
-    x0:(BASE_TILE_X-2.6)*TILE, x1:(BASE_TILE_X+2.6)*TILE,
-    y0:(BASE_TILE_Y-3.6)*TILE, y1:(BASE_TILE_Y+3.0)*TILE,
-};
+const STATION_ENTER = { x0:0, x1:0, y0:0, y1:0 };
+function refreshStationEnter(){
+    STATION_ENTER.x0 = (BASE_TILE_X-2.6)*TILE; STATION_ENTER.x1 = (BASE_TILE_X+2.6)*TILE;
+    STATION_ENTER.y0 = (BASE_TILE_Y-3.6)*TILE; STATION_ENTER.y1 = (BASE_TILE_Y+3.0)*TILE;
+}
+refreshStationEnter();
 function isAtStation(x, y){
     return x >= STATION_ENTER.x0 && x <= STATION_ENTER.x1 &&
            y >= STATION_ENTER.y0 && y <= STATION_ENTER.y1;
@@ -2135,7 +2122,7 @@ class Officer {
         this.retreatRoute = []; this.retreatIdx = 0;
         const start = nearestRoadNode(this.x, this.y);
         if (start){
-            const path = findPath(start.id, 'B54', null);
+            const path = findPath(start.id, BASE_NODE_ID, null);
             if (path){
                 for (const id of path){ const n = getNode(id); if (n) this.retreatRoute.push({ x:n.x*TILE, y:n.y*TILE }); }
             }
@@ -2447,12 +2434,12 @@ class Zombie {
                 return n.id;
             }
         }
-        return 'B54';
+        return BASE_NODE_ID;
     }
     recomputeRoute(){
         const start = nearestRoadNode(this.x, this.y);
         if (!start){ this.route = null; return; }
-        const goal = this.goalNodeId || 'B54';
+        const goal = this.goalNodeId || BASE_NODE_ID;
         let path = findPathSmart(start.id, goal, 28, 2.4);
         if (!path) path = findPath(start.id, goal, null);
         this.route = path || [start.id];
@@ -2930,8 +2917,8 @@ const TACTIC_SHOUTS = {
     rest: ['Stand easy — shields down!', 'Rest the line!'],
     wedge: ['Wedge formation — on me!', 'Form wedge!'],
     wall: ['Shield wall — close ranks!', 'Wall! Lock shields!'],
-    stackleft: ['Stack left — hug the buildings!'],
-    stackright: ['Stack right — shoulders to the wall!'],
+    stackleft: ['File left — hug the kerb!'],
+    stackright: ['File right — shoulders to the kerb!'],
     box: ['Box formation — cover all sides!'],
     pulse: ['Pulse! Front rank — go, go, go!'],
 };
@@ -2945,7 +2932,11 @@ function commanderShout(idx, text){
     if (!c || (c.shout && c.shout.t > 1.9 && c.shout.text === text)) return;
     c.shout = { text, t:2.8 };
 }
-function commanderShoutAll(text){ game.commanders.forEach(c => { if (c.alive) c.shout = { text, t:2.8 }; }); }
+function commanderShoutAll(text){
+    const sel = game.commanders.find(c => c.alive && c.syndicateIndex === game.selectedSyndicate);
+    const one = sel || game.commanders.find(c => c.alive);
+    if (one) one.shout = { text, t:2.8 };
+}
 let commanderIdSeq = 1;
 class Commander {
     constructor(x, y, syndicateIndex){
@@ -3001,14 +2992,15 @@ class Commander {
         ctx.globalAlpha = a;
         ctx.font = 'bold 9px "Segoe UI", Tahoma, sans-serif';
         const w = ctx.measureText(txt).width + 12, h = 15;
-        let x = Math.max(w/2 + 4, Math.min(game.width - w/2 - 4, sx));
-        const y = sy - h - 4;
+        const minX = 142 + w/2, maxX = game.width - 152 - w/2;
+        let x = Math.max(minX, Math.min(Math.max(minX, maxX), sx));
+        const y = Math.max(64, Math.min(game.height - 70 - h, sy - h - 4));
         ctx.fillStyle = 'rgba(255,255,255,0.96)'; ctx.strokeStyle = '#143a8a'; ctx.lineWidth = 1.2;
         ctx.beginPath();
         if (ctx.roundRect) ctx.roundRect(x - w/2, y, w, h, 5); else ctx.rect(x - w/2, y, w, h);
         ctx.fill(); ctx.stroke();
-        ctx.beginPath(); ctx.moveTo(sx - 3, y + h); ctx.lineTo(sx, y + h + 5); ctx.lineTo(sx + 3, y + h); ctx.closePath();
-        ctx.fill(); ctx.stroke();
+        if (Math.abs(sx - x) < w/2 - 6 && Math.abs(y - (sy - h - 4)) < 2){ ctx.beginPath(); ctx.moveTo(sx - 3, y + h); ctx.lineTo(sx, y + h + 5); ctx.lineTo(sx + 3, y + h); ctx.closePath();
+        ctx.fill(); ctx.stroke(); }
         ctx.fillStyle = '#0b2a6b'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
         ctx.fillText(txt, x, y + h/2 + 0.5);
         ctx.restore();
@@ -3050,6 +3042,7 @@ class AcidOfficer {
         this.advanceTimer = 0;
         this.returnTimer = 0;
         this._route = null; this._routeIdx = 0; this._routeGoal = null; this._progStuck = 0;
+        this.refilled = true; this.refillTimer = 0;
         this.gait = 'idle'; this.gaitPhase = 0; this.vphase = 0; this.smSpeed = 0;
     }
     computePositions(){
@@ -3092,7 +3085,7 @@ class AcidOfficer {
         else this.setAim(Math.atan2(this.faceY, this.faceX));
     }
     beginReturn(){
-        this.state = 'returning';
+        this.state = this.refilled ? 'returning' : 'refill_run';   // after spraying: back to the station for a refill
         this.returnTimer = 0;
         this.crowd = null;
         this._route = null; this._routeGoal = null; this._progStuck = 0;
@@ -3135,6 +3128,21 @@ class AcidOfficer {
             this.setAim(this.aimAngle);
             this.applyAcid(dt);
             if (this.sprayTimer <= 0) this.beginReturn();
+        } else if (this.state === 'refill_run'){
+            this.returnTimer += dt;
+            const bx = BASE_TILE_X*TILE, by = BASE_TILE_Y*TILE;
+            if (Math.hypot(bx - this.x, by - this.y) < TILE*1.8 || isAtStation(this.x, this.y) || this.returnTimer > 45){ this.state = 'refilling'; this.refillTimer = ACID_REFILL_TIME; this.isMoving = false; }
+            else routedMove(this, bx, by, dt, ACID_SPEED*1.35);
+        } else if (this.state === 'refilling'){
+            this.refillTimer -= dt; this.isMoving = false;
+            if (this.refillTimer <= 0){
+                this.refilled = true; this.state = 'returning'; this.returnTimer = 0;
+                this._route = null; this._routeGoal = null; this._progStuck = 0;
+                if (!game.acidTeams.some(t => t.alive && t.syndicateIndex === this.syndicateIndex && !t.refilled)){
+                    showToast(':flask: S' + (this.syndicateIndex+1) + ' acid team refilled and heading back.');
+                    updateAbilityButtons();
+                }
+            }
         } else if (this.state === 'returning'){
             this.returnTimer += dt;
             const d = Math.hypot(this.escortX - this.x, this.escortY - this.y);
@@ -3225,6 +3233,31 @@ class AcidOfficer {
 // ============================ TEST SUBJECT GRABBER ============================
 const GRABBER_PALETTE = { cloth:'#4a2a6a', dark:'#241432', visor:'#e8d0ff', badge:'#ffcc33' };
 let grabberIdSeq = 1;
+function isGrabbable(z){ return !!(z && z.alive && !z.beingDragged); }
+function grabAnchor(idx){
+    const mine = game.officers.filter(o => o.alive && !o.isAllOut && o.syndicateIndex === idx && o.state === 'active');
+    if (mine.length){ let cx = 0, cy = 0; for (const o of mine){ cx += o.x; cy += o.y; } return { x: cx/mine.length, y: cy/mine.length }; }
+    const sy = game.syndicates[idx];
+    return sy ? { x: sy.commandX, y: sy.commandY } : { x: BASE_TILE_X*TILE, y: BASE_TILE_Y*TILE };
+}
+function findGrabTarget(idx, self){
+    const a = grabAnchor(idx);
+    const fx = self ? self.x : a.x, fy = self ? self.y : a.y;
+    let best = null, bestScore = -Infinity;
+    for (const z of game.zombies){
+        if (!isGrabbable(z)) continue;
+        if (Math.hypot(z.x - a.x, z.y - a.y) > GRABBER_REACH) continue;
+        if (game.grabbers.some(g => g.alive && g !== self && g.target === z)) continue;
+        const d = Math.hypot(z.x - fx, z.y - fy);
+        const score = (z.def.value || 2)*2 - d/(TILE*8);
+        if (score > bestScore){ bestScore = score; best = z; }
+    }
+    return best;
+}
+function grabberChargesFor(idx){
+    const out = game.grabbers.filter(a => a.alive && a.syndicateIndex === idx).length;
+    return Math.max(0, GRABBER_TEAM_SIZE - out - (game.grabberLost[idx] || []).length);
+}
 class TestSubjectGrabber {
     constructor(x, y, syndicateIndex){
         this.id = grabberIdSeq++;
@@ -3245,6 +3278,7 @@ class TestSubjectGrabber {
         this.returningHome = false;
         this.route = null; this.routeIdx = 0; this.routeStuck = 0;
         this._lastReturnDist = undefined; this._returnStuckTime = 0;
+        this.target = null; this.rejoining = false; this.completed = false; this.sortieT = 0; this._carryStuck = 0;
         this.gait = 'idle'; this.gaitPhase = 0; this.vphase = 0; this.smSpeed = 0;
     }
     moveToGoal(gx, gy, dt, speed){
@@ -3278,105 +3312,65 @@ class TestSubjectGrabber {
         this.route = smoothPath(this.x, this.y, rawPts);
         this.routeIdx = 0;
     }
+    deliverSubject(){
+        const z = this.dragging;
+        if (!z) return;
+        const val = (z.def.value || 2) * 3 + 4;
+        game.supplies += val;
+        game.subjects++;
+        z.alive = false; z.beingDragged = false; z.grabber = null;
+        showToast(`:zombie: Subject processed! +${val} supplies`);
+        this.dragging = null; this.target = null;
+        this.rejoining = true; this.state = 'returning';
+        this.route = null; this.routeStuck = 0; this._carryStuck = 0;
+    }
     update(dt){
         if (!this.alive) return;
         this.animTimer += dt;
         if (this.attackFlash > 0) this.attackFlash = Math.max(0, this.attackFlash - dt);
-        if (!this.returningHome){
-            this.lifeTimer -= dt;
-            if (this.lifeTimer <= 0 && !this.dragging){ this.returningHome = true; this.route = null; this.routeStuck = 0; this._lastReturnDist = undefined; this._returnStuckTime = 0; }
-        }
-        if (this.returningHome){
-            const bx = BASE_TILE_X*TILE, by = BASE_TILE_Y*TILE;
-            const d = Math.hypot(bx - this.x, by - this.y);
-            if (d < TILE*1.5 || isAtStation(this.x, this.y)){ this.alive = false; return; }
-            if (this._lastReturnDist !== undefined && this._lastReturnDist - d < 0.05) this._returnStuckTime = (this._returnStuckTime || 0) + dt;
-            else this._returnStuckTime = Math.max(0, (this._returnStuckTime || 0) - dt*0.5);
-            this._lastReturnDist = d;
-            if (this._returnStuckTime > 6){ this.alive = false; return; }
-            this.moveToGoal(bx, by, dt, GRABBER_SPEED);
-            return;
-        }
+        this.sortieT += dt;
         const sy = game.syndicates[this.syndicateIndex];
-        if (!sy) return;
+        const bx = BASE_TILE_X*TILE, by = BASE_TILE_Y*TILE;
+        // 1) carrying a subject: the whole way to the station door
         if (this.dragging){
-            this.dragTimer += dt;
-            const bx = BASE_TILE_X*TILE, by = BASE_TILE_Y*TILE;
+            const z = this.dragging;
+            if (!z.alive){ z.beingDragged = false; z.grabber = null; this.dragging = null; this.rejoining = true; this.route = null; return; }
             const d = Math.hypot(bx - this.x, by - this.y);
-            if (d < TILE*2.2){
-                const z = this.dragging;
-                const val = (z.def.value || 2) * 3 + 4;
-                game.supplies += val;
-                game.subjects++;
-                z.alive = false;
-                z.beingDragged = false;
-                z.grabber = null;
-                showToast(`:zombie: Subject processed! +${val} supplies`);
-                this.dragging = null;
-                this.state = 'escort';
-                this.dragTimer = 0;
-                this.route = null;
-                return;
-            }
+            if (d < TILE*1.8 || isAtStation(this.x, this.y)){ this.deliverSubject(); return; }
             this.isMoving = true;
-            this.moveToGoal(bx, by, dt, GRABBER_SPEED);
-            if (this.dragging){
-                this.dragging.x = this.x + this.dir.x*-TILE*0.6;
-                this.dragging.y = this.y + this.dir.y*-TILE*0.6;
-                this.dragging.beingDragged = true;
-                this.dragging.grabber = this;
-            }
+            this.moveToGoal(bx, by, dt, GRABBER_SPEED*0.95);
+            z.x = this.x - this.dir.x*TILE*0.6; z.y = this.y - this.dir.y*TILE*0.6;
+            z.beingDragged = true; z.grabber = this;
+            if (d - Math.hypot(bx - this.x, by - this.y) < 0.05) this._carryStuck += dt; else this._carryStuck = Math.max(0, this._carryStuck - dt);
+            if (this._carryStuck > 6){ this._carryStuck = 0; const n = nearestRoadNode(this.x, this.y); if (n){ this.x = n.x*TILE; this.y = n.y*TILE; this.route = null; } }
             return;
         }
-        let anchorX = sy.commandX, anchorY = sy.commandY;
-        let aliveSquad = game.officers.filter(o => o.alive && !o.isAllOut && o.syndicateIndex === this.syndicateIndex && o.state === 'active');
-        if (aliveSquad.length){
-            let cx = 0, cy = 0;
-            for (const o of aliveSquad){ cx += o.x; cy += o.y; }
-            anchorX = cx/aliveSquad.length; anchorY = cy/aliveSquad.length;
-        }
-        let best = null, bestScore = -Infinity;
-        for (const z of game.zombies){
-            if (!z.alive || z.beingDragged) continue;
-            if (Math.hypot(z.x - anchorX, z.y - anchorY) > GRABBER_MAX_RANGE_FROM_SYNDICATE) continue;
-            const d = Math.hypot(z.x - this.x, z.y - this.y);
-            if (d > GRABBER_RANGE) continue;
-            const score = (z.def.value || 2) * 2 - d/(TILE*8);
-            if (score > bestScore){ bestScore = score; best = z; }
-        }
-        if (best){
-            this.dragging = best;
-            best.beingDragged = true;
-            best.grabber = this;
-            this.state = 'grabbing';
-            this.dragTimer = 0;
-            this.route = null;
-            spawnHitEffect(best.x, best.y);
-            showToast(':zombie: Subject secured — delivering to station!');
+        // 2) heading back to the line
+        if (this.rejoining){
+            let ax = sy ? sy.commandX : bx, ay = sy ? sy.commandY : by;
+            let fx = sy ? (sy.facingX || 1) : 1, fy = sy ? (sy.facingY || 0) : 0;
+            if (Math.abs(fx) > Math.abs(fy)){ fx = Math.sign(fx)||1; fy = 0; } else { fx = 0; fy = Math.sign(fy)||1; }
+            const g = clampTarget(ax - fx*TILE*4.5 + fy*this.slotOffset*TILE, ay - fy*TILE*4.5 - fx*this.slotOffset*TILE);
+            if (Math.hypot(g.x - this.x, g.y - this.y) < TILE*2.4 || this.sortieT > 80){ this.completed = true; this.alive = false; return; }
+            this.isMoving = true;
+            this.moveToGoal(g.x, g.y, dt, GRABBER_SPEED*1.1);
             return;
         }
-        let chaseTarget = null, chaseBest = Infinity;
-        for (const z of game.zombies){
-            if (!z.alive || z.beingDragged) continue;
-            if (Math.hypot(z.x - anchorX, z.y - anchorY) > GRABBER_MAX_RANGE_FROM_SYNDICATE) continue;
-            const d = Math.hypot(z.x - this.x, z.y - this.y);
-            if (d < chaseBest){ chaseBest = d; chaseTarget = z; }
+        // 3) looking for / chasing a subject
+        this.lifeTimer -= dt;
+        if (this.lifeTimer <= 0){ this.rejoining = true; this.route = null; return; }
+        let t = this.target;
+        if (!isGrabbable(t)) t = this.target = findGrabTarget(this.syndicateIndex, this);
+        if (!t){ this.rejoining = true; this.route = null; return; }
+        if (Math.hypot(t.x - this.x, t.y - this.y) < TILE*2.1){
+            this.dragging = t; t.beingDragged = true; t.grabber = this;
+            this.state = 'grabbing'; this.dragTimer = 0; this.route = null; this.routeStuck = 0; this._carryStuck = 0;
+            spawnHitEffect(t.x, t.y);
+            showToast(':zombie: Subject secured — delivering to the station!');
+            return;
         }
-        const px = sy.facingY || 0, py = -(sy.facingX || 1);
-        let targetX, targetY;
-        if (chaseTarget){
-            const dxc = chaseTarget.x - this.x, dyc = chaseTarget.y - this.y;
-            const dc = Math.hypot(dxc, dyc) || 1;
-            const stop = GRABBER_RANGE*0.6;
-            targetX = chaseTarget.x - (dxc/dc)*stop + px*this.slotOffset*TILE*0.4;
-            targetY = chaseTarget.y - (dyc/dc)*stop + py*this.slotOffset*TILE*0.4;
-        } else {
-            const back = TILE*4.5;
-            targetX = anchorX + px*(this.slotOffset*TILE) - (sy.facingX||1)*back;
-            targetY = anchorY + py*(this.slotOffset*TILE) - (sy.facingY||0)*back;
-        }
-        this.moveToGoal(targetX, targetY, dt, GRABBER_SPEED);
-        if (this.state === 'returning' && !this.dragging) this.state = 'escort';
+        this.isMoving = true;
+        this.moveToGoal(t.x, t.y, dt, GRABBER_SPEED*1.25);
     }
     draw(ctx){
         if (!this.alive) return;
@@ -3605,9 +3599,63 @@ class K9Unit {
 }
 
 // ============================ AMBULANCE ============================
+// Emergency vehicles stay on the road: they follow the road centre lines and wait short of a roadblock.
+function snapToRoadLine(x, y){
+    let best = null, bd = Infinity;
+    for (const e of ROAD_EDGES){
+        const a = getNode(e.a), b = getNode(e.b);
+        if (!a || !b) continue;
+        const ax = a.x*TILE, ay = a.y*TILE, bx = b.x*TILE, by = b.y*TILE;
+        let px, py;
+        if (e.dir === 'h'){ px = Math.max(Math.min(ax, bx), Math.min(Math.max(ax, bx), x)); py = ay; }
+        else { px = ax; py = Math.max(Math.min(ay, by), Math.min(Math.max(ay, by), y)); }
+        const dd = Math.hypot(px - x, py - y);
+        if (dd < bd){ bd = dd; best = { x: px, y: py, e: e }; }
+    }
+    return best;
+}
+function vehicleRoute(sx, sy, gx, gy){
+    const S = snapToRoadLine(sx, sy), G = snapToRoadLine(gx, gy);
+    if (!S || !G) return null;
+    if (S.e === G.e) return [{ x: sx, y: sy }, { x: S.x, y: S.y, key: S.e.key }, { x: G.x, y: G.y, key: G.e.key }];
+    let best = null, bestLen = Infinity;
+    const ends = e => [getNode(e.a), getNode(e.b)];
+    for (const n1 of ends(S.e)) for (const n2 of ends(G.e)){
+        if (!n1 || !n2) continue;
+        const path = findPathSmart(n1.id, n2.id, 400, 0);
+        if (!path) continue;
+        let len = Math.hypot(n1.x*TILE - S.x, n1.y*TILE - S.y) + Math.hypot(G.x - n2.x*TILE, G.y - n2.y*TILE);
+        for (let i = 1; i < path.length; i++){ const a = getNode(path[i-1]), b = getNode(path[i]); len += Math.hypot((a.x-b.x)*TILE, (a.y-b.y)*TILE); }
+        if (len < bestLen){ bestLen = len; best = { path: path }; }
+    }
+    if (!best) return null;
+    const wps = [{ x: sx, y: sy }, { x: S.x, y: S.y, key: S.e.key }];
+    let prevId = null;
+    for (const id of best.path){ const n = getNode(id); wps.push({ x: n.x*TILE, y: n.y*TILE, key: prevId ? edgeKey(prevId, id) : S.e.key }); prevId = id; }
+    wps.push({ x: G.x, y: G.y, key: G.e.key });
+    return wps;
+}
+function vehicleMove(u, gx, gy, dt, speed){
+    const moved = !u._vGoal || Math.hypot(u._vGoal.x - gx, u._vGoal.y - gy) > TILE*3 || u._vVersion !== game.blockadeVersion;
+    if (!u._vRoute || moved){ u._vRoute = vehicleRoute(u.x, u.y, gx, gy); u._vGoal = { x: gx, y: gy }; u._vVersion = game.blockadeVersion; u._vIdx = 1; u._vWait = 0; }
+    const R = u._vRoute;
+    if (!R) return;
+    while (u._vIdx < R.length && Math.hypot(R[u._vIdx].x - u.x, R[u._vIdx].y - u.y) < TILE*0.5) u._vIdx++;
+    if (u._vIdx >= R.length) return;
+    const wp = R[u._vIdx];
+    if (u._vIdx >= 3 && wp.key && game.blockedEdges && game.blockedEdges.has(wp.key)){
+        u._vWait = (u._vWait || 0) + dt;
+        if (u._vWait > 5){ u._vRoute = null; u._vWait = 0; }
+        return;
+    }
+    const dx = wp.x - u.x, dy = wp.y - u.y, dd = Math.hypot(dx, dy) || 1;
+    const step = Math.min(dd, speed*TILE*dt);
+    u.x += dx/dd*step; u.y += dy/dd*step;
+    u.dir = { x: dx/dd, y: dy/dd };
+}
 class AmbulanceVehicle {
     constructor(){
-        this.x = (BASE_TILE_X - 3)*TILE; this.y = (ROAD_Y_BOTTOM + 1.2)*TILE;
+        this.x = (BASE_TILE_X - 3)*TILE; this.y = (BASE_TILE_Y + 1.2)*TILE;
         this.dir = { x:1, y:0 }; this.angle = 0;
         this.alive = true; this.state = 'waiting'; this.timer = 0; this.waitTimer = 12;
         this.target = -1; this.pick = 0; this.lightPhase = Math.random()*10; this.healed = 0;
@@ -3629,7 +3677,7 @@ class AmbulanceVehicle {
         if (!this.alive) return;
         this.lightPhase += dt;
         const px = this.x, py = this.y;
-        const base = { x:(BASE_TILE_X - 3)*TILE, y:(ROAD_Y_BOTTOM + 1.2)*TILE };
+        const base = { x:(BASE_TILE_X - 3)*TILE, y:(BASE_TILE_Y + 1.2)*TILE };
         if (this.state === 'waiting' || this.state === 'responding' || this.state === 'treating'){
             this.pick -= dt;
             if (this.pick <= 0 || this.state === 'waiting'){
@@ -3641,7 +3689,7 @@ class AmbulanceVehicle {
         }
         if (this.state === 'waiting'){
             this.waitTimer -= dt;
-            routedMove(this, base.x, base.y, dt, AMB_SPEED);
+            vehicleMove(this, base.x, base.y, dt, AMB_SPEED);
             if (this.target >= 0) this.state = 'responding';
             else if (this.waitTimer <= 0) this.state = 'returning';
         } else if (this.state === 'responding'){
@@ -3652,7 +3700,7 @@ class AmbulanceVehicle {
                 let fx = (sy && sy.facingX) || 1, fy = (sy && sy.facingY) || 0;
                 if (Math.abs(fx) > Math.abs(fy)){ fx = Math.sign(fx)||1; fy = 0; } else { fx = 0; fy = Math.sign(fy)||1; }
                 const g = clampTarget(c.x - fx*TILE*6, c.y - fy*TILE*6);
-                routedMove(this, g.x, g.y, dt, AMB_SPEED);
+                vehicleMove(this, g.x, g.y, dt, AMB_SPEED);
                 if (Math.hypot(c.x - this.x, c.y - this.y) < AMB_RADIUS*0.8){ this.state = 'treating'; this.timer = AMB_STAY; }
             }
         } else if (this.state === 'treating'){
@@ -3670,7 +3718,7 @@ class AmbulanceVehicle {
             this.healed = any ? 0 : this.healed + dt;
             if (this.timer <= 0 || this.healed > 5) this.state = 'returning';
         } else if (this.state === 'returning'){
-            routedMove(this, base.x, base.y, dt, AMB_SPEED);
+            vehicleMove(this, base.x, base.y, dt, AMB_SPEED);
             if (Math.hypot(base.x - this.x, base.y - this.y) < TILE*2.5){
                 this.alive = false;
                 game.ambulanceCooldown = AMB_COOLDOWN;
@@ -3746,8 +3794,8 @@ class WaterCannonVehicle {
     constructor(syndicateIndex, kind){
         this.syndicateIndex = syndicateIndex;
         this.kind = kind || 'watercannon';
-        this.x = this.kind === 'rubberbullet' ? 40 * TILE + TILE / 2 : 44 * TILE + TILE / 2;
-        this.y = ROAD_Y_BOTTOM * TILE + TILE / 2;
+        this.x = (BASE_TILE_X + (this.kind === 'rubberbullet' ? -14 : -10)) * TILE + TILE / 2;
+        this.y = BASE_TILE_Y * TILE + TILE / 2;
         this.angle = 0;
         this.targetAngle = 0;
         this.lightPhase = Math.random() * 10;
@@ -3779,7 +3827,7 @@ class WaterCannonVehicle {
     ammoPct(){ return Math.max(0, Math.min(1, this.ammo / this.maxAmmo)); }
     isRefilling(){ return !!(this.refill && this.refill.phase === 'filling'); }
     canFire(){ return this.ammo > 0.01 && !this.isRefilling(); }
-    bayKey(){ return 'H' + ROAD_Y_BOTTOM + '_' + (this.kind === 'rubberbullet' ? BASE_TILE_X + 5 : BASE_TILE_X - 5); }
+    bayKey(){ return 'H' + BASE_TILE_Y + '_' + (this.kind === 'rubberbullet' ? BASE_TILE_X + 5 : BASE_TILE_X - 5); }
     bayCost(){ return (this.kind === 'rubberbullet' ? SHOOTER_REFILL_COST : ACID_REFILL_COST) * (1 - this.ammoPct()); }
     startRefillTrip(auto){
         if (this.refill) return false;
@@ -3896,7 +3944,7 @@ class WaterCannonVehicle {
                 if (!starts.includes(e.b)) starts.push(e.b);
             }
         }
-        if (starts.length === 0) starts.push('B54');
+        if (starts.length === 0) starts.push(BASE_NODE_ID);
         let bestPath = null, bestCost = Infinity;
         for (const sId of starts){
             const sNode = getNode(sId);
@@ -4625,7 +4673,7 @@ function assignFormationForSyndicate(idx){
         return;
     }
     if (tactic === 'stackleft' || tactic === 'stackright'){
-        const sign = tactic === 'stackleft' ? -1 : 1;
+        const sign = tactic === 'stackleft' ? 1 : -1;
         const files = 3;
         const edgeOffset = sign * (ROAD_W/2 - 0.55) * TILE;
         let i = 0, rank = 0;
@@ -4680,7 +4728,7 @@ const SYNDICATE_MARCH_SPEED = 3.0;
 function ensureSyndicateState(idx){
     if (!game.syndicates[idx]){
         const startX = (SYNDICATE_START_X[idx] !== undefined) ? SYNDICATE_START_X[idx] : (BASE_TILE_X + idx*8);
-        const startY = (SYNDICATE_START_Y[idx] !== undefined) ? SYNDICATE_START_Y[idx] : ROAD_Y_BOTTOM;
+        const startY = (SYNDICATE_START_Y[idx] !== undefined) ? SYNDICATE_START_Y[idx] : BASE_TILE_Y;
         game.syndicates[idx] = {
             tactic:'rest', commandX:startX*TILE, commandY:startY*TILE,
             facingX:-1, facingY:0, disperseTimer:0, autoWallTimer:0, provokedTimer:0,
@@ -4707,8 +4755,8 @@ function ensureSyndicateState(idx){
 function ensureVehicleSyndicate(idx){
     game.syndicates[idx] = {
         tactic: 'vehicle',
-        commandX: (idx === VEHICLE_SYNDICATE_2 ? 40*TILE + TILE/2 : 44*TILE + TILE/2),
-        commandY: ROAD_Y_BOTTOM*TILE + TILE/2,
+        commandX: (BASE_TILE_X + (idx === VEHICLE_SYNDICATE_2 ? -14 : -10))*TILE + TILE/2,
+        commandY: BASE_TILE_Y*TILE + TILE/2,
         facingX:-1, facingY:0, disperseTimer:0,
     };
 }
@@ -4821,6 +4869,41 @@ function commandSyndicateToPost(post){
     const covered = post.cover.map(d => dirNames[d]).join(', ');
     showToast(':target: Syndicate moving to ' + dirNames[post.dir] + ' post — covering ' + covered + '.');
 }
+// A line that is standing still turns by itself to face the nearest threat.
+function updateAutoFacing(dt){
+    game._faceT = (game._faceT || 0) - dt;
+    if (game._faceT > 0) return;
+    game._faceT = 0.3;
+    for (let i = 0; i < OFFICER_SYNDICATES; i++){
+        const sy = game.syndicates[i];
+        if (!sy || sy.post) continue;
+        if (sy.path && sy.path.length) continue;
+        const mine = game.officers.filter(o => o.alive && !o.isAllOut && o.state === 'active' && o.syndicateIndex === i);
+        if (!mine.length) continue;
+        let cx = 0, cy = 0;
+        for (const o of mine){ cx += o.x; cy += o.y; }
+        cx /= mine.length; cy /= mine.length;
+        let best = null, bd = Infinity;
+        for (const z of game.zombies){
+            if (!z.alive || z.beingDragged) continue;
+            const d2 = Math.hypot(z.x - cx, z.y - cy);
+            if (d2 > TILE*26) continue;
+            if (d2 < bd){ bd = d2; best = z; }
+        }
+        if (!best) continue;
+        const dx = best.x - cx, dy = best.y - cy;
+        const horiz = sy.facingY === 0;
+        let nfx = sy.facingX, nfy = sy.facingY;
+        if (horiz){
+            if (Math.abs(dy) > Math.abs(dx)*1.35 && Math.abs(dy) > TILE*3){ nfx = 0; nfy = Math.sign(dy) || 1; }
+            else if (Math.abs(dx) > TILE*3){ nfx = Math.sign(dx); nfy = 0; }
+        } else {
+            if (Math.abs(dx) > Math.abs(dy)*1.35 && Math.abs(dx) > TILE*3){ nfx = Math.sign(dx) || 1; nfy = 0; }
+            else if (Math.abs(dy) > TILE*3){ nfx = 0; nfy = Math.sign(dy); }
+        }
+        if (nfx !== sy.facingX || nfy !== sy.facingY){ sy.facingX = nfx; sy.facingY = nfy; }
+    }
+}
 function updateSyndicateMovement(dt){
     for (let i = 0; i < OFFICER_SYNDICATES; i++){
         const sy = game.syndicates[i];
@@ -4928,20 +5011,17 @@ function fireNextReady(fn){
 function deployAcidFor(idx, silent){
     const say = m => { if (!silent) showToast(m); };
     if (idx >= OFFICER_SYNDICATES){ say('The gas van has no acid team.'); return false; }
-    if (game.acidCooldown[idx] > 0){ say('Acid team ready in ' + Math.ceil(game.acidCooldown[idx]) + 's.'); return false; }
     const team = game.acidTeams.filter(t => t.alive && t.syndicateIndex === idx);
     if (team.length === 0){ say('No acid team for this syndicate.'); return false; }
     const busy = team.some(t => t.state === 'advancing' || t.state === 'spraying');
     if (busy){ say('Acid team already engaged.'); return false; }
+    if (!team.every(t => t.refilled)){ say(':flask: The acid team is still on its way back from the station with a refill.'); return false; }
     const crowd = getAcidTarget(idx, true);
     if (!crowd){ say(':flask: No zombie crowd in reach yet — hold the acid.'); return false; }
     for (const t of team){
-        t.state = 'advancing';
-        t.crowd = crowd;
-        t.advanceTimer = 0;
+        t.state = 'advancing'; t.crowd = crowd; t.advanceTimer = 0; t.refilled = false;
         t._route = null; t._routeGoal = null; t._progStuck = 0;
     }
-    game.acidCooldown[idx] = ACID_COOLDOWN;
     showToast(':flask: Acid team moving on the biggest crowd (' + Math.max(1, Math.round(crowd.count)) + ' zeds)!');
     updateAbilityButtons();
     return true;
@@ -4949,44 +5029,23 @@ function deployAcidFor(idx, silent){
 function deployAcid(){ fireNextReady(deployAcidFor); }
 function deployGrabberFor(idx, silent){
     const say = m => { if (!silent) showToast(m); };
-    if (idx >= OFFICER_SYNDICATES){ say('The gas van has no grabber team.'); return false; }
-    if (game.grabberCooldown[idx] > 0){ say('Grabber team ready in ' + Math.ceil(game.grabberCooldown[idx]) + 's.'); return false; }
+    if (idx >= OFFICER_SYNDICATES){ say('The gas van has no grabbers.'); return false; }
+    if (grabberChargesFor(idx) <= 0){ say('All three S' + (idx+1) + ' grabbers are out. Each is ready again once it is back from the station.'); return false; }
     const sy = ensureSyndicateState(idx);
     if (!sy) return false;
+    const target = findGrabTarget(idx, null);
+    if (!target){ say(':zombie: No zombies in reach to grab.'); return false; }
     let fx = sy.facingX || 1, fy = sy.facingY || 0;
     if (Math.abs(fx) > Math.abs(fy)){ fx = Math.sign(fx) || 1; fy = 0; }
     else { fx = 0; fy = Math.sign(fy) || 1; }
     const px = fy, py = -fx;
-    const back = TILE*4;
-    const baseX = sy.commandX - fx*back;
-    const baseY = sy.commandY - fy*back;
-    const existing = game.grabbers.filter(a => a.alive && a.syndicateIndex === idx);
-    if (existing.length >= GRABBER_TEAM_SIZE){
-        existing.forEach((a, i) => {
-            const off = (i - (GRABBER_TEAM_SIZE-1)/2)*TILE*1.5;
-            let sx = baseX + px*off, sy2 = baseY + py*off;
-            if (!isValidOfficerPosition(sx, sy2)){ const s = snapToTileCenter(baseX, baseY); sx = s.x; sy2 = s.y; }
-            a.x = sx; a.y = sy2;
-            a.hp = a.maxHp;
-            if (a.dragging){ a.dragging.beingDragged = false; a.dragging.grabber = null; a.dragging = null; }
-            a.state = 'escort';
-            a.lifeTimer = GRABBER_LIFETIME;
-            a.returningHome = false;
-            a.route = null; a.routeIdx = 0; a.routeStuck = 0;
-        });
-    } else {
-        game.grabbers = game.grabbers.filter(a => a.alive);
-        for (let i = 0; i < GRABBER_TEAM_SIZE; i++){
-            const off = (i - (GRABBER_TEAM_SIZE-1)/2)*TILE*1.5;
-            let sx = baseX + px*off, sy2 = baseY + py*off;
-            if (!isValidOfficerPosition(sx, sy2)){ const s = snapToTileCenter(baseX, baseY); sx = s.x; sy2 = s.y; }
-            const a = new TestSubjectGrabber(sx, sy2, idx);
-            a.slotOffset = (i - (GRABBER_TEAM_SIZE-1)/2)*1.2;
-            game.grabbers.push(a);
-        }
-    }
-    game.grabberCooldown[idx] = GRABBER_COOLDOWN;
-    showToast(':zombie: Test-subject grabbers deploying behind Syndicate ' + (idx+1) + '!');
+    const slot = grabberChargesFor(idx) - 2;
+    let sx = sy.commandX - fx*TILE*4 + px*slot*TILE*1.4, sy2 = sy.commandY - fy*TILE*4 + py*slot*TILE*1.4;
+    if (!isValidOfficerPosition(sx, sy2)){ const s = snapToTileCenter(sy.commandX - fx*TILE*4, sy.commandY - fy*TILE*4); sx = s.x; sy2 = s.y; }
+    const a = new TestSubjectGrabber(sx, sy2, idx);
+    a.slotOffset = slot*1.2; a.target = target; a.lifeTimer = GRABBER_SORTIE_TIME;
+    game.grabbers.push(a);
+    showToast(':zombie: Grabber sent from S' + (idx+1) + ' (' + grabberChargesFor(idx) + ' left)');
     updateAbilityButtons();
     return true;
 }
@@ -5023,17 +5082,28 @@ function updateAbilityButtons(){
     const acidSub = document.getElementById('act-acid-sub');
     if (list[0] >= OFFICER_SYNDICATES){ acidBtn.disabled = true; acidBtn.classList.remove('ready'); acidSub.textContent = '—'; }
     else {
-        const cds = list.map(i => game.acidCooldown[i] || 0);
-        const ready = cds.filter(c => c <= 0).length;
-        setAbilityButton(acidBtn, acidSub, ready, list.length, 'S' + (list[0]+1), Math.min(...cds));
+        let ready = 0, anyTeam = false, out = false, refilling = false;
+        for (const i of list){
+            const team = game.acidTeams.filter(t => t.alive && t.syndicateIndex === i);
+            if (!team.length) continue;
+            anyTeam = true;
+            if (team.some(t => t.state === 'spraying' || t.state === 'advancing')){ out = true; continue; }
+            if (team.every(t => t.refilled)) ready++; else refilling = true;
+        }
+        const lbl = 'S' + (list[0]+1);
+        if (!anyTeam) setAbilityButton(acidBtn, acidSub, 0, list.length, lbl, 0, lbl + ' unavailable');
+        else if (ready) setAbilityButton(acidBtn, acidSub, ready, list.length, lbl, 0);
+        else setAbilityButton(acidBtn, acidSub, 0, list.length, lbl, 0, out ? 'spraying' : (refilling ? 'refilling' : 'not ready'));
     }
     const gBtn = document.getElementById('act-grabber');
     const gSub = document.getElementById('act-grabber-sub');
     if (list[0] >= OFFICER_SYNDICATES){ gBtn.disabled = true; gBtn.classList.remove('ready'); gSub.textContent = '—'; }
     else {
-        const cds = list.map(i => game.grabberCooldown[i] || 0);
-        const ready = cds.filter(c => c <= 0).length;
-        setAbilityButton(gBtn, gSub, ready, list.length, 'S' + (list[0]+1), Math.min(...cds));
+        let have = 0;
+        for (const i of list) have += grabberChargesFor(i);
+        const max = list.length * GRABBER_TEAM_SIZE;
+        if (have > 0){ gBtn.disabled = false; gBtn.classList.add('ready'); gSub.textContent = have + ' of ' + max + ' ready'; }
+        else { gBtn.disabled = true; gBtn.classList.remove('ready'); gSub.textContent = 'all out'; }
     }
     const k9Btn = document.getElementById('act-k9');
     const k9Sub = document.getElementById('act-k9-sub');
@@ -5225,8 +5295,8 @@ const FORMATION_DEFS = [
     { key:'rest', label:':moon: Rest' },
     { key:'wedge', label:':wedge: Wedge' },
     { key:'wall', label:':wall: Wall' },
-    { key:'stackleft', label:':arrow_l: Stack Left' },
-    { key:'stackright', label:':arrow_r: Stack Right' },
+    { key:'stackleft', label:':arrow_l: File Left' },
+    { key:'stackright', label:':arrow_r: File Right' },
     { key:'box', label:':box: Box' },
     { key:'pulse', label:':burst: Pulse' },
 ];
@@ -5437,14 +5507,30 @@ function updateMoveButtons(){
     document.getElementById('btn-left').disabled = !canMove(-1, 0);
     document.getElementById('btn-right').disabled = !canMove(1, 0);
 }
-function showToast(msg){
-    const t = document.getElementById('toast');
-    if (!t) return;
-    t.textContent = msg;
-    t.classList.add('show');
-    clearTimeout(toastTimer);
-    toastTimer = setTimeout(() => t.classList.remove('show'), 2100);
+function dropMsg(el, now){
+    if (!el || !el.parentNode) return;
+    clearTimeout(el._t);
+    if (now){ el.remove(); return; }
+    el.classList.add('out');
+    setTimeout(() => { if (el.parentNode) el.remove(); }, 380);
 }
+function pushMsg(o){
+    const box = document.getElementById('msg-stack');
+    if (!box) return;
+    if (o.key){
+        for (const c of box.children){
+            if (c.dataset.key === o.key && !c.classList.contains('out')){ clearTimeout(c._t); c._t = setTimeout(() => dropMsg(c), o.ttl); return; }
+        }
+    }
+    const el = document.createElement('div');
+    el.className = 'msg' + (o.cls ? ' ' + o.cls : '');
+    if (o.key) el.dataset.key = o.key;
+    if (o.html) el.innerHTML = o.html; else el.textContent = o.text;
+    box.appendChild(el);
+    while (box.children.length > 3) dropMsg(box.firstChild, true);
+    el._t = setTimeout(() => dropMsg(el), o.ttl);
+}
+function showToast(msg){ pushMsg({ text: msg, ttl: 2600, key: msg }); }
 
 // ============================ CRATES ============================
 let crateIdSeq = 1;
@@ -5514,14 +5600,13 @@ function drawCrate(ctx, c){
 
 // ============================ WAVES ============================
 const OBJECTIVE_LABELS = { base:'Reach the Station', hunt:'Attack the Officers' };
-const ALL_EXITS = ['N18','N30','N54','N78','N90','S12','S54','S96'];
 const WAVE_TONES = { 1:'Probing Advance', 2:'Twin Thrust', 3:'Coordinated Push',
     4:'Widening Assault', 5:'Massed Assault', 6:'Rolling Offensive' };
 function exitDefence(exitId){
     const n = getNode(exitId);
     if (!n) return 1;
     let score = 0;
-    const path = findPathWeighted(exitId, 'B54', null);
+    const path = findPathWeighted(exitId, BASE_NODE_ID, null);
     const pts = [];
     if (path && path.length > 1){
         for (let i = 0; i < path.length-1; i++){
@@ -5554,16 +5639,18 @@ function startWave(){
     game.waveState = 'active';
     game.waveMoralePct = 100;
     const wave = game.waveNumber;
-    game.waveIntensity = 1 + (wave - 1)*0.045;
+    const D = (window.CordonDifficulty && CordonDifficulty.tune) ? CordonDifficulty.tune() : { zombies: 1, hp: 1 };
+    game.waveIntensity = (1 + (wave - 1)*0.045) * D.hp;
+    { const alive = game.officers.filter(o => o.alive && !o.isAllOut); game.perfStart = { baseHp: game.baseHp, officers: alive.length, supplies: game.supplies }; }
     const roll = Math.random();
     if (wave <= 1) game.raidAI.objective = 'base';
     else if (roll < 0.55) game.raidAI.objective = 'hunt';
     else game.raidAI.objective = 'base';
 
-    const zombieCount = 22 + wave * 8 + Math.floor(wave * wave * 0.35);
+    const zombieCount = Math.max(8, Math.round((22 + wave * 8 + Math.floor(wave * wave * 0.35)) * D.zombies));
     const maxGates = wave <= 1 ? 1 : wave <= 2 ? 2 : wave <= 4 ? 3 : wave <= 6 ? 4 : wave <= 9 ? 5 : 6;
-    const gateCount = Math.max(1, Math.min(ALL_EXITS.length, 1 + Math.floor(Math.random()*maxGates)));
-    const shuffled = ALL_EXITS.slice();
+    const gateCount = Math.max(1, Math.min(EXIT_NODE_IDS.length, 1 + Math.floor(Math.random()*maxGates)));
+    const shuffled = EXIT_NODE_IDS.slice();
     for (let i = shuffled.length-1; i > 0; i--){
         const j = Math.floor(Math.random()*(i+1));
         [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
@@ -5616,16 +5703,30 @@ function startWave(){
     game.waveTotalHp = totalHp;
     game.totalRaidersInWave = zombieCount + houndCount;
     game.waveSpawnTimer = 0;
-    const el = document.getElementById('wave-banner');
     const objLabel = OBJECTIVE_LABELS[game.raidAI.objective] || '';
     const tone = WAVE_TONES[Math.min(6, Math.ceil(game.waveNumber / 2))] || 'Escalating Assault';
-    el.innerHTML = 'WAVE ' + game.waveNumber +
-        '<br><span style="font-size:15px;letter-spacing:1px;color:#ffcc33">' + objLabel + '</span>' +
-        '<br><span style="font-size:11px;letter-spacing:1px;color:#ff8a5c">' + tone +
-        ' · ' + gateCount + ' entr' + (gateCount === 1 ? 'y' : 'ies') + '</span>' +
-        (houndCount ? '<br><span style="font-size:13px;letter-spacing:1px;color:#ff6a5c">:dog: ' + houndCount + (houndCount === 1 ? ' HOUND' : ' HOUNDS') + ' loose</span>' : '');
-    el.classList.remove('show'); void el.offsetWidth; el.classList.add('show');
+    pushMsg({ cls: 'wave', ttl: 5200,
+        html: '<div class="w-title">WAVE ' + game.waveNumber + '</div>' +
+              '<div class="w-tone">' + tone + ' · ' + gateCount + ' entr' + (gateCount === 1 ? 'y' : 'ies') + '</div>' +
+              (houndCount ? '<div class="w-obj">:dog: ' + houndCount + (houndCount === 1 ? ' HOUND' : ' HOUNDS') + ' loose</div>' : '') });
     spawnCrate();
+}
+// How hard was that wave? Feeds the adaptive difficulty (see js/difficulty.js). The waves themselves stay the same shape.
+function judgeWave(){
+    if (!window.CordonDifficulty || !game.perfStart) return '';
+    const ps = game.perfStart;
+    const alive = game.officers.filter(o => o.alive && !o.isAllOut);
+    let hp = 0, mx = 0;
+    for (const o of alive){ hp += o.hp; mx += o.maxHp; }
+    const res = CordonDifficulty.waveEnded({
+        baseLoss: Math.max(0, (ps.baseHp - game.baseHp) / BASE_MAX_HP),
+        officerHealth: mx > 0 ? hp / mx : 0,
+        officersLost: ps.officers > 0 ? Math.max(0, ps.officers - alive.length) / ps.officers : 0,
+    });
+    game.perfStart = null;
+    if (res.delta >= 0.05) return '  ·  The next horde will be bigger';
+    if (res.delta <= -0.05) return '  ·  The next horde eases off';
+    return '';
 }
 function updateWaves(dt){
     if (game.waveState === 'intermission'){
@@ -5663,7 +5764,7 @@ function updateWaves(dt){
         game.waveNumber++;
         game.waveTimer = 8;
         game.fsClear = 0;
-        showToast('Wave cleared — horde eliminated!');
+        showToast('Wave cleared — horde eliminated!' + judgeWave());
         game.supplies += 8 + game.waveNumber*2;
         spawnCrate();
     } else {
@@ -6235,6 +6336,7 @@ function drawMinimap(){
 // ============================ GAME OVER ============================
 function endGame(win){
     game.gameOver = true;
+    if (window.CordonDifficulty && !win) CordonDifficulty.gameOver();
     const overlay = document.getElementById('gameover-overlay');
     document.getElementById('gameover-title').textContent = win ? ':trophy: Cordon Held' : ':burst: Station Overrun';
     document.getElementById('gameover-stats').innerHTML =
@@ -6248,6 +6350,8 @@ function restartGame(){
     document.getElementById('gameover-overlay').classList.remove('show');
     game.paused = false;
     initGameState();
+    if (window.CordonDifficulty){ CordonDifficulty.init(settings.testMode ? 'cordon.zombie.difficulty.test' : 'cordon.zombie.difficulty.v1', !settings.testMode); CordonDifficulty.newRun(); }
+    applyMap(mapIdForRun());
     rebuildRoadNetwork();
     generateMap(); buildTerrainCanvas(); buildMinimapTerrainCanvas();
     for (let i = 0; i < OFFICER_SYNDICATES; i++) spawnSyndicate();
@@ -6320,6 +6424,7 @@ function initGameState(){
     game.allOutCooldown = 0; game.allOutActive = 0;
     game.acidCooldown = [0,0,0,0];
     game.grabberCooldown = [0,0,0,0];
+    game.grabberLost = [[],[],[],[]];
     game.acidTargets = [null,null,null,null];
     game.vehicles = {};
     game.morale = MORALE_MAX;
@@ -6473,6 +6578,13 @@ function setupMenus(){
         } else game.playRequested = true;
     });
     document.getElementById('m-howto').addEventListener('click', () => showMenuScreen('menu-howto'));
+    const mapBtn = () => { const b = document.getElementById('m-map'); if (b) b.textContent = ':map: MAP: ' + (CordonMaps.has(settings.mapPick) ? CordonMaps.get(settings.mapPick).name.toUpperCase() : 'AUTO'); };
+    document.getElementById('m-map').addEventListener('click', () => {
+        const ids = ['auto'].concat(CordonMaps.list().map(m => m.id));
+        const i = Math.max(0, ids.indexOf(settings.mapPick));
+        settings.mapPick = ids[(i + 1) % ids.length]; saveSettings(); mapBtn();
+    });
+    mapBtn();
     setupTestTools();
     document.getElementById('m-back').addEventListener('click', () => showMenuScreen('menu-main'));
     document.getElementById('m-back-main').addEventListener('click', () => { window.location.href = 'index.html'; });
@@ -6485,7 +6597,7 @@ function reportError(err){
     if (!_errorsSeen[key]){ _errorsSeen[key] = true; console.error('Outbreak loop error:', err); }
 }
 function loop(t){
-    const rawDt = Math.min(0.05, (t - (game.lastTime || t))/1000);
+    const rawDt = Math.max(0, Math.min(0.05, (t - (game.lastTime || t))/1000));
     const dt = rawDt * (settings.testMode ? (game.timeScale || 1) : 1);
     game.lastTime = t;
     updateFpsBox(t, rawDt);
@@ -6496,8 +6608,8 @@ function loop(t){
             if (game.dangerTimer <= 0){ game.dangerTimer = 0.7; computeRoadDanger(); }
             if (game.allOutCooldown > 0) game.allOutCooldown = Math.max(0, game.allOutCooldown - dt);
             for (let i = 0; i < 4; i++){
-                if (game.acidCooldown[i] > 0) game.acidCooldown[i] = Math.max(0, game.acidCooldown[i] - dt);
-                if (game.grabberCooldown[i] > 0) game.grabberCooldown[i] = Math.max(0, game.grabberCooldown[i] - dt);
+                const L = game.grabberLost[i];
+                for (let k = L.length - 1; k >= 0; k--){ L[k] -= dt; if (L[k] <= 0) L.splice(k, 1); }
             }
             if (game.ambulanceCooldown > 0) game.ambulanceCooldown = Math.max(0, game.ambulanceCooldown - dt);
             if (game.moraleHoldTimer > 0) game.moraleHoldTimer -= dt;
@@ -6513,6 +6625,9 @@ function loop(t){
             else if (game.baseHp < BASE_MAX_HP) game.baseHp = Math.min(BASE_MAX_HP, game.baseHp + BASE_REGEN_RATE*dt);
             for (let pi = 0; pi < OFFICER_SYNDICATES; pi++) updatePulse(game.syndicates[pi], pi, dt);
             updateSyndicateMovement(dt);
+            updateAutoFacing(dt);
+            game._abBtnT = (game._abBtnT || 0) - dt;
+            if (game._abBtnT <= 0){ game._abBtnT = 0.4; updateAbilityButtons(); }
             assignFormation();
             game.attackerCounts.clear();
             const withSpeed = (u) => {
@@ -6547,7 +6662,15 @@ function loop(t){
             updateCamera(dt);
             updateStats();
             if (game.zombies.some(z => !z.alive)) game.zombies = game.zombies.filter(z => z.alive);
-            if (game.grabbers.some(a => !a.alive)) game.grabbers = game.grabbers.filter(a => a.alive);
+            if (game.grabbers.some(a => !a.alive)){
+                for (const a of game.grabbers){
+                    if (a.alive || a.completed) continue;
+                    if (a.dragging){ a.dragging.beingDragged = false; a.dragging.grabber = null; a.dragging = null; }
+                    if (game.grabberLost[a.syndicateIndex]) game.grabberLost[a.syndicateIndex].push(GRABBER_LOST_RECOVERY);
+                }
+                game.grabbers = game.grabbers.filter(a => a.alive);
+                updateAbilityButtons();
+            }
             if (game.handlers.some(h => !h.alive)) game.handlers = game.handlers.filter(h => h.alive);
             if (game.k9s.some(k => !k.alive)) game.k9s = game.k9s.filter(k => k.alive);
             if (game.commanders.some(c => !c.alive)) game.commanders = game.commanders.filter(c => c.alive);
@@ -6578,7 +6701,7 @@ function init(){
     window.addEventListener('orientationchange', () => setTimeout(rebuildWorldForScreenSize, 300));
     initGameState();
     resizeCanvas();
-    computeMapSize(); computeMinimapSize();
+    applyMap(mapIdForRun());
     rebuildRoadNetwork();
     loadAssets(() => {
         generateMap();

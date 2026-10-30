@@ -21,15 +21,18 @@
            rioters / bricks
      startMood                         how angry the crowd is when a night begins (0-100)
 
-   MAP IDEAS: today every district re-skins the same street layout (new buildings,
-   zones, lighting, crowd). To add a truly different road layout later, give a
-   chapter its own  mapId  and a matching entry in the game's MAPS list.
+   mapId                             which street layout the chapter is played on. The layouts
+                                     live in js/maps/ (base = Original Streets, promenade =
+                                     Promenade Quarter). Leave it out and the chapter uses base.
+                                     To add a new layout: copy js/maps/promenade.js, edit it,
+                                     add its <script> line to index.html and zombie.html, then
+                                     give a chapter  mapId: 'yourname'.
    ===================================================================== */
 window.CORDON_CAMPAIGN = {
     chapterLength: 10,
     chapters: [
         {
-            id: 'rent', city: 'Manchester', district: 'Moss Terrace', title: 'Rent Night',
+            id: 'rent', mapId: 'base', city: 'Manchester', district: 'Moss Terrace', title: 'Rent Night',
             cause: 'Tenants march against a 40% rent rise.',
             intro: 'A landlord has put up rents across the whole terrace. Families, pensioners and students are marching to the station to hand in a petition. Most of them are just angry and tired. Keep it calm and keep it that way.',
             introTrusted: 'The neighbourhood remembers you from last time. Some people have even brought flasks of tea. Do not waste that goodwill.',
@@ -41,7 +44,7 @@ window.CORDON_CAMPAIGN = {
             crowd: { protesters: 1.8, agitators: 0.4, rioters: 0.55, bricks: 0.5 }, startMood: 14,
         },
         {
-            id: 'dock', city: 'Bristol', district: 'Harbour Gate', title: 'Dock Gate',
+            id: 'dock', mapId: 'base', city: 'Bristol', district: 'Harbour Gate', title: 'Dock Gate',
             cause: 'Dockers occupy the gate as the yard is closed for good.',
             intro: 'The dockyard has announced it is shutting, with 600 jobs lost. The workers are at the gate and there are plenty of hotheads in the crowd. Warehouses and cranes surround you, and a lot of it could burn.',
             introTrusted: 'The union rep has asked his people to keep the gate clear for you. That trust can break fast.',
@@ -53,7 +56,19 @@ window.CORDON_CAMPAIGN = {
             crowd: { protesters: 1.2, agitators: 1.0, rioters: 0.95, bricks: 1.0 }, startMood: 30,
         },
         {
-            id: 'bus', city: 'Glasgow', district: 'Tenement Row', title: 'Last Bus',
+            id: 'pier', mapId: 'promenade', city: 'Brighton', district: 'Marine Parade', title: 'Pier Night',
+            cause: 'Seafront traders and families protest the closure of the pier and the end of season layoffs.',
+            intro: 'The pier has been shut for good and a hundred seasonal jobs went with it. Traders, families and a lot of young people have come down to the seafront, and the long straight roads mean a crowd can build up quickly. Keep the promenade, the high street and the back road covered, and watch for anyone hiding in the crowd.',
+            introTrusted: 'The traders have brought hot tea down to the promenade. They would rather this ended quietly, so help them.',
+            introHostile: 'Shutters are down along the high street. People expect a heavy hand and some are already looking for one.',
+            nights: ['Crowds gather on the promenade', 'Chants along the seafront', 'The high street fills up', 'Fireworks off the beach',
+                'A bin fire by the pier gates', 'Hoods in the middle of the march', 'Cars blocked on the back road', 'Bottles from the side streets',
+                'The tide of people will not turn', 'Last night on the front'],
+            night: 0.35, tint: '#12224a', zones: { res: 28, biz: 92 }, seed: 53,
+            crowd: { protesters: 1.5, agitators: 0.9, rioters: 0.8, bricks: 0.7 }, startMood: 24,
+        },
+        {
+            id: 'bus', mapId: 'base', city: 'Glasgow', district: 'Tenement Row', title: 'Last Bus',
             cause: 'Night buses are cut. People are stranded after dark.',
             intro: 'The council has scrapped the night buses. Shift workers and students are walking home across the city in the dark and gathering at every junction. It is late, cold, and people are on edge. Hold the junctions and stay calm.',
             introTrusted: 'Locals are walking the crowd home in small groups. Your calm last time is paying off.',
@@ -65,7 +80,7 @@ window.CORDON_CAMPAIGN = {
             crowd: { protesters: 1.3, agitators: 1.3, rioters: 0.9, bricks: 1.0 }, startMood: 34,
         },
         {
-            id: 'cup', city: 'Cardiff', district: 'Stadium Quarter', title: 'Cup Night',
+            id: 'cup', mapId: 'base', city: 'Cardiff', district: 'Stadium Quarter', title: 'Cup Night',
             cause: 'A cup final ends badly. Rival fans meet in the street.',
             intro: 'Not a protest. A cup final has finished in a defeat, thousands of drunk and furious fans are pouring out, and a few have come looking for a fight. There is almost nobody peaceful here. Hit them hard, hit them fast, and hold the station.',
             introTrusted: 'Fans know you kept the last match calm. A few are even telling their mates to back off.',
@@ -77,7 +92,7 @@ window.CORDON_CAMPAIGN = {
             crowd: { protesters: 0.3, agitators: 0.5, rioters: 1.4, bricks: 1.3 }, startMood: 55,
         },
         {
-            id: 'walkout', city: 'Leeds', district: 'University Mile', title: 'The Walk-Out',
+            id: 'walkout', mapId: 'base', city: 'Leeds', district: 'University Mile', title: 'The Walk-Out',
             cause: 'Students walk out over library and hall closures.',
             intro: 'Thousands of students have walked out in the afternoon sun. This is a peaceful crowd, but a handful of organised agitators are working through it. If you swing a baton at a student, the whole street will turn. Find the agitators. Arrest them quietly.',
             introTrusted: 'The student union has asked marchers to cooperate. Do not let one agitator spoil that.',
@@ -89,7 +104,7 @@ window.CORDON_CAMPAIGN = {
             crowd: { protesters: 2.0, agitators: 1.8, rioters: 0.5, bricks: 0.6 }, startMood: 18,
         },
         {
-            id: 'summer', city: 'London', district: 'The Embankment', title: 'The Long Hot Summer',
+            id: 'summer', mapId: 'base', city: 'London', district: 'The Embankment', title: 'The Long Hot Summer',
             cause: 'Heatwave, blackouts, strikes. The whole city boils over.',
             intro: 'Heatwave, power cuts and a transport strike have all arrived at once. Protesters, agitators and rioters all fill the streets, and everyone is angry for a different reason. Everything you have learned is needed tonight.',
             introTrusted: 'The city has been watching how you handle yourselves. People are willing to listen.',

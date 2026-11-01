@@ -133,6 +133,137 @@
         o.start(t0); o.stop(t0 + dur + 0.1);
     }
 
+    // SHORT two-tone siren: quicker and higher than the long one. Used when a syndicate is under heavy attack.
+    function sirenShort(v) {
+        if (!ok('sirenShort', 1.5)) return;
+        if (playClip('sirenShort', 0.4 * (v || 1))) return;
+        const t0 = ctx.currentTime, dur = 1.35, vol = 0.17 * (v || 1);
+        const o = ctx.createOscillator(); o.type = 'square';
+        const g = ctx.createGain();
+        g.gain.setValueAtTime(0.0001, t0);
+        g.gain.exponentialRampToValueAtTime(vol, t0 + 0.05);
+        g.gain.setValueAtTime(vol, t0 + dur - 0.25);
+        g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+        const step = 0.17;
+        for (let t = t0, hi = true; t < t0 + dur; t += step, hi = !hi) o.frequency.setValueAtTime(hi ? 1250 : 940, t);
+        const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 2600;
+        o.connect(lp); lp.connect(g); g.connect(master);
+        o.start(t0); o.stop(t0 + dur + 0.1);
+    }
+
+    // ---- police radio: crackle + a control-room operator (uses the phone's own text-to-speech voices) ----
+    // Different lines, different voices (male / female) every time, in UK police radio style.
+    const RADIO_CONTROL = [
+        'Syndicates on standby. Operation has commenced.',
+        'All units, all units. Operation has commenced. Syndicates, hold your positions.',
+        'Control to all serials. Public order operation is now live. Syndicates, stand by.',
+        'All callsigns, be advised. The crowd is assembling. Operation has commenced. Syndicates, stand by.',
+        'Control to all units. Operation commenced. Syndicates, maintain your lines and await instruction.',
+        'Silver commander to all serials. We are now live. Syndicates, stand by for tasking.',
+        'Attention all units. The march has commenced. Syndicates on standby.',
+        'Control to Bronze. Crowd on the move. Syndicates, keep it professional out there.',
+    ];
+    const RADIO_REPLY = [
+        'Received. Syndicates standing by.',
+        'Roger that, control. In position.',
+        'All received. Holding the line.',
+        'Copy. Show us standing by.',
+        'Understood. We are set.',
+        'Received. Show me standing by.',
+    ];
+    const FEMALE_RX = /female|woman|hazel|susan|libby|sonia|kate|serena|fiona|amy|emma|martha|stephanie|catherine|victoria|karen|moira|tessa|samantha|zira|heather|olivia|gba|gbc|fis/i;
+    const MALE_RX = /\bmale\b|george|ryan|daniel|oliver|thomas|arthur|brian|harry|james|rishi|gbb|gbd|rjs/i;
+    const rpick = a => a[Math.floor(Math.random() * a.length)];
+    function ttsVoices() {
+        try {
+            const all = (window.speechSynthesis && speechSynthesis.getVoices()) || [];
+            let gb = all.filter(v => /^en[-_]GB/i.test(v.lang));
+            if (!gb.length) gb = all.filter(v => /^en/i.test(v.lang));
+            return gb;
+        } catch (e) { return []; }
+    }
+    // returns two different speakers { voice, pitch, rate }
+    function twoSpeakers() {
+        const list = ttsVoices();
+        const fem = list.filter(v => FEMALE_RX.test(v.name + ' ' + v.voiceURI) && !MALE_RX.test(v.name + ' ' + v.voiceURI));
+        const mal = list.filter(v => MALE_RX.test(v.name + ' ' + v.voiceURI));
+        const wantFemaleFirst = Math.random() < 0.5;
+        const mk = (female) => {
+            const pool = female ? fem : mal;
+            const voice = pool.length ? rpick(pool) : (list.length ? rpick(list) : null);
+            // with only one voice installed we still vary the pitch so it sounds like two different people
+            const pitch = female ? 1.05 + Math.random() * 0.3 : 0.72 + Math.random() * 0.28;
+            return { voice, pitch, rate: 0.98 + Math.random() * 0.18 };
+        };
+        return [mk(wantFemaleFirst), mk(!wantFemaleFirst)];
+    }
+    function speak(text, sp, onDone) {
+        let done = false;
+        const finish = () => { if (done) return; done = true; if (onDone) onDone(); };
+        try {
+            const u = new SpeechSynthesisUtterance(text);
+            u.lang = 'en-GB'; if (sp.voice) u.voice = sp.voice;
+            u.pitch = sp.pitch; u.rate = sp.rate; u.volume = 0.95;
+            u.onend = finish; u.onerror = finish;
+            speechSynthesis.speak(u);
+            setTimeout(finish, 9000);               // never get stuck if the phone's voice engine stays silent
+        } catch (e) { finish(); }
+    }
+    function radioOpen(t, v) {      // push-to-talk "click" + a little static
+        noise(t, 0.12, 'bandpass', 2600, 1.2, 0.22 * v, 0.003);
+        tone(t, 'square', 1900, 1900, 0.035, 0.05 * v);
+        noise(t + 0.03, 0.3, 'bandpass', 2300, 0.8, 0.06 * v, 0.03);
+    }
+    function radioClose(t, v) {     // end of transmission: "kshh" + roger beep
+        noise(t, 0.16, 'bandpass', 2000, 0.9, 0.2 * v, 0.003);
+        tone(t + 0.05, 'square', 1400, 1400, 0.05, 0.05 * v);
+    }
+    function radioCrackle(t, dur, v) {
+        for (let i = 0; i < 9; i++) noise(t + Math.random() * dur, 0.015 + Math.random() * 0.04, 'highpass', 2000 + Math.random() * 3000, 1, (0.06 + Math.random() * 0.1) * v, 0.002);
+    }
+    // Plays the night-start radio call. speakVoices=false keeps the crackle only. mute=true plays nothing at all.
+    // Returns the lines chosen so the game can also show them as text.
+    function radioOperationStart(speakVoices, mute) {
+        const control = rpick(RADIO_CONTROL);
+        const reply = Math.random() < 0.7 ? rpick(RADIO_REPLY) : null;
+        const out = { control, reply };
+        if (mute || !enabled) return out;
+        const c = ensure();
+        if (!c || c.state !== 'running' || !ok('radio', 3)) return out;
+        const t0 = c.currentTime + 0.02;
+        radioOpen(t0, 1); radioCrackle(t0, 0.5, 1);
+        const canSpeak = speakVoices && window.speechSynthesis && typeof SpeechSynthesisUtterance !== 'undefined';
+        if (!canSpeak) {
+            // no voice: crackle, then the double roger beep
+            radioClose(t0 + 0.7, 1);
+            tone(t0 + 1.0, 'square', 1500, 1500, 0.06, 0.05); tone(t0 + 1.12, 'square', 1500, 1500, 0.06, 0.05);
+            return out;
+        }
+        const [a, b] = twoSpeakers();
+        setTimeout(() => {
+            if (!ctx) return;
+            const est = (control.length * 0.068) / a.rate + 0.5;
+            radioCrackle(ctx.currentTime, est, 0.55);
+            noise(ctx.currentTime, est, 'bandpass', 2200, 0.7, 0.03, 0.05);     // faint static under the voice
+            speak(control, a, () => {
+                if (!ctx) return;
+                radioClose(ctx.currentTime, 1);
+                if (!reply) return;
+                setTimeout(() => {
+                    if (!ctx) return;
+                    radioOpen(ctx.currentTime, 0.9);
+                    setTimeout(() => {
+                        const est2 = (reply.length * 0.068) / b.rate + 0.5;
+                        radioCrackle(ctx.currentTime, est2, 0.5);
+                        noise(ctx.currentTime, est2, 'bandpass', 2000, 0.7, 0.03, 0.05);
+                        speak(reply, b, () => { if (ctx) radioClose(ctx.currentTime, 0.9); });
+                    }, 320);
+                }, 450);
+            });
+        }, 480);
+        return out;
+    }
+
     // ---- crowd chanting: rhythmic murmur whose pace and grit follow the crowd's mood ----
     function chantBeat() {
         if (!enabled || !ctx || ctx.state !== 'running' || chantSize < 0.04) return;
@@ -168,6 +299,8 @@
             const fn = SOUNDS[name]; if (fn) { try { fn(v); } catch (e) { } }
         },
         siren,
+        sirenShort,
+        radioOperationStart,
         // mood 0..1, size 0..1 (how big the crowd is). Call every half-second or so.
         setCrowd(mood, size) {
             lastSet = performance.now();

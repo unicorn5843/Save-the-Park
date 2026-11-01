@@ -74,11 +74,13 @@
             add(px2t(vx(46) - half - 8), promenadeWalkY, 'sign_pedestrian', H.sign_pedestrian);
             add(px2t(vx(20) + half + 8), promenadeWalkY, 'sign_20', H.sign_20);
             add(px2t(vx(72) - half - 8), promenadeWalkY, 'sign_parking', H.sign_parking);
-            add(px2t(vx(33) + half + 8), highSouthY, 'sign_noentry', H.sign_noentry);
-            add(px2t(vx(84) - half - 8), highSouthY, 'sign_50', H.sign_50);
+            // One consistent 20 mph town. The 20 signs sit beside the SLOW / give-way markings where traffic joins the
+            // high street from the south (x 33 and x 84), and the station keeps its bus stop, STOP sign (in line with
+            // the STOP marking) and parking sign. No stray 50 or no-entry signs on two-way streets.
+            add(px2t(vx(33) + half + 8), highSouthY, 'sign_20', H.sign_20);
+            add(px2t(vx(84) - half - 8), highSouthY, 'sign_20', H.sign_20);
             add(58 - 4.2, highSouthY, 'sign_busstop', H.sign_busstop);
-            add(58 - 2.2, highSouthY, 'sign_20', H.sign_20);
-            add(58 + 2.2, highSouthY, 'sign_stop', H.sign_stop);
+            add(58, highSouthY, 'sign_stop', H.sign_stop);
             add(58 + 4.2, highSouthY, 'sign_parking', H.sign_parking);
             api.addDecal(58, 38 - 3 + 0.9, 'tex_stopmark');
             api.addDecal(46 - 2, 38 + 1.5, 'tex_manhole1');

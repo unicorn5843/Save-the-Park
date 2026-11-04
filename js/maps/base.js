@@ -12,25 +12,36 @@
     CordonMaps.register({
         id: 'base',
         name: 'Original Streets',
-        w: 108, h: 77,
+        w: 128, h: 89,                     // enlarged: 20 more columns to the east, 12 more rows to the south
         roadW: 6,
 
         // Every straight road. Order matters only for the junction paint.
         roads: [
             // three east-west streets
-            { dir: 'h', c: 14, a: 8, b: 98, sa: 6.5, sb: 99.5 },      // top street
-            { dir: 'h', c: 38, a: 8, b: 98, sa: 6.5, sb: 99.5 },      // station street
-            { dir: 'h', c: 62, a: 8, b: 98, sa: 6.5, sb: 99.5 },      // southern street
+            { dir: 'h', c: 14, a: 8, b: 116, sa: 6.5, sb: 117.5 },      // top street
+            { dir: 'h', c: 38, a: 8, b: 116, sa: 6.5, sb: 117.5 },      // station street
+            { dir: 'h', c: 62, a: 8, b: 116, sa: 6.5, sb: 117.5 },      // southern street
+            { dir: 'h', c: 80, a: 8, b: 116, sa: 6.5, sb: 117.5 },      // new bottom street
             // north-south streets running off the top of the map
             { dir: 'v', c: 18, a: 0, b: 41, sa: 0, sb: 42.5, exit: 'N' },
-            { dir: 'v', c: 30, a: 0, b: 65, sa: -1.5, sb: 66.5, exit: 'N' },
+            { dir: 'v', c: 30, a: 0, b: 80, sa: -1.5, sb: 81.5, exit: 'N' },
             { dir: 'v', c: 54, a: 0, b: 41, sa: -1.5, sb: 44, exit: 'N' },
-            { dir: 'v', c: 78, a: 0, b: 65, sa: -1.5, sb: 66.5, exit: 'N' },
+            { dir: 'v', c: 78, a: 0, b: 80, sa: -1.5, sb: 81.5, exit: 'N' },
             { dir: 'v', c: 90, a: 0, b: 41, sa: 0, sb: 42.5, exit: 'N' },
+            { dir: 'v', c: 114, a: 0, b: 41, sa: -1.5, sb: 42.5, exit: 'N' },     // new eastern street
             // streets running off the bottom of the map
             { dir: 'v', c: 12, a: 35, b: 'end', sa: 33.5, sb: 'end', exit: 'S' },
             { dir: 'v', c: 96, a: 35, b: 'end', sa: 33.5, sb: 'end', exit: 'S' },
             { dir: 'v', c: 54, a: 59, b: 'end', sa: 57.5, sb: 'end', exit: 'S' },
+            { dir: 'v', c: 114, a: 35, b: 'end', sa: 33.5, sb: 'end', exit: 'S' },
+        ],
+
+        // Big buildings that sit on fixed plots (x = left tile, y = bottom row; the door faces the street below).
+        // 'node' is the road junction point in front of each, where protesters gather.
+        landmarks: [
+            { type: 'hospital', x: 61,  y: 57, node: 'LH' },     // next to the station, on the southern street
+            { type: 'school',   x: 36,  y: 57, node: 'LS' },
+            { type: 'factory',  x: 96,  y: 33, node: 'LF' },     // east end of the station street
         ],
 
         // Police station building (its door faces the street above it).
@@ -43,17 +54,23 @@
         nodes: function (env) {
             const n = [];
             const push = (id, x, y) => n.push({ id: id, x: x, y: y });
-            [18, 30, 54, 78, 90].forEach(x => push('T' + x, x, 14));
-            [12, 18, 30, 54, 78, 90, 96].forEach(x => push('B' + x, x, 38));
-            [18, 30, 54, 78, 90].forEach(x => push('N' + x, x, 1.5));
+            [18, 30, 54, 78, 90, 114].forEach(x => push('T' + x, x, 14));
+            [12, 18, 30, 54, 78, 90, 96, 114].forEach(x => push('B' + x, x, 38));
+            [18, 30, 54, 78, 90, 114].forEach(x => push('N' + x, x, 1.5));
             push('S12', 12, env.H - 1.5);
             push('S96', 96, env.H - 1.5);
-            [12, 30, 54, 78, 96].forEach(x => push('C' + x, x, 62));
+            push('S114', 114, env.H - 1.5);
+            [12, 30, 54, 78, 96, 114].forEach(x => push('C' + x, x, 62));
+            [12, 30, 54, 78, 96, 114].forEach(x => push('D' + x, x, 80));
             push('S54', 54, env.H - 1.5);
+            // the gathering points in front of the hospital, school and factory
+            push('LH', 67, 62);
+            push('LS', 41, 62);
+            push('LF', 102, 38);
             return n;
         },
         // Where crowds walk on to the map (and leave it).
-        exits: ['N18', 'N30', 'N54', 'N78', 'N90', 'S12', 'S54', 'S96'],
+        exits: ['N18', 'N30', 'N54', 'N78', 'N90', 'N114', 'S12', 'S54', 'S96', 'S114'],
 
         // Junctions on this street row get traffic lights and a yellow box.
         signals: { row: 14, xs: [30, 54, 78] },

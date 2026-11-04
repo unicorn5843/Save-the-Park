@@ -267,6 +267,25 @@
 </style>
     <link rel="stylesheet" href="assets/ui/moonroar.css">
     <script src="assets/ui/moonroar.js"></script>
+    <style id="cordon-v2">
+        /* ===== layout shared with the main game: no overlaps, syndicates in a column beside the d-pad ===== */
+        #bottom-right-ui { right: 6px; bottom: 44px; min-width: 0; gap: 5px; align-items: flex-end; flex-direction: column; }
+        #bottom-right-ui #cmd-buttons { display: flex; flex-direction: column; gap: 3px; width: 126px; }
+        #bottom-right-ui #cmd-buttons button {
+            width: 100%; padding: 2px 3px; min-height: 26px; font-size: 9.5px; letter-spacing: 0;
+            border-width: 5px 6px; border-image-width: 5px 6px; white-space: nowrap; overflow: hidden;
+        }
+        #bottom-right-ui #pad-row { display: flex; flex-direction: row; gap: 5px; align-items: stretch; }
+        #bottom-right-ui #syndicate-tabs {
+            display: flex; flex-direction: column; gap: 2px; width: 62px; padding: 0; min-width: 0;
+            border: 0; border-image: none; background: transparent; backdrop-filter: none;
+        }
+        #bottom-right-ui .syn-btn {
+            flex: 1 1 0; min-height: 0; padding: 0 1px; font-size: 9.5px; white-space: nowrap; overflow: hidden;
+            border-width: 5px 6px; border-image-width: 5px 6px; display: flex; align-items: center; justify-content: center;
+        }
+        #bottom-right-ui #dpad-container { width: 128px; height: 128px; margin: 0; }
+    </style>
 </head>
 <body class="zombie-mode">
     <div id="rotate-overlay">:phone: Please rotate your device to landscape!</div>
@@ -275,7 +294,7 @@
     <div id="left-dock">
         <div id="panel-view">
             <div id="panel-header">
-                <span id="panel-title">Squad</span>
+                <span id="panel-title">Tactics</span>
                 <button id="pause-btn" title="Pause">:pause:</button>
             </div>
             <div id="options-panel"></div>
@@ -344,10 +363,14 @@
         <div id="selection-info"></div>
     </div>
 
+    <!-- Same layout as the main game: three command buttons on top, then the syndicate column beside the arrow pad. -->
     <div id="bottom-right-ui">
+        <div id="cmd-buttons">
         <button id="all-out-btn">:siren: ALL OUT</button>
         <button id="all-units-btn">:helmet: All Units On Me</button>
         <button id="station-btn">:station: Station</button>
+        </div>
+        <div id="pad-row">
         <div id="syndicate-tabs">
             <button class="syn-btn" data-idx="0">S1</button>
             <button class="syn-btn" data-idx="1">S2</button>
@@ -361,6 +384,7 @@
             <div class="dpad-btn dpad-center"></div>
             <button class="dpad-btn dpad-right" id="btn-right">:play:</button>
             <button class="dpad-btn dpad-down" id="btn-down">:arrow_d:</button>
+        </div>
         </div>
     </div>
 
@@ -465,9 +489,9 @@
 'use strict';
 
 // ============================ CONSTANTS ============================
-let MAP_W = 108, MAP_H = 77;
+let MAP_W = 128, MAP_H = 89;
 const TILE = 16;
-let MIN_PLAY_W = 108, MIN_PLAY_H = 77;      // set per map (see js/maps/)
+let MIN_PLAY_W = 128, MIN_PLAY_H = 89;      // set per map (see js/maps/)
 function computeMapSize(){
     MAP_W = Math.max(MIN_PLAY_W, Math.ceil(game.width/TILE) + 20);
     MAP_H = Math.max(MIN_PLAY_H, Math.ceil(game.height/TILE) + 16);
@@ -791,7 +815,7 @@ function mapIdForRun(){
 function applyMap(id){
     const def = CordonMaps.get(id);
     MAP_DEF = def; MAP_ID = def.id;
-    MIN_PLAY_W = def.w || 108; MIN_PLAY_H = def.h || 77;
+    MIN_PLAY_W = def.w || 128; MIN_PLAY_H = def.h || 89;
     computeMapSize(); computeMinimapSize();
     STATION_TX0 = def.station.x0; STATION_TY0 = def.station.y0; STATION_TW = def.station.w; STATION_TH = def.station.h;
     BASE_TILE_X = def.base.x; BASE_TILE_Y = def.base.y; BASE_NODE_ID = def.baseNode;
@@ -1064,6 +1088,8 @@ const JUNCTION_DIR_VEC = {
 };
 function buildJunctionPosts(){
     JUNCTION_POSTS = [];
+    // Always read the layout of the map that is loaded now (it used to read the previous map's layout).
+    roadLayout = computeRoadLayout();
     if (!roadLayout) return;
     for (const j of roadLayout.junctions){
         if (j.isBase) continue;
@@ -1112,7 +1138,7 @@ const ZONES = {
           alley:['#34332d','#373630'], minimap:'#35332b', minimapBld:'#6a6450', roof:'#6b5a3a', wall:'#8a8576' },
 };
 
-const ATLAS_TABLE = {"rb1_3":{"kind":"b","zone":"biz","wT":3,"hT":5,"src":"rb1","noflip":false,"x":740,"y":374,"w":48,"h":80},"rb1_3_v1":{"kind":"b","zone":"biz","wT":3,"hT":5,"src":"rb1","noflip":false,"x":790,"y":374,"w":48,"h":80},"rb1_4":{"kind":"b","zone":"biz","wT":4,"hT":7,"src":"rb1","noflip":false,"x":0,"y":146,"w":64,"h":112},"rb1_4_v1":{"kind":"b","zone":"biz","wT":4,"hT":7,"src":"rb1","noflip":false,"x":66,"y":146,"w":64,"h":112},"rb2_4":{"kind":"b","zone":"biz","wT":4,"hT":4,"src":"rb2","noflip":false,"x":874,"y":472,"w":64,"h":64},"rb2_4_v1":{"kind":"b","zone":"biz","wT":4,"hT":4,"src":"rb2","noflip":false,"x":940,"y":472,"w":64,"h":64},"rb2_5":{"kind":"b","zone":"biz","wT":5,"hT":5,"src":"rb2","noflip":false,"x":840,"y":374,"w":80,"h":80},"rb2_5_v1":{"kind":"b","zone":"biz","wT":5,"hT":5,"src":"rb2","noflip":false,"x":922,"y":374,"w":80,"h":80},"rb3_3":{"kind":"b","zone":"biz","wT":3,"hT":5,"src":"rb3","noflip":true,"x":0,"y":472,"w":48,"h":80},"rb3_4":{"kind":"b","zone":"biz","wT":4,"hT":6,"src":"rb3","noflip":true,"x":180,"y":260,"w":64,"h":96},"rb4_4":{"kind":"b","zone":"biz","wT":4,"hT":4,"src":"rb4","noflip":false,"x":0,"y":554,"w":64,"h":64},"rb4_4_v1":{"kind":"b","zone":"biz","wT":4,"hT":4,"src":"rb4","noflip":false,"x":66,"y":554,"w":64,"h":64},"rb4_5":{"kind":"b","zone":"biz","wT":5,"hT":5,"src":"rb4","noflip":false,"x":50,"y":472,"w":80,"h":80},"rb4_5_v1":{"kind":"b","zone":"biz","wT":5,"hT":5,"src":"rb4","noflip":false,"x":132,"y":472,"w":80,"h":80},"rb5_8":{"kind":"b","zone":"biz","wT":8,"hT":5,"src":"rb5","noflip":false,"x":214,"y":472,"w":128,"h":80},"rb5_10":{"kind":"b","zone":"biz","wT":10,"hT":6,"src":"rb5","noflip":false,"x":246,"y":260,"w":160,"h":96},"rb6_10":{"kind":"b","zone":"biz","wT":10,"hT":6,"src":"rb6","noflip":false,"x":408,"y":260,"w":160,"h":96},"rb6_12":{"kind":"b","zone":"biz","wT":12,"hT":7,"src":"rb6","noflip":false,"x":132,"y":146,"w":192,"h":112},"rb7_3":{"kind":"b","zone":"biz","wT":3,"hT":6,"src":"rb7","noflip":false,"x":570,"y":260,"w":48,"h":96},"rb7_3_v1":{"kind":"b","zone":"biz","wT":3,"hT":6,"src":"rb7","noflip":false,"x":620,"y":260,"w":48,"h":96},"rb7_4":{"kind":"b","zone":"biz","wT":4,"hT":8,"src":"rb7","noflip":false,"x":328,"y":0,"w":64,"h":128},"rb7_4_v1":{"kind":"b","zone":"biz","wT":4,"hT":8,"src":"rb7","noflip":false,"x":394,"y":0,"w":64,"h":128},"cb04_4":{"kind":"b","zone":"biz","wT":4,"hT":5,"src":"cb04","noflip":false,"x":344,"y":472,"w":64,"h":80},"cb04_5":{"kind":"b","zone":"biz","wT":5,"hT":6,"src":"cb04","noflip":false,"x":670,"y":260,"w":80,"h":96},"cb10_8":{"kind":"b","zone":"biz","wT":8,"hT":7,"src":"cb10","noflip":false,"x":326,"y":146,"w":128,"h":112},"cb10_10":{"kind":"b","zone":"biz","wT":10,"hT":8,"src":"cb10","noflip":false,"x":460,"y":0,"w":160,"h":128},"cb01_3":{"kind":"b","zone":"res","wT":3,"hT":7,"src":"cb01","noflip":false,"x":456,"y":146,"w":48,"h":112},"cb01_3_v1":{"kind":"b","zone":"res","wT":3,"hT":7,"src":"cb01","noflip":false,"x":506,"y":146,"w":48,"h":112},"cb01_4":{"kind":"b","zone":"res","wT":4,"hT":9,"src":"cb01","noflip":false,"x":0,"y":0,"w":64,"h":144},"cb01_4_v1":{"kind":"b","zone":"res","wT":4,"hT":9,"src":"cb01","noflip":false,"x":66,"y":0,"w":64,"h":144},"cb02_3":{"kind":"b","zone":"res","wT":3,"hT":5,"src":"cb02","noflip":false,"x":410,"y":472,"w":48,"h":80},"cb02_3_v1":{"kind":"b","zone":"res","wT":3,"hT":5,"src":"cb02","noflip":false,"x":460,"y":472,"w":48,"h":80},"cb02_4":{"kind":"b","zone":"res","wT":4,"hT":7,"src":"cb02","noflip":false,"x":556,"y":146,"w":64,"h":112},"cb02_4_v1":{"kind":"b","zone":"res","wT":4,"hT":7,"src":"cb02","noflip":false,"x":622,"y":146,"w":64,"h":112},"cb03_4":{"kind":"b","zone":"res","wT":4,"hT":5,"src":"cb03","noflip":false,"x":510,"y":472,"w":64,"h":80},"cb03_4_v1":{"kind":"b","zone":"res","wT":4,"hT":5,"src":"cb03","noflip":false,"x":576,"y":472,"w":64,"h":80},"cb03_5":{"kind":"b","zone":"res","wT":5,"hT":6,"src":"cb03","noflip":false,"x":752,"y":260,"w":80,"h":96},"cb03_5_v1":{"kind":"b","zone":"res","wT":5,"hT":6,"src":"cb03","noflip":false,"x":834,"y":260,"w":80,"h":96},"cb03_6":{"kind":"b","zone":"res","wT":6,"hT":7,"src":"cb03","noflip":false,"x":688,"y":146,"w":96,"h":112},"cb03_6_v1":{"kind":"b","zone":"res","wT":6,"hT":7,"src":"cb03","noflip":false,"x":786,"y":146,"w":96,"h":112},"cb06_3":{"kind":"b","zone":"res","wT":3,"hT":4,"src":"cb06","noflip":false,"x":132,"y":554,"w":48,"h":64},"cb06_3_v1":{"kind":"b","zone":"res","wT":3,"hT":4,"src":"cb06","noflip":false,"x":182,"y":554,"w":48,"h":64},"cb06_4":{"kind":"b","zone":"res","wT":4,"hT":6,"src":"cb06","noflip":false,"x":916,"y":260,"w":64,"h":96},"cb06_4_v1":{"kind":"b","zone":"res","wT":4,"hT":6,"src":"cb06","noflip":false,"x":0,"y":374,"w":64,"h":96},"cb08_4":{"kind":"b","zone":"res","wT":4,"hT":4,"src":"cb08","noflip":false,"x":232,"y":554,"w":64,"h":64},"cb08_4_v1":{"kind":"b","zone":"res","wT":4,"hT":4,"src":"cb08","noflip":false,"x":298,"y":554,"w":64,"h":64},"cb08_5":{"kind":"b","zone":"res","wT":5,"hT":6,"src":"cb08","noflip":false,"x":66,"y":374,"w":80,"h":96},"cb08_5_v1":{"kind":"b","zone":"res","wT":5,"hT":6,"src":"cb08","noflip":false,"x":148,"y":374,"w":80,"h":96},"cb09_4":{"kind":"b","zone":"res","wT":4,"hT":5,"src":"cb09","noflip":false,"x":642,"y":472,"w":64,"h":80},"cb09_4_v1":{"kind":"b","zone":"res","wT":4,"hT":5,"src":"cb09","noflip":false,"x":708,"y":472,"w":64,"h":80},"cb09_5":{"kind":"b","zone":"res","wT":5,"hT":6,"src":"cb09","noflip":false,"x":230,"y":374,"w":80,"h":96},"cb09_5_v1":{"kind":"b","zone":"res","wT":5,"hT":6,"src":"cb09","noflip":false,"x":312,"y":374,"w":80,"h":96},"cb05_3":{"kind":"b","zone":"ind","wT":3,"hT":5,"src":"cb05","noflip":false,"x":774,"y":472,"w":48,"h":80},"cb05_3_v1":{"kind":"b","zone":"ind","wT":3,"hT":5,"src":"cb05","noflip":false,"x":824,"y":472,"w":48,"h":80},"cb05_4":{"kind":"b","zone":"ind","wT":4,"hT":6,"src":"cb05","noflip":false,"x":394,"y":374,"w":64,"h":96},"cb05_4_v1":{"kind":"b","zone":"ind","wT":4,"hT":6,"src":"cb05","noflip":false,"x":460,"y":374,"w":64,"h":96},"cb05_5":{"kind":"b","zone":"ind","wT":5,"hT":8,"src":"cb05","noflip":false,"x":622,"y":0,"w":80,"h":128},"cb05_5_v1":{"kind":"b","zone":"ind","wT":5,"hT":8,"src":"cb05","noflip":false,"x":704,"y":0,"w":80,"h":128},"cb05_6":{"kind":"b","zone":"ind","wT":6,"hT":9,"src":"cb05","noflip":false,"x":132,"y":0,"w":96,"h":144},"cb05_6_v1":{"kind":"b","zone":"ind","wT":6,"hT":9,"src":"cb05","noflip":false,"x":230,"y":0,"w":96,"h":144},"cb07_3":{"kind":"b","zone":"ind","wT":3,"hT":4,"src":"cb07","noflip":false,"x":364,"y":554,"w":48,"h":64},"cb07_3_v1":{"kind":"b","zone":"ind","wT":3,"hT":4,"src":"cb07","noflip":false,"x":414,"y":554,"w":48,"h":64},"cb07_4":{"kind":"b","zone":"ind","wT":4,"hT":6,"src":"cb07","noflip":false,"x":526,"y":374,"w":64,"h":96},"cb07_4_v1":{"kind":"b","zone":"ind","wT":4,"hT":6,"src":"cb07","noflip":false,"x":592,"y":374,"w":64,"h":96},"cb07_5":{"kind":"b","zone":"ind","wT":5,"hT":7,"src":"cb07","noflip":false,"x":884,"y":146,"w":80,"h":112},"cb07_5_v1":{"kind":"b","zone":"ind","wT":5,"hT":7,"src":"cb07","noflip":false,"x":0,"y":260,"w":80,"h":112},"cb07_6":{"kind":"b","zone":"ind","wT":6,"hT":8,"src":"cb07","noflip":false,"x":786,"y":0,"w":96,"h":128},"cb07_6_v1":{"kind":"b","zone":"ind","wT":6,"hT":8,"src":"cb07","noflip":false,"x":884,"y":0,"w":96,"h":128},"cb08i_5":{"kind":"b","zone":"ind","wT":5,"hT":6,"src":"cb08i","noflip":false,"x":658,"y":374,"w":80,"h":96},"cb08i_6":{"kind":"b","zone":"ind","wT":6,"hT":7,"src":"cb08i","noflip":false,"x":82,"y":260,"w":96,"h":112}};
+const ATLAS_TABLE = {"hospital":{"kind":"b","landmark":true,"zone":"res","wT":12,"hT":8,"src":"hospital","noflip":true,"x":0,"y":880,"w":192,"h":128},"school":{"kind":"b","landmark":true,"zone":"res","wT":10,"hT":7,"src":"school","noflip":true,"x":200,"y":880,"w":160,"h":112},"factory":{"kind":"b","landmark":true,"zone":"ind","wT":12,"hT":8,"src":"factory","noflip":true,"x":370,"y":880,"w":192,"h":128},"rb1_3":{"kind":"b","zone":"biz","wT":3,"hT":5,"src":"rb1","noflip":false,"x":740,"y":374,"w":48,"h":80},"rb1_3_v1":{"kind":"b","zone":"biz","wT":3,"hT":5,"src":"rb1","noflip":false,"x":790,"y":374,"w":48,"h":80},"rb1_4":{"kind":"b","zone":"biz","wT":4,"hT":7,"src":"rb1","noflip":false,"x":0,"y":146,"w":64,"h":112},"rb1_4_v1":{"kind":"b","zone":"biz","wT":4,"hT":7,"src":"rb1","noflip":false,"x":66,"y":146,"w":64,"h":112},"rb2_4":{"kind":"b","zone":"biz","wT":4,"hT":4,"src":"rb2","noflip":false,"x":874,"y":472,"w":64,"h":64},"rb2_4_v1":{"kind":"b","zone":"biz","wT":4,"hT":4,"src":"rb2","noflip":false,"x":940,"y":472,"w":64,"h":64},"rb2_5":{"kind":"b","zone":"biz","wT":5,"hT":5,"src":"rb2","noflip":false,"x":840,"y":374,"w":80,"h":80},"rb2_5_v1":{"kind":"b","zone":"biz","wT":5,"hT":5,"src":"rb2","noflip":false,"x":922,"y":374,"w":80,"h":80},"rb3_3":{"kind":"b","zone":"biz","wT":3,"hT":5,"src":"rb3","noflip":true,"x":0,"y":472,"w":48,"h":80},"rb3_4":{"kind":"b","zone":"biz","wT":4,"hT":6,"src":"rb3","noflip":true,"x":180,"y":260,"w":64,"h":96},"rb4_4":{"kind":"b","zone":"biz","wT":4,"hT":4,"src":"rb4","noflip":false,"x":0,"y":554,"w":64,"h":64},"rb4_4_v1":{"kind":"b","zone":"biz","wT":4,"hT":4,"src":"rb4","noflip":false,"x":66,"y":554,"w":64,"h":64},"rb4_5":{"kind":"b","zone":"biz","wT":5,"hT":5,"src":"rb4","noflip":false,"x":50,"y":472,"w":80,"h":80},"rb4_5_v1":{"kind":"b","zone":"biz","wT":5,"hT":5,"src":"rb4","noflip":false,"x":132,"y":472,"w":80,"h":80},"rb5_8":{"kind":"b","zone":"biz","wT":8,"hT":5,"src":"rb5","noflip":false,"x":214,"y":472,"w":128,"h":80},"rb5_10":{"kind":"b","zone":"biz","wT":10,"hT":6,"src":"rb5","noflip":false,"x":246,"y":260,"w":160,"h":96},"rb6_10":{"kind":"b","zone":"biz","wT":10,"hT":6,"src":"rb6","noflip":false,"x":408,"y":260,"w":160,"h":96},"rb6_12":{"kind":"b","zone":"biz","wT":12,"hT":7,"src":"rb6","noflip":false,"x":132,"y":146,"w":192,"h":112},"rb7_3":{"kind":"b","zone":"biz","wT":3,"hT":6,"src":"rb7","noflip":false,"x":570,"y":260,"w":48,"h":96},"rb7_3_v1":{"kind":"b","zone":"biz","wT":3,"hT":6,"src":"rb7","noflip":false,"x":620,"y":260,"w":48,"h":96},"rb7_4":{"kind":"b","zone":"biz","wT":4,"hT":8,"src":"rb7","noflip":false,"x":328,"y":0,"w":64,"h":128},"rb7_4_v1":{"kind":"b","zone":"biz","wT":4,"hT":8,"src":"rb7","noflip":false,"x":394,"y":0,"w":64,"h":128},"cb04_4":{"kind":"b","zone":"biz","wT":4,"hT":5,"src":"cb04","noflip":false,"x":344,"y":472,"w":64,"h":80},"cb04_5":{"kind":"b","zone":"biz","wT":5,"hT":6,"src":"cb04","noflip":false,"x":670,"y":260,"w":80,"h":96},"cb10_8":{"kind":"b","zone":"biz","wT":8,"hT":7,"src":"cb10","noflip":false,"x":326,"y":146,"w":128,"h":112},"cb10_10":{"kind":"b","zone":"biz","wT":10,"hT":8,"src":"cb10","noflip":false,"x":460,"y":0,"w":160,"h":128},"cb01_3":{"kind":"b","zone":"res","wT":3,"hT":7,"src":"cb01","noflip":false,"x":456,"y":146,"w":48,"h":112},"cb01_3_v1":{"kind":"b","zone":"res","wT":3,"hT":7,"src":"cb01","noflip":false,"x":506,"y":146,"w":48,"h":112},"cb01_4":{"kind":"b","zone":"res","wT":4,"hT":9,"src":"cb01","noflip":false,"x":0,"y":0,"w":64,"h":144},"cb01_4_v1":{"kind":"b","zone":"res","wT":4,"hT":9,"src":"cb01","noflip":false,"x":66,"y":0,"w":64,"h":144},"cb02_3":{"kind":"b","zone":"res","wT":3,"hT":5,"src":"cb02","noflip":false,"x":410,"y":472,"w":48,"h":80},"cb02_3_v1":{"kind":"b","zone":"res","wT":3,"hT":5,"src":"cb02","noflip":false,"x":460,"y":472,"w":48,"h":80},"cb02_4":{"kind":"b","zone":"res","wT":4,"hT":7,"src":"cb02","noflip":false,"x":556,"y":146,"w":64,"h":112},"cb02_4_v1":{"kind":"b","zone":"res","wT":4,"hT":7,"src":"cb02","noflip":false,"x":622,"y":146,"w":64,"h":112},"cb03_4":{"kind":"b","zone":"res","wT":4,"hT":5,"src":"cb03","noflip":false,"x":510,"y":472,"w":64,"h":80},"cb03_4_v1":{"kind":"b","zone":"res","wT":4,"hT":5,"src":"cb03","noflip":false,"x":576,"y":472,"w":64,"h":80},"cb03_5":{"kind":"b","zone":"res","wT":5,"hT":6,"src":"cb03","noflip":false,"x":752,"y":260,"w":80,"h":96},"cb03_5_v1":{"kind":"b","zone":"res","wT":5,"hT":6,"src":"cb03","noflip":false,"x":834,"y":260,"w":80,"h":96},"cb03_6":{"kind":"b","zone":"res","wT":6,"hT":7,"src":"cb03","noflip":false,"x":688,"y":146,"w":96,"h":112},"cb03_6_v1":{"kind":"b","zone":"res","wT":6,"hT":7,"src":"cb03","noflip":false,"x":786,"y":146,"w":96,"h":112},"cb06_3":{"kind":"b","zone":"res","wT":3,"hT":4,"src":"cb06","noflip":false,"x":132,"y":554,"w":48,"h":64},"cb06_3_v1":{"kind":"b","zone":"res","wT":3,"hT":4,"src":"cb06","noflip":false,"x":182,"y":554,"w":48,"h":64},"cb06_4":{"kind":"b","zone":"res","wT":4,"hT":6,"src":"cb06","noflip":false,"x":916,"y":260,"w":64,"h":96},"cb06_4_v1":{"kind":"b","zone":"res","wT":4,"hT":6,"src":"cb06","noflip":false,"x":0,"y":374,"w":64,"h":96},"cb08_4":{"kind":"b","zone":"res","wT":4,"hT":4,"src":"cb08","noflip":false,"x":232,"y":554,"w":64,"h":64},"cb08_4_v1":{"kind":"b","zone":"res","wT":4,"hT":4,"src":"cb08","noflip":false,"x":298,"y":554,"w":64,"h":64},"cb08_5":{"kind":"b","zone":"res","wT":5,"hT":6,"src":"cb08","noflip":false,"x":66,"y":374,"w":80,"h":96},"cb08_5_v1":{"kind":"b","zone":"res","wT":5,"hT":6,"src":"cb08","noflip":false,"x":148,"y":374,"w":80,"h":96},"cb09_4":{"kind":"b","zone":"res","wT":4,"hT":5,"src":"cb09","noflip":false,"x":642,"y":472,"w":64,"h":80},"cb09_4_v1":{"kind":"b","zone":"res","wT":4,"hT":5,"src":"cb09","noflip":false,"x":708,"y":472,"w":64,"h":80},"cb09_5":{"kind":"b","zone":"res","wT":5,"hT":6,"src":"cb09","noflip":false,"x":230,"y":374,"w":80,"h":96},"cb09_5_v1":{"kind":"b","zone":"res","wT":5,"hT":6,"src":"cb09","noflip":false,"x":312,"y":374,"w":80,"h":96},"cb05_3":{"kind":"b","zone":"ind","wT":3,"hT":5,"src":"cb05","noflip":false,"x":774,"y":472,"w":48,"h":80},"cb05_3_v1":{"kind":"b","zone":"ind","wT":3,"hT":5,"src":"cb05","noflip":false,"x":824,"y":472,"w":48,"h":80},"cb05_4":{"kind":"b","zone":"ind","wT":4,"hT":6,"src":"cb05","noflip":false,"x":394,"y":374,"w":64,"h":96},"cb05_4_v1":{"kind":"b","zone":"ind","wT":4,"hT":6,"src":"cb05","noflip":false,"x":460,"y":374,"w":64,"h":96},"cb05_5":{"kind":"b","zone":"ind","wT":5,"hT":8,"src":"cb05","noflip":false,"x":622,"y":0,"w":80,"h":128},"cb05_5_v1":{"kind":"b","zone":"ind","wT":5,"hT":8,"src":"cb05","noflip":false,"x":704,"y":0,"w":80,"h":128},"cb05_6":{"kind":"b","zone":"ind","wT":6,"hT":9,"src":"cb05","noflip":false,"x":132,"y":0,"w":96,"h":144},"cb05_6_v1":{"kind":"b","zone":"ind","wT":6,"hT":9,"src":"cb05","noflip":false,"x":230,"y":0,"w":96,"h":144},"cb07_3":{"kind":"b","zone":"ind","wT":3,"hT":4,"src":"cb07","noflip":false,"x":364,"y":554,"w":48,"h":64},"cb07_3_v1":{"kind":"b","zone":"ind","wT":3,"hT":4,"src":"cb07","noflip":false,"x":414,"y":554,"w":48,"h":64},"cb07_4":{"kind":"b","zone":"ind","wT":4,"hT":6,"src":"cb07","noflip":false,"x":526,"y":374,"w":64,"h":96},"cb07_4_v1":{"kind":"b","zone":"ind","wT":4,"hT":6,"src":"cb07","noflip":false,"x":592,"y":374,"w":64,"h":96},"cb07_5":{"kind":"b","zone":"ind","wT":5,"hT":7,"src":"cb07","noflip":false,"x":884,"y":146,"w":80,"h":112},"cb07_5_v1":{"kind":"b","zone":"ind","wT":5,"hT":7,"src":"cb07","noflip":false,"x":0,"y":260,"w":80,"h":112},"cb07_6":{"kind":"b","zone":"ind","wT":6,"hT":8,"src":"cb07","noflip":false,"x":786,"y":0,"w":96,"h":128},"cb07_6_v1":{"kind":"b","zone":"ind","wT":6,"hT":8,"src":"cb07","noflip":false,"x":884,"y":0,"w":96,"h":128},"cb08i_5":{"kind":"b","zone":"ind","wT":5,"hT":6,"src":"cb08i","noflip":false,"x":658,"y":374,"w":80,"h":96},"cb08i_6":{"kind":"b","zone":"ind","wT":6,"hT":7,"src":"cb08i","noflip":false,"x":82,"y":260,"w":96,"h":112}};
 const STATION_ATLAS = { x:692, y:640, w:192, h:144 };
 
 // Test mode is switched on in the main game's Settings (or with the button on this game's menu).
@@ -1140,6 +1166,7 @@ const ASSET_PATHS = {
     road_slow: 'assets/map/roads/road_slow_zombie.png',
     // ---- Zombie-side art: its own copies live in assets/zombie/ so this game can diverge from the main one ----
     units_sheet: 'assets/zombie/units/units_sheet.png',
+    gunner_sheet: 'assets/zombie/units/gunner_sheet.png',     // the two baton-round gunners (same art as the main game)
     k9_sheet: 'assets/zombie/units/k9_gsd_sheet.png',
     zombie_sheet: 'assets/zombie/units/zombie_sheet.png',
     hound_sheet: 'assets/zombie/units/zombie_hound_sheet.png',
@@ -1251,7 +1278,7 @@ function buildCatalogue(){
     const cat = { res:[], biz:[], ind:[] };
     for (const id in ATLAS_TABLE){
         const a = ATLAS_TABLE[id];
-        if (a.kind !== 'b') continue;
+        if (a.kind !== 'b' || a.landmark) continue;       // hospital / school / factory sit on fixed plots from the map file
         cat[a.zone].push({ id, wT:a.wT, hT:a.hT, src:a.src, noflip:!!a.noflip, max:a.max||0, min:a.min||0, boost:a.boost||1 });
     }
     return cat;
@@ -1310,6 +1337,14 @@ function placeSceneryBuildings(){
         if (front){ b.frontX = front.x; b.frontY = front.y; }
         sceneryBuildings.push(b);
     };
+    // Fixed plots first: the (abandoned, overgrown) hospital, school and factory from the map file.
+    for (const lm of ((MAP_DEF && MAP_DEF.landmarks) || [])){
+        const a = ATLAS_TABLE[lm.type];
+        if (!a || lm.x < 0 || lm.x + a.wT > W || lm.y - a.hT + 1 < 0 || lm.y + 1 >= H) continue;
+        let fits = true;
+        for (let yy = lm.y - a.hT + 1; yy <= lm.y && fits; yy++) for (let xx = lm.x; xx < lm.x + a.wT; xx++) if (map[yy][xx] !== TILE_BLOCK){ fits = false; break; }
+        if (fits) commit({ id: lm.type, wT: a.wT, hT: a.hT, noflip: true }, lm.x, lm.y, zoneAt(lm.x));
+    }
     const landmarks = [];
     for (const zn of ['ind','biz','res']) for (const c of BUILDING_CATALOGUE[zn]){
         if (c.min > 0 && !landmarks.some(l => l.c.id === c.id)) landmarks.push({ c, zn });
@@ -1508,6 +1543,7 @@ function pickWreckId(rnd){
     for (const p of WRECK_POOL.list) if (r <= p.cum) return p.id;
     return WRECK_POOL.list[0].id;
 }
+const WRECK_VOLUME = 0.5;     // 1 = the old busy kerbs, 0.5 = half as many wrecks
 let wreckVehicles = [];
 class WreckVehicle {
     constructor(id, dir, cx, cy){
@@ -1555,7 +1591,8 @@ function placeWreckVehicles(){
     };
     const lane = (horizontal, c, a, b, side) => {
         const dir = horizontal ? (side < 0 ? 'E' : 'W') : (side < 0 ? 'N' : 'S');
-        const density = rnd() < 0.08 ? 0.06 : 0.50 + rnd() * 0.45;   // some lanes nearly empty, most lanes busy
+        // half as many wrecks as before (WRECK_VOLUME 0.5)
+        const density = (rnd() < 0.08 ? 0.06 : 0.50 + rnd() * 0.45) * WRECK_VOLUME;
         let p = a + 26 + rnd() * 90;
         while (p < b - 30){
             const id = pickWreckId(rnd);
@@ -1563,7 +1600,9 @@ function placeWreckVehicles(){
             if (!e){ p += 40; continue; }
             const dw = e[2] * e[4], dh = e[3] * e[4];
             const len = horizontal ? dw : dh, cross = horizontal ? dh : dw;
-            const along = p + len / 2, off = c + side * (half - 4 - cross / 2);
+            // about one wreck in three sits half up on the kerb
+            const onKerb = rnd() < 0.34;
+            const along = p + len / 2, off = c + side * (onKerb ? (half - cross * 0.10) : (half - 4 - cross / 2));
             const x = horizontal ? along : off, y = horizontal ? off : along;
             if (rnd() < density && !blockedAt(x, y, dw / 2, dh / 2)){
                 wreckVehicles.push(new WreckVehicle(id, dir, x, y));
@@ -3790,6 +3829,25 @@ function updateAmbulance(dt){
 }
 
 // ============================ WATER CANNON VEHICLE (from main game) ============================
+// Two vehicles must never drive through each other: each is a rectangle; this is a separating-axis overlap test.
+function vehicleRectsOverlap(ax, ay, aa, bx, by, ba, pad){
+    const hl = TILE * WC_LENGTH_TILES / 2 + (pad || 0), hw = TILE * 0.95 + (pad || 0);
+    const ca = Math.cos(aa), sa = Math.sin(aa), cb = Math.cos(ba), sb = Math.sin(ba);
+    const axes = [[ca, sa], [-sa, ca], [cb, sb], [-sb, cb]];
+    const dx = bx - ax, dy = by - ay;
+    for (const a2 of axes){
+        const ux = a2[0], uy = a2[1];
+        const ra = hl * Math.abs(ca * ux + sa * uy) + hw * Math.abs(-sa * ux + ca * uy);
+        const rb = hl * Math.abs(cb * ux + sb * uy) + hw * Math.abs(-sb * ux + cb * uy);
+        if (Math.abs(dx * ux + dy * uy) > ra + rb) return false;
+    }
+    return true;
+}
+// A vehicle can be parked in the middle of a junction.
+function junctionVehicleSpot(j){
+    return { key: 'VJ' + Math.round(j.x / TILE) + '_' + Math.round(j.y / TILE), dir: 'h', x: j.x, y: j.y,
+             edgeKey: findEdgeForSpot({ x: j.x, y: j.y }), custom: true, junction: j };
+}
 class WaterCannonVehicle {
     constructor(syndicateIndex, kind){
         this.syndicateIndex = syndicateIndex;
@@ -3814,6 +3872,7 @@ class WaterCannonVehicle {
         this.waterAimTarget = 0;
 
         this.gunnerFireTimer = [1.0, 1.9];
+        this.gunnerAim = [null, null];
         this.gunnersOut = false;
         this.gunnerDeployT = 0;
 
@@ -3900,8 +3959,33 @@ class WaterCannonVehicle {
         }
         if (this.maxAmmo - this.ammo <= 0.01) this.finishRefill();
     }
+    otherVehicle(){
+        if (!game.vehicles) return null;
+        const o = game.vehicles[this.syndicateIndex === VEHICLE_SYNDICATE ? VEHICLE_SYNDICATE_2 : VEHICLE_SYNDICATE];
+        return (o && o.alive && o !== this) ? o : null;
+    }
+    // If the other vehicle is parked (or heading) where this one wants to stop, park beside or behind it instead.
+    deconflictSpot(spot){
+        const o = this.otherVehicle();
+        if (!o || !spot) return spot;
+        const ox = o.targetSpot ? o.targetSpot.x : o.x, oy = o.targetSpot ? o.targetSpot.y : o.y;
+        const oa = o.faceAngle !== undefined ? o.faceAngle : o.angle;
+        const myA = this.faceAngle !== undefined ? this.faceAngle : (spot.dir === 'v' ? Math.PI / 2 : 0);
+        if (!vehicleRectsOverlap(spot.x, spot.y, myA, ox, oy, oa, 6)) return spot;
+        const along = spot.dir === 'v' ? [0, 1] : [1, 0], perp = spot.dir === 'v' ? [1, 0] : [0, 1];
+        const len = TILE * (WC_LENGTH_TILES + 0.8), wid = TILE * 2.4;
+        const tries = [[perp, wid], [perp, -wid], [along, len], [along, -len], [perp, wid * 1.7], [perp, -wid * 1.7]];
+        for (const t of tries){
+            const x = spot.x + t[0][0] * t[1], y = spot.y + t[0][1] * t[1];
+            if (!isValidPosition(x, y) || !isRoadAt(x, y)) continue;
+            if (vehicleRectsOverlap(x, y, myA, ox, oy, oa, 6)) continue;
+            return { key: 'LV' + this.syndicateIndex, dir: spot.dir, x: x, y: y, edgeKey: findEdgeForSpot({ x: x, y: y }) || spot.edgeKey, custom: true, junction: spot.junction };
+        }
+        return spot;
+    }
     setSpot(spot, fromRefill){
         if (!spot || this.targetSpot === spot) return;
+        if (!fromRefill) spot = this.deconflictSpot(spot);
         if (!fromRefill && this.refill){ this.refill = null; this.refillWait = false; }   // a player order cancels the refill trip
         this.targetSpot = spot;
         this.parked = false;
@@ -4038,15 +4122,36 @@ class WaterCannonVehicle {
                 const ux = dx / (dist || 1), uy = dy / (dist || 1);
                 const nx = this.x + ux * step, ny = this.y + uy * step;
                 let moved = false;
-                if (isValidPosition(nx, ny) && isRoadAt(nx, ny)) { this.x = nx; this.y = ny; moved = true; }
-                else if (isValidPosition(nx, this.y) && isRoadAt(nx, this.y)) { this.x = nx; moved = true; }
-                else if (isValidPosition(this.x, ny) && isRoadAt(this.x, ny)) { this.y = ny; moved = true; }
+                // The other vehicle is in the way: go round it on the left (UK style); if there is no room, wait a moment.
+                let mx = nx, my = ny, giveWay = false;
+                const oth = this.otherVehicle();
+                if (oth){
+                    const hd = Math.atan2(uy, ux);
+                    const hitsNext = vehicleRectsOverlap(nx, ny, hd, oth.x, oth.y, oth.angle, 3);
+                    const hitsNow = vehicleRectsOverlap(this.x, this.y, this.angle, oth.x, oth.y, oth.angle, 3);
+                    const closer = Math.hypot(nx - oth.x, ny - oth.y) < Math.hypot(this.x - oth.x, this.y - oth.y);
+                    if (hitsNext && (!hitsNow || closer)){
+                        let found = false;
+                        for (const k of [1, -1]){
+                            const lx = uy * k, ly = -ux * k;
+                            const cx = this.x + lx * step * 0.9, cy = this.y + ly * step * 0.9;       // slide sideways first, then carry on past
+                            if (!isValidPosition(cx, cy) || !isRoadAt(cx, cy)) continue;
+                            if (vehicleRectsOverlap(cx, cy, hd, oth.x, oth.y, oth.angle, 3) && Math.hypot(cx - oth.x, cy - oth.y) < Math.hypot(this.x - oth.x, this.y - oth.y)) continue;
+                            mx = cx; my = cy; found = true; break;
+                        }
+                        if (!found){ giveWay = true; this.yieldT = (this.yieldT || 0) + dt; if (this.yieldT > 4) giveWay = false; }
+                    } else this.yieldT = Math.max(0, (this.yieldT || 0) - dt * 2);
+                }
+                if (giveWay) { /* wait: the other vehicle has the road */ }
+                else if (isValidPosition(mx, my) && isRoadAt(mx, my)) { this.x = mx; this.y = my; moved = true; }
+                else if (isValidPosition(mx, this.y) && isRoadAt(mx, this.y)) { this.x = mx; moved = true; }
+                else if (isValidPosition(this.x, my) && isRoadAt(this.x, my)) { this.y = my; moved = true; }
                 if (moved) {
                     this.targetAngle = Math.atan2(uy, ux);
                     const after = Math.hypot(tx - this.x, ty - this.y);
                     if (dist - after < 0.05) this.stuckTimer += dt;
                     else this.stuckTimer = Math.max(0, this.stuckTimer - dt * 2);
-                } else {
+                } else if (!giveWay) {
                     this.stuckTimer += dt;
                 }
                 if (this.stuckTimer > 1.0) {
@@ -4090,6 +4195,8 @@ class WaterCannonVehicle {
         this.gunnerDeployT = Math.min(1, this.gunnerDeployT + dt * 3);
         const positions = this.gunnerPositions();
         for (let i = 0; i < 2; i++) {
+            const tg = this.findRubberTarget(positions[i]);              // the gunner turns to face what he is covering
+            this.gunnerAim[i] = tg ? Math.atan2(tg.y - positions[i].y, tg.x - positions[i].x) : null;
             this.gunnerFireTimer[i] -= dt;
             if (this.gunnerFireTimer[i] <= 0) {
                 this.gunnerFireTimer[i] = RUBBER_BULLET_COOLDOWN;
@@ -4097,14 +4204,18 @@ class WaterCannonVehicle {
             }
         }
     }
-    fireRubberRound(pos) {
+    findRubberTarget(pos) {
         let target = null, bestD = Infinity;
         for (const z of game.zombies) {
             if (!z.alive || z.beingDragged) continue;
             const d = Math.hypot(z.x - pos.x, z.y - pos.y);
-            if (d > RUBBER_BULLET_RANGE) continue;
-            if (d < bestD) { bestD = d; target = z; }
+            if (d > RUBBER_BULLET_RANGE || d >= bestD) continue;
+            bestD = d; target = z;
         }
+        return target;
+    }
+    fireRubberRound(pos) {
+        const target = this.findRubberTarget(pos);
         if (!target) return;
         this.ammo = Math.max(0, this.ammo - 1);          // one round per shot, only when there is something to shoot
         damageZombie(target, RUBBER_BULLET_DAMAGE);
@@ -4121,7 +4232,6 @@ class WaterCannonVehicle {
             ctx.save();
             ctx.translate(sx, sy);
             ctx.scale(scale, scale);
-            if (p.side < 0) ctx.scale(-1, 1);
             drawRubberGunnerFigure(ctx, this, p);
             ctx.restore();
         }
@@ -4325,7 +4435,32 @@ class WaterCannonVehicle {
         }
     }
 }
+// Baton-round gunner sprite (assets/zombie/units/gunner_sheet.png: 0 ready, 1 aiming, 2 firing, 3 reloading).
 function drawRubberGunnerFigure(ctx, vehicle, pos) {
+    const img = assets['gunner_sheet'];
+    if (!img) { drawRubberGunnerFallback(ctx, vehicle, pos); return; }
+    const i = pos.side < 0 ? 0 : 1;
+    const ft = vehicle.gunnerFireTimer ? vehicle.gunnerFireTimer[i] : 0;
+    const since = RUBBER_BULLET_COOLDOWN - ft;
+    const aim = vehicle.gunnerAim ? vehicle.gunnerAim[i] : null;
+    const hasAim = aim !== null && aim !== undefined;
+    let col = hasAim ? 1 : 0;
+    if (since >= 0 && since < 0.16) col = 2;
+    else if (since >= 0.16 && since < 0.6) col = 3;
+    let face = pos.side < 0 ? -1 : 1, tilt = 0;
+    if (hasAim) { face = Math.cos(aim) < 0 ? -1 : 1; tilt = Math.max(-0.55, Math.min(0.55, Math.atan2(Math.sin(aim), Math.abs(Math.cos(aim))))); }
+    ctx.fillStyle = 'rgba(255,230,90,0.20)';
+    ctx.beginPath(); ctx.ellipse(0, 1.5, 11, 4.4, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = 'rgba(255,230,90,0.55)'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.ellipse(0, 1.5, 11, 4.4, 0, 0, Math.PI * 2); ctx.stroke();
+    ctx.save();
+    ctx.scale(face, 1);
+    ctx.translate(0, -20); ctx.rotate(tilt); ctx.translate(0, 20);
+    ctx.drawImage(img, col * 64, 0, 64, 64, -24, -42, 48, 48);       // drawn a little larger than the other officers so he is easy to spot
+    ctx.restore();
+}
+function drawRubberGunnerFallback(ctx, vehicle, pos) {
+    if (pos.side < 0) ctx.scale(-1, 1);
     const H = 17;
     ctx.fillStyle = '#17171c';
     ctx.beginPath(); ctx.ellipse(0, 1.5, 5, 2.2, 0, 0, Math.PI * 2); ctx.fill();
@@ -4826,7 +4961,8 @@ function setVehicleTarget(spot){
     if (v.ammo <= 0.01 && !v.refill) showToast(':fuel: ' + v.shortName() + ' is EMPTY — use the Refill button when you want it back at the station.');
     else if (wasRefilling && !v.refill) showToast(':fuel: Refill trip cancelled.');
     const sy = game.syndicates[game.selectedSyndicate];
-    if (sy){ sy.commandX = spot.x; sy.commandY = spot.y; }
+    const at = v.targetSpot || spot;
+    if (sy){ sy.commandX = at.x; sy.commandY = at.y; }
     renderOptionsPanel(); updateSelectionUI();
 }
 function pathSyndicateTo(sy, worldX, worldY){
@@ -5928,8 +6064,16 @@ function handleTap(clientX, clientY){
             const d = Math.hypot(s.x - wx, s.y - wy);
             if (d < bestD){ bestD = d; best = s; }
         }
-        if (best && bestD < TILE*5) setVehicleTarget(best);
-        else showToast('Tap near a road to move the vehicle.');
+        // a junction centre wins if the tap is on it: the vehicle parks right in the middle of the crossroads
+        let jBest = null, jD = TILE * 3.2;
+        if (roadLayout) for (const j of roadLayout.junctions){
+            if (j.isBase) continue;
+            const d = Math.hypot(j.x - wx, j.y - wy);
+            if (d < jD){ jD = d; jBest = j; }
+        }
+        if (jBest) setVehicleTarget(junctionVehicleSpot(jBest));
+        else if (best && bestD < TILE*5) setVehicleTarget(best);
+        else showToast('Tap near a road or a junction to move the vehicle.');
         return;
     }
     if (game.selectedSyndicate >= OFFICER_SYNDICATES) return;
@@ -6206,6 +6350,18 @@ function render(){
             ctx.fillStyle = isTarget ? 'rgba(255,204,51,0.95)' : 'rgba(110,230,140,0.55)';
             ctx.fill();
             ctx.strokeStyle = 'rgba(0,0,0,0.55)'; ctx.lineWidth = 1; ctx.stroke();
+        }
+        // junction centres: tap one to park the vehicle in the middle of the crossroads
+        if (roadLayout) for (const j of roadLayout.junctions){
+            if (j.isBase) continue;
+            const sx = j.x - game.camera.x, sy = j.y - game.camera.y;
+            if (sx < -20 || sy < -20 || sx > game.width + 20 || sy > game.height + 20) continue;
+            const isTarget = selVeh.targetSpot && selVeh.targetSpot.junction === j;
+            ctx.beginPath(); ctx.arc(sx, sy, isTarget ? 8 : 6, 0, Math.PI * 2);
+            ctx.fillStyle = isTarget ? 'rgba(255,204,51,0.95)' : 'rgba(90,190,255,0.6)'; ctx.fill();
+            ctx.strokeStyle = 'rgba(255,255,255,0.85)'; ctx.lineWidth = 1.4; ctx.stroke();
+            ctx.strokeStyle = 'rgba(20,40,70,0.9)'; ctx.lineWidth = 1.6;
+            ctx.beginPath(); ctx.moveTo(sx - 3, sy); ctx.lineTo(sx + 3, sy); ctx.moveTo(sx, sy - 3); ctx.lineTo(sx, sy + 3); ctx.stroke();
         }
         if (selVeh.route && selVeh.routeIdx < selVeh.route.length){
             ctx.strokeStyle = 'rgba(120,200,255,0.55)';

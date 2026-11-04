@@ -815,9 +815,9 @@
     // =====================================================================
 
     // ========== CONSTANTS ==========
-    let MAP_W = 108, MAP_H = 77;
+    let MAP_W = 128, MAP_H = 89;
     const TILE = 16;
-    let MIN_PLAY_W = 108, MIN_PLAY_H = 77;      // set per map (see js/maps/)
+    let MIN_PLAY_W = 128, MIN_PLAY_H = 89;      // set per map (see js/maps/)
     function computeMapSize() {
         MAP_W = Math.max(MIN_PLAY_W, Math.ceil(game.width / TILE) + 20);
         MAP_H = Math.max(MIN_PLAY_H, Math.ceil(game.height / TILE) + 16);
@@ -834,6 +834,13 @@
     const ROAD_W = 6;
     // ---- everything below is filled in by applyMap() from the map files in js/maps/ ----
     let MAP_ID = 'base', MAP_DEF = null, MAPGEO = null;
+    // The three big buildings protesters can gather at (besides the police station). Filled in by placeSceneryBuildings().
+    let LANDMARK_BUILDINGS = {};
+    const LANDMARK_INFO = {
+        hospital: { label: 'the hospital', causes: ['Nurses and patients gather at the hospital over ward closures.', 'Staff walk out at the hospital over pay and cuts.', 'A crowd demands the hospital stays open.'] },
+        school:   { label: 'the school',   causes: ['Parents and pupils protest at the school over its planned closure.', 'Teachers and parents rally at the school over cuts.', 'A crowd gathers at the school gates over class sizes.'] },
+        factory:  { label: 'the factory',  causes: ['Workers gather at the factory gates as jobs are cut.', 'A redundancy protest forms outside the factory.', 'Workers picket the factory over pay.'] },
+    };
     let STATION_TX0 = 48, STATION_TY0 = 43, STATION_TW = 12, STATION_TH = 9;
     let BASE_TILE_X = 54, BASE_TILE_Y = 38, BASE_NODE_ID = 'B54';
     let EXIT_NODE_IDS = [];
@@ -929,8 +936,8 @@
     const WATER_CANNON_PUSH_PER_TICK = TILE * 0.32;
 
     const RUBBER_BULLET_RANGE = TILE * 7.5;
-    const RUBBER_BULLET_COOLDOWN = 2.0;
-    const RUBBER_BULLET_DAMAGE = 9;
+    const RUBBER_BULLET_COOLDOWN = 1.7;
+    const RUBBER_BULLET_DAMAGE = 9;      // minimum; a baton round now takes the rioter out of the fight outright (see fireRubberRound)
     const RUBBER_BULLET_STUN = 0.6;
 
     const RAIDER_SEPARATION_RADIUS = TILE * 0.85;
@@ -1324,7 +1331,7 @@
         { key: 'strength',   title: ':dumbbell: Officer Training',   note: 'Each level makes every officer tougher and hit harder.' },
         { key: 'tactics',    title: ':compass: Tactics',            note: 'Unlock in any order. Rest and Wall are free.' },
         { key: 'vehicles',   title: ':car: Vehicles',           note: 'All three syndicates must be unlocked first.' },
-        { key: 'station',    title: ':station: Station',            note: 'Repair crews and the ambulance work out of the station.' },
+        { key: 'station',    title: ':station: Station',            note: 'Repair crews work out of the station. The ambulance works out of the hospital.' },
         { key: 'command',    title: ':megaphone: Command',            note: 'Big, expensive calls for when the street gets ugly.' },
     ];
     const SKILL_LIST = [];
@@ -1564,7 +1571,17 @@
         }
         far.sort((a, b) => b.d - a.d);
         const pick = far.length ? far[Math.floor(Math.random() * Math.min(2, far.length))].id : null;
-        return { type: (pick && Math.random() < 0.45) ? 'march' : 'rally', exitId: pick, rallyTime: 28 + Math.random() * 16 };
+        const plan = { type: (pick && Math.random() < 0.45) ? 'march' : 'rally', exitId: pick, rallyTime: 28 + Math.random() * 16, target: null };
+        // Most rallies are about something else in town: the hospital, the school or the factory. Some are still at the station.
+        if (plan.type === 'rally') {
+            const keys = Object.keys(LANDMARK_BUILDINGS).filter(k => getNode(LANDMARK_BUILDINGS[k].node));
+            if (keys.length && Math.random() < 0.75) {
+                const k = keys[Math.floor(Math.random() * keys.length)], info = LANDMARK_INFO[k];
+                plan.target = { type: k, nodeId: LANDMARK_BUILDINGS[k].node, building: LANDMARK_BUILDINGS[k],
+                                text: info.causes[Math.floor(Math.random() * info.causes.length)] };
+            }
+        }
+        return plan;
     }
     // ----- opinion & posture -----
     function adjustOpinion(d) { game.opinion = Math.max(0, Math.min(100, game.opinion + d)); }
@@ -2066,7 +2083,7 @@
     function applyMap(id) {
         const def = CordonMaps.get(id);
         MAP_DEF = def; MAP_ID = def.id;
-        MIN_PLAY_W = def.w || 108; MIN_PLAY_H = def.h || 77;
+        MIN_PLAY_W = def.w || 128; MIN_PLAY_H = def.h || 89;
         computeMapSize(); computeMinimapSize();
         STATION_TX0 = def.station.x0; STATION_TY0 = def.station.y0; STATION_TW = def.station.w; STATION_TH = def.station.h;
         BASE_TILE_X = def.base.x; BASE_TILE_Y = def.base.y; BASE_NODE_ID = def.baseNode;
@@ -2178,6 +2195,9 @@
     };
     function buildJunctionPosts() {
         JUNCTION_POSTS = [];
+        // The posts must come from the layout of the map that is loaded NOW. (They used to read the previous map's
+        // layout, because the layout is only refreshed later in generateMap(), so the dots landed in the wrong places.)
+        roadLayout = computeRoadLayout();
         if (!roadLayout) return;
         for (const j of roadLayout.junctions) {
             if (j.isBase) continue;
@@ -2542,9 +2562,10 @@
         });
     }
 
-    const ATLAS_TABLE = {"rb1_3":{"kind":"b","zone":"biz","wT":3,"hT":5,"src":"rb1","noflip":false,"x":740,"y":374,"w":48,"h":80},"rb1_3_v1":{"kind":"b","zone":"biz","wT":3,"hT":5,"src":"rb1","noflip":false,"x":790,"y":374,"w":48,"h":80},"rb1_4":{"kind":"b","zone":"biz","wT":4,"hT":7,"src":"rb1","noflip":false,"x":0,"y":146,"w":64,"h":112},"rb1_4_v1":{"kind":"b","zone":"biz","wT":4,"hT":7,"src":"rb1","noflip":false,"x":66,"y":146,"w":64,"h":112},"rb2_4":{"kind":"b","zone":"biz","wT":4,"hT":4,"src":"rb2","noflip":false,"x":874,"y":472,"w":64,"h":64},"rb2_4_v1":{"kind":"b","zone":"biz","wT":4,"hT":4,"src":"rb2","noflip":false,"x":940,"y":472,"w":64,"h":64},"rb2_5":{"kind":"b","zone":"biz","wT":5,"hT":5,"src":"rb2","noflip":false,"x":840,"y":374,"w":80,"h":80},"rb2_5_v1":{"kind":"b","zone":"biz","wT":5,"hT":5,"src":"rb2","noflip":false,"x":922,"y":374,"w":80,"h":80},"rb3_3":{"kind":"b","zone":"biz","wT":3,"hT":5,"src":"rb3","noflip":true,"x":0,"y":472,"w":48,"h":80},"rb3_4":{"kind":"b","zone":"biz","wT":4,"hT":6,"src":"rb3","noflip":true,"x":180,"y":260,"w":64,"h":96},"rb4_4":{"kind":"b","zone":"biz","wT":4,"hT":4,"src":"rb4","noflip":false,"x":0,"y":554,"w":64,"h":64},"rb4_4_v1":{"kind":"b","zone":"biz","wT":4,"hT":4,"src":"rb4","noflip":false,"x":66,"y":554,"w":64,"h":64},"rb4_5":{"kind":"b","zone":"biz","wT":5,"hT":5,"src":"rb4","noflip":false,"x":50,"y":472,"w":80,"h":80},"rb4_5_v1":{"kind":"b","zone":"biz","wT":5,"hT":5,"src":"rb4","noflip":false,"x":132,"y":472,"w":80,"h":80},"rb5_8":{"kind":"b","zone":"biz","wT":8,"hT":5,"src":"rb5","noflip":false,"x":214,"y":472,"w":128,"h":80},"rb5_10":{"kind":"b","zone":"biz","wT":10,"hT":6,"src":"rb5","noflip":false,"x":246,"y":260,"w":160,"h":96},"rb6_10":{"kind":"b","zone":"biz","wT":10,"hT":6,"src":"rb6","noflip":false,"x":408,"y":260,"w":160,"h":96},"rb6_12":{"kind":"b","zone":"biz","wT":12,"hT":7,"src":"rb6","noflip":false,"x":132,"y":146,"w":192,"h":112},"rb7_3":{"kind":"b","zone":"biz","wT":3,"hT":6,"src":"rb7","noflip":false,"x":570,"y":260,"w":48,"h":96},"rb7_3_v1":{"kind":"b","zone":"biz","wT":3,"hT":6,"src":"rb7","noflip":false,"x":620,"y":260,"w":48,"h":96},"rb7_4":{"kind":"b","zone":"biz","wT":4,"hT":8,"src":"rb7","noflip":false,"x":328,"y":0,"w":64,"h":128},"rb7_4_v1":{"kind":"b","zone":"biz","wT":4,"hT":8,"src":"rb7","noflip":false,"x":394,"y":0,"w":64,"h":128},"cb04_4":{"kind":"b","zone":"biz","wT":4,"hT":5,"src":"cb04","noflip":false,"x":344,"y":472,"w":64,"h":80},"cb04_5":{"kind":"b","zone":"biz","wT":5,"hT":6,"src":"cb04","noflip":false,"x":670,"y":260,"w":80,"h":96},"cb10_8":{"kind":"b","zone":"biz","wT":8,"hT":7,"src":"cb10","noflip":false,"x":326,"y":146,"w":128,"h":112},"cb10_10":{"kind":"b","zone":"biz","wT":10,"hT":8,"src":"cb10","noflip":false,"x":460,"y":0,"w":160,"h":128},"cb01_3":{"kind":"b","zone":"res","wT":3,"hT":7,"src":"cb01","noflip":false,"x":456,"y":146,"w":48,"h":112},"cb01_3_v1":{"kind":"b","zone":"res","wT":3,"hT":7,"src":"cb01","noflip":false,"x":506,"y":146,"w":48,"h":112},"cb01_4":{"kind":"b","zone":"res","wT":4,"hT":9,"src":"cb01","noflip":false,"x":0,"y":0,"w":64,"h":144},"cb01_4_v1":{"kind":"b","zone":"res","wT":4,"hT":9,"src":"cb01","noflip":false,"x":66,"y":0,"w":64,"h":144},"cb02_3":{"kind":"b","zone":"res","wT":3,"hT":5,"src":"cb02","noflip":false,"x":410,"y":472,"w":48,"h":80},"cb02_3_v1":{"kind":"b","zone":"res","wT":3,"hT":5,"src":"cb02","noflip":false,"x":460,"y":472,"w":48,"h":80},"cb02_4":{"kind":"b","zone":"res","wT":4,"hT":7,"src":"cb02","noflip":false,"x":556,"y":146,"w":64,"h":112},"cb02_4_v1":{"kind":"b","zone":"res","wT":4,"hT":7,"src":"cb02","noflip":false,"x":622,"y":146,"w":64,"h":112},"cb03_4":{"kind":"b","zone":"res","wT":4,"hT":5,"src":"cb03","noflip":false,"x":510,"y":472,"w":64,"h":80},"cb03_4_v1":{"kind":"b","zone":"res","wT":4,"hT":5,"src":"cb03","noflip":false,"x":576,"y":472,"w":64,"h":80},"cb03_5":{"kind":"b","zone":"res","wT":5,"hT":6,"src":"cb03","noflip":false,"x":752,"y":260,"w":80,"h":96},"cb03_5_v1":{"kind":"b","zone":"res","wT":5,"hT":6,"src":"cb03","noflip":false,"x":834,"y":260,"w":80,"h":96},"cb03_6":{"kind":"b","zone":"res","wT":6,"hT":7,"src":"cb03","noflip":false,"x":688,"y":146,"w":96,"h":112},"cb03_6_v1":{"kind":"b","zone":"res","wT":6,"hT":7,"src":"cb03","noflip":false,"x":786,"y":146,"w":96,"h":112},"cb06_3":{"kind":"b","zone":"res","wT":3,"hT":4,"src":"cb06","noflip":false,"x":132,"y":554,"w":48,"h":64},"cb06_3_v1":{"kind":"b","zone":"res","wT":3,"hT":4,"src":"cb06","noflip":false,"x":182,"y":554,"w":48,"h":64},"cb06_4":{"kind":"b","zone":"res","wT":4,"hT":6,"src":"cb06","noflip":false,"x":916,"y":260,"w":64,"h":96},"cb06_4_v1":{"kind":"b","zone":"res","wT":4,"hT":6,"src":"cb06","noflip":false,"x":0,"y":374,"w":64,"h":96},"cb08_4":{"kind":"b","zone":"res","wT":4,"hT":4,"src":"cb08","noflip":false,"x":232,"y":554,"w":64,"h":64},"cb08_4_v1":{"kind":"b","zone":"res","wT":4,"hT":4,"src":"cb08","noflip":false,"x":298,"y":554,"w":64,"h":64},"cb08_5":{"kind":"b","zone":"res","wT":5,"hT":6,"src":"cb08","noflip":false,"x":66,"y":374,"w":80,"h":96},"cb08_5_v1":{"kind":"b","zone":"res","wT":5,"hT":6,"src":"cb08","noflip":false,"x":148,"y":374,"w":80,"h":96},"cb09_4":{"kind":"b","zone":"res","wT":4,"hT":5,"src":"cb09","noflip":false,"x":642,"y":472,"w":64,"h":80},"cb09_4_v1":{"kind":"b","zone":"res","wT":4,"hT":5,"src":"cb09","noflip":false,"x":708,"y":472,"w":64,"h":80},"cb09_5":{"kind":"b","zone":"res","wT":5,"hT":6,"src":"cb09","noflip":false,"x":230,"y":374,"w":80,"h":96},"cb09_5_v1":{"kind":"b","zone":"res","wT":5,"hT":6,"src":"cb09","noflip":false,"x":312,"y":374,"w":80,"h":96},"cb05_3":{"kind":"b","zone":"ind","wT":3,"hT":5,"src":"cb05","noflip":false,"x":774,"y":472,"w":48,"h":80},"cb05_3_v1":{"kind":"b","zone":"ind","wT":3,"hT":5,"src":"cb05","noflip":false,"x":824,"y":472,"w":48,"h":80},"cb05_4":{"kind":"b","zone":"ind","wT":4,"hT":6,"src":"cb05","noflip":false,"x":394,"y":374,"w":64,"h":96},"cb05_4_v1":{"kind":"b","zone":"ind","wT":4,"hT":6,"src":"cb05","noflip":false,"x":460,"y":374,"w":64,"h":96},"cb05_5":{"kind":"b","zone":"ind","wT":5,"hT":8,"src":"cb05","noflip":false,"x":622,"y":0,"w":80,"h":128},"cb05_5_v1":{"kind":"b","zone":"ind","wT":5,"hT":8,"src":"cb05","noflip":false,"x":704,"y":0,"w":80,"h":128},"cb05_6":{"kind":"b","zone":"ind","wT":6,"hT":9,"src":"cb05","noflip":false,"x":132,"y":0,"w":96,"h":144},"cb05_6_v1":{"kind":"b","zone":"ind","wT":6,"hT":9,"src":"cb05","noflip":false,"x":230,"y":0,"w":96,"h":144},"cb07_3":{"kind":"b","zone":"ind","wT":3,"hT":4,"src":"cb07","noflip":false,"x":364,"y":554,"w":48,"h":64},"cb07_3_v1":{"kind":"b","zone":"ind","wT":3,"hT":4,"src":"cb07","noflip":false,"x":414,"y":554,"w":48,"h":64},"cb07_4":{"kind":"b","zone":"ind","wT":4,"hT":6,"src":"cb07","noflip":false,"x":526,"y":374,"w":64,"h":96},"cb07_4_v1":{"kind":"b","zone":"ind","wT":4,"hT":6,"src":"cb07","noflip":false,"x":592,"y":374,"w":64,"h":96},"cb07_5":{"kind":"b","zone":"ind","wT":5,"hT":7,"src":"cb07","noflip":false,"x":884,"y":146,"w":80,"h":112},"cb07_5_v1":{"kind":"b","zone":"ind","wT":5,"hT":7,"src":"cb07","noflip":false,"x":0,"y":260,"w":80,"h":112},"cb07_6":{"kind":"b","zone":"ind","wT":6,"hT":8,"src":"cb07","noflip":false,"x":786,"y":0,"w":96,"h":128},"cb07_6_v1":{"kind":"b","zone":"ind","wT":6,"hT":8,"src":"cb07","noflip":false,"x":884,"y":0,"w":96,"h":128},"cb08i_5":{"kind":"b","zone":"ind","wT":5,"hT":6,"src":"cb08i","noflip":false,"x":658,"y":374,"w":80,"h":96},"cb08i_6":{"kind":"b","zone":"ind","wT":6,"hT":7,"src":"cb08i","noflip":false,"x":82,"y":260,"w":96,"h":112},"bin_closed":{"kind":"p","cls":"bin","w":11,"h":17,"x":814,"y":554},"bin_open":{"kind":"p","cls":"bin","w":16,"h":17,"x":827,"y":554},"trashbag":{"kind":"p","cls":"bag","w":12,"h":11,"x":185,"y":620},"hydrant_r":{"kind":"p","cls":"hydrant","w":8,"h":14,"x":16,"y":620},"vend_beige":{"kind":"p","cls":"vending","w":25,"h":25,"x":665,"y":554},"vend_green":{"kind":"p","cls":"vending","w":14,"h":27,"x":610,"y":554},"vend_red":{"kind":"p","cls":"vending","w":21,"h":26,"x":642,"y":554},"vend_yellow":{"kind":"p","cls":"vending","w":14,"h":27,"x":626,"y":554},"lamp_dbl":{"kind":"p","cls":"lamp","w":25,"h":44,"x":510,"y":554},"box_h":{"kind":"p","cls":"box","w":10,"h":9,"x":296,"y":620},"box_v":{"kind":"p","cls":"box","w":11,"h":11,"x":199,"y":620},"box_open":{"kind":"p","cls":"box","w":12,"h":13,"x":121,"y":620},"bush1":{"kind":"p","cls":"plant","w":21,"h":17,"x":845,"y":554},"bush2":{"kind":"p","cls":"plant","w":21,"h":17,"x":868,"y":554},"plant1":{"kind":"p","cls":"pot","w":8,"h":17,"x":891,"y":554},"plant2":{"kind":"p","cls":"pot","w":16,"h":15,"x":946,"y":554},"plant3":{"kind":"p","cls":"pot","w":9,"h":14,"x":26,"y":620},"plant4":{"kind":"p","cls":"pot","w":8,"h":13,"x":135,"y":620},"plant5":{"kind":"p","cls":"pot","w":11,"h":15,"x":964,"y":554},"table_round":{"kind":"p","cls":"table","w":13,"h":10,"x":281,"y":620},"table_sq":{"kind":"p","cls":"table","w":12,"h":11,"x":212,"y":620},"table_red":{"kind":"p","cls":"table","w":16,"h":13,"x":145,"y":620},"chair_f":{"kind":"p","cls":"chair","w":7,"h":11,"x":226,"y":620},"chair_b":{"kind":"p","cls":"chair","w":7,"h":11,"x":235,"y":620},"chair_s":{"kind":"p","cls":"chair","w":7,"h":11,"x":244,"y":620},"chair_rf":{"kind":"p","cls":"chair","w":7,"h":11,"x":253,"y":620},"chair_rb":{"kind":"p","cls":"chair","w":8,"h":11,"x":262,"y":620},"chair_rs":{"kind":"p","cls":"chair","w":7,"h":11,"x":272,"y":620},"tree_a":{"kind":"p","cls":"tree","w":14,"h":36,"x":567,"y":554},"tree_b":{"kind":"p","cls":"tree","w":19,"h":46,"x":489,"y":554},"tree_c":{"kind":"p","cls":"tree","w":28,"h":40,"x":537,"y":554},"hoarding1":{"kind":"p","cls":"board","w":38,"h":20,"x":708,"y":554},"hoarding2":{"kind":"p","cls":"board","w":32,"h":20,"x":748,"y":554},"bench_f":{"kind":"p","cls":"bench","w":17,"h":15,"x":977,"y":554},"bench_s":{"kind":"p","cls":"bench","w":8,"h":20,"x":782,"y":554},"planter":{"kind":"p","cls":"planter","w":19,"h":14,"x":37,"y":620},"planter_b":{"kind":"p","cls":"planter","w":23,"h":14,"x":58,"y":620},"tyres":{"kind":"p","cls":"tyres","w":20,"h":13,"x":163,"y":620},"crate_a":{"kind":"p","cls":"box","w":12,"h":17,"x":901,"y":554},"crate_b":{"kind":"p","cls":"box","w":12,"h":17,"x":915,"y":554},"crate_iso":{"kind":"p","cls":"box","w":15,"h":16,"x":929,"y":554},"barrier":{"kind":"p","cls":"barrier","w":20,"h":18,"x":792,"y":554},"bin_c_open":{"kind":"p","cls":"bin","w":15,"h":15,"x":996,"y":554},"bin_c":{"kind":"p","cls":"bin","w":14,"h":15,"x":0,"y":620},"bin_lid":{"kind":"p","cls":"bag","w":13,"h":8,"x":308,"y":620},"utility":{"kind":"p","cls":"lamp","w":23,"h":56,"x":464,"y":554},"warn_sign":{"kind":"p","cls":"sign","w":12,"h":28,"x":583,"y":554},"round_sign":{"kind":"p","cls":"sign","w":11,"h":28,"x":597,"y":554},"ac_unit":{"kind":"p","cls":"machine","w":14,"h":22,"x":692,"y":554},"generator":{"kind":"p","cls":"machine","w":16,"h":14,"x":83,"y":620},"generator2":{"kind":"p","cls":"machine","w":18,"h":14,"x":101,"y":620}};
+    const ATLAS_TABLE = {"hospital":{"kind":"b","landmark":true,"zone":"res","wT":12,"hT":8,"src":"hospital","noflip":true,"x":0,"y":880,"w":192,"h":128},"school":{"kind":"b","landmark":true,"zone":"res","wT":10,"hT":7,"src":"school","noflip":true,"x":200,"y":880,"w":160,"h":112},"factory":{"kind":"b","landmark":true,"zone":"ind","wT":12,"hT":8,"src":"factory","noflip":true,"x":370,"y":880,"w":192,"h":128},"rb1_3":{"kind":"b","zone":"biz","wT":3,"hT":5,"src":"rb1","noflip":false,"x":740,"y":374,"w":48,"h":80},"rb1_3_v1":{"kind":"b","zone":"biz","wT":3,"hT":5,"src":"rb1","noflip":false,"x":790,"y":374,"w":48,"h":80},"rb1_4":{"kind":"b","zone":"biz","wT":4,"hT":7,"src":"rb1","noflip":false,"x":0,"y":146,"w":64,"h":112},"rb1_4_v1":{"kind":"b","zone":"biz","wT":4,"hT":7,"src":"rb1","noflip":false,"x":66,"y":146,"w":64,"h":112},"rb2_4":{"kind":"b","zone":"biz","wT":4,"hT":4,"src":"rb2","noflip":false,"x":874,"y":472,"w":64,"h":64},"rb2_4_v1":{"kind":"b","zone":"biz","wT":4,"hT":4,"src":"rb2","noflip":false,"x":940,"y":472,"w":64,"h":64},"rb2_5":{"kind":"b","zone":"biz","wT":5,"hT":5,"src":"rb2","noflip":false,"x":840,"y":374,"w":80,"h":80},"rb2_5_v1":{"kind":"b","zone":"biz","wT":5,"hT":5,"src":"rb2","noflip":false,"x":922,"y":374,"w":80,"h":80},"rb3_3":{"kind":"b","zone":"biz","wT":3,"hT":5,"src":"rb3","noflip":true,"x":0,"y":472,"w":48,"h":80},"rb3_4":{"kind":"b","zone":"biz","wT":4,"hT":6,"src":"rb3","noflip":true,"x":180,"y":260,"w":64,"h":96},"rb4_4":{"kind":"b","zone":"biz","wT":4,"hT":4,"src":"rb4","noflip":false,"x":0,"y":554,"w":64,"h":64},"rb4_4_v1":{"kind":"b","zone":"biz","wT":4,"hT":4,"src":"rb4","noflip":false,"x":66,"y":554,"w":64,"h":64},"rb4_5":{"kind":"b","zone":"biz","wT":5,"hT":5,"src":"rb4","noflip":false,"x":50,"y":472,"w":80,"h":80},"rb4_5_v1":{"kind":"b","zone":"biz","wT":5,"hT":5,"src":"rb4","noflip":false,"x":132,"y":472,"w":80,"h":80},"rb5_8":{"kind":"b","zone":"biz","wT":8,"hT":5,"src":"rb5","noflip":false,"x":214,"y":472,"w":128,"h":80},"rb5_10":{"kind":"b","zone":"biz","wT":10,"hT":6,"src":"rb5","noflip":false,"x":246,"y":260,"w":160,"h":96},"rb6_10":{"kind":"b","zone":"biz","wT":10,"hT":6,"src":"rb6","noflip":false,"x":408,"y":260,"w":160,"h":96},"rb6_12":{"kind":"b","zone":"biz","wT":12,"hT":7,"src":"rb6","noflip":false,"x":132,"y":146,"w":192,"h":112},"rb7_3":{"kind":"b","zone":"biz","wT":3,"hT":6,"src":"rb7","noflip":false,"x":570,"y":260,"w":48,"h":96},"rb7_3_v1":{"kind":"b","zone":"biz","wT":3,"hT":6,"src":"rb7","noflip":false,"x":620,"y":260,"w":48,"h":96},"rb7_4":{"kind":"b","zone":"biz","wT":4,"hT":8,"src":"rb7","noflip":false,"x":328,"y":0,"w":64,"h":128},"rb7_4_v1":{"kind":"b","zone":"biz","wT":4,"hT":8,"src":"rb7","noflip":false,"x":394,"y":0,"w":64,"h":128},"cb04_4":{"kind":"b","zone":"biz","wT":4,"hT":5,"src":"cb04","noflip":false,"x":344,"y":472,"w":64,"h":80},"cb04_5":{"kind":"b","zone":"biz","wT":5,"hT":6,"src":"cb04","noflip":false,"x":670,"y":260,"w":80,"h":96},"cb10_8":{"kind":"b","zone":"biz","wT":8,"hT":7,"src":"cb10","noflip":false,"x":326,"y":146,"w":128,"h":112},"cb10_10":{"kind":"b","zone":"biz","wT":10,"hT":8,"src":"cb10","noflip":false,"x":460,"y":0,"w":160,"h":128},"cb01_3":{"kind":"b","zone":"res","wT":3,"hT":7,"src":"cb01","noflip":false,"x":456,"y":146,"w":48,"h":112},"cb01_3_v1":{"kind":"b","zone":"res","wT":3,"hT":7,"src":"cb01","noflip":false,"x":506,"y":146,"w":48,"h":112},"cb01_4":{"kind":"b","zone":"res","wT":4,"hT":9,"src":"cb01","noflip":false,"x":0,"y":0,"w":64,"h":144},"cb01_4_v1":{"kind":"b","zone":"res","wT":4,"hT":9,"src":"cb01","noflip":false,"x":66,"y":0,"w":64,"h":144},"cb02_3":{"kind":"b","zone":"res","wT":3,"hT":5,"src":"cb02","noflip":false,"x":410,"y":472,"w":48,"h":80},"cb02_3_v1":{"kind":"b","zone":"res","wT":3,"hT":5,"src":"cb02","noflip":false,"x":460,"y":472,"w":48,"h":80},"cb02_4":{"kind":"b","zone":"res","wT":4,"hT":7,"src":"cb02","noflip":false,"x":556,"y":146,"w":64,"h":112},"cb02_4_v1":{"kind":"b","zone":"res","wT":4,"hT":7,"src":"cb02","noflip":false,"x":622,"y":146,"w":64,"h":112},"cb03_4":{"kind":"b","zone":"res","wT":4,"hT":5,"src":"cb03","noflip":false,"x":510,"y":472,"w":64,"h":80},"cb03_4_v1":{"kind":"b","zone":"res","wT":4,"hT":5,"src":"cb03","noflip":false,"x":576,"y":472,"w":64,"h":80},"cb03_5":{"kind":"b","zone":"res","wT":5,"hT":6,"src":"cb03","noflip":false,"x":752,"y":260,"w":80,"h":96},"cb03_5_v1":{"kind":"b","zone":"res","wT":5,"hT":6,"src":"cb03","noflip":false,"x":834,"y":260,"w":80,"h":96},"cb03_6":{"kind":"b","zone":"res","wT":6,"hT":7,"src":"cb03","noflip":false,"x":688,"y":146,"w":96,"h":112},"cb03_6_v1":{"kind":"b","zone":"res","wT":6,"hT":7,"src":"cb03","noflip":false,"x":786,"y":146,"w":96,"h":112},"cb06_3":{"kind":"b","zone":"res","wT":3,"hT":4,"src":"cb06","noflip":false,"x":132,"y":554,"w":48,"h":64},"cb06_3_v1":{"kind":"b","zone":"res","wT":3,"hT":4,"src":"cb06","noflip":false,"x":182,"y":554,"w":48,"h":64},"cb06_4":{"kind":"b","zone":"res","wT":4,"hT":6,"src":"cb06","noflip":false,"x":916,"y":260,"w":64,"h":96},"cb06_4_v1":{"kind":"b","zone":"res","wT":4,"hT":6,"src":"cb06","noflip":false,"x":0,"y":374,"w":64,"h":96},"cb08_4":{"kind":"b","zone":"res","wT":4,"hT":4,"src":"cb08","noflip":false,"x":232,"y":554,"w":64,"h":64},"cb08_4_v1":{"kind":"b","zone":"res","wT":4,"hT":4,"src":"cb08","noflip":false,"x":298,"y":554,"w":64,"h":64},"cb08_5":{"kind":"b","zone":"res","wT":5,"hT":6,"src":"cb08","noflip":false,"x":66,"y":374,"w":80,"h":96},"cb08_5_v1":{"kind":"b","zone":"res","wT":5,"hT":6,"src":"cb08","noflip":false,"x":148,"y":374,"w":80,"h":96},"cb09_4":{"kind":"b","zone":"res","wT":4,"hT":5,"src":"cb09","noflip":false,"x":642,"y":472,"w":64,"h":80},"cb09_4_v1":{"kind":"b","zone":"res","wT":4,"hT":5,"src":"cb09","noflip":false,"x":708,"y":472,"w":64,"h":80},"cb09_5":{"kind":"b","zone":"res","wT":5,"hT":6,"src":"cb09","noflip":false,"x":230,"y":374,"w":80,"h":96},"cb09_5_v1":{"kind":"b","zone":"res","wT":5,"hT":6,"src":"cb09","noflip":false,"x":312,"y":374,"w":80,"h":96},"cb05_3":{"kind":"b","zone":"ind","wT":3,"hT":5,"src":"cb05","noflip":false,"x":774,"y":472,"w":48,"h":80},"cb05_3_v1":{"kind":"b","zone":"ind","wT":3,"hT":5,"src":"cb05","noflip":false,"x":824,"y":472,"w":48,"h":80},"cb05_4":{"kind":"b","zone":"ind","wT":4,"hT":6,"src":"cb05","noflip":false,"x":394,"y":374,"w":64,"h":96},"cb05_4_v1":{"kind":"b","zone":"ind","wT":4,"hT":6,"src":"cb05","noflip":false,"x":460,"y":374,"w":64,"h":96},"cb05_5":{"kind":"b","zone":"ind","wT":5,"hT":8,"src":"cb05","noflip":false,"x":622,"y":0,"w":80,"h":128},"cb05_5_v1":{"kind":"b","zone":"ind","wT":5,"hT":8,"src":"cb05","noflip":false,"x":704,"y":0,"w":80,"h":128},"cb05_6":{"kind":"b","zone":"ind","wT":6,"hT":9,"src":"cb05","noflip":false,"x":132,"y":0,"w":96,"h":144},"cb05_6_v1":{"kind":"b","zone":"ind","wT":6,"hT":9,"src":"cb05","noflip":false,"x":230,"y":0,"w":96,"h":144},"cb07_3":{"kind":"b","zone":"ind","wT":3,"hT":4,"src":"cb07","noflip":false,"x":364,"y":554,"w":48,"h":64},"cb07_3_v1":{"kind":"b","zone":"ind","wT":3,"hT":4,"src":"cb07","noflip":false,"x":414,"y":554,"w":48,"h":64},"cb07_4":{"kind":"b","zone":"ind","wT":4,"hT":6,"src":"cb07","noflip":false,"x":526,"y":374,"w":64,"h":96},"cb07_4_v1":{"kind":"b","zone":"ind","wT":4,"hT":6,"src":"cb07","noflip":false,"x":592,"y":374,"w":64,"h":96},"cb07_5":{"kind":"b","zone":"ind","wT":5,"hT":7,"src":"cb07","noflip":false,"x":884,"y":146,"w":80,"h":112},"cb07_5_v1":{"kind":"b","zone":"ind","wT":5,"hT":7,"src":"cb07","noflip":false,"x":0,"y":260,"w":80,"h":112},"cb07_6":{"kind":"b","zone":"ind","wT":6,"hT":8,"src":"cb07","noflip":false,"x":786,"y":0,"w":96,"h":128},"cb07_6_v1":{"kind":"b","zone":"ind","wT":6,"hT":8,"src":"cb07","noflip":false,"x":884,"y":0,"w":96,"h":128},"cb08i_5":{"kind":"b","zone":"ind","wT":5,"hT":6,"src":"cb08i","noflip":false,"x":658,"y":374,"w":80,"h":96},"cb08i_6":{"kind":"b","zone":"ind","wT":6,"hT":7,"src":"cb08i","noflip":false,"x":82,"y":260,"w":96,"h":112},"bin_closed":{"kind":"p","cls":"bin","w":11,"h":17,"x":814,"y":554},"bin_open":{"kind":"p","cls":"bin","w":16,"h":17,"x":827,"y":554},"trashbag":{"kind":"p","cls":"bag","w":12,"h":11,"x":185,"y":620},"hydrant_r":{"kind":"p","cls":"hydrant","w":8,"h":14,"x":16,"y":620},"vend_beige":{"kind":"p","cls":"vending","w":25,"h":25,"x":665,"y":554},"vend_green":{"kind":"p","cls":"vending","w":14,"h":27,"x":610,"y":554},"vend_red":{"kind":"p","cls":"vending","w":21,"h":26,"x":642,"y":554},"vend_yellow":{"kind":"p","cls":"vending","w":14,"h":27,"x":626,"y":554},"lamp_dbl":{"kind":"p","cls":"lamp","w":25,"h":44,"x":510,"y":554},"box_h":{"kind":"p","cls":"box","w":10,"h":9,"x":296,"y":620},"box_v":{"kind":"p","cls":"box","w":11,"h":11,"x":199,"y":620},"box_open":{"kind":"p","cls":"box","w":12,"h":13,"x":121,"y":620},"bush1":{"kind":"p","cls":"plant","w":21,"h":17,"x":845,"y":554},"bush2":{"kind":"p","cls":"plant","w":21,"h":17,"x":868,"y":554},"plant1":{"kind":"p","cls":"pot","w":8,"h":17,"x":891,"y":554},"plant2":{"kind":"p","cls":"pot","w":16,"h":15,"x":946,"y":554},"plant3":{"kind":"p","cls":"pot","w":9,"h":14,"x":26,"y":620},"plant4":{"kind":"p","cls":"pot","w":8,"h":13,"x":135,"y":620},"plant5":{"kind":"p","cls":"pot","w":11,"h":15,"x":964,"y":554},"table_round":{"kind":"p","cls":"table","w":13,"h":10,"x":281,"y":620},"table_sq":{"kind":"p","cls":"table","w":12,"h":11,"x":212,"y":620},"table_red":{"kind":"p","cls":"table","w":16,"h":13,"x":145,"y":620},"chair_f":{"kind":"p","cls":"chair","w":7,"h":11,"x":226,"y":620},"chair_b":{"kind":"p","cls":"chair","w":7,"h":11,"x":235,"y":620},"chair_s":{"kind":"p","cls":"chair","w":7,"h":11,"x":244,"y":620},"chair_rf":{"kind":"p","cls":"chair","w":7,"h":11,"x":253,"y":620},"chair_rb":{"kind":"p","cls":"chair","w":8,"h":11,"x":262,"y":620},"chair_rs":{"kind":"p","cls":"chair","w":7,"h":11,"x":272,"y":620},"tree_a":{"kind":"p","cls":"tree","w":14,"h":36,"x":567,"y":554},"tree_b":{"kind":"p","cls":"tree","w":19,"h":46,"x":489,"y":554},"tree_c":{"kind":"p","cls":"tree","w":28,"h":40,"x":537,"y":554},"hoarding1":{"kind":"p","cls":"board","w":38,"h":20,"x":708,"y":554},"hoarding2":{"kind":"p","cls":"board","w":32,"h":20,"x":748,"y":554},"bench_f":{"kind":"p","cls":"bench","w":17,"h":15,"x":977,"y":554},"bench_s":{"kind":"p","cls":"bench","w":8,"h":20,"x":782,"y":554},"planter":{"kind":"p","cls":"planter","w":19,"h":14,"x":37,"y":620},"planter_b":{"kind":"p","cls":"planter","w":23,"h":14,"x":58,"y":620},"tyres":{"kind":"p","cls":"tyres","w":20,"h":13,"x":163,"y":620},"crate_a":{"kind":"p","cls":"box","w":12,"h":17,"x":901,"y":554},"crate_b":{"kind":"p","cls":"box","w":12,"h":17,"x":915,"y":554},"crate_iso":{"kind":"p","cls":"box","w":15,"h":16,"x":929,"y":554},"barrier":{"kind":"p","cls":"barrier","w":20,"h":18,"x":792,"y":554},"bin_c_open":{"kind":"p","cls":"bin","w":15,"h":15,"x":996,"y":554},"bin_c":{"kind":"p","cls":"bin","w":14,"h":15,"x":0,"y":620},"bin_lid":{"kind":"p","cls":"bag","w":13,"h":8,"x":308,"y":620},"utility":{"kind":"p","cls":"lamp","w":23,"h":56,"x":464,"y":554},"warn_sign":{"kind":"p","cls":"sign","w":12,"h":28,"x":583,"y":554},"round_sign":{"kind":"p","cls":"sign","w":11,"h":28,"x":597,"y":554},"ac_unit":{"kind":"p","cls":"machine","w":14,"h":22,"x":692,"y":554},"generator":{"kind":"p","cls":"machine","w":16,"h":14,"x":83,"y":620},"generator2":{"kind":"p","cls":"machine","w":18,"h":14,"x":101,"y":620}};
 
     ASSET_PATHS['units_sheet'] = 'assets/units/units_sheet.png';
+    ASSET_PATHS['gunner_sheet'] = 'assets/units/gunner_sheet.png';   // the two baton-round gunners that climb out of the rubber van
     ASSET_PATHS['raider_sheet'] = 'assets/raiders/raider_sheet.png';
     ASSET_PATHS['k9_sheet'] = 'assets/units/k9_gsd_sheet.png';
     ASSET_PATHS['amb_sheet'] = 'assets/map/vehicles/ambulance_sheet.png';
@@ -2596,7 +2617,7 @@
         const cat = { res: [], biz: [], ind: [] };
         for (const id in ATLAS_TABLE) {
             const a = ATLAS_TABLE[id];
-            if (a.kind !== 'b') continue;
+            if (a.kind !== 'b' || a.landmark) continue;        // the hospital, school and factory sit on fixed plots (see MAP_DEF.landmarks)
             (a.zones || [a.zone]).forEach(zn => cat[zn].push({ id, wT: a.wT, hT: a.hT, src: a.src, noflip: !!a.noflip, max: a.max || 0, min: a.min || 0, boost: a.boost || 1 }));
         }
         return cat;
@@ -2661,6 +2682,19 @@
             sceneryBuildings.push(b);
             return b;
         };
+
+        // Fixed plots first: the hospital, school and factory (their positions come from the map file).
+        LANDMARK_BUILDINGS = {};
+        for (const lm of ((MAP_DEF && MAP_DEF.landmarks) || [])) {
+            const a = ATLAS_TABLE[lm.type];
+            if (!a || lm.x < 0 || lm.x + a.wT > W || lm.y - a.hT + 1 < 0 || lm.y + 1 >= H) continue;
+            let fits = true;
+            for (let yy = lm.y - a.hT + 1; yy <= lm.y && fits; yy++) for (let xx = lm.x; xx < lm.x + a.wT; xx++) if (map[yy][xx] !== TILE_BLOCK) { fits = false; break; }
+            if (!fits) continue;
+            const b = commit({ id: lm.type, wT: a.wT, hT: a.hT, noflip: true }, lm.x, lm.y, zoneAt(lm.x));
+            b.landmark = lm.type; b.node = lm.node;
+            LANDMARK_BUILDINGS[lm.type] = b;
+        }
 
         const landmarks = [];
         for (const zn of ['ind', 'biz', 'res']) for (const c of BUILDING_CATALOGUE[zn]) {
@@ -3219,6 +3253,8 @@
         for (const k in w) for (let i = 0; i < w[k]; i++) out.push(k);
         return out;
     })();
+    const PARKED_VOLUME = 0.5;          // 1 = the old busy streets, 0.5 = half as many parked cars
+    const KERB_PARKED_SHARE = 0.34;     // share of parked cars that sit half up on the pavement
     let parkedVehicles = [];
     class ParkedVehicle {
         constructor(id, dir, cx, cy) {
@@ -3254,14 +3290,17 @@
         };
         const lane = (horizontal, c, a, b, side) => {
             const dir = horizontal ? (side < 0 ? 'E' : 'W') : (side < 0 ? 'N' : 'S');
-            const density = rnd() < 0.18 ? 0.04 : 0.25 + rnd() * 0.6;
+            // Half as many parked cars as before (PARKED_VOLUME 0.5), and some of them are tucked up on the kerb.
+            const density = (rnd() < 0.18 ? 0.04 : 0.25 + rnd() * 0.6) * PARKED_VOLUME;
             let p = a + 26 + rnd() * 90;
             while (p < b - 30) {
                 const id = PARKED_POOL[Math.floor(rnd() * PARKED_POOL.length)];
                 const e = PARKED_ATLAS[id + '_' + dir];
                 const dw = e[2] * e[4], dh = e[3] * e[4];
                 const len = horizontal ? dw : dh, cross = horizontal ? dh : dw;
-                const along = p + len / 2, off = c + side * (half - 4 - cross / 2);
+                // About one car in three is parked half on, half off the kerb, the way people really do it.
+                const onKerb = rnd() < KERB_PARKED_SHARE;
+                const along = p + len / 2, off = c + side * (onKerb ? (half - cross * 0.10) : (half - 4 - cross / 2));
                 const x = horizontal ? along : off, y = horizontal ? off : along;
                 if (rnd() < density && !blockedAt(x, y, dw / 2, dh / 2)) {
                     parkedVehicles.push(new ParkedVehicle(id, dir, x, y));
@@ -5277,9 +5316,21 @@
         u.x += dx / dd * step; u.y += dy / dd * step;
         u.dir = { x: dx / dd, y: dy / dd };
     }
+    // Where the ambulance lives: the hospital's ambulance bay if the map has a hospital, otherwise beside the station.
+    function ambulanceHome() {
+        const h = LANDMARK_BUILDINGS && LANDMARK_BUILDINGS.hospital;
+        if (h) {
+            const bx = Math.floor(h.x0 + h.wT * (156 / 192));        // the bay is at the right-hand end of the front
+            let ty = h.y0 + h.hT;
+            while (ty < MAP_H && map[ty][bx] !== TILE_ROAD) ty++;
+            if (ty < MAP_H) return { x: (bx + 0.5) * TILE, y: (ty + 1.2) * TILE, hospital: true };
+        }
+        return { x: (BASE_TILE_X - 3) * TILE, y: (BASE_TILE_Y + 1.2) * TILE, hospital: false };
+    }
     class AmbulanceVehicle {
         constructor() {
-            this.x = (BASE_TILE_X - 3) * TILE; this.y = (BASE_TILE_Y + 1.2) * TILE;
+            const home = ambulanceHome();
+            this.x = home.x; this.y = home.y;
             this.dir = { x: 1, y: 0 }; this.angle = 0;
             this.alive = true; this.state = 'waiting'; this.timer = 0; this.waitTimer = 12;
             this.target = -1; this.pick = 0; this.lightPhase = Math.random() * 10; this.healed = 0;
@@ -5301,7 +5352,7 @@
             if (!this.alive) return;
             this.lightPhase += dt;
             const px = this.x, py = this.y;
-            const base = { x: (BASE_TILE_X - 3) * TILE, y: (BASE_TILE_Y + 1.2) * TILE };
+            const base = ambulanceHome();
             if (this.state === 'waiting' || this.state === 'responding' || this.state === 'treating') {
                 this.pick -= dt;
                 if (this.pick <= 0 || this.state === 'waiting') {
@@ -5344,7 +5395,7 @@
                 vehicleMove(this, base.x, base.y, dt, AMB_SPEED);
                 if (Math.hypot(base.x - this.x, base.y - this.y) < TILE * 2.5) {
                     this.alive = false; game.ambulanceCooldown = AMB_COOLDOWN;
-                    showToast(':ambulance: Ambulance back at the station.'); renderOptionsPanel();
+                    showToast(base.hospital ? ':ambulance: Ambulance back at the hospital.' : ':ambulance: Ambulance back at the station.'); renderOptionsPanel();
                 }
             }
             this.moving = Math.hypot(this.x - px, this.y - py) > 0.05;
@@ -5393,7 +5444,7 @@
         for (let i = 0; i < OFFICER_SYNDICATES; i++) if (amb.missing(i) > 2) { anyHurt = true; break; }
         game.ambulance = amb;
         if (anyHurt) showToast(':ambulance: UK ambulance dispatched — it will treat the most injured syndicate.');
-        else showToast(':ambulance: Ambulance dispatched — nobody is hurt yet, so it will hold at the station until someone is.');
+        else showToast(':ambulance: Ambulance dispatched — nobody is hurt yet, so it will wait at its bay until someone is.');
         renderOptionsPanel();
     }
     function updateAmbulance(dt) {
@@ -5626,6 +5677,26 @@
         ctx.drawImage(img, fi * 128, row * 96, 128, 96, -17.5, -24.5, DW, DH);
     }
     // ========== BLOCKADE VEHICLE ==========
+    // Two vehicles must never drive through each other. Each one is a rectangle (length x width) and this checks whether
+    // two such rectangles, at the given positions and headings, overlap (separating-axis test).
+    function vehicleRectsOverlap(ax, ay, aa, bx, by, ba, pad) {
+        const hl = TILE * WC_LENGTH_TILES / 2 + (pad || 0), hw = TILE * 0.95 + (pad || 0);
+        const ca = Math.cos(aa), sa = Math.sin(aa), cb = Math.cos(ba), sb = Math.sin(ba);
+        const axes = [[ca, sa], [-sa, ca], [cb, sb], [-sb, cb]];
+        const dx = bx - ax, dy = by - ay;
+        for (const ax2 of axes) {
+            const ux = ax2[0], uy = ax2[1];
+            const ra = hl * Math.abs(ca * ux + sa * uy) + hw * Math.abs(-sa * ux + ca * uy);
+            const rb = hl * Math.abs(cb * ux + sb * uy) + hw * Math.abs(-sb * ux + cb * uy);
+            if (Math.abs(dx * ux + dy * uy) > ra + rb) return false;
+        }
+        return true;
+    }
+    // A vehicle can be parked in the middle of a junction (like a syndicate's junction post, but dead centre).
+    function junctionVehicleSpot(j) {
+        return { key: 'VJ' + Math.round(j.x / TILE) + '_' + Math.round(j.y / TILE), dir: 'h', x: j.x, y: j.y,
+                 edgeKey: findEdgeForSpot({ x: j.x, y: j.y }), custom: true, junction: j };
+    }
     class WaterCannonVehicle {
         constructor(syndicateIndex, kind) {
             this.syndicateIndex = syndicateIndex;
@@ -5650,11 +5721,36 @@
             this.waterAimTarget = 0;
 
             this.gunnerFireTimer = [1.0, 1.9];
+            this.gunnerAim = [null, null];
             this.gunnersOut = false;
             this.gunnerDeployT = 0;
         }
+        otherVehicle() {
+            const o = this.syndicateIndex === VEHICLE_SYNDICATE ? game.vehicle2 : game.vehicle;
+            return (o && o.alive && o !== this) ? o : null;
+        }
+        // If the other vehicle is already parked (or heading) where this one wants to stop, park beside or behind it instead.
+        deconflictSpot(spot) {
+            const o = this.otherVehicle();
+            if (!o || !spot) return spot;
+            const ox = o.targetSpot ? o.targetSpot.x : o.x, oy = o.targetSpot ? o.targetSpot.y : o.y;
+            const oa = o.faceAngle !== undefined ? o.faceAngle : o.angle;
+            const myA = this.faceAngle !== undefined ? this.faceAngle : (spot.dir === 'v' ? Math.PI / 2 : 0);
+            if (!vehicleRectsOverlap(spot.x, spot.y, myA, ox, oy, oa, 6)) return spot;
+            const along = spot.dir === 'v' ? [0, 1] : [1, 0], perp = spot.dir === 'v' ? [1, 0] : [0, 1];
+            const len = TILE * (WC_LENGTH_TILES + 0.8), wid = TILE * 2.4;
+            const tries = [[perp, wid], [perp, -wid], [along, len], [along, -len], [perp, wid * 1.7], [perp, -wid * 1.7]];
+            for (const t of tries) {
+                const x = spot.x + t[0][0] * t[1], y = spot.y + t[0][1] * t[1];
+                if (!isValidPosition(x, y) || !isRoadAt(x, y)) continue;
+                if (vehicleRectsOverlap(x, y, myA, ox, oy, oa, 6)) continue;
+                return { key: 'LV' + this.syndicateIndex, dir: spot.dir, x: x, y: y, edgeKey: findEdgeForSpot({ x: x, y: y }) || spot.edgeKey, custom: true, junction: spot.junction };
+            }
+            return spot;
+        }
         setSpot(spot) {
             if (!spot || this.targetSpot === spot) return;
+            spot = this.deconflictSpot(spot);
             this.faceAngle = undefined;
             this.targetSpot = spot;
             this.parked = false;
@@ -5805,16 +5901,37 @@
                     const nx = this.x + ux * step, ny = this.y + uy * step;
 
                     let moved = false;
-                    if (isValidPosition(nx, ny) && isRoadAt(nx, ny)) { this.x = nx; this.y = ny; moved = true; }
-                    else if (isValidPosition(nx, this.y) && isRoadAt(nx, this.y)) { this.x = nx; moved = true; }
-                    else if (isValidPosition(this.x, ny) && isRoadAt(this.x, ny)) { this.y = ny; moved = true; }
+                    // The other vehicle is in the way: go round it on the left (UK style); if there is no room, wait a moment.
+                    let mx = nx, my = ny, giveWay = false;
+                    const oth = this.otherVehicle();
+                    if (oth) {
+                        const hd = Math.atan2(uy, ux);
+                        const hitsNext = vehicleRectsOverlap(nx, ny, hd, oth.x, oth.y, oth.angle, 3);
+                        const hitsNow = vehicleRectsOverlap(this.x, this.y, this.angle, oth.x, oth.y, oth.angle, 3);
+                        const closer = Math.hypot(nx - oth.x, ny - oth.y) < Math.hypot(this.x - oth.x, this.y - oth.y);
+                        if (hitsNext && (!hitsNow || closer)) {
+                            let found = false;
+                            for (const k of [1, -1]) {
+                                const lx = uy * k, ly = -ux * k;                          // k = 1 is the left of the direction of travel
+                                const cx = this.x + lx * step * 0.9, cy = this.y + ly * step * 0.9;       // slide sideways first, then carry on past
+                                if (!isValidPosition(cx, cy) || !isRoadAt(cx, cy)) continue;
+                                if (vehicleRectsOverlap(cx, cy, hd, oth.x, oth.y, oth.angle, 3) && Math.hypot(cx - oth.x, cy - oth.y) < Math.hypot(this.x - oth.x, this.y - oth.y)) continue;
+                                mx = cx; my = cy; found = true; break;
+                            }
+                            if (!found) { giveWay = true; this.yieldT = (this.yieldT || 0) + dt; if (this.yieldT > 4) giveWay = false; }
+                        } else this.yieldT = Math.max(0, (this.yieldT || 0) - dt * 2);
+                    }
+                    if (giveWay) { /* wait: the other vehicle has the road */ }
+                    else if (isValidPosition(mx, my) && isRoadAt(mx, my)) { this.x = mx; this.y = my; moved = true; }
+                    else if (isValidPosition(mx, this.y) && isRoadAt(mx, this.y)) { this.x = mx; moved = true; }
+                    else if (isValidPosition(this.x, my) && isRoadAt(this.x, my)) { this.y = my; moved = true; }
 
                     if (moved) {
                         this.targetAngle = Math.atan2(uy, ux);
                         const after = Math.hypot(tx - this.x, ty - this.y);
                         if (dist - after < 0.05) this.stuckTimer += dt;
                         else this.stuckTimer = Math.max(0, this.stuckTimer - dt * 2);
-                    } else {
+                    } else if (!giveWay) {
                         this.stuckTimer += dt;
                     }
 
@@ -5858,6 +5975,8 @@
             this.gunnerDeployT = Math.min(1, this.gunnerDeployT + dt * 3);
             const positions = this.gunnerPositions();
             for (let i = 0; i < 2; i++) {
+                const tg = this.findRubberTarget(positions[i]);            // the gunner turns to face whoever he is covering
+                this.gunnerAim[i] = tg ? Math.atan2(tg.y - positions[i].y, tg.x - positions[i].x) : null;
                 this.gunnerFireTimer[i] -= dt;
                 if (this.gunnerFireTimer[i] <= 0) {
                     this.gunnerFireTimer[i] = RUBBER_BULLET_COOLDOWN;
@@ -5865,17 +5984,23 @@
                 }
             }
         }
-        fireRubberRound(pos) {
+        findRubberTarget(pos) {
             let target = null, bestD = Infinity;
             for (const r of game.raiders) {
-                if (!r.alive || r.state === 'fleeing' || r.beingArrested) continue;
-                if (r.kind === 'crowd') continue;
+                if (!r.alive || r.state === 'fleeing' || r.state === 'fading' || r.beingArrested) continue;
+                if (r.kind === 'crowd') continue;                       // peaceful protesters are never shot at
                 const d = Math.hypot(r.x - pos.x, r.y - pos.y);
-                if (d > RUBBER_BULLET_RANGE) continue;
-                if (d < bestD) { bestD = d; target = r; }
+                if (d > RUBBER_BULLET_RANGE || d >= bestD) continue;
+                bestD = d; target = r;
             }
+            return target;
+        }
+        fireRubberRound(pos) {
+            const target = this.findRubberTarget(pos);
             if (!target) return;
-            dealDamageToRaider(target, RUBBER_BULLET_DAMAGE);
+            // One baton round takes one rioter out of the fight, whatever their health.
+            const need = target.hp / Math.max(0.01, forceMult()) + 1;
+            dealDamageToRaider(target, Math.max(RUBBER_BULLET_DAMAGE, need));
             target.gasStunTimer = Math.max(target.gasStunTimer || 0, RUBBER_BULLET_STUN);
             game.rubberTracers = game.rubberTracers || [];
             game.rubberTracers.push({ x0: pos.x, y0: pos.y, y1: target.y, x1: target.x, t: 0.14 });
@@ -5889,7 +6014,6 @@
                 ctx.save();
                 ctx.translate(sx, sy);
                 ctx.scale(scale, scale);
-                if (p.side < 0) ctx.scale(-1, 1);
                 drawRubberGunnerFigure(ctx, this, p);
                 ctx.restore();
             }
@@ -6100,7 +6224,34 @@
             if (isRubber) this.drawGunners(ctx);
         }
     }
+    // The baton-round gunner: sprite sheet assets/units/gunner_sheet.png (64px cells: 0 ready, 1 aiming, 2 firing, 3 reloading).
+    // Hi-vis vest, light helmet and an orange-tipped launcher so he is easy to pick out. He faces the rioter he is covering.
     function drawRubberGunnerFigure(ctx, vehicle, pos) {
+        const img = assets['gunner_sheet'];
+        if (!img) { drawRubberGunnerFallback(ctx, vehicle, pos); return; }
+        const i = pos.side < 0 ? 0 : 1;
+        const ft = vehicle.gunnerFireTimer ? vehicle.gunnerFireTimer[i] : 0;
+        const since = RUBBER_BULLET_COOLDOWN - ft;
+        const aim = vehicle.gunnerAim ? vehicle.gunnerAim[i] : null;
+        const hasAim = aim !== null && aim !== undefined;
+        let col = hasAim ? 1 : 0;
+        if (since >= 0 && since < 0.16) col = 2;
+        else if (since >= 0.16 && since < 0.6) col = 3;
+        let face = pos.side < 0 ? -1 : 1, tilt = 0;
+        if (hasAim) { face = Math.cos(aim) < 0 ? -1 : 1; tilt = Math.max(-0.55, Math.min(0.55, Math.atan2(Math.sin(aim), Math.abs(Math.cos(aim))))); }
+        // a soft yellow ring under his feet so he never gets lost against the road
+        ctx.fillStyle = 'rgba(255,230,90,0.20)';
+        ctx.beginPath(); ctx.ellipse(0, 1.5, 11, 4.4, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = 'rgba(255,230,90,0.55)'; ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.ellipse(0, 1.5, 11, 4.4, 0, 0, Math.PI * 2); ctx.stroke();
+        ctx.save();
+        ctx.scale(face, 1);
+        ctx.translate(0, -20); ctx.rotate(tilt); ctx.translate(0, 20);       // lift or drop the launcher towards the target
+        ctx.drawImage(img, col * 64, 0, 64, 64, -24, -42, 48, 48);       // drawn a little larger than the other officers so he is easy to spot
+        ctx.restore();
+    }
+    function drawRubberGunnerFallback(ctx, vehicle, pos) {
+        if (pos.side < 0) ctx.scale(-1, 1);
         const H = 17;
         ctx.fillStyle = '#17171c';
         ctx.beginPath(); ctx.ellipse(0, 1.5, 5, 2.2, 0, 0, Math.PI * 2); ctx.fill();
@@ -6412,6 +6563,7 @@
         }
         crowdGoal() {
             if (this.plan && this.plan.type === 'march' && this.legIdx === 1 && this.plan.exitId) return this.plan.exitId;
+            if (this.plan && this.plan.type === 'rally' && this.plan.target && getNode(this.plan.target.nodeId)) return this.plan.target.nodeId;
             return BASE_NODE_ID;
         }
         pickGoalNode() {
@@ -6689,7 +6841,10 @@
                 this.completePlan(); return;
             }
             this.atStation = true; this.state = 'crowd_wait'; this.isMoving = false;
-            const bx = BASE_TILE_X * TILE - this.x, by = BASE_TILE_Y * TILE - this.y, bd = Math.hypot(bx, by) || 1;
+            // face whatever the protest is about: the landmark if there is one, otherwise the police station
+            const tb = plan && plan.target && plan.target.building;
+            const fxT = tb ? tb.tx * TILE : BASE_TILE_X * TILE, fyT = tb ? tb.ty * TILE : BASE_TILE_Y * TILE;
+            const bx = fxT - this.x, by = fyT - this.y, bd = Math.hypot(bx, by) || 1;
             this.dir = { x: bx / bd, y: by / bd };
             this.rallyT += dt;
             const need = (plan && plan.rallyTime) || 35;
@@ -7811,7 +7966,8 @@
         leaveLineIfPartner(game.selectedSyndicate);
         v.setSpot(spot);
         const sy = game.syndicates[game.selectedSyndicate];
-        if (sy) { sy.commandX = spot.x; sy.commandY = spot.y; }
+        const at = v.targetSpot || spot;
+        if (sy) { sy.commandX = at.x; sy.commandY = at.y; }
         renderOptionsPanel(); updateSelectionUI();
     }
 
@@ -8364,6 +8520,7 @@
     }
 
     function startWave() {
+        game._causeToastShown = false;
         game.waveClock = 0; game.fsIdle = 0; game.fsIdleFired = false; game.fsCapFired = false; game.fsClear = 0;
         game.waveState = 'active';
         game.waveArrestBase = game.arrested;
@@ -8477,6 +8634,7 @@
             squad.isCrowd = true;
             squad.role = 'crowd';
             squad.plan = makeProtestPlan(exit);
+            if (squad.plan.target && !game._causeToastShown) { game._causeToastShown = true; showToast(':megaphone: ' + squad.plan.target.text); }
             game.squads.set(squad.id, squad);
             const per = Math.max(3, Math.floor(crowdCount / crowdSquads));
             for (let i = 0; i < per; i++) game.waveSpawnQueue.push({ kind: 'crowd', squadId: squad.id });
@@ -9036,8 +9194,16 @@
                 const d = Math.hypot(s.x - wx, s.y - wy);
                 if (d < bestD) { bestD = d; best = s; }
             }
-            if (best && bestD < TILE * 5) setVehicleTarget(best);
-            else showToast('Tap near a road to move the vehicle.');
+            // a junction centre wins if the tap is on it: the vehicle parks right in the middle of the crossroads
+            let jBest = null, jD = TILE * 3.2;
+            if (roadLayout) for (const j of roadLayout.junctions) {
+                if (j.isBase) continue;
+                const d = Math.hypot(j.x - wx, j.y - wy);
+                if (d < jD) { jD = d; jBest = j; }
+            }
+            if (jBest) setVehicleTarget(junctionVehicleSpot(jBest));
+            else if (best && bestD < TILE * 5) setVehicleTarget(best);
+            else showToast('Tap near a road or a junction to move the vehicle.');
             return;
         }
         if (game.selectedSyndicate === STATION_INDEX) return;
@@ -9836,6 +10002,18 @@
                     ctx.strokeStyle = 'rgba(255,90,60,0.9)'; ctx.lineWidth = 2;
                     ctx.beginPath(); ctx.arc(sx, sy, 9, 0, Math.PI * 2); ctx.stroke();
                 }
+            }
+            // junction centres: tap one to park the vehicle in the middle of the crossroads
+            if (roadLayout) for (const j of roadLayout.junctions) {
+                if (j.isBase) continue;
+                const sx = j.x - game.camera.x, sy = j.y - game.camera.y;
+                if (sx < -20 || sy < -20 || sx > game.width + 20 || sy > game.height + 20) continue;
+                const isTarget = selVeh.targetSpot && selVeh.targetSpot.junction === j;
+                ctx.beginPath(); ctx.arc(sx, sy, isTarget ? 8 : 6, 0, Math.PI * 2);
+                ctx.fillStyle = isTarget ? 'rgba(255,204,51,0.95)' : 'rgba(90,190,255,0.6)'; ctx.fill();
+                ctx.strokeStyle = 'rgba(255,255,255,0.85)'; ctx.lineWidth = 1.4; ctx.stroke();
+                ctx.strokeStyle = 'rgba(20,40,70,0.9)'; ctx.lineWidth = 1.6;
+                ctx.beginPath(); ctx.moveTo(sx - 3, sy); ctx.lineTo(sx + 3, sy); ctx.moveTo(sx, sy - 3); ctx.lineTo(sx, sy + 3); ctx.stroke();
             }
         }
 

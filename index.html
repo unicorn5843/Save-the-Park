@@ -868,16 +868,18 @@
 
     let ALL_OUT_BOX_TILES = [];
     function buildAllOutBox() {
-        const slots = [];
-        const cy = BASE_TILE_Y;
-        const cx = BASE_TILE_X;
-        const topY = cy - 5;
-        const bottomY = cy + 2;
-        const leftX = cx - 4;
-        const rightX = cx + 3;
-        for (let y = topY + 1; y <= bottomY; y++) slots.push({ tx: leftX, ty: y });
-        for (let y = topY + 1; y <= bottomY; y++) slots.push({ tx: rightX, ty: y });
-        for (let x = leftX + 1; x <= rightX - 1; x++) slots.push({ tx: x, ty: topY });
+        // A junction block over the station: two ranks across each arm of the street outside the door
+        // (west, east and - where the map has one - north), with the corners filled in.
+        const slots = [], seen = new Set();
+        const cx = BASE_TILE_X, cy = BASE_TILE_Y;
+        const add = (tx, ty) => { const k = tx + ',' + ty; if (!seen.has(k)) { seen.add(k); slots.push({ tx, ty }); } };
+        for (const rank of [4, 5]) {
+            for (let y = cy - 3; y <= cy + 2; y++) { add(cx - rank, y); add(cx + rank - 1, y); }
+        }
+        if (typeof MAPGEO !== 'undefined' && MAPGEO && tileIsRoad(cx, cy - 6)) {
+            for (const rank of [5, 6]) for (let x = cx - 3; x <= cx + 2; x++) add(x, cy - rank);
+            add(cx - 4, cy - 4); add(cx + 3, cy - 4);
+        }
         ALL_OUT_BOX_TILES = slots;
     }
 
@@ -939,6 +941,12 @@
     const RUBBER_BULLET_COOLDOWN = 1.7;
     const RUBBER_BULLET_DAMAGE = 9;      // minimum; a baton round now takes the rioter out of the fight outright (see fireRubberRound)
     const RUBBER_BULLET_STUN = 0.6;
+    // Vehicle + gunner health (rioters can now target them). Tune these numbers to make the vehicles tougher or weaker.
+    const WC_HP = 1100;              // water cannon vehicle
+    const VAN_HP = 800;              // rubber bullet response van
+    const GUNNER_HP = 150;           // each baton-round gunner
+    const VEHICLE_ARMOUR = 0.7;      // vehicles shrug off a bit of every hit (1 = takes full damage)
+    const GUNNER_CARRY = 1.0;        // arm angle (radians) when a gunner has nothing to shoot at: launcher carried low
 
     const RAIDER_SEPARATION_RADIUS = TILE * 0.85;
     const RAIDER_SEPARATION_STRENGTH = 55;
@@ -1187,7 +1195,7 @@
     }
     function postVehicleBehind(vIdx, hostIdx) {
         const v = vehicleAt(vIdx), hs = game.syndicates[hostIdx], vs = game.syndicates[vIdx];
-        if (!v || !hs || !vs) return;
+        if (!v || !v.alive || !hs || !vs) return;
         let fx = hs.facingX || 1, fy = hs.facingY || 0;
         if (Math.abs(fx) > Math.abs(fy)) { fx = Math.sign(fx) || 1; fy = 0; } else { fx = 0; fy = Math.sign(fy) || 1; }
         const halfLen = TILE * WC_LENGTH_TILES / 2 + 3;
@@ -3177,7 +3185,7 @@
             if (h.c < v.a || h.c > v.b) return;
             if (v.c < h.a - half || v.c > h.b + half) return;      // this east-west road never reaches that street
             const onSig = h.row === sig.row;
-            const j = { x: v.c, y: h.c, top: onSig, signal: onSig && sig.xs.indexOf(v.tx) >= 0, tx: v.tx, vBottomEntry: !!v.bottomEntry, arms: {} };
+            const j = { x: v.c, y: h.c, h: h, v: v, top: onSig, signal: onSig && sig.xs.indexOf(v.tx) >= 0, tx: v.tx, vBottomEntry: !!v.bottomEntry, arms: {} };
             j.arms.n = v.a < h.c - half - 1;
             j.arms.s = v.b > h.c + half + 1;
             j.arms.e = h.b > v.c + half + 1;
@@ -3204,6 +3212,11 @@
                 if (d === 's') r = { img: 'road_zebra_ns', x: j.x - 51, y: j.y + half + ZG, w: 102, h: ZL };
                 if (d === 'w') r = { img: 'road_zebra_ew', x: j.x - half - ZG - ZL, y: j.y - 51, w: ZL, h: 102 };
                 if (d === 'e') r = { img: 'road_zebra_ew', x: j.x + half + ZG, y: j.y - 51, w: ZL, h: 102 };
+                // a crossing must sit entirely on the road: skip it where the road runs out before the crossing would be
+                if (r) {
+                    const inside = (d === 'w') ? r.x >= j.h.a : (d === 'e') ? r.x + r.w <= j.h.b : (d === 'n') ? r.y >= j.v.a : r.y + r.h <= j.v.b;
+                    if (!inside) r = null;
+                }
                 if (r) { r.dir = d; r.j = j; zebras.push(r); j.zebra[d] = true; }
             });
         });
@@ -3445,7 +3458,7 @@
         const margin = (j, d) => (j.isBase ? 12 : (j.zebra && j.zebra[d]) ? 12 + 23 + 8 : 12);
         L.H.forEach(h => {
             const cuts = [];
-            L.junctions.filter(j => j.y === h.c).forEach(j => cuts.push({ lo: j.x - half - margin(j, 'w'), hi: j.x + half + margin(j, 'e') }));
+            L.junctions.filter(j => j.h === h).forEach(j => cuts.push({ lo: j.x - half - margin(j, 'w'), hi: j.x + half + margin(j, 'e') }));
             cuts.sort((p, q) => p.lo - q.lo);
             let cur = h.a + 10;
             cuts.forEach(c => { dashRun(cur, c.lo, (x, w) => t.fillRect(x, h.c - TH / 2, w, TH)); cur = Math.max(cur, c.hi); });
@@ -3453,7 +3466,7 @@
         });
         L.V.forEach(v => {
             const cuts = [];
-            L.junctions.filter(j => j.x === v.c).forEach(j => cuts.push({ lo: j.y - half - margin(j, 'n'), hi: j.y + half + margin(j, 's') }));
+            L.junctions.filter(j => j.v === v).forEach(j => cuts.push({ lo: j.y - half - margin(j, 'n'), hi: j.y + half + margin(j, 's') }));
             cuts.sort((p, q) => p.lo - q.lo);
             let cur = v.a + 10;
             cuts.forEach(c => { dashRun(cur, c.lo, (y, w) => t.fillRect(v.c - TH / 2, y, TH, w)); cur = Math.max(cur, c.hi); });
@@ -3959,6 +3972,11 @@
             }
         }
         updateAllOut(dt) {
+            if (this.spawnDelay > 0) {                                   // still inside the station
+                this.spawnDelay -= dt;
+                if (this.spawnDelay > 0) { this.isMoving = false; return; }
+                this.state = 'active';
+            }
             this.animTimer += dt;
             if (this.attackFlash > 0) this.attackFlash = Math.max(0, this.attackFlash - dt);
             this.atkTimer = Math.max(0, this.atkTimer - dt);
@@ -3973,6 +3991,15 @@
                 if (dPost > ALL_OUT_HOLD_RADIUS) continue;
                 const d = Math.hypot(r.x - this.x, r.y - this.y);
                 if (d < bestD) { bestD = d; target = r; }
+            }
+            if (!this.inPlace) {
+                const hd = Math.hypot(this.homeX - this.x, this.homeY - this.y);
+                if (hd < TILE * 0.7) { this.inPlace = true; this.isMoving = false; }
+                else {
+                    routedMove(this, this.homeX, this.homeY, dt, OFFICER.sprintSpeed * 0.62);   // a little slower than a full sprint
+                    this.dir = { x: (this.homeX - this.x) / hd, y: (this.homeY - this.y) / hd };
+                    return;
+                }
             }
             if (target) {
                 const dx = target.x - this.x, dy = target.y - this.y;
@@ -4009,7 +4036,7 @@
             }
         }
         draw(ctx) {
-            if (!this.alive) return;
+            if (!this.alive || this.state === 'waiting') return;
             const sx = this.x - game.camera.x, sy = this.y - game.camera.y;
             if (sx < -30 || sy < -30 || sx > game.width + 30 || sy > game.height + 30) return;
             ctx.save();
@@ -4251,6 +4278,7 @@
             game.arrested++;
             game.raidersDefeated++;
             game.raiderGroupMorale = Math.max(0, game.raiderGroupMorale - 12);
+            groupMoraleHit(r.x, r.y, 22);
             onArrested(r);
             spawnHitEffect(r.x, r.y);
             this.carrying = null; this.target = null;
@@ -4946,6 +4974,7 @@
                         adjustOpinion(-0.6); game.waveStats.hurt++;
                     } else {
                         game.raiderGroupMorale = Math.max(0, game.raiderGroupMorale - TEAR_GAS_HIT_MORALE);
+                        groupMoraleHit(r.x, r.y, TEAR_GAS_HIT_MORALE * 1.6);
                         game.waveMoralePct = Math.max(0, game.waveMoralePct - 6);
                     }
                     spawnHitEffect(r.x, r.y);
@@ -4958,6 +4987,7 @@
                 if (d > TEAR_GAS_WITNESS_RANGE) continue;
                 if (other.kind === 'crowd') continue;
                 game.raiderGroupMorale = Math.max(0, game.raiderGroupMorale - TEAR_GAS_WITNESS_RATE * dt);
+                other.gMorale = Math.max(0, (other.gMorale === undefined ? 100 : other.gMorale) - TEAR_GAS_WITNESS_RATE * 1.5 * dt);
             }
         }
         draw(ctx) {
@@ -5724,6 +5754,81 @@
             this.gunnerAim = [null, null];
             this.gunnersOut = false;
             this.gunnerDeployT = 0;
+
+            // Health: the vehicle and each gunner can be hit by rioters.
+            this.maxHp = this.kind === 'rubberbullet' ? VAN_HP : WC_HP;
+            this.hp = this.maxHp;
+            this.destroyedT = 0;
+            this.hitFlash = 0;
+            this.gunnerHp = [GUNNER_HP, GUNNER_HP];
+            this.gunnerAnimT = [9, 9];                 // seconds since each gunner last fired (9 = long ago: no firing animation)
+            this.gunnerArm = [GUNNER_CARRY, GUNNER_CARRY];   // arm angle relative to the way he faces
+            this.gunnerFace = [-1, 1];                 // body only ever faces left or right
+            this._gp = null;
+            this.buildHitTargets();
+        }
+        // ---- health + things rioters can attack ----
+        buildHitTargets() {
+            const self = this;
+            const gpos = (i) => (self._gp ? self._gp[i] : self.gunnerPositions()[i]);
+            this.hitTargets = [{
+                id: 'veh' + this.syndicateIndex, state: 'active', isVehicleTarget: true,
+                get x() { return self.x; }, get y() { return self.y; },
+                get alive() { return self.alive; },
+                get hp() { return self.hp; }, get maxHp() { return self.maxHp; },
+                reach: (px, py) => self.distTo(px, py),
+                takeHit: (d) => self.takeHit(d),
+            }];
+            for (let i = 0; i < 2; i++) {
+                this.hitTargets.push({
+                    id: 'gun' + this.syndicateIndex + '_' + i, state: 'active', isVehicleTarget: true,
+                    get x() { return gpos(i).x; }, get y() { return gpos(i).y; },
+                    get alive() { return self.alive && self.kind === 'rubberbullet' && self.gunnerDeployT > 0.6 && self.gunnerHp[i] > 0; },
+                    get hp() { return self.gunnerHp[i]; }, get maxHp() { return GUNNER_HP; },
+                    reach: (px, py) => Math.max(0, Math.hypot(gpos(i).x - px, gpos(i).y - py) - TILE * 0.25),
+                    takeHit: (d) => self.gunnerHit(i, d),
+                });
+            }
+        }
+        // distance from a point to the edge of the vehicle's body (0 = touching it)
+        distTo(px, py) {
+            const c = Math.cos(this.angle), s = Math.sin(this.angle);
+            const dx = px - this.x, dy = py - this.y;
+            const lx = Math.abs(dx * c + dy * s), ly = Math.abs(-dx * s + dy * c);
+            const qx = Math.max(0, lx - TILE * WC_LENGTH_TILES * 0.46), qy = Math.max(0, ly - TILE * 0.85);
+            return Math.hypot(qx, qy);
+        }
+        takeHit(dmg) {
+            if (!this.alive) return;
+            if (!game.testGod) this.hp -= dmg * VEHICLE_ARMOUR;
+            this.hitFlash = 0.18;
+            spawnHitEffect(this.x + (Math.random() - 0.5) * TILE * 2, this.y + (Math.random() - 0.5) * TILE);
+            sfx('shield', 0.45);
+            if (this.hp <= 0) this.destroy();
+        }
+        gunnerHit(i, dmg) {
+            if (!this.alive || this.gunnerHp[i] <= 0) return;
+            if (!game.testGod) this.gunnerHp[i] -= dmg * 1.1;
+            const gp = this._gp ? this._gp[i] : this;
+            spawnHitEffect(gp.x, gp.y);
+            sfx('hit', 0.5);
+            if (this.gunnerHp[i] <= 0) {
+                this.gunnerHp[i] = 0;
+                showToast(':van: A baton-round gunner is down! They return when the station repairs the van.');
+            }
+        }
+        destroy() {
+            if (!this.alive) return;
+            this.alive = false; this.hp = 0; this.destroyedT = 10;
+            this.waterCannonOn = false; this.parked = false; this.targetSpot = null; this.route = null;
+            clearBlockades();
+            for (let k = 0; k < 6; k++) spawnHitEffect(this.x + (Math.random() - 0.5) * TILE * 3, this.y + (Math.random() - 0.5) * TILE * 1.5);
+            sfx('slam', 0.8); triggerShake(3);
+            showToast(':car: ' + (this.kind === 'rubberbullet' ? 'The rubber bullet van' : 'The water cannon vehicle') + ' has been wrecked! A replacement arrives next night.');
+        }
+        repairFull() {
+            this.hp = this.maxHp;
+            this.gunnerHp = [GUNNER_HP, GUNNER_HP];
         }
         otherVehicle() {
             const o = this.syndicateIndex === VEHICLE_SYNDICATE ? game.vehicle2 : game.vehicle;
@@ -5866,8 +5971,16 @@
             for (const re of game.repairEscorts) if (re.alive) push(re);
         }
         update(dt) {
-            if (!this.alive) return;
+            if (!this.alive) { if (this.destroyedT > 0) this.destroyedT -= dt; return; }
             this.lightPhase += dt;
+            if (this.hitFlash > 0) this.hitFlash -= dt;
+            this._gp = this.gunnerPositions();
+            // Back at the station the crew patch the vehicle up and the gunners get back on their feet.
+            if ((this.hp < this.maxHp || this.gunnerHp[0] <= 0 || this.gunnerHp[1] <= 0) && isAtStation(this.x, this.y)) {
+                this.hp = Math.min(this.maxHp, this.hp + this.maxHp * 0.06 * dt);
+                this.stationT = (this.stationT || 0) + dt;
+                if (this.stationT > 5) { this.stationT = 0; this.gunnerHp = [GUNNER_HP, GUNNER_HP]; }
+            } else this.stationT = 0;
 
             let da = this.targetAngle - this.angle;
             while (da > Math.PI) da -= Math.PI * 2;
@@ -5973,14 +6086,29 @@
             }
             if (!wasOut) { this.gunnerFireTimer = [0.8, 1.5]; }
             this.gunnerDeployT = Math.min(1, this.gunnerDeployT + dt * 3);
-            const positions = this.gunnerPositions();
+            const positions = this._gp || this.gunnerPositions();
             for (let i = 0; i < 2; i++) {
-                const tg = this.findRubberTarget(positions[i]);            // the gunner turns to face whoever he is covering
-                this.gunnerAim[i] = tg ? Math.atan2(tg.y - positions[i].y, tg.x - positions[i].x) : null;
+                this.gunnerAnimT[i] += dt;
+                const up = this.gunnerHp[i] > 0;
+                const tg = up ? this.findRubberTarget(positions[i]) : null;
+                if (tg) {
+                    // Only the arms swing round to cover the rioter; the body just faces left or right.
+                    const aim = Math.atan2(tg.y - positions[i].y, tg.x - positions[i].x);
+                    const cx = Math.cos(aim);
+                    if (Math.abs(cx) > 0.18) this.gunnerFace[i] = cx < 0 ? -1 : 1;
+                    const rel = Math.atan2(Math.sin(aim), cx * this.gunnerFace[i]);
+                    this.gunnerArm[i] += (rel - this.gunnerArm[i]) * Math.min(1, dt * 9);
+                } else {
+                    this.gunnerArm[i] += (GUNNER_CARRY - this.gunnerArm[i]) * Math.min(1, dt * 5);
+                }
+                if (!up) continue;
                 this.gunnerFireTimer[i] -= dt;
                 if (this.gunnerFireTimer[i] <= 0) {
-                    this.gunnerFireTimer[i] = RUBBER_BULLET_COOLDOWN;
-                    this.fireRubberRound(positions[i]);
+                    if (tg) {
+                        this.gunnerFireTimer[i] = RUBBER_BULLET_COOLDOWN;
+                        this.gunnerAnimT[i] = 0;                 // the firing animation only starts when a round actually goes
+                        this.fireRubberRound(positions[i]);
+                    } else this.gunnerFireTimer[i] = 0.25;       // nothing to shoot: look again shortly, no animation
                 }
             }
         }
@@ -6165,6 +6293,42 @@
             ctx.restore();
         }
 
+        drawWreck(ctx) {
+            if (this.destroyedT <= 0) return;
+            const sx = this.x - game.camera.x, sy = this.y - game.camera.y;
+            if (sx < -200 || sy < -200 || sx > game.width + 200 || sy > game.height + 200) return;
+            const isRubber = this.kind === 'rubberbullet';
+            const sheet = assets[isRubber ? 'response_van_sheet' : 'wc_sheet'];
+            const t = performance.now() / 1000;
+            ctx.save();
+            ctx.globalAlpha = Math.min(0.6, this.destroyedT / 4);
+            if (sheet) {
+                const fi = this.frameIndex(), col = fi % 7, row = (fi / 7) | 0, half = WC_CELL / 2;
+                const sm = ctx.imageSmoothingEnabled; ctx.imageSmoothingEnabled = false;
+                ctx.drawImage(sheet, col * WC_CELL, row * WC_CELL, WC_CELL, WC_CELL, sx - half * WC_SCALE, sy - half * WC_SCALE, WC_CELL * WC_SCALE, WC_CELL * WC_SCALE);
+                ctx.imageSmoothingEnabled = sm;
+            }
+            ctx.globalAlpha = Math.min(0.75, this.destroyedT / 3);
+            ctx.fillStyle = 'rgba(15,15,18,0.55)';
+            ctx.beginPath(); ctx.ellipse(sx, sy, TILE * WC_LENGTH_TILES * 0.42, TILE * 0.8, this.angle, 0, Math.PI * 2); ctx.fill();
+            for (let k = 0; k < 5; k++) {
+                const ph = (t * 0.7 + k * 0.37) % 1;
+                ctx.fillStyle = 'rgba(70,70,76,' + (0.5 * (1 - ph)).toFixed(2) + ')';
+                ctx.beginPath(); ctx.arc(sx + (k - 2) * 7 + Math.sin(t * 2 + k) * 3, sy - ph * 34, 5 + ph * 7, 0, Math.PI * 2); ctx.fill();
+            }
+            ctx.restore();
+        }
+        drawHealth(ctx, sx, sy) {
+            if (this.hp < this.maxHp) drawHpBar(ctx, sx, sy - TILE * 1.45, this.hp, this.maxHp, '#6cc4ff');
+            if (this.hp < this.maxHp * 0.4) {                    // a damaged vehicle smokes
+                const t = performance.now() / 1000;
+                for (let k = 0; k < 3; k++) {
+                    const ph = (t * 0.9 + k * 0.33) % 1;
+                    ctx.fillStyle = 'rgba(60,60,66,' + (0.45 * (1 - ph)).toFixed(2) + ')';
+                    ctx.beginPath(); ctx.arc(sx + (k - 1) * 6, sy - 8 - ph * 26, 3.5 + ph * 5, 0, Math.PI * 2); ctx.fill();
+                }
+            }
+        }
         draw(ctx) {
             if (!this.alive) return;
             const sx = this.x - game.camera.x, sy = this.y - game.camera.y;
@@ -6221,6 +6385,11 @@
                 ctx.beginPath(); ctx.arc(lx, ly, rad, 0, Math.PI * 2); ctx.fill();
             });
             ctx.imageSmoothingEnabled = smooth;
+            if (this.hitFlash > 0) {
+                ctx.fillStyle = 'rgba(255,90,70,' + (this.hitFlash / 0.18 * 0.35).toFixed(2) + ')';
+                ctx.beginPath(); ctx.ellipse(sx, sy, TILE * WC_LENGTH_TILES * 0.46, TILE * 0.85, this.angle, 0, Math.PI * 2); ctx.fill();
+            }
+            this.drawHealth(ctx, sx, sy);
             if (isRubber) this.drawGunners(ctx);
         }
     }
@@ -6230,15 +6399,19 @@
         const img = assets['gunner_sheet'];
         if (!img) { drawRubberGunnerFallback(ctx, vehicle, pos); return; }
         const i = pos.side < 0 ? 0 : 1;
-        const ft = vehicle.gunnerFireTimer ? vehicle.gunnerFireTimer[i] : 0;
-        const since = RUBBER_BULLET_COOLDOWN - ft;
-        const aim = vehicle.gunnerAim ? vehicle.gunnerAim[i] : null;
-        const hasAim = aim !== null && aim !== undefined;
-        let col = hasAim ? 1 : 0;
-        if (since >= 0 && since < 0.16) col = 2;
-        else if (since >= 0.16 && since < 0.6) col = 3;
-        let face = pos.side < 0 ? -1 : 1, tilt = 0;
-        if (hasAim) { face = Math.cos(aim) < 0 ? -1 : 1; tilt = Math.max(-0.55, Math.min(0.55, Math.atan2(Math.sin(aim), Math.abs(Math.cos(aim))))); }
+        // down: he lies flat until the station patches the van up
+        if (vehicle.gunnerHp && vehicle.gunnerHp[i] <= 0) {
+            ctx.save();
+            ctx.rotate(i === 0 ? -Math.PI / 2 : Math.PI / 2);
+            ctx.globalAlpha = 0.85;
+            ctx.drawImage(img, 0, 0, 64, 64, -24, -46, 48, 48);
+            ctx.restore();
+            return;
+        }
+        const face = vehicle.gunnerFace ? vehicle.gunnerFace[i] : (i === 0 ? -1 : 1);
+        const t = vehicle.gunnerAnimT ? vehicle.gunnerAnimT[i] : 9;
+        const armCol = t < 0.12 ? 2 : (t < 0.55 ? 3 : 1);          // flash, then reload - only straight after a shot
+        const ang = vehicle.gunnerArm ? vehicle.gunnerArm[i] : GUNNER_CARRY;
         // a soft yellow ring under his feet so he never gets lost against the road
         ctx.fillStyle = 'rgba(255,230,90,0.20)';
         ctx.beginPath(); ctx.ellipse(0, 1.5, 11, 4.4, 0, 0, Math.PI * 2); ctx.fill();
@@ -6246,9 +6419,12 @@
         ctx.beginPath(); ctx.ellipse(0, 1.5, 11, 4.4, 0, 0, Math.PI * 2); ctx.stroke();
         ctx.save();
         ctx.scale(face, 1);
-        ctx.translate(0, -20); ctx.rotate(tilt); ctx.translate(0, 20);       // lift or drop the launcher towards the target
-        ctx.drawImage(img, col * 64, 0, 64, 64, -24, -42, 48, 48);       // drawn a little larger than the other officers so he is easy to spot
+        ctx.drawImage(img, 0, 0, 64, 64, -24, -42, 48, 48);             // body: never rotates
+        ctx.translate(-0.75, -20.25);                                    // shoulder
+        ctx.rotate(ang);
+        ctx.drawImage(img, armCol * 64, 0, 64, 64, -13.5, -24, 48, 48);   // arms + launcher swing round the shoulder
         ctx.restore();
+        if (vehicle.gunnerHp && vehicle.gunnerHp[i] < GUNNER_HP) drawHpBar(ctx, 0, -32, vehicle.gunnerHp[i], GUNNER_HP, '#6cc4ff');
     }
     function drawRubberGunnerFallback(ctx, vehicle, pos) {
         if (pos.side < 0) ctx.scale(-1, 1);
@@ -6265,7 +6441,7 @@
         ctx.strokeStyle = OFFICER_PALETTE.dark; ctx.lineWidth = 0.8; ctx.stroke();
         ctx.fillStyle = '#1c2230';
         ctx.beginPath(); ctx.arc(0, -H * 0.74, H * 0.18, 0, Math.PI * 2); ctx.fill();
-        const fireGlow = (vehicle.gunnerFireTimer && vehicle.gunnerFireTimer[pos.side < 0 ? 0 : 1] > RUBBER_BULLET_COOLDOWN - 0.12);
+        const fireGlow = (vehicle.gunnerAnimT && vehicle.gunnerAnimT[pos.side < 0 ? 0 : 1] < 0.12);
         ctx.save();
         ctx.translate(2.4, -H * 0.42);
         ctx.rotate(-0.55);
@@ -6649,10 +6825,15 @@
                 if (d < nd) { nd = d; near = o; }
             }
             this.nearOfficer = near; this.nearDist = nd;
+            // An escort: a line walking alongside the march (not pushing against it) keeps tempers down.
+            const escSy = (near && nd < TILE * 9) ? game.syndicates[hostOf(near.syndicateIndex)] : null;
+            this.escortT = (escSy && syndicateIsEscorting(escSy)) ? 4 : Math.max(0, (this.escortT || 0) - dt);
             let delta = this.mood > this.baseMood ? -0.25 : 0.05;       // slowly drifts back to its own baseline
+            if (this.escortT > 0) delta -= 2.2 * P.calm;
             if (near && nd < TILE * 7) {
                 const sy = game.syndicates[hostOf(near.syndicateIndex)];
                 if (sy && syndicateIsPassive(sy)) delta -= 1.4 * P.calm;              // resting / stacked officers: calming
+                else if (sy && syndicateIsEscorting(sy)) delta -= 0.6 * P.calm;          // walking with us: reassuring
                 else if (sy) {
                     const tac = activeTacticOf(sy);
                     if (tac === 'wall' || tac === 'box') delta += (nd < TILE * 4 ? 1.5 : 0.8) * P.press;   // blocked, pressed
@@ -6682,6 +6863,7 @@
             const pct = Math.max(0.3, this.hp / this.maxHp);
             this.kind = kind; this.def = RAIDER_TYPES[kind];
             this.maxHp = Math.round(this.def.hp * (game.waveIntensity || 1)); this.hp = Math.max(10, this.maxHp * pct);
+            this.gMorale = 100;
             this.state = 'advancing'; this.looksPeaceful = false; this.agitator = false; this.plan = null;
             this.outfit = makeRaiderOutfit(this.id, false, kind); this.outfit.sign = false;
             this.goalNodeId = null; this.route = null; this.routeVersion = -1; this.repathTimer = 0; this.avoidSet = null;
@@ -6714,13 +6896,14 @@
         }
         // Hidden rioters wait for their moment: a timer, pressure from a line of officers, or an angry crowd.
         watchForCover(dt) {
-            this.revealT -= dt;
+            const escorted = this.escortT > 0;
+            this.revealT -= dt * (escorted ? 0.5 : 1);                                  // hidden rioters lose their nerve under escort
             const near = this.nearOfficer, nd = this.nearDist;
             const sy = near ? game.syndicates[hostOf(near.syndicateIndex)] : null;
-            if (near && nd < TILE * 6 && sy && !syndicateIsPassive(sy)) this.pressT += dt; else this.pressT = Math.max(0, this.pressT - dt);
+            if (near && nd < TILE * 6 && sy && !syndicateIsPassive(sy) && !syndicateIsEscorting(sy)) this.pressT += dt; else this.pressT = Math.max(0, this.pressT - dt);
             const G = game.grievance || 0;
             const hotCrowd = game.crowdMood > 72 - G * 0.15;
-            if (this.forceReveal || this.revealT <= 0 || this.pressT > 5 || (hotCrowd && Math.random() < dt * 0.25)) this.breakCover();
+            if (this.forceReveal || this.revealT <= 0 || this.pressT > 5 || (hotCrowd && Math.random() < dt * 0.25 * (escorted ? 0.3 : 1))) this.breakCover();
         }
         // The march is stopped by a line of officers: look for another street; if there is none, tempers fray.
         tryAnotherWay(sy) {
@@ -6773,7 +6956,7 @@
 
             if (!this.agitator) {
                 // wound up too far, protesters riot. A run of blocked marches makes that happen quicker.
-                const hotAt = 85 - G * 0.2, hotFor = Math.max(0.7, 1.8 - G * 0.011);
+                const hotAt = 85 - G * 0.2 + (this.escortT > 0 ? 15 : 0), hotFor = Math.max(0.7, 1.8 - G * 0.011) + (this.escortT > 0 ? 1.5 : 0);   // escorted crowds take a lot more to boil over
                 if (this.mood >= hotAt) { this.moodHot += dt; if (this.moodHot > hotFor) { this.turnViolent(); return; } }
                 else this.moodHot = Math.max(0, this.moodHot - dt);
             } else {
@@ -6803,7 +6986,7 @@
             let blocked = false;
             if (near && nd < TILE * 3.4) {
                 const sy = game.syndicates[hostOf(near.syndicateIndex)];
-                if (sy && !syndicateIsPassive(sy)) {
+                if (sy && !syndicateIsPassive(sy) && !syndicateIsEscorting(sy)) {
                     blocked = true;
                     this.blockedT += dt;
                     // another way round if there is one
@@ -6922,6 +7105,7 @@
                     if (r.state === 'fleeing' || r.kind === 'crowd') continue;
                     if (Math.hypot(r.x - this.x, r.y - this.y) < BRICK_MORALE_AURA) {
                         game.raiderGroupMorale = Math.min(100, game.raiderGroupMorale + BRICK_MORALE_RATE * dt);
+                        r.gMorale = Math.min(100, (r.gMorale === undefined ? 100 : r.gMorale) + BRICK_MORALE_RATE * dt);
                     }
                 }
                 this.throwTimer -= dt;
@@ -6931,6 +7115,10 @@
                         if (!o.alive) continue;
                         const d = Math.hypot(o.x - this.x, o.y - this.y);
                         if (d < BRICK_THROW_RANGE && d < bestD) { bestD = d; best = o; }
+                    }
+                    for (const t of (game._vht || [])) {
+                        const d = Math.hypot(t.x - this.x, t.y - this.y);
+                        if (d < BRICK_THROW_RANGE && d < bestD) { bestD = d; best = t; }
                     }
                     if (best) {
                         this.throwTimer = this.def.atkCooldown + Math.random() * 0.6;
@@ -6966,11 +7154,14 @@
                 if (this.fleeTimer <= 0) {
                     this.fleeTimer = 1.5;
                     const hpPct = this.hp / this.maxHp;
-                    if (game.raiderGroupMorale < 8 && hpPct < 0.30) {
-                        const fleeChance = (8 - game.raiderGroupMorale) * 0.015;
-                        if (Math.random() < fleeChance) {
-                            this.startFleeing(); game.routed++;
-                        }
+                    if (this.gMorale === undefined) this.gMorale = 100;
+                    if (this.timeSinceDamage > 6 && this.gMorale < 100) this.gMorale = Math.min(100, this.gMorale + 1.2);   // calm down if left alone
+                    const gm = this.gMorale;
+                    if (gm < 14 && hpPct < 0.45) {
+                        // this rioter's own group has had enough: they (and the mates beside them) give up
+                        if (Math.random() < (14 - gm) * 0.03) { this.startFleeing(); game.routed++; }
+                    } else if (game.waveMoralePct <= 0 && (gm < 60 || hpPct < 0.6)) {
+                        if (Math.random() < 0.35) { this.startFleeing(); game.routed++; }          // night is lost: the beaten groups go home first
                     } else if (hpPct < 0.08 && Math.random() < 0.15) {
                         this.startFleeing(); game.routed++;
                     }
@@ -6995,6 +7186,13 @@
                 const count = game.attackerCounts.get(e.id) || 0;
                 if (count >= MAX_ATTACKERS_PER_OFFICER) continue;
                 if (d < bestD) { bestD = d; target = e; }
+            }
+            for (const t of (game._vht || [])) {                   // the vehicles and their gunners are targets too
+                const d = t.reach(this.x, this.y);
+                if (d < fallbackD) { fallbackD = d; fallbackTarget = t; }
+                const count = game.attackerCounts.get(t.id) || 0;
+                if (count >= MAX_ATTACKERS_PER_OFFICER + 2) continue;
+                if (d < bestD) { bestD = d; target = t; }
             }
             if (game.repairOfficers.length > 0) {
                 for (const rp of game.repairOfficers) {
@@ -7211,38 +7409,6 @@
             }
             drawHpBar(ctx, sx, sy - 21, this.hp, this.maxHp, this.state === 'fleeing' ? '#aaaaaa' : this.beingArrested ? '#ffcc33' : this.kind === 'crowd' ? '#c8b48a' : '#ff8a5c');
 
-            if (this.kind === 'crowd') {
-                // only flag what matters: a spotted agitator, or a crowd about to boil over
-                if (this.agitator && this.spotted) drawIcon(ctx, 'eye', sx, sy - 30, 12);
-                else if (!this.agitator && this.mood >= 65) drawIcon(ctx, 'burst', sx, sy - 30, 11);
-            } else if (this.gasStunTimer > 0) {
-                ctx.fillStyle = '#f0f080'; ctx.font = 'bold 9px monospace'; ctx.textAlign = 'center';
-                drawIcon(ctx, 'dizzy', sx, sy - 30, 11);
-            } else if (this.beingArrested) {
-                ctx.fillStyle = '#ffcc33'; ctx.font = 'bold 9px monospace'; ctx.textAlign = 'center';
-                drawIcon(ctx, 'lock', sx, sy - 30, 11);
-            } else if (this.state === 'fleeing') {
-                ctx.fillStyle = '#ffffff'; ctx.font = 'bold 8px monospace'; ctx.textAlign = 'center';
-                drawIcon(ctx, 'run', sx, sy - 30, 11);
-            } else if (this.state === 'holding' || this.state === 'resting') {
-                ctx.fillStyle = '#86cf72'; ctx.font = '8px monospace'; ctx.textAlign = 'center';
-                ctx.fillText('…', sx, sy - 26);
-            } else if (this.state === 'ambushing') {
-                ctx.fillStyle = '#ffcc33'; ctx.font = '8px monospace'; ctx.textAlign = 'center';
-                drawIcon(ctx, 'eye', sx, sy - 30, 11);
-            } else if (this.state === 'withdrawing') {
-                ctx.fillStyle = '#a0d0ff'; ctx.font = '8px monospace'; ctx.textAlign = 'center';
-                drawIcon(ctx, 'return', sx, sy - 30, 11);
-            } else if (this.state === 'attacking_base') {
-                ctx.fillStyle = '#ff5a30'; ctx.font = 'bold 9px monospace'; ctx.textAlign = 'center';
-                drawIcon(ctx, 'station', sx, sy - 30, 11);
-            } else if (this.state === 'vandal') {
-                ctx.fillStyle = '#ff8a5c'; ctx.font = '8px monospace'; ctx.textAlign = 'center';
-                drawIcon(ctx, 'burst', sx, sy - 30, 11);
-            } else if (this.kind === 'brickthrower') {
-                ctx.fillStyle = '#e8c08a'; ctx.font = '8px monospace'; ctx.textAlign = 'center';
-                drawIcon(ctx, 'wall', sx, sy - 30, 11);
-            }
         }
     }
     // ---- raider sprites: assets/raiders/raider_sheet.png (10 looks x 34 frames of 64px) ----
@@ -7500,6 +7666,17 @@
         game.baseRegenTimer = BASE_REGEN_DELAY;
         if (amount >= 3) { sfx('slam', 0.7); triggerShake(Math.min(5, 1.5 + amount * 0.15)); }
     }
+    // Morale is local now: a hit, a gassing or an arrest shakes the rioters standing near it, not every rioter on the map.
+    const GROUP_RADIUS = TILE * 12;
+    function groupMoraleHit(x, y, amount, radius) {
+        radius = radius || GROUP_RADIUS;
+        for (const q of game.raiders) {
+            if (!q.alive || q.kind === 'crowd' || q.state === 'fleeing' || q.state === 'fading' || q.beingArrested) continue;
+            const d = Math.hypot(q.x - x, q.y - y);
+            if (d > radius) continue;
+            q.gMorale = Math.max(0, (q.gMorale === undefined ? 100 : q.gMorale) - amount * (1 - 0.5 * d / radius));
+        }
+    }
     function dealDamageToRaider(r, dmg, moraleMult) {
         if (r.state === 'fleeing' || r.beingArrested) return;
         dmg *= forceMult();
@@ -7521,6 +7698,7 @@
             game.waveMoralePct = Math.max(0, game.waveMoralePct - (dmg / game.waveTotalHp) * 100);
         }
         game.raiderGroupMorale = Math.max(0, game.raiderGroupMorale - dmg * 0.025 * mMult);
+        groupMoraleHit(r.x, r.y, dmg * 0.055 * mMult);
         if (r.hp <= 0 && r.alive) {
             if (r.kind === 'crowd') {
                 r.startFleeing();
@@ -7528,10 +7706,27 @@
                 r.startFleeing();
                 game.routed++; game.raidersDefeated++;
                 game.raiderGroupMorale = Math.max(0, game.raiderGroupMorale - 5 * mMult);
+                groupMoraleHit(r.x, r.y, 12 * mMult);
             }
         }
     }
+    // Vehicles and their gunners that rioters can attack (rebuilt once a frame).
+    // A line that is walking alongside a march (any tactic except the pushing ones) counts as an escort.
+    function syndicateIsEscorting(sy) {
+        if (!sy || !sy.path || !sy.path.length) return false;
+        const t = activeTacticOf(sy);
+        return t !== 'wedge' && t !== 'pulse';
+    }
+    function vehicleHitTargets() {
+        const out = [];
+        for (const v of [game.vehicle, game.vehicle2]) {
+            if (!v || !v.alive || !v.hitTargets) continue;
+            for (const t of v.hitTargets) if (t.alive) out.push(t);
+        }
+        return out;
+    }
     function dealDamageToOfficer(o, dmg) {
+        if (o.takeHit) { o.takeHit(dmg); return; }               // a vehicle or one of its gunners
         if (!o.isAllOut && o.syndicateIndex >= 0) {
             const syHit = game.syndicates[hostOf(o.syndicateIndex)];
             if (syHit) {
@@ -7612,6 +7807,9 @@
                     if (Math.hypot(e.x - p.tx, e.y - p.ty) < p.aoe) {
                         dealDamageToOfficer(e, p.dmg);
                     }
+                }
+                for (const t of (game._vht || [])) {
+                    if (t.alive && t.reach(p.tx, p.ty) < p.aoe) t.takeHit(p.dmg);
                 }
                 spawnHitEffect(p.tx, p.ty);
                 sfx('brick', 0.7); triggerShake(1.2);
@@ -8114,17 +8312,18 @@
                 if (score < bestScore) { bestScore = score; best = r; }
             }
             if (!best) continue;
+            // A line keeps the axis it was set up on: a horizontal line stays horizontal, a vertical line stays vertical.
+            // It only ever turns 180 degrees, and only when the threat has really got behind it (not while it walks past).
+            let fx0 = sy.facingX || 0, fy0 = sy.facingY || 0;
+            if (!fx0 && !fy0) fx0 = 1;
+            sy._flipCd = Math.max(0, (sy._flipCd || 0) - 0.3);
             const dx = best.x - cx, dy = best.y - cy;
-            const horiz = sy.facingY === 0;
-            let nfx = sy.facingX, nfy = sy.facingY;
-            if (horiz) {
-                if (Math.abs(dy) > Math.abs(dx) * 1.35 && Math.abs(dy) > TILE * 3) { nfx = 0; nfy = Math.sign(dy) || 1; }
-                else if (Math.abs(dx) > TILE * 3) { nfx = Math.sign(dx); nfy = 0; }
-            } else {
-                if (Math.abs(dx) > Math.abs(dy) * 1.35 && Math.abs(dx) > TILE * 3) { nfx = Math.sign(dx) || 1; nfy = 0; }
-                else if (Math.abs(dy) > TILE * 3) { nfx = 0; nfy = Math.sign(dy); }
+            const along = dx * fx0 + dy * fy0;                                  // + in front of the line, - behind it
+            const beside = Math.abs(fy0 === 0 ? dy : dx);                      // how far to one side
+            if (along < -TILE * 4 && -along > beside * 0.6 && sy._flipCd <= 0) {
+                sy.facingX = -fx0; sy.facingY = -fy0;
+                sy._flipCd = 3;
             }
-            if (nfx !== sy.facingX || nfy !== sy.facingY) { sy.facingX = nfx; sy.facingY = nfy; }
         }
     }
 
@@ -8157,21 +8356,23 @@
         game.allOutCooldown = ALL_OUT_COOLDOWN;
         game.allOutActive = ALL_OUT_DURATION;
 
+        buildAllOutBox();                                                // rebuilt now so it matches the map that is loaded
+        // They pour out of the station door a few at a time and run to their places in the block.
+        const door = clampOfficerTarget(BASE_TILE_X * TILE + TILE / 2, (STATION_TY0 - 0.6) * TILE);
+        let n = 0;
         for (const slot of ALL_OUT_BOX_TILES) {
             const sx = slot.tx * TILE + TILE / 2;
             const sy = slot.ty * TILE + TILE / 2;
-            if (!isValidPosition(sx, sy)) {
-                const c = clampOfficerTarget(sx, sy);
-                const o = new Officer(c.x, c.y, -1, { allOut: true });
-                o.homeX = c.x; o.homeY = c.y;
-                game.officers.push(o);
-            } else {
-                const o = new Officer(sx, sy, -1, { allOut: true });
-                o.homeX = sx; o.homeY = sy;
-                game.officers.push(o);
-            }
+            if (!isValidPosition(sx, sy)) continue;                      // never stack officers on a building
+            const o = new Officer(door.x + (Math.random() - 0.5) * TILE * 2, door.y + (Math.random() - 0.5) * TILE * 0.6, -1, { allOut: true });
+            o.homeX = sx; o.homeY = sy;
+            o.spawnDelay = n * 0.09;                                     // staggered release
+            o.state = 'waiting';
+            o.allOutTimer = ALL_OUT_DURATION + 6;                        // the run-out does not eat into their time on the line
+            game.officers.push(o);
+            n++;
         }
-        showToast(':siren: ALL OUT! Shield box formed around the station!');
+        showToast(':siren: ALL OUT! Officers pouring out to block the station junction!');
         if (window.CordonAudio && settings.sound) CordonAudio.siren(3);
         sfx('horn'); triggerShake(3);
         updateAllOutButton();
@@ -8521,6 +8722,7 @@
 
     function startWave() {
         game._causeToastShown = false;
+        game._stragglersSent = false;
         game.waveClock = 0; game.fsIdle = 0; game.fsIdleFired = false; game.fsCapFired = false; game.fsClear = 0;
         game.waveState = 'active';
         game.waveArrestBase = game.arrested;
@@ -8529,6 +8731,11 @@
         game.raidersDefeated = 0;
         game.raiderGroupMorale = 100;
 
+        for (const vIdx of [VEHICLE_SYNDICATE, VEHICLE_SYNDICATE_2]) {      // overnight the workshop sorts the vehicles out
+            const vv = vehicleAt(vIdx);
+            if (vv && !vv.alive) { if (vehicleUnlocked(vIdx)) spawnVehicleSyndicate(vIdx); }
+            else if (vv) vv.repairFull();
+        }
         const wave = game.waveNumber;
         game.waveIntensity = (1 + (wave - 1) * 0.045) * ((window.CordonDifficulty ? CordonDifficulty.tune().hp : 1));
         const aliveNow = game.officers.filter(o => o.alive && !o.isAllOut);
@@ -8906,6 +9113,8 @@
         if (moraleBroken || routedEnough) {
             game.waveSpawnQueue = [];
             if (game.riot) game.riot.events = [];
+        }
+        if (routedEnough) {
             for (const r of game.raiders) {
                 if (r.alive && r.state !== 'fleeing' && !r.beingArrested) { r.startFleeing(); if (r.kind !== 'crowd') game.routed++; }
             }
@@ -8929,6 +9138,10 @@
                 renderOptionsPanel();
             } else {
                 game.fsClear = (game.fsClear || 0) + dt;
+                if (moraleBroken && game.fsClear > 12 && !game._stragglersSent) {          // groups still holding out after the night is lost go home too
+                    game._stragglersSent = true;
+                    for (const r of game.raiders) if (r.alive && r.state !== 'fleeing' && !r.beingArrested) { r.startFleeing(); if (r.kind !== 'crowd') game.routed++; }
+                }
                 if (game.fsClear > FS.CLEAR_STALL) {
                     for (const r of game.raiders) if (r.alive && !r.beingArrested) fadeRaider(r);
                 }
@@ -9966,8 +10179,8 @@
         all.sort((a, b) => a.y - b.y);
         all.forEach(u => u.draw(ctx));
 
-        if (game.vehicle && game.vehicle.alive) game.vehicle.draw(ctx);
-        if (game.vehicle2 && game.vehicle2.alive) game.vehicle2.draw(ctx);
+        if (game.vehicle && game.vehicle.alive) game.vehicle.draw(ctx); else if (game.vehicle) game.vehicle.drawWreck(ctx);
+        if (game.vehicle2 && game.vehicle2.alive) game.vehicle2.draw(ctx); else if (game.vehicle2) game.vehicle2.drawWreck(ctx);
 
         drawProjectiles(ctx);
         drawRubberTracers(ctx);
@@ -10335,6 +10548,7 @@
             game.repairOfficers.forEach(r => { withSpeed(r); r.updateEscortFormation(); });
             game.repairEscorts.forEach(withSpeed);
             game.k9s.forEach(withSpeed);
+            game._vht = vehicleHitTargets();
             game.raiders.forEach(r => r.update(dt));
             applyRaiderSeparation(dt);
             if (game.vehicle) game.vehicle.update(dt);

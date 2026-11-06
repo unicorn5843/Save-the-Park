@@ -534,13 +534,18 @@ const ALL_OUT_COOLDOWN = 55;
 const ALL_OUT_HOLD_RADIUS = TILE*6;
 let ALL_OUT_BOX_TILES = [];
 function buildAllOutBox(){
-    const slots = [];
-    const cy = BASE_TILE_Y, cx = BASE_TILE_X;
-    const topY = cy - 5, bottomY = cy + 2;
-    const leftX = cx - 4, rightX = cx + 3;
-    for (let y = topY + 1; y <= bottomY; y++) slots.push({ tx: leftX, ty: y });
-    for (let y = topY + 1; y <= bottomY; y++) slots.push({ tx: rightX, ty: y });
-    for (let x = leftX + 1; x <= rightX - 1; x++) slots.push({ tx: x, ty: topY });
+    // A junction block over the station: two ranks across each arm of the street outside the door
+    // (west, east and - where the map has one - north), with the corners filled in.
+    const slots = [], seen = new Set();
+    const cx = BASE_TILE_X, cy = BASE_TILE_Y;
+    const add = (tx, ty) => { const k = tx + ',' + ty; if (!seen.has(k)){ seen.add(k); slots.push({ tx, ty }); } };
+    for (const rank of [4, 5]){
+        for (let y = cy - 3; y <= cy + 2; y++){ add(cx - rank, y); add(cx + rank - 1, y); }
+    }
+    if (typeof MAPGEO !== 'undefined' && MAPGEO && tileIsRoad(cx, cy - 6)){
+        for (const rank of [5, 6]) for (let x = cx - 3; x <= cx + 2; x++) add(x, cy - rank);
+        add(cx - 4, cy - 4); add(cx + 3, cy - 4);
+    }
     ALL_OUT_BOX_TILES = slots;
 }
 
@@ -601,6 +606,12 @@ const RUBBER_BULLET_RANGE = TILE * 7.5;
 const RUBBER_BULLET_COOLDOWN = 2.0;
 const RUBBER_BULLET_DAMAGE = 9;
 const RUBBER_BULLET_STUN = 0.6;
+// Vehicle + gunner health (zombies can now attack them). Tune these to make the vehicles tougher or weaker.
+const WC_HP = 1100;              // acid cannon vehicle
+const VAN_HP = 800;              // shooter van
+const GUNNER_HP = 150;           // each baton-round gunner
+const VEHICLE_ARMOUR = 0.7;      // vehicles shrug off a bit of every hit (1 = takes full damage)
+const GUNNER_CARRY = 1.0;        // arm angle (radians) when a gunner has nothing to shoot: launcher carried low
 
 // ====== VEHICLE AMMO + STATION REFILL ======
 // Acid cannon: tank is spent a little on every spray tick. Mobile shooter: 1 round per shot.
@@ -1486,7 +1497,7 @@ function computeRoadLayout(){
         if (h.c < v.a || h.c > v.b) return;
         if (v.c < h.a - half || v.c > h.b + half) return;
         const onSig = h.row === sig.row;
-        const j = { x:v.c, y:h.c, top:onSig, signal:onSig && sig.xs.indexOf(v.tx) >= 0, tx:v.tx, vBottomEntry:!!v.bottomEntry, arms:{} };
+        const j = { x:v.c, y:h.c, h:h, v:v, top:onSig, signal:onSig && sig.xs.indexOf(v.tx) >= 0, tx:v.tx, vBottomEntry:!!v.bottomEntry, arms:{} };
         j.arms.n = v.a < h.c - half - 1;
         j.arms.s = v.b > h.c + half + 1;
         j.arms.e = h.b > v.c + half + 1;
@@ -1513,6 +1524,11 @@ function computeRoadLayout(){
             if (d === 's') r = { img:'road_zebra_ns', x:j.x - 51, y:j.y + half + ZG, w:102, h:ZL };
             if (d === 'w') r = { img:'road_zebra_ew', x:j.x - half - ZG - ZL, y:j.y - 51, w:ZL, h:102 };
             if (d === 'e') r = { img:'road_zebra_ew', x:j.x + half + ZG, y:j.y - 51, w:ZL, h:102 };
+            // a crossing must sit entirely on the road: skip it where the road runs out before the crossing would be
+            if (r){
+                const inside = (d === 'w') ? r.x >= j.h.a : (d === 'e') ? r.x + r.w <= j.h.b : (d === 'n') ? r.y >= j.v.a : r.y + r.h <= j.v.b;
+                if (!inside) r = null;
+            }
             if (r){ r.dir = d; r.j = j; zebras.push(r); j.zebra[d] = true; }
         });
     });
@@ -1727,7 +1743,7 @@ function drawLaneMarkings(t){
     };
     L.H.forEach(h => {
         const cuts = [];
-        L.junctions.filter(j => j.y === h.c).forEach(j => cuts.push({ lo:j.x - half - 12, hi:j.x + half + 12 }));
+        L.junctions.filter(j => j.h === h).forEach(j => cuts.push({ lo:j.x - half - 12, hi:j.x + half + 12 }));
         cuts.sort((p,q)=>p.lo-q.lo);
         let cur = h.a + 10;
         cuts.forEach(c => { dashRun(cur, c.lo, (x,w) => t.fillRect(x, h.c - TH/2, w, TH)); cur = Math.max(cur, c.hi); });
@@ -1735,7 +1751,7 @@ function drawLaneMarkings(t){
     });
     L.V.forEach(v => {
         const cuts = [];
-        L.junctions.filter(j => j.x === v.c).forEach(j => cuts.push({ lo:j.y - half - 12, hi:j.y + half + 12 }));
+        L.junctions.filter(j => j.v === v).forEach(j => cuts.push({ lo:j.y - half - 12, hi:j.y + half + 12 }));
         cuts.sort((p,q)=>p.lo-q.lo);
         let cur = v.a + 10;
         cuts.forEach(c => { dashRun(cur, c.lo, (y,w) => t.fillRect(v.c - TH/2, y, TH, w)); cur = Math.max(cur, c.hi); });
@@ -2316,6 +2332,11 @@ class Officer {
         }
     }
     updateAllOut(dt){
+        if (this.spawnDelay > 0){                                    // still inside the station
+            this.spawnDelay -= dt;
+            if (this.spawnDelay > 0){ this.isMoving = false; return; }
+            this.state = 'active';
+        }
         this.animTimer += dt;
         if (this.attackFlash > 0) this.attackFlash = Math.max(0, this.attackFlash - dt);
         this.atkTimer = Math.max(0, this.atkTimer - dt);
@@ -2329,6 +2350,15 @@ class Officer {
             if (dPost > ALL_OUT_HOLD_RADIUS) continue;
             const d = Math.hypot(r.x - this.x, r.y - this.y);
             if (d < bestD){ bestD = d; target = r; }
+        }
+        if (!this.inPlace){
+            const hd = Math.hypot(this.homeX - this.x, this.homeY - this.y);
+            if (hd < TILE * 0.7){ this.inPlace = true; this.isMoving = false; }
+            else {
+                routedMove(this, this.homeX, this.homeY, dt, OFFICER.sprintSpeed * 0.62);   // a little slower than a full sprint
+                this.dir = { x: (this.homeX - this.x) / hd, y: (this.homeY - this.y) / hd };
+                return;
+            }
         }
         if (target){
             const dx = target.x - this.x, dy = target.y - this.y;
@@ -2361,7 +2391,7 @@ class Officer {
         }
     }
     draw(ctx){
-        if (!this.alive) return;
+        if (!this.alive || this.state === 'waiting') return;
         const sx = this.x - game.camera.x, sy = this.y - game.camera.y;
         if (sx < -30 || sy < -30 || sx > game.width+30 || sy > game.height+30) return;
         ctx.save(); ctx.translate(sx, sy);
@@ -2555,6 +2585,13 @@ class Zombie {
             const count = game.attackerCounts.get(o.id) || 0;
             if (count >= MAX_ATTACKERS_PER_OFFICER) continue;
             if (d < bestD){ bestD = d; target = o; }
+        }
+        for (const t of (game._vht || [])){                       // the vehicles and their gunners are targets too
+            const d = t.reach(this.x, this.y);
+            if (d < fallbackD){ fallbackD = d; fallbackTarget = t; }
+            const count = game.attackerCounts.get(t.id) || 0;
+            if (count >= MAX_ATTACKERS_PER_OFFICER + 2) continue;
+            if (d < bestD){ bestD = d; target = t; }
         }
         if (!target){ target = fallbackTarget; bestD = fallbackD; }
 
@@ -2863,8 +2900,19 @@ function damageZombie(z, amount){
 // RENAMED: this is the function zombies call. It was previously named damageOfficer,
 // and the zombie's melee call used dealDamageToOfficer (undefined) — so zombies
 // never dealt damage. Also matches the main game's naming convention.
+// Vehicles and their gunners that zombies can attack (rebuilt once a frame).
+function vehicleHitTargets(){
+    const out = [];
+    for (const k in game.vehicles){
+        const v = game.vehicles[k];
+        if (!v || !v.alive || !v.hitTargets) continue;
+        for (const t of v.hitTargets) if (t.alive) out.push(t);
+    }
+    return out;
+}
 function dealDamageToOfficer(o, amount, pierce){
     if (!o.alive) return;
+    if (o.takeHit){ o.takeHit(amount); return; }               // a vehicle or one of its gunners
     if (!o.isAllOut && o.syndicateIndex >= 0){
         const syHit = game.syndicates[o.syndicateIndex];
         if (syHit){
@@ -2923,6 +2971,9 @@ function updateProjectiles(dt){
                 if (Math.hypot(o.x - p.tx, o.y - p.ty) < p.aoe){
                     dealDamageToOfficer(o, p.dmg);
                 }
+            }
+            for (const t of (game._vht || [])){
+                if (t.alive && t.reach(p.tx, p.ty) < p.aoe) t.takeHit(p.dmg);
             }
             spawnHitEffect(p.tx, p.ty);
             game.projectiles.splice(i, 1);
@@ -3876,12 +3927,83 @@ class WaterCannonVehicle {
         this.gunnersOut = false;
         this.gunnerDeployT = 0;
 
+        // ---- health: the vehicle and each gunner can be attacked ----
+        this.maxHp = this.kind === 'rubberbullet' ? VAN_HP : WC_HP;
+        this.hp = this.maxHp;
+        this.destroyedT = 0;
+        this.hitFlash = 0;
+        this.gunnerHp = [GUNNER_HP, GUNNER_HP];
+        this.gunnerAnimT = [9, 9];                     // seconds since each gunner last fired (9 = long ago: no firing animation)
+        this.gunnerArm = [GUNNER_CARRY, GUNNER_CARRY]; // arm angle relative to the way he faces
+        this.gunnerFace = [-1, 1];                     // body only ever faces left or right
+        this._gp = null;
+        this.buildHitTargets();
+
         // ---- ammo / refill ----
         this.maxAmmo = this.kind === 'rubberbullet' ? SHOOTER_AMMO_MAX : ACID_TANK_MAX;
         this.ammo = this.maxAmmo;
         this.refill = null;            // { phase:'driving'|'filling', bayKey, resumeKey }
         this.refillWait = false;       // true while parked at the bay but the supplies have run out
         this._emptyHandled = false;
+    }
+    buildHitTargets(){
+        const self = this;
+        const gpos = (i) => (self._gp ? self._gp[i] : self.gunnerPositions()[i]);
+        this.hitTargets = [{
+            id: 'veh' + this.syndicateIndex, state: 'active', isVehicleTarget: true,
+            get x(){ return self.x; }, get y(){ return self.y; },
+            get alive(){ return self.alive; },
+            get hp(){ return self.hp; }, get maxHp(){ return self.maxHp; },
+            reach: (px, py) => self.distTo(px, py),
+            takeHit: (d) => self.takeHit(d),
+        }];
+        for (let i = 0; i < 2; i++){
+            this.hitTargets.push({
+                id: 'gun' + this.syndicateIndex + '_' + i, state: 'active', isVehicleTarget: true,
+                get x(){ return gpos(i).x; }, get y(){ return gpos(i).y; },
+                get alive(){ return self.alive && self.kind === 'rubberbullet' && self.gunnerDeployT > 0.6 && self.gunnerHp[i] > 0; },
+                get hp(){ return self.gunnerHp[i]; }, get maxHp(){ return GUNNER_HP; },
+                reach: (px, py) => Math.max(0, Math.hypot(gpos(i).x - px, gpos(i).y - py) - TILE * 0.25),
+                takeHit: (d) => self.gunnerHit(i, d),
+            });
+        }
+    }
+    // distance from a point to the edge of the vehicle's body (0 = touching it)
+    distTo(px, py){
+        const c = Math.cos(this.angle), s = Math.sin(this.angle);
+        const dx = px - this.x, dy = py - this.y;
+        const lx = Math.abs(dx * c + dy * s), ly = Math.abs(-dx * s + dy * c);
+        return Math.hypot(Math.max(0, lx - TILE * WC_LENGTH_TILES * 0.46), Math.max(0, ly - TILE * 0.85));
+    }
+    takeHit(dmg){
+        if (!this.alive) return;
+        if (!game.testGod) this.hp -= dmg * VEHICLE_ARMOUR;
+        this.hitFlash = 0.18;
+        spawnHitEffect(this.x + (Math.random() - 0.5) * TILE * 2, this.y + (Math.random() - 0.5) * TILE);
+        if (this.hp <= 0) this.destroy();
+    }
+    gunnerHit(i, dmg){
+        if (!this.alive || this.gunnerHp[i] <= 0) return;
+        if (!game.testGod) this.gunnerHp[i] -= dmg * 1.1;
+        const gp = this._gp ? this._gp[i] : this;
+        spawnHitEffect(gp.x, gp.y);
+        if (this.gunnerHp[i] <= 0){
+            this.gunnerHp[i] = 0;
+            showToast(':van: A baton-round gunner is down! They return when the van is patched up at the station.');
+        }
+    }
+    destroy(){
+        if (!this.alive) return;
+        if (this.refill){ this.refill = null; this.refillWait = false; }
+        this.targetSpot = null; this.route = null; this.parked = false; this.waterCannonOn = false;
+        game.blockadeVersion++;
+        this.alive = false; this.hp = 0; this.destroyedT = 10;
+        for (let k = 0; k < 6; k++) spawnHitEffect(this.x + (Math.random() - 0.5) * TILE * 3, this.y + (Math.random() - 0.5) * TILE * 1.5);
+        showToast(':car: The ' + (this.kind === 'rubberbullet' ? 'shooter van' : 'acid cannon vehicle') + ' has been wrecked! A replacement arrives next wave.');
+    }
+    repairFull(){
+        this.hp = this.maxHp;
+        this.gunnerHp = [GUNNER_HP, GUNNER_HP];
     }
     ammoPct(){ return Math.max(0, Math.min(1, this.ammo / this.maxAmmo)); }
     isRefilling(){ return !!(this.refill && this.refill.phase === 'filling'); }
@@ -4092,8 +4214,16 @@ class WaterCannonVehicle {
         for (const k of game.k9s) if (k.alive) push(k);
     }
     update(dt){
-        if (!this.alive) return;
+        if (!this.alive){ if (this.destroyedT > 0) this.destroyedT -= dt; return; }
         this.lightPhase += dt;
+        if (this.hitFlash > 0) this.hitFlash -= dt;
+        this._gp = this.gunnerPositions();
+        // Back at the station the crew patch the vehicle up and the gunners get back on their feet.
+        if ((this.hp < this.maxHp || this.gunnerHp[0] <= 0 || this.gunnerHp[1] <= 0) && isAtStation(this.x, this.y)){
+            this.hp = Math.min(this.maxHp, this.hp + this.maxHp * 0.06 * dt);
+            this.stationT = (this.stationT || 0) + dt;
+            if (this.stationT > 5){ this.stationT = 0; this.gunnerHp = [GUNNER_HP, GUNNER_HP]; }
+        } else this.stationT = 0;
 
         let da = this.targetAngle - this.angle;
         while (da > Math.PI) da -= Math.PI * 2;
@@ -4193,14 +4323,29 @@ class WaterCannonVehicle {
         }
         if (!wasOut) { this.gunnerFireTimer = [0.8, 1.5]; }
         this.gunnerDeployT = Math.min(1, this.gunnerDeployT + dt * 3);
-        const positions = this.gunnerPositions();
-        for (let i = 0; i < 2; i++) {
-            const tg = this.findRubberTarget(positions[i]);              // the gunner turns to face what he is covering
-            this.gunnerAim[i] = tg ? Math.atan2(tg.y - positions[i].y, tg.x - positions[i].x) : null;
+        const positions = this._gp || this.gunnerPositions();
+        for (let i = 0; i < 2; i++){
+            this.gunnerAnimT[i] += dt;
+            const up = this.gunnerHp[i] > 0;
+            const tg = up ? this.findRubberTarget(positions[i]) : null;
+            if (tg){
+                // Only the arms swing round to cover the zombie; the body just faces left or right.
+                const aim = Math.atan2(tg.y - positions[i].y, tg.x - positions[i].x);
+                const cx = Math.cos(aim);
+                if (Math.abs(cx) > 0.18) this.gunnerFace[i] = cx < 0 ? -1 : 1;
+                const rel = Math.atan2(Math.sin(aim), cx * this.gunnerFace[i]);
+                this.gunnerArm[i] += (rel - this.gunnerArm[i]) * Math.min(1, dt * 9);
+            } else {
+                this.gunnerArm[i] += (GUNNER_CARRY - this.gunnerArm[i]) * Math.min(1, dt * 5);
+            }
+            if (!up) continue;
             this.gunnerFireTimer[i] -= dt;
-            if (this.gunnerFireTimer[i] <= 0) {
-                this.gunnerFireTimer[i] = RUBBER_BULLET_COOLDOWN;
-                if (this.ammo >= 1) this.fireRubberRound(positions[i]);
+            if (this.gunnerFireTimer[i] <= 0){
+                if (tg && this.ammo >= 1){
+                    this.gunnerFireTimer[i] = RUBBER_BULLET_COOLDOWN;
+                    this.gunnerAnimT[i] = 0;                 // the firing animation only starts when a round actually goes
+                    this.fireRubberRound(positions[i]);
+                } else this.gunnerFireTimer[i] = 0.25;       // nothing to shoot (or no rounds left): look again shortly, no animation
             }
         }
     }
@@ -4218,7 +4363,8 @@ class WaterCannonVehicle {
         const target = this.findRubberTarget(pos);
         if (!target) return;
         this.ammo = Math.max(0, this.ammo - 1);          // one round per shot, only when there is something to shoot
-        damageZombie(target, RUBBER_BULLET_DAMAGE);
+        // One baton round drops one zombie, whatever its health (a hound's thick hide is allowed for).
+        damageZombie(target, Math.max(RUBBER_BULLET_DAMAGE, target.hp / (target.kind === 'hound' ? HOUND_ARMOR : 1) + 1));
         target.stunTimer = Math.max(target.stunTimer || 0, RUBBER_BULLET_STUN);
         if (!game.rubberTracers) game.rubberTracers = [];
         game.rubberTracers.push({ x0: pos.x, y0: pos.y, y1: target.y, x1: target.x, t: 0.14 });
@@ -4363,7 +4509,43 @@ class WaterCannonVehicle {
         ctx.stroke();
         ctx.restore();
     }
-    draw(ctx) {
+    drawWreck(ctx){
+        if (this.destroyedT <= 0) return;
+        const sx = this.x - game.camera.x, sy = this.y - game.camera.y;
+        if (sx < -200 || sy < -200 || sx > game.width + 200 || sy > game.height + 200) return;
+        const isRubber = this.kind === 'rubberbullet';
+        const sheet = assets[isRubber ? 'response_van_sheet' : 'wc_sheet'];
+        const t = performance.now() / 1000;
+        ctx.save();
+        ctx.globalAlpha = Math.min(0.6, this.destroyedT / 4);
+        if (sheet){
+            const fi = this.frameIndex(), col = fi % 7, row = (fi / 7) | 0, half = WC_CELL / 2;
+            const sm = ctx.imageSmoothingEnabled; ctx.imageSmoothingEnabled = false;
+            ctx.drawImage(sheet, col * WC_CELL, row * WC_CELL, WC_CELL, WC_CELL, sx - half * WC_SCALE, sy - half * WC_SCALE, WC_CELL * WC_SCALE, WC_CELL * WC_SCALE);
+            ctx.imageSmoothingEnabled = sm;
+        }
+        ctx.globalAlpha = Math.min(0.75, this.destroyedT / 3);
+        ctx.fillStyle = 'rgba(15,15,18,0.55)';
+        ctx.beginPath(); ctx.ellipse(sx, sy, TILE * WC_LENGTH_TILES * 0.42, TILE * 0.8, this.angle, 0, Math.PI * 2); ctx.fill();
+        for (let k = 0; k < 5; k++){
+            const ph = (t * 0.7 + k * 0.37) % 1;
+            ctx.fillStyle = 'rgba(70,70,76,' + (0.5 * (1 - ph)).toFixed(2) + ')';
+            ctx.beginPath(); ctx.arc(sx + (k - 2) * 7 + Math.sin(t * 2 + k) * 3, sy - ph * 34, 5 + ph * 7, 0, Math.PI * 2); ctx.fill();
+        }
+        ctx.restore();
+    }
+    drawHealth(ctx, sx, sy){
+        if (this.hp < this.maxHp) drawHpBar(ctx, sx, sy - TILE * 1.45, this.hp, this.maxHp, '#6cc4ff');
+        if (this.hp < this.maxHp * 0.4){                    // a damaged vehicle smokes
+            const t = performance.now() / 1000;
+            for (let k = 0; k < 3; k++){
+                const ph = (t * 0.9 + k * 0.33) % 1;
+                ctx.fillStyle = 'rgba(60,60,66,' + (0.45 * (1 - ph)).toFixed(2) + ')';
+                ctx.beginPath(); ctx.arc(sx + (k - 1) * 6, sy - 8 - ph * 26, 3.5 + ph * 5, 0, Math.PI * 2); ctx.fill();
+            }
+        }
+    }
+    draw(ctx){
         if (!this.alive) return;
         const sx = this.x - game.camera.x, sy = this.y - game.camera.y;
         if (sx < -200 || sy < -200 || sx > game.width + 200 || sy > game.height + 200) return;
@@ -4413,6 +4595,11 @@ class WaterCannonVehicle {
             ctx.beginPath(); ctx.arc(lx, ly, rad, 0, Math.PI * 2); ctx.fill();
         });
         ctx.imageSmoothingEnabled = smooth;
+        if (this.hitFlash > 0){
+            ctx.fillStyle = 'rgba(255,90,70,' + (this.hitFlash / 0.18 * 0.35).toFixed(2) + ')';
+            ctx.beginPath(); ctx.ellipse(sx, sy, TILE * WC_LENGTH_TILES * 0.46, TILE * 0.85, this.angle, 0, Math.PI * 2); ctx.fill();
+        }
+        this.drawHealth(ctx, sx, sy);
         if (isRubber) this.drawGunners(ctx);
         this.drawAmmoBar(ctx, sx, sy);
     }
@@ -4440,24 +4627,31 @@ function drawRubberGunnerFigure(ctx, vehicle, pos) {
     const img = assets['gunner_sheet'];
     if (!img) { drawRubberGunnerFallback(ctx, vehicle, pos); return; }
     const i = pos.side < 0 ? 0 : 1;
-    const ft = vehicle.gunnerFireTimer ? vehicle.gunnerFireTimer[i] : 0;
-    const since = RUBBER_BULLET_COOLDOWN - ft;
-    const aim = vehicle.gunnerAim ? vehicle.gunnerAim[i] : null;
-    const hasAim = aim !== null && aim !== undefined;
-    let col = hasAim ? 1 : 0;
-    if (since >= 0 && since < 0.16) col = 2;
-    else if (since >= 0.16 && since < 0.6) col = 3;
-    let face = pos.side < 0 ? -1 : 1, tilt = 0;
-    if (hasAim) { face = Math.cos(aim) < 0 ? -1 : 1; tilt = Math.max(-0.55, Math.min(0.55, Math.atan2(Math.sin(aim), Math.abs(Math.cos(aim))))); }
+    // down: he lies flat until the station patches the van up
+    if (vehicle.gunnerHp && vehicle.gunnerHp[i] <= 0) {
+        ctx.save();
+        ctx.rotate(i === 0 ? -Math.PI / 2 : Math.PI / 2);
+        ctx.globalAlpha = 0.85;
+        ctx.drawImage(img, 0, 0, 64, 64, -24, -46, 48, 48);
+        ctx.restore();
+        return;
+    }
+    const face = vehicle.gunnerFace ? vehicle.gunnerFace[i] : (i === 0 ? -1 : 1);
+    const t = vehicle.gunnerAnimT ? vehicle.gunnerAnimT[i] : 9;
+    const armCol = t < 0.12 ? 2 : (t < 0.55 ? 3 : 1);          // flash, then reload - only straight after a shot
+    const ang = vehicle.gunnerArm ? vehicle.gunnerArm[i] : GUNNER_CARRY;
     ctx.fillStyle = 'rgba(255,230,90,0.20)';
     ctx.beginPath(); ctx.ellipse(0, 1.5, 11, 4.4, 0, 0, Math.PI * 2); ctx.fill();
     ctx.strokeStyle = 'rgba(255,230,90,0.55)'; ctx.lineWidth = 1;
     ctx.beginPath(); ctx.ellipse(0, 1.5, 11, 4.4, 0, 0, Math.PI * 2); ctx.stroke();
     ctx.save();
     ctx.scale(face, 1);
-    ctx.translate(0, -20); ctx.rotate(tilt); ctx.translate(0, 20);
-    ctx.drawImage(img, col * 64, 0, 64, 64, -24, -42, 48, 48);       // drawn a little larger than the other officers so he is easy to spot
+    ctx.drawImage(img, 0, 0, 64, 64, -24, -42, 48, 48);             // body: never rotates
+    ctx.translate(-0.75, -20.25);                                    // shoulder
+    ctx.rotate(ang);
+    ctx.drawImage(img, armCol * 64, 0, 64, 64, -13.5, -24, 48, 48);   // arms + launcher swing round the shoulder
     ctx.restore();
+    if (vehicle.gunnerHp && vehicle.gunnerHp[i] < GUNNER_HP) drawHpBar(ctx, 0, -32, vehicle.gunnerHp[i], GUNNER_HP, '#6cc4ff');
 }
 function drawRubberGunnerFallback(ctx, vehicle, pos) {
     if (pos.side < 0) ctx.scale(-1, 1);
@@ -4474,7 +4668,7 @@ function drawRubberGunnerFallback(ctx, vehicle, pos) {
     ctx.strokeStyle = OFFICER_PALETTE.dark; ctx.lineWidth = 0.8; ctx.stroke();
     ctx.fillStyle = '#1c2230';
     ctx.beginPath(); ctx.arc(0, -H * 0.74, H * 0.18, 0, Math.PI * 2); ctx.fill();
-    const fireGlow = (vehicle.gunnerFireTimer && vehicle.gunnerFireTimer[pos.side < 0 ? 0 : 1] > RUBBER_BULLET_COOLDOWN - 0.12);
+    const fireGlow = (vehicle.gunnerAnimT && vehicle.gunnerAnimT[pos.side < 0 ? 0 : 1] < 0.12);
     ctx.save();
     ctx.translate(2.4, -H * 0.42);
     ctx.rotate(-0.55);
@@ -5027,17 +5221,18 @@ function updateAutoFacing(dt){
             if (d2 < bd){ bd = d2; best = z; }
         }
         if (!best) continue;
+        // A line keeps the axis it was set up on: a horizontal line stays horizontal, a vertical line stays vertical.
+        // It only ever turns 180 degrees, and only when the threat has really got behind it (not while it walks past).
+        let fx0 = sy.facingX || 0, fy0 = sy.facingY || 0;
+        if (!fx0 && !fy0) fx0 = 1;
+        sy._flipCd = Math.max(0, (sy._flipCd || 0) - 0.3);
         const dx = best.x - cx, dy = best.y - cy;
-        const horiz = sy.facingY === 0;
-        let nfx = sy.facingX, nfy = sy.facingY;
-        if (horiz){
-            if (Math.abs(dy) > Math.abs(dx)*1.35 && Math.abs(dy) > TILE*3){ nfx = 0; nfy = Math.sign(dy) || 1; }
-            else if (Math.abs(dx) > TILE*3){ nfx = Math.sign(dx); nfy = 0; }
-        } else {
-            if (Math.abs(dx) > Math.abs(dy)*1.35 && Math.abs(dx) > TILE*3){ nfx = Math.sign(dx) || 1; nfy = 0; }
-            else if (Math.abs(dy) > TILE*3){ nfx = 0; nfy = Math.sign(dy); }
+        const along = dx * fx0 + dy * fy0;                                  // + in front of the line, - behind it
+        const beside = Math.abs(fy0 === 0 ? dy : dx);                      // how far to one side
+        if (along < -TILE * 4 && -along > beside * 0.6 && sy._flipCd <= 0){
+            sy.facingX = -fx0; sy.facingY = -fy0;
+            sy._flipCd = 3;
         }
-        if (nfx !== sy.facingX || nfy !== sy.facingY){ sy.facingX = nfx; sy.facingY = nfy; }
     }
 }
 function updateSyndicateMovement(dt){
@@ -5100,21 +5295,23 @@ function triggerAllOut(){
     if (game.allOutCooldown > 0 || game.gameOver) return;
     game.allOutCooldown = ALL_OUT_COOLDOWN;
     game.allOutActive = ALL_OUT_DURATION;
+    buildAllOutBox();                                                // rebuilt now so it matches the map that is loaded
+    // They pour out of the station door a few at a time and run to their places in the block.
+    const door = clampTarget(BASE_TILE_X * TILE + TILE / 2, (STATION_TY0 - 0.6) * TILE);
+    let n = 0;
     for (const slot of ALL_OUT_BOX_TILES){
         const sx = slot.tx*TILE + TILE/2;
         const sy = slot.ty*TILE + TILE/2;
-        if (!isValidPosition(sx, sy)){
-            const c = clampTarget(sx, sy);
-            const o = new Officer(c.x, c.y, -1, { allOut:true });
-            o.homeX = c.x; o.homeY = c.y;
-            game.officers.push(o);
-        } else {
-            const o = new Officer(sx, sy, -1, { allOut:true });
-            o.homeX = sx; o.homeY = sy;
-            game.officers.push(o);
-        }
+        if (!isValidPosition(sx, sy)) continue;                      // never stack officers on a building
+        const o = new Officer(door.x + (Math.random() - 0.5) * TILE * 2, door.y + (Math.random() - 0.5) * TILE * 0.6, -1, { allOut:true });
+        o.homeX = sx; o.homeY = sy;
+        o.spawnDelay = n * 0.09;                                     // staggered release
+        o.state = 'waiting';
+        o.allOutTimer = ALL_OUT_DURATION + 6;                        // the run-out does not eat into their time on the line
+        game.officers.push(o);
+        n++;
     }
-    showToast(':siren: ALL OUT! Shield box formed around the station!');
+    showToast(':siren: ALL OUT! Officers pouring out to block the station junction!');
     updateAllOutButton();
 }
 function updateAllOutButton(){
@@ -5771,6 +5968,11 @@ function exitDefence(exitId){
     return 1 + score / Math.max(1, samples);
 }
 function startWave(){
+    for (const idx of [VEHICLE_SYNDICATE, VEHICLE_SYNDICATE_2]){      // overnight the workshop sorts the vehicles out
+        const vv = game.vehicles[idx];
+        if (!vv) game.vehicles[idx] = new WaterCannonVehicle(idx, idx === VEHICLE_SYNDICATE_2 ? 'rubberbullet' : 'watercannon');
+        else if (vv.alive) vv.repairFull();
+    }
     game.waveClock = 0; game.fsIdle = 0; game.fsIdleFired = false; game.fsCapFired = false; game.fsClear = 0;
     game.waveState = 'active';
     game.waveMoralePct = 100;
@@ -6323,9 +6525,9 @@ function render(){
     all.sort((a, b) => a.y - b.y);
     all.forEach(u => u.draw(ctx));
     const v1 = vehicleAt(VEHICLE_SYNDICATE);
-    if (v1 && v1.alive) v1.draw(ctx);
+    if (v1 && v1.alive) v1.draw(ctx); else if (v1) v1.drawWreck(ctx);
     const v2 = vehicleAt(VEHICLE_SYNDICATE_2);
-    if (v2 && v2.alive) v2.draw(ctx);
+    if (v2 && v2.alive) v2.draw(ctx); else if (v2) v2.drawWreck(ctx);
     game.acidTeams.forEach(t => { if (t.alive) t.drawAcidCloud(ctx); });
     drawRubberTracers(ctx);
     for (const e of game.effects){
@@ -6803,6 +7005,7 @@ function loop(t){
                     z.beingDragged = false; z.grabber = null; z.stunTimer = 0;
                 }
             }
+            game._vht = vehicleHitTargets();
             game.zombies.forEach(z => z.update(dt));
             applyZombieSeparation(dt);
             for (const k in game.vehicles){
@@ -6833,7 +7036,7 @@ function loop(t){
             if (game.acidTeams.some(t => !t.alive)) game.acidTeams = game.acidTeams.filter(t => t.alive);
             if (game.officers.some(o => !o.alive)) game.officers = game.officers.filter(o => o.alive);
             for (const k in game.vehicles){
-                if (game.vehicles[k] && !game.vehicles[k].alive) delete game.vehicles[k];
+                if (game.vehicles[k] && !game.vehicles[k].alive && !(game.vehicles[k].destroyedT > 0)) delete game.vehicles[k];
             }
         } catch (err) { reportError(err); }
     }

@@ -476,6 +476,7 @@
     <script src="js/maps/mapkit.js"></script>
     <script src="js/maps/base.js"></script>
     <script src="js/maps/promenade.js"></script>
+    <script src="js/maps/markettown.js"></script>
     <script src="js/difficulty.js"></script>
     <script src="js/audio.js"></script>
     <style id="cordon-v2">
@@ -676,6 +677,7 @@
             <button class="test-btn" id="t-heal">:plus: Heal all</button>
             <button class="test-btn" id="t-raiders">:crowd: +10 rioters</button>
             <button class="test-btn" id="t-hidden">:eye: +3 hidden rioters</button>
+            <button class="test-btn" id="t-allout">:siren: Next night = all-out riot</button>
             <button class="test-btn" id="t-event">:siren: Next riot event</button>
             <button class="test-btn" id="t-bruisers">:baton: +5 bruisers</button>
             <button class="test-btn" id="t-protest">:placard: +8 protest</button>
@@ -840,6 +842,8 @@
         hospital: { label: 'the hospital', causes: ['Nurses and patients gather at the hospital over ward closures.', 'Staff walk out at the hospital over pay and cuts.', 'A crowd demands the hospital stays open.'] },
         school:   { label: 'the school',   causes: ['Parents and pupils protest at the school over its planned closure.', 'Teachers and parents rally at the school over cuts.', 'A crowd gathers at the school gates over class sizes.'] },
         factory:  { label: 'the factory',  causes: ['Workers gather at the factory gates as jobs are cut.', 'A redundancy protest forms outside the factory.', 'Workers picket the factory over pay.'] },
+        townhall: { label: 'the town hall', causes: ['Residents gather outside the town hall over a new council tax rise.', 'A crowd demands answers from the council on cuts to services.', 'Campaigners march on the town hall over the planned bin charges.', 'Councillors are jeered as they arrive at the town hall.'] },
+        library:  { label: 'the library',  causes: ['Campaigners gather at the library over its planned closure.', 'Readers and parents rally outside the library as opening hours are cut.'] },
     };
     let STATION_TX0 = 48, STATION_TY0 = 43, STATION_TW = 12, STATION_TH = 9;
     let BASE_TILE_X = 54, BASE_TILE_Y = 38, BASE_NODE_ID = 'B54';
@@ -1496,6 +1500,7 @@
         clearBlockades();
         game.blockadeVersion++;
         game.raiders = []; game.projectiles = []; game.effects = []; game.attackMarkers = []; game.heavyAttack = [];
+        game.fires = []; game.gaps = []; game.callouts = []; game.allOutRiot = false;
         game.waveSpawnQueue = [];
         game.riot = null; game.squads = new Map();                 // a night in progress is dropped: the new streets get a fresh one
         if (game.waveState === 'active') { game.waveState = 'intermission'; game.waveTimer = 2.5; }
@@ -1582,9 +1587,13 @@
         const plan = { type: (pick && Math.random() < 0.45) ? 'march' : 'rally', exitId: pick, rallyTime: 28 + Math.random() * 16, target: null };
         // Most rallies are about something else in town: the hospital, the school or the factory. Some are still at the station.
         if (plan.type === 'rally') {
-            const keys = Object.keys(LANDMARK_BUILDINGS).filter(k => getNode(LANDMARK_BUILDINGS[k].node));
+            const keys = Object.keys(LANDMARK_BUILDINGS).filter(k => getNode(LANDMARK_BUILDINGS[k].node) && LANDMARK_INFO[k]);
             if (keys.length && Math.random() < 0.75) {
-                const k = keys[Math.floor(Math.random() * keys.length)], info = LANDMARK_INFO[k];
+                // some places draw bigger crowds than others (a map can make the town hall the favourite)
+                const wts = keys.map(k => LANDMARK_BUILDINGS[k].weight || 1);
+                let roll = Math.random() * wts.reduce((a, b) => a + b, 0), ki = 0;
+                while (ki < keys.length - 1 && roll > wts[ki]) { roll -= wts[ki]; ki++; }
+                const k = keys[ki], info = LANDMARK_INFO[k];
                 plan.target = { type: k, nodeId: LANDMARK_BUILDINGS[k].node, building: LANDMARK_BUILDINGS[k],
                                 text: info.causes[Math.floor(Math.random() * info.causes.length)] };
             }
@@ -2007,6 +2016,7 @@
         commanders: [], commanderRespawn: [0, 0, 0],
         townSeed: 1, paused: false, ready: false, playRequested: false, loopStarted: false,
         projectiles: [],
+        fires: [], gaps: [], callouts: [], allOutRiot: false,
         terrainCanvas: null, minimapTerrainCanvas: null,
         camera: { x: 0, y: 0 },
         cameraUserLock: 0, camGlide: 1.4,
@@ -2165,6 +2175,21 @@
                 ROAD_ADJ.get(b.id).push({ id: a.id });
             }
         }
+        // Diagonal roads: the map file lists which pairs of nodes they join (links), and we check the road really is there.
+        for (const lk of ((MAP_DEF && MAP_DEF.links) || [])) {
+            const a = getNode(lk[0]), b = getNode(lk[1]);
+            if (!a || !b) { console.warn('map link has no node', lk); continue; }
+            const steps = Math.ceil(Math.hypot(b.x - a.x, b.y - a.y) * 2);
+            let clear = true;
+            for (let i = 0; i <= steps && clear; i++) {
+                const f = i / steps;
+                if (!tileIsRoad(Math.floor(a.x + (b.x - a.x) * f), Math.floor(a.y + (b.y - a.y) * f))) clear = false;
+            }
+            if (!clear) { console.warn('map link is not road all the way', lk); continue; }
+            ROAD_EDGES.push({ key: edgeKey(a.id, b.id), a: a.id, b: b.id, dir: 'd' });
+            ROAD_ADJ.get(a.id).push({ id: b.id });
+            ROAD_ADJ.get(b.id).push({ id: a.id });
+        }
     }
 
     function findEdgeForSpot(spot) {
@@ -2172,6 +2197,13 @@
         for (const e of ROAD_EDGES) {
             const a = getNode(e.a), b = getNode(e.b);
             if (!a || !b) continue;
+            if (e.dir === 'd') {
+                const ex = b.x - a.x, ey = b.y - a.y, el = Math.hypot(ex, ey) || 1;
+                const t = ((sx - a.x) * ex + (sy - a.y) * ey) / el;
+                if (t < -0.6 || t > el + 0.6) continue;
+                if (Math.abs((sx - a.x) * ey - (sy - a.y) * ex) / el > 0.9) continue;
+                return e.key;
+            }
             if (e.dir === 'h') {
                 if (Math.abs(a.y - sy) > 0.6) continue;
                 const lo = Math.min(a.x, b.x), hi = Math.max(a.x, b.x);
@@ -2194,26 +2226,38 @@
     }
 
     // ========== JUNCTION POSTS ==========
-    const JUNCTION_DIRS = ['N', 'S', 'E', 'W'];
+    const JUNCTION_DIRS = ['N', 'S', 'E', 'W', 'NE', 'NW', 'SE', 'SW'];
+    const R2 = Math.SQRT1_2;
     const JUNCTION_DIR_VEC = {
         N: { fx: 0, fy: -1, px: 1,  py: 0 },
         S: { fx: 0, fy: 1,  px: -1, py: 0 },
         E: { fx: 1, fy: 0,  px: 0,  py: 1 },
         W: { fx: -1, fy: 0, px: 0,  py: -1 },
+        // the four diagonal arms (only maps with diagonal roads have these)
+        NE: { fx: R2, fy: -R2, px: R2, py: R2, diag: true },
+        NW: { fx: -R2, fy: -R2, px: R2, py: -R2, diag: true },
+        SE: { fx: R2, fy: R2, px: -R2, py: R2, diag: true },
+        SW: { fx: -R2, fy: R2, px: -R2, py: -R2, diag: true },
     };
+    // Roads on the same side of a junction are covered by the same post (a post at E also covers the diagonals on the east side...).
+    const JUNCTION_SIDE_PERPS = {
+        N: ['E', 'W', 'NE', 'NW'], S: ['E', 'W', 'SE', 'SW'],
+        E: ['N', 'S', 'NE', 'SE'], W: ['N', 'S', 'NW', 'SW'],
+    };
+    const JUNCTION_NAMES = { N: 'north', S: 'south', E: 'east', W: 'west', NE: 'north-east', NW: 'north-west', SE: 'south-east', SW: 'south-west' };
     function buildJunctionPosts() {
         JUNCTION_POSTS = [];
         // The posts must come from the layout of the map that is loaded NOW. (They used to read the previous map's
         // layout, because the layout is only refreshed later in generateMap(), so the dots landed in the wrong places.)
         roadLayout = computeRoadLayout();
         if (!roadLayout) return;
-        for (const j of roadLayout.junctions) {
+        for (const j of roadLayout.junctions.concat(roadLayout.diagJ || [])) {
             if (j.isBase) continue;
-            const armMap = { N: j.arms.n, S: j.arms.s, E: j.arms.e, W: j.arms.w };
+            const armMap = { N: j.arms.n, S: j.arms.s, E: j.arms.e, W: j.arms.w, NE: j.arms.ne, NW: j.arms.nw, SE: j.arms.se, SW: j.arms.sw };
             for (const dir of JUNCTION_DIRS) {
                 if (!armMap[dir]) continue;
                 const cover = [dir];
-                const perps = (dir === 'N' || dir === 'S') ? ['E', 'W'] : ['N', 'S'];
+                const perps = JUNCTION_SIDE_PERPS[dir] || [];
                 for (const p of perps) if (armMap[p]) cover.push(p);
                 JUNCTION_POSTS.push({
                     key: 'J' + Math.round(j.x / TILE) + '_' + Math.round(j.y / TILE) + '_' + dir,
@@ -2228,7 +2272,8 @@
     }
     function postDotPos(post) {
         const d = JUNCTION_DIR_VEC[post.dir];
-        return { x: post.junction.x + d.fx * 16, y: post.junction.y + d.fy * 16 };
+        const dist = d.diag ? 27 : 16;
+        return { x: post.junction.x + d.fx * dist, y: post.junction.y + d.fy * dist };
     }
 
     function rebuildRoadNetwork() {
@@ -2503,6 +2548,7 @@
 
     const ASSET_PATHS = {};
     ASSET_PATHS['city_atlas'] = 'assets/map/buildings/city_atlas.png';
+    ASSET_PATHS['town_atlas'] = 'assets/map/buildings/town_atlas.png';      // the high-street shops, town hall and library for the Market Town map
     ASSET_PATHS['response_van_sheet'] = 'assets/map/vehicles/response_van_sheet.png';
 
     const PROP_KEYS = ['prop_tree', 'prop_tree_tall', 'prop_bench', 'prop_streetlight', 'prop_hydrant',
@@ -2571,6 +2617,8 @@
     }
 
     const ATLAS_TABLE = {"hospital":{"kind":"b","landmark":true,"zone":"res","wT":12,"hT":8,"src":"hospital","noflip":true,"x":0,"y":880,"w":192,"h":128},"school":{"kind":"b","landmark":true,"zone":"res","wT":10,"hT":7,"src":"school","noflip":true,"x":200,"y":880,"w":160,"h":112},"factory":{"kind":"b","landmark":true,"zone":"ind","wT":12,"hT":8,"src":"factory","noflip":true,"x":370,"y":880,"w":192,"h":128},"rb1_3":{"kind":"b","zone":"biz","wT":3,"hT":5,"src":"rb1","noflip":false,"x":740,"y":374,"w":48,"h":80},"rb1_3_v1":{"kind":"b","zone":"biz","wT":3,"hT":5,"src":"rb1","noflip":false,"x":790,"y":374,"w":48,"h":80},"rb1_4":{"kind":"b","zone":"biz","wT":4,"hT":7,"src":"rb1","noflip":false,"x":0,"y":146,"w":64,"h":112},"rb1_4_v1":{"kind":"b","zone":"biz","wT":4,"hT":7,"src":"rb1","noflip":false,"x":66,"y":146,"w":64,"h":112},"rb2_4":{"kind":"b","zone":"biz","wT":4,"hT":4,"src":"rb2","noflip":false,"x":874,"y":472,"w":64,"h":64},"rb2_4_v1":{"kind":"b","zone":"biz","wT":4,"hT":4,"src":"rb2","noflip":false,"x":940,"y":472,"w":64,"h":64},"rb2_5":{"kind":"b","zone":"biz","wT":5,"hT":5,"src":"rb2","noflip":false,"x":840,"y":374,"w":80,"h":80},"rb2_5_v1":{"kind":"b","zone":"biz","wT":5,"hT":5,"src":"rb2","noflip":false,"x":922,"y":374,"w":80,"h":80},"rb3_3":{"kind":"b","zone":"biz","wT":3,"hT":5,"src":"rb3","noflip":true,"x":0,"y":472,"w":48,"h":80},"rb3_4":{"kind":"b","zone":"biz","wT":4,"hT":6,"src":"rb3","noflip":true,"x":180,"y":260,"w":64,"h":96},"rb4_4":{"kind":"b","zone":"biz","wT":4,"hT":4,"src":"rb4","noflip":false,"x":0,"y":554,"w":64,"h":64},"rb4_4_v1":{"kind":"b","zone":"biz","wT":4,"hT":4,"src":"rb4","noflip":false,"x":66,"y":554,"w":64,"h":64},"rb4_5":{"kind":"b","zone":"biz","wT":5,"hT":5,"src":"rb4","noflip":false,"x":50,"y":472,"w":80,"h":80},"rb4_5_v1":{"kind":"b","zone":"biz","wT":5,"hT":5,"src":"rb4","noflip":false,"x":132,"y":472,"w":80,"h":80},"rb5_8":{"kind":"b","zone":"biz","wT":8,"hT":5,"src":"rb5","noflip":false,"x":214,"y":472,"w":128,"h":80},"rb5_10":{"kind":"b","zone":"biz","wT":10,"hT":6,"src":"rb5","noflip":false,"x":246,"y":260,"w":160,"h":96},"rb6_10":{"kind":"b","zone":"biz","wT":10,"hT":6,"src":"rb6","noflip":false,"x":408,"y":260,"w":160,"h":96},"rb6_12":{"kind":"b","zone":"biz","wT":12,"hT":7,"src":"rb6","noflip":false,"x":132,"y":146,"w":192,"h":112},"rb7_3":{"kind":"b","zone":"biz","wT":3,"hT":6,"src":"rb7","noflip":false,"x":570,"y":260,"w":48,"h":96},"rb7_3_v1":{"kind":"b","zone":"biz","wT":3,"hT":6,"src":"rb7","noflip":false,"x":620,"y":260,"w":48,"h":96},"rb7_4":{"kind":"b","zone":"biz","wT":4,"hT":8,"src":"rb7","noflip":false,"x":328,"y":0,"w":64,"h":128},"rb7_4_v1":{"kind":"b","zone":"biz","wT":4,"hT":8,"src":"rb7","noflip":false,"x":394,"y":0,"w":64,"h":128},"cb04_4":{"kind":"b","zone":"biz","wT":4,"hT":5,"src":"cb04","noflip":false,"x":344,"y":472,"w":64,"h":80},"cb04_5":{"kind":"b","zone":"biz","wT":5,"hT":6,"src":"cb04","noflip":false,"x":670,"y":260,"w":80,"h":96},"cb10_8":{"kind":"b","zone":"biz","wT":8,"hT":7,"src":"cb10","noflip":false,"x":326,"y":146,"w":128,"h":112},"cb10_10":{"kind":"b","zone":"biz","wT":10,"hT":8,"src":"cb10","noflip":false,"x":460,"y":0,"w":160,"h":128},"cb01_3":{"kind":"b","zone":"res","wT":3,"hT":7,"src":"cb01","noflip":false,"x":456,"y":146,"w":48,"h":112},"cb01_3_v1":{"kind":"b","zone":"res","wT":3,"hT":7,"src":"cb01","noflip":false,"x":506,"y":146,"w":48,"h":112},"cb01_4":{"kind":"b","zone":"res","wT":4,"hT":9,"src":"cb01","noflip":false,"x":0,"y":0,"w":64,"h":144},"cb01_4_v1":{"kind":"b","zone":"res","wT":4,"hT":9,"src":"cb01","noflip":false,"x":66,"y":0,"w":64,"h":144},"cb02_3":{"kind":"b","zone":"res","wT":3,"hT":5,"src":"cb02","noflip":false,"x":410,"y":472,"w":48,"h":80},"cb02_3_v1":{"kind":"b","zone":"res","wT":3,"hT":5,"src":"cb02","noflip":false,"x":460,"y":472,"w":48,"h":80},"cb02_4":{"kind":"b","zone":"res","wT":4,"hT":7,"src":"cb02","noflip":false,"x":556,"y":146,"w":64,"h":112},"cb02_4_v1":{"kind":"b","zone":"res","wT":4,"hT":7,"src":"cb02","noflip":false,"x":622,"y":146,"w":64,"h":112},"cb03_4":{"kind":"b","zone":"res","wT":4,"hT":5,"src":"cb03","noflip":false,"x":510,"y":472,"w":64,"h":80},"cb03_4_v1":{"kind":"b","zone":"res","wT":4,"hT":5,"src":"cb03","noflip":false,"x":576,"y":472,"w":64,"h":80},"cb03_5":{"kind":"b","zone":"res","wT":5,"hT":6,"src":"cb03","noflip":false,"x":752,"y":260,"w":80,"h":96},"cb03_5_v1":{"kind":"b","zone":"res","wT":5,"hT":6,"src":"cb03","noflip":false,"x":834,"y":260,"w":80,"h":96},"cb03_6":{"kind":"b","zone":"res","wT":6,"hT":7,"src":"cb03","noflip":false,"x":688,"y":146,"w":96,"h":112},"cb03_6_v1":{"kind":"b","zone":"res","wT":6,"hT":7,"src":"cb03","noflip":false,"x":786,"y":146,"w":96,"h":112},"cb06_3":{"kind":"b","zone":"res","wT":3,"hT":4,"src":"cb06","noflip":false,"x":132,"y":554,"w":48,"h":64},"cb06_3_v1":{"kind":"b","zone":"res","wT":3,"hT":4,"src":"cb06","noflip":false,"x":182,"y":554,"w":48,"h":64},"cb06_4":{"kind":"b","zone":"res","wT":4,"hT":6,"src":"cb06","noflip":false,"x":916,"y":260,"w":64,"h":96},"cb06_4_v1":{"kind":"b","zone":"res","wT":4,"hT":6,"src":"cb06","noflip":false,"x":0,"y":374,"w":64,"h":96},"cb08_4":{"kind":"b","zone":"res","wT":4,"hT":4,"src":"cb08","noflip":false,"x":232,"y":554,"w":64,"h":64},"cb08_4_v1":{"kind":"b","zone":"res","wT":4,"hT":4,"src":"cb08","noflip":false,"x":298,"y":554,"w":64,"h":64},"cb08_5":{"kind":"b","zone":"res","wT":5,"hT":6,"src":"cb08","noflip":false,"x":66,"y":374,"w":80,"h":96},"cb08_5_v1":{"kind":"b","zone":"res","wT":5,"hT":6,"src":"cb08","noflip":false,"x":148,"y":374,"w":80,"h":96},"cb09_4":{"kind":"b","zone":"res","wT":4,"hT":5,"src":"cb09","noflip":false,"x":642,"y":472,"w":64,"h":80},"cb09_4_v1":{"kind":"b","zone":"res","wT":4,"hT":5,"src":"cb09","noflip":false,"x":708,"y":472,"w":64,"h":80},"cb09_5":{"kind":"b","zone":"res","wT":5,"hT":6,"src":"cb09","noflip":false,"x":230,"y":374,"w":80,"h":96},"cb09_5_v1":{"kind":"b","zone":"res","wT":5,"hT":6,"src":"cb09","noflip":false,"x":312,"y":374,"w":80,"h":96},"cb05_3":{"kind":"b","zone":"ind","wT":3,"hT":5,"src":"cb05","noflip":false,"x":774,"y":472,"w":48,"h":80},"cb05_3_v1":{"kind":"b","zone":"ind","wT":3,"hT":5,"src":"cb05","noflip":false,"x":824,"y":472,"w":48,"h":80},"cb05_4":{"kind":"b","zone":"ind","wT":4,"hT":6,"src":"cb05","noflip":false,"x":394,"y":374,"w":64,"h":96},"cb05_4_v1":{"kind":"b","zone":"ind","wT":4,"hT":6,"src":"cb05","noflip":false,"x":460,"y":374,"w":64,"h":96},"cb05_5":{"kind":"b","zone":"ind","wT":5,"hT":8,"src":"cb05","noflip":false,"x":622,"y":0,"w":80,"h":128},"cb05_5_v1":{"kind":"b","zone":"ind","wT":5,"hT":8,"src":"cb05","noflip":false,"x":704,"y":0,"w":80,"h":128},"cb05_6":{"kind":"b","zone":"ind","wT":6,"hT":9,"src":"cb05","noflip":false,"x":132,"y":0,"w":96,"h":144},"cb05_6_v1":{"kind":"b","zone":"ind","wT":6,"hT":9,"src":"cb05","noflip":false,"x":230,"y":0,"w":96,"h":144},"cb07_3":{"kind":"b","zone":"ind","wT":3,"hT":4,"src":"cb07","noflip":false,"x":364,"y":554,"w":48,"h":64},"cb07_3_v1":{"kind":"b","zone":"ind","wT":3,"hT":4,"src":"cb07","noflip":false,"x":414,"y":554,"w":48,"h":64},"cb07_4":{"kind":"b","zone":"ind","wT":4,"hT":6,"src":"cb07","noflip":false,"x":526,"y":374,"w":64,"h":96},"cb07_4_v1":{"kind":"b","zone":"ind","wT":4,"hT":6,"src":"cb07","noflip":false,"x":592,"y":374,"w":64,"h":96},"cb07_5":{"kind":"b","zone":"ind","wT":5,"hT":7,"src":"cb07","noflip":false,"x":884,"y":146,"w":80,"h":112},"cb07_5_v1":{"kind":"b","zone":"ind","wT":5,"hT":7,"src":"cb07","noflip":false,"x":0,"y":260,"w":80,"h":112},"cb07_6":{"kind":"b","zone":"ind","wT":6,"hT":8,"src":"cb07","noflip":false,"x":786,"y":0,"w":96,"h":128},"cb07_6_v1":{"kind":"b","zone":"ind","wT":6,"hT":8,"src":"cb07","noflip":false,"x":884,"y":0,"w":96,"h":128},"cb08i_5":{"kind":"b","zone":"ind","wT":5,"hT":6,"src":"cb08i","noflip":false,"x":658,"y":374,"w":80,"h":96},"cb08i_6":{"kind":"b","zone":"ind","wT":6,"hT":7,"src":"cb08i","noflip":false,"x":82,"y":260,"w":96,"h":112},"bin_closed":{"kind":"p","cls":"bin","w":11,"h":17,"x":814,"y":554},"bin_open":{"kind":"p","cls":"bin","w":16,"h":17,"x":827,"y":554},"trashbag":{"kind":"p","cls":"bag","w":12,"h":11,"x":185,"y":620},"hydrant_r":{"kind":"p","cls":"hydrant","w":8,"h":14,"x":16,"y":620},"vend_beige":{"kind":"p","cls":"vending","w":25,"h":25,"x":665,"y":554},"vend_green":{"kind":"p","cls":"vending","w":14,"h":27,"x":610,"y":554},"vend_red":{"kind":"p","cls":"vending","w":21,"h":26,"x":642,"y":554},"vend_yellow":{"kind":"p","cls":"vending","w":14,"h":27,"x":626,"y":554},"lamp_dbl":{"kind":"p","cls":"lamp","w":25,"h":44,"x":510,"y":554},"box_h":{"kind":"p","cls":"box","w":10,"h":9,"x":296,"y":620},"box_v":{"kind":"p","cls":"box","w":11,"h":11,"x":199,"y":620},"box_open":{"kind":"p","cls":"box","w":12,"h":13,"x":121,"y":620},"bush1":{"kind":"p","cls":"plant","w":21,"h":17,"x":845,"y":554},"bush2":{"kind":"p","cls":"plant","w":21,"h":17,"x":868,"y":554},"plant1":{"kind":"p","cls":"pot","w":8,"h":17,"x":891,"y":554},"plant2":{"kind":"p","cls":"pot","w":16,"h":15,"x":946,"y":554},"plant3":{"kind":"p","cls":"pot","w":9,"h":14,"x":26,"y":620},"plant4":{"kind":"p","cls":"pot","w":8,"h":13,"x":135,"y":620},"plant5":{"kind":"p","cls":"pot","w":11,"h":15,"x":964,"y":554},"table_round":{"kind":"p","cls":"table","w":13,"h":10,"x":281,"y":620},"table_sq":{"kind":"p","cls":"table","w":12,"h":11,"x":212,"y":620},"table_red":{"kind":"p","cls":"table","w":16,"h":13,"x":145,"y":620},"chair_f":{"kind":"p","cls":"chair","w":7,"h":11,"x":226,"y":620},"chair_b":{"kind":"p","cls":"chair","w":7,"h":11,"x":235,"y":620},"chair_s":{"kind":"p","cls":"chair","w":7,"h":11,"x":244,"y":620},"chair_rf":{"kind":"p","cls":"chair","w":7,"h":11,"x":253,"y":620},"chair_rb":{"kind":"p","cls":"chair","w":8,"h":11,"x":262,"y":620},"chair_rs":{"kind":"p","cls":"chair","w":7,"h":11,"x":272,"y":620},"tree_a":{"kind":"p","cls":"tree","w":14,"h":36,"x":567,"y":554},"tree_b":{"kind":"p","cls":"tree","w":19,"h":46,"x":489,"y":554},"tree_c":{"kind":"p","cls":"tree","w":28,"h":40,"x":537,"y":554},"hoarding1":{"kind":"p","cls":"board","w":38,"h":20,"x":708,"y":554},"hoarding2":{"kind":"p","cls":"board","w":32,"h":20,"x":748,"y":554},"bench_f":{"kind":"p","cls":"bench","w":17,"h":15,"x":977,"y":554},"bench_s":{"kind":"p","cls":"bench","w":8,"h":20,"x":782,"y":554},"planter":{"kind":"p","cls":"planter","w":19,"h":14,"x":37,"y":620},"planter_b":{"kind":"p","cls":"planter","w":23,"h":14,"x":58,"y":620},"tyres":{"kind":"p","cls":"tyres","w":20,"h":13,"x":163,"y":620},"crate_a":{"kind":"p","cls":"box","w":12,"h":17,"x":901,"y":554},"crate_b":{"kind":"p","cls":"box","w":12,"h":17,"x":915,"y":554},"crate_iso":{"kind":"p","cls":"box","w":15,"h":16,"x":929,"y":554},"barrier":{"kind":"p","cls":"barrier","w":20,"h":18,"x":792,"y":554},"bin_c_open":{"kind":"p","cls":"bin","w":15,"h":15,"x":996,"y":554},"bin_c":{"kind":"p","cls":"bin","w":14,"h":15,"x":0,"y":620},"bin_lid":{"kind":"p","cls":"bag","w":13,"h":8,"x":308,"y":620},"utility":{"kind":"p","cls":"lamp","w":23,"h":56,"x":464,"y":554},"warn_sign":{"kind":"p","cls":"sign","w":12,"h":28,"x":583,"y":554},"round_sign":{"kind":"p","cls":"sign","w":11,"h":28,"x":597,"y":554},"ac_unit":{"kind":"p","cls":"machine","w":14,"h":22,"x":692,"y":554},"generator":{"kind":"p","cls":"machine","w":16,"h":14,"x":83,"y":620},"generator2":{"kind":"p","cls":"machine","w":18,"h":14,"x":101,"y":620}};
+    // New town-centre buildings (their pictures are in assets/map/buildings/town_atlas.png; 'file' says which picture)
+    Object.assign(ATLAS_TABLE, {"townhall":{"kind":"b","zone":"biz","wT":12,"hT":8,"src":"tm_townhall","noflip":true,"x":0,"y":0,"w":192,"h":128,"file":"town_atlas","landmark":true},"library":{"kind":"b","zone":"biz","wT":10,"hT":7,"src":"tm_library","noflip":true,"x":194,"y":0,"w":160,"h":112,"file":"town_atlas","landmark":true},"tm_shop3a":{"kind":"b","zone":"biz","wT":3,"hT":5,"src":"tm_shop3","noflip":false,"x":356,"y":0,"w":48,"h":80,"file":"town_atlas"},"tm_shop3b":{"kind":"b","zone":"biz","wT":3,"hT":5,"src":"tm_shop3","noflip":false,"x":406,"y":0,"w":48,"h":80,"file":"town_atlas"},"tm_shop3c":{"kind":"b","zone":"biz","wT":3,"hT":5,"src":"tm_shop3","noflip":false,"x":456,"y":0,"w":48,"h":80,"file":"town_atlas"},"tm_shop3d":{"kind":"b","zone":"biz","wT":3,"hT":6,"src":"tm_shop3","noflip":false,"x":506,"y":0,"w":48,"h":96,"file":"town_atlas"},"tm_shop4a":{"kind":"b","zone":"biz","wT":4,"hT":5,"src":"tm_shop4","noflip":false,"x":556,"y":0,"w":64,"h":80,"file":"town_atlas"},"tm_shop4b":{"kind":"b","zone":"biz","wT":4,"hT":6,"src":"tm_shop4","noflip":false,"x":622,"y":0,"w":64,"h":96,"file":"town_atlas"},"tm_shop5":{"kind":"b","zone":"biz","wT":5,"hT":5,"src":"tm_shop5","noflip":false,"x":688,"y":0,"w":80,"h":80,"file":"town_atlas"},"tm_pub":{"kind":"b","zone":"biz","wT":4,"hT":5,"src":"tm_pub","noflip":false,"x":770,"y":0,"w":64,"h":80,"file":"town_atlas"},"tm_bank":{"kind":"b","zone":"biz","wT":5,"hT":6,"src":"tm_bank","noflip":false,"x":836,"y":0,"w":80,"h":96,"file":"town_atlas"},"tm_office":{"kind":"b","zone":"biz","wT":5,"hT":7,"src":"tm_office","noflip":false,"x":918,"y":0,"w":80,"h":112,"file":"town_atlas"},"tm_dept":{"kind":"b","zone":"biz","wT":8,"hT":6,"src":"tm_dept","noflip":false,"x":0,"y":130,"w":128,"h":96,"file":"town_atlas"},"tm_cafe3":{"kind":"b","zone":"biz","wT":3,"hT":4,"src":"tm_cafe","noflip":false,"x":130,"y":130,"w":48,"h":64,"file":"town_atlas"},"tm_terr4a":{"kind":"b","zone":"res","wT":4,"hT":5,"src":"tm_terr","noflip":false,"x":180,"y":130,"w":64,"h":80,"file":"town_atlas"},"tm_terr4b":{"kind":"b","zone":"res","wT":4,"hT":5,"src":"tm_terr","noflip":false,"x":246,"y":130,"w":64,"h":80,"file":"town_atlas"},"tm_terr6":{"kind":"b","zone":"res","wT":6,"hT":5,"src":"tm_terr","noflip":false,"x":312,"y":130,"w":96,"h":80,"file":"town_atlas"},"tm_terr3":{"kind":"b","zone":"res","wT":3,"hT":5,"src":"tm_terr","noflip":false,"x":410,"y":130,"w":48,"h":80,"file":"town_atlas"}});
 
     ASSET_PATHS['units_sheet'] = 'assets/units/units_sheet.png';
     ASSET_PATHS['gunner_sheet'] = 'assets/units/gunner_sheet.png';   // the two baton-round gunners that climb out of the rubber van
@@ -2597,7 +2645,11 @@
 
     let ZONE_X_RES_MAX = 49;      // changed per district (see js/campaign.js)
     let ZONE_X_BIZ_MAX = 76;
-    function zoneAt(tx) { return tx <= ZONE_X_RES_MAX ? 'res' : (tx <= ZONE_X_BIZ_MAX ? 'biz' : 'ind'); }
+    // A map can say which part of town a tile is in (MAP_DEF.zoneAt(tx, ty)); otherwise the chapter's column split is used.
+    function zoneAt(tx, ty) {
+        if (MAP_DEF && MAP_DEF.zoneAt) return MAP_DEF.zoneAt(tx, ty === undefined ? 40 : ty);
+        return tx <= ZONE_X_RES_MAX ? 'res' : (tx <= ZONE_X_BIZ_MAX ? 'biz' : 'ind');
+    }
     const ZONES = {
         res: { name: 'Residential', garden: 1, sideGap: 0.55,
                yard:   ['#2b4130', '#2e4733', '#283d2d'], gardenGround: ['#2f4a34', '#324f37', '#2c4631'],
@@ -2663,7 +2715,7 @@
             for (let y = H - 1; y >= 0; y--) {
                 if (cityKind[y * W + x] === 3) { run = isWalk(x, y) ? 0 : 999; continue; }
                 run++;
-                if (run <= ZONES[zoneAt(x)].garden) cityKind[y * W + x] = 4;
+                if (run <= ZONES[zoneAt(x, y)].garden) cityKind[y * W + x] = 4;
             }
         }
 
@@ -2699,8 +2751,8 @@
             let fits = true;
             for (let yy = lm.y - a.hT + 1; yy <= lm.y && fits; yy++) for (let xx = lm.x; xx < lm.x + a.wT; xx++) if (map[yy][xx] !== TILE_BLOCK) { fits = false; break; }
             if (!fits) continue;
-            const b = commit({ id: lm.type, wT: a.wT, hT: a.hT, noflip: true }, lm.x, lm.y, zoneAt(lm.x));
-            b.landmark = lm.type; b.node = lm.node;
+            const b = commit({ id: lm.type, wT: a.wT, hT: a.hT, noflip: true }, lm.x, lm.y, zoneAt(lm.x, lm.y));
+            b.landmark = lm.type; b.node = lm.node; b.weight = lm.weight || 1;
             LANDMARK_BUILDINGS[lm.type] = b;
         }
 
@@ -2714,8 +2766,8 @@
                 const c = L.c, allowed = ATLAS_TABLE[c.id].zones || [ATLAS_TABLE[c.id].zone], spots = [];
                 for (let y = H - 1; y >= c.hT - 1; y--) {
                     for (let x = 0; x + c.wT <= W; x++) {
-                        const z = zoneAt(x), zi = allowed.indexOf(z);
-                        if (zi < 0 || zoneAt(x + c.wT - 1) !== z) continue;
+                        const z = zoneAt(x, y), zi = allowed.indexOf(z);
+                        if (zi < 0 || zoneAt(x + c.wT - 1, y) !== z) continue;
                         let ok = true, anchored = 0;
                         for (let i = 0; i < c.wT && ok; i++) {
                             const bk = below(x + i, y);
@@ -2740,13 +2792,13 @@
             let x = 0;
             while (x < W) {
                 if (cityKind[y * W + x] !== 0 || below(x, y) === 0) { x++; continue; }
-                const z = zoneAt(x);
+                const z = zoneAt(x, y);
                 const freeUp = (cx) => { let n = 0; while (y - n >= 0 && cityKind[(y - n) * W + cx] === 0 && n < 14) n++; return n; };
                 const opts = [];
                 for (const c of BUILDING_CATALOGUE[z]) {
                     if (c.max && (placedCount[c.id] || 0) >= c.max) continue;
                     if (x + c.wT > W || y - c.hT + 1 < 0) continue;
-                    if (zoneAt(x + c.wT - 1) !== z) continue;
+                    if (zoneAt(x + c.wT - 1, y) !== z) continue;
                     let ok = true, avail = 99;
                     for (let i = 0; i < c.wT && ok; i++) {
                         if (below(x + i, y) === 0) { ok = false; break; }
@@ -2771,7 +2823,7 @@
                 lastSrc = pick.src;
                 x += pick.wT;
                 let runRight = 0;
-                while (x + runRight < W && cityKind[y * W + x + runRight] === 0 && zoneAt(x + runRight) === z) runRight++;
+                while (x + runRight < W && cityKind[y * W + x + runRight] === 0 && zoneAt(x + runRight, y) === z) runRight++;
                 if (runRight >= 4 && rnd() < ZONES[z].sideGap) {
                     for (let yy = y0; yy <= y; yy++) if (cityKind[yy * W + x] === 0) cityKind[yy * W + x] = 2;
                     x++;
@@ -2892,7 +2944,7 @@
             if (map[y][x] !== TILE_SIDEWALK) continue;
             const nU = map[y - 1][x] === TILE_ROAD, nD = map[y + 1][x] === TILE_ROAD, nL = map[y][x - 1] === TILE_ROAD, nR = map[y][x + 1] === TILE_ROAD;
             if (!(nU || nD || nL || nR)) continue;
-            const z = zoneAt(x);
+            const z = zoneAt(x, y);
             const horiz = nU || nD;
             let key = null;
             if ((horiz && x % 8 === 3) || (!horiz && y % 8 === 3)) key = LAMP_KEY[z];
@@ -2906,7 +2958,7 @@
         if (propAvailable('table_round')) {
             const cafes = [];
             for (let y = 1; y < H - 1; y++) for (let x = 1; x < W - 1; x++) {
-                if (map[y][x] !== TILE_SIDEWALK || zoneAt(x) !== 'biz') continue;
+                if (map[y][x] !== TILE_SIDEWALK || zoneAt(x, y) !== 'biz') continue;
                 if (map[y + 1][x] !== TILE_ROAD || cityKind[(y - 1) * W + x] !== 1) continue;
                 if (rnd() > 0.1) continue;
                 if (cafes.some(c => Math.abs(c.x - x) < 6 && Math.abs(c.y - y) < 4)) continue;
@@ -2927,14 +2979,14 @@
                 if ((k !== 0 && k !== 4) || occ[yy * W + xx]) { ok = false; break; }
             }
             if (!ok) continue;
-            const z = zoneAt(x);
+            const z = zoneAt(x, y);
             continue;
         }
         for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
             if (occ[y * W + x]) continue;
             const k = cityKind[y * W + x];
             if (k === 3 || k === 1) continue;
-            const z = zoneAt(x);
+            const z = zoneAt(x, y);
             let key = null, flip = rnd() < 0.5;
             if (k === 4) { if (rnd() < (z === 'res' ? 0.62 : 0.3)) key = mix(GARDEN_MIX[z]); }
             else if (k === 2) { if (rnd() < 0.2) key = mix(ALLEY_MIX[z]); }
@@ -3193,6 +3245,12 @@
             j.isBase = (j.x + half > base.x0 && j.x - half < base.x1 && j.y + half > base.y0 && j.y - half < base.y1);
             junctions.push(j);
         }));
+        // Junctions that have a diagonal arm are listed by hand in the map file (MAP_DEF.diagJunctions).
+        const diagJ = ((MAP_DEF && MAP_DEF.diagJunctions) || []).map(d => {
+            const arms = {};
+            d.arms.forEach(a => { arms[a] = true; });
+            return { x: (d.x + 0.5) * TILE, y: (d.y + 0.5) * TILE, arms: arms, diag: true, isBase: false, signal: false, top: false, zebra: {}, h: null, v: null };
+        });
         const ZG = 12, ZL = 23;
         const zebras = [];
         junctions.forEach(j => {
@@ -3220,7 +3278,7 @@
                 if (r) { r.dir = d; r.j = j; zebras.push(r); j.zebra[d] = true; }
             });
         });
-        return { half, H, V, junctions, zebras, base, stationRect };
+        return { half, H, V, D: lr.D || [], junctions, diagJ, zebras, base, stationRect };
     }
 
     function placeUkRoadFurniture() {
@@ -3294,6 +3352,11 @@
         const half = L.half, base = L.base;
         const blockedAt = (x, y, rx, ry) => {
             for (const j of L.junctions) if (Math.abs(x - j.x) < half + rx + 8 && Math.abs(y - j.y) < half + ry + 8) return true;
+            for (const j of (L.diagJ || [])) if (Math.hypot(x - j.x, y - j.y) < half * 1.9 + Math.max(rx, ry)) return true;
+            if (MAPGEO && MAPGEO.dSegs && MAPGEO.dSegs.length) {            // never block the mouth of a diagonal street
+                const ctx_ = x / TILE - 0.5, cty_ = y / TILE - 0.5;
+                for (const ds of MAPGEO.dSegs) if (MAPGEO.distToDiag(ds, ctx_, cty_) < MAPGEO.hw + 2.2) return true;
+            }
             for (const z of L.zebras) if (x + rx > z.x - 8 && x - rx < z.x + z.w + 8 && y + ry > z.y - 8 && y - ry < z.y + z.h + 8) return true;
             if (x + rx > base.x0 - 24 && x - rx < base.x1 + 24 && y + ry > base.y0 - 30 && y - ry < base.y1 + 30) return true;
             const sr = L.stationRect;
@@ -3344,7 +3407,7 @@
         t.strokeRect(px + 0.5, py + 0.5, TILE - 1, TILE - 1);
     }
     function paintBlock(t, px, py, tx, ty) {
-        const z = ZONES[zoneAt(tx)];
+        const z = ZONES[zoneAt(tx, ty)];
         const k = cityKind ? cityKind[ty * MAP_W + tx] : 0;
         const sd = seedFromXY(tx, ty);
         let list = z.yard;
@@ -3354,7 +3417,7 @@
         t.fillStyle = list[Math.floor(sd * list.length) % list.length];
         t.fillRect(px, py, TILE, TILE);
         if (k === 1) return;
-        const zn = zoneAt(tx);
+        const zn = zoneAt(tx, ty);
         if (zn === 'res' && (k === 0 || k === 4)) {
             t.fillStyle = 'rgba(120,170,110,0.25)';
             t.fillRect(px + sd * 12, py + ((sd * 7.3) % 1) * 12, 2, 1);
@@ -3472,6 +3535,24 @@
             cuts.forEach(c => { dashRun(cur, c.lo, (y, w) => t.fillRect(v.c - TH / 2, y, TH, w)); cur = Math.max(cur, c.hi); });
             dashRun(cur, v.b - 10, (y, w) => t.fillRect(v.c - TH / 2, y, TH, w));
         });
+        // Diagonal streets: a dashed centre line, kept clear of the junction at each end.
+        (L.D || []).forEach(d => {
+            const cut = half * 1.5 + 14, lo = cut, hi = d.len - cut;
+            if (hi - lo < DASH) return;
+            const n = Math.floor((hi - lo + GAP) / (DASH + GAP));
+            if (n < 1) return;
+            const total = n * DASH + (n - 1) * GAP;
+            let p = lo + (hi - lo - total) / 2;
+            const ang = Math.atan2(d.vy, d.vx);
+            for (let i = 0; i < n; i++) {
+                t.save();
+                t.translate(d.x1 + d.vx * p, d.y1 + d.vy * p);
+                t.rotate(ang);
+                t.fillRect(0, -TH / 2, DASH, TH);
+                t.restore();
+                p += DASH + GAP;
+            }
+        });
         const box = assets['road_box'];
         if (box) L.junctions.forEach(j => {
             if (j.signal && !j.isBase) t.drawImage(box, j.x - half, j.y - half, half * 2, half * 2);
@@ -3554,7 +3635,7 @@
         t.fillStyle = '#1c2028'; t.fillRect(0, 0, MINIMAP_W, MINIMAP_H);
         for (let y = 0; y < MAP_H; y++) for (let x = 0; x < MAP_W; x++) {
             const tile = map[y][x];
-            t.fillStyle = tile === TILE_SEA ? (MAPGEO.isSand(x, y) ? '#6d6650' : '#1b3a52') : tile === TILE_ROAD ? '#3a3f47' : (tile === TILE_BASE || tile === TILE_STATION) ? '#3a4a68' : tile === TILE_SIDEWALK ? '#4a4f57' : ((cityKind && cityKind[y * MAP_W + x] === 1) ? ZONES[zoneAt(x)].minimapBld : ZONES[zoneAt(x)].minimap);
+            t.fillStyle = tile === TILE_SEA ? (MAPGEO.isSand(x, y) ? '#6d6650' : '#1b3a52') : tile === TILE_ROAD ? '#3a3f47' : (tile === TILE_BASE || tile === TILE_STATION) ? '#3a4a68' : tile === TILE_SIDEWALK ? '#4a4f57' : ((cityKind && cityKind[y * MAP_W + x] === 1) ? ZONES[zoneAt(x, y)].minimapBld : ZONES[zoneAt(x, y)].minimap);
             t.fillRect(x * MINIMAP_SCALE, y * MINIMAP_SCALE, Math.ceil(MINIMAP_SCALE), Math.ceil(MINIMAP_SCALE));
         }
         game.minimapTerrainCanvas = c;
@@ -3904,6 +3985,16 @@
                 return;
             }
 
+            // "PETROL BOMBERS!" : get out of the way, for a moment (this is what opens a gap in the line)
+            if (this.scatterT > 0) {
+                this.scatterT -= dt;
+                if (this.scatterDelay > 0) this.scatterDelay -= dt;
+                else {
+                    this.isMoving = true; this.dir = { x: this.scatterAX, y: this.scatterAY };
+                    steerUnit(this, this.x + this.scatterAX * TILE * 3, this.y + this.scatterAY * TILE * 3, dt, OFFICER.sprintSpeed);
+                    return;
+                }
+            }
             const sy = this.mySyndicate();
             const tactic = activeTacticOf(sy);
             this.shieldUp = tactic !== 'rest';
@@ -5296,7 +5387,12 @@
             if (!a || !b) continue;
             const ax = a.x * TILE, ay = a.y * TILE, bx = b.x * TILE, by = b.y * TILE;
             let px, py;
-            if (e.dir === 'h') { px = Math.max(Math.min(ax, bx), Math.min(Math.max(ax, bx), x)); py = ay; }
+            if (e.dir === 'd') {
+                const ex = bx - ax, ey = by - ay, ee = ex * ex + ey * ey || 1;
+                const t = Math.max(0, Math.min(1, ((x - ax) * ex + (y - ay) * ey) / ee));
+                px = ax + ex * t; py = ay + ey * t;
+            }
+            else if (e.dir === 'h') { px = Math.max(Math.min(ax, bx), Math.min(Math.max(ax, bx), x)); py = ay; }
             else { px = ax; py = Math.max(Math.min(ay, by), Math.min(Math.max(ay, by), y)); }
             const dd = Math.hypot(px - x, py - y);
             if (dd < bd) { bd = dd; best = { x: px, y: py, e: e }; }
@@ -5840,9 +5936,10 @@
             if (!o || !spot) return spot;
             const ox = o.targetSpot ? o.targetSpot.x : o.x, oy = o.targetSpot ? o.targetSpot.y : o.y;
             const oa = o.faceAngle !== undefined ? o.faceAngle : o.angle;
-            const myA = this.faceAngle !== undefined ? this.faceAngle : (spot.dir === 'v' ? Math.PI / 2 : 0);
+            const myA = this.faceAngle !== undefined ? this.faceAngle : (spot.dir === 'd' ? Math.atan2(spot.vy || 0, spot.vx || 1) : (spot.dir === 'v' ? Math.PI / 2 : 0));
             if (!vehicleRectsOverlap(spot.x, spot.y, myA, ox, oy, oa, 6)) return spot;
-            const along = spot.dir === 'v' ? [0, 1] : [1, 0], perp = spot.dir === 'v' ? [1, 0] : [0, 1];
+            const along = spot.dir === 'd' ? [spot.vx || 0.7071, spot.vy || 0.7071] : (spot.dir === 'v' ? [0, 1] : [1, 0]);
+            const perp = [-along[1], along[0]];
             const len = TILE * (WC_LENGTH_TILES + 0.8), wid = TILE * 2.4;
             const tries = [[perp, wid], [perp, -wid], [along, len], [along, -len], [perp, wid * 1.7], [perp, -wid * 1.7]];
             for (const t of tries) {
@@ -6548,6 +6645,7 @@
         standard:     { name: 'Rioter',        hp: 66,  damage: 6,  meleeRange: 1.2,  atkCooldown: 1.10, speed: 1.7, weight: 60, color: '#8a4a34', dark: '#4a2418' },
         bruiser:      { name: 'Bruiser',       hp: 132, damage: 12, meleeRange: 1.35, atkCooldown: 1.30, speed: 1.4, weight: 25, color: '#7a2c2c', dark: '#3f1616' },
         brickthrower: { name: 'Brick Thrower', hp: 100, damage: 5,  meleeRange: 1.1,  atkCooldown: 1.85, speed: 1.2, weight: 10, color: '#a0704a', dark: '#4a2a18' },
+        petrol:       { name: 'Petrol Bomber', hp: 72,  damage: 4,  meleeRange: 1.0,  atkCooldown: 6.0,  speed: 1.35, weight: 0, color: '#c24a1c', dark: '#4a1c10' },
         crowd:        { name: 'Protester',     hp: 46,  damage: 0,  meleeRange: 1.0,  atkCooldown: 2.5,  speed: 1.55, weight: 0, color: '#b8925e', dark: '#5c452a' },
     };
     const MAX_ATTACKERS_PER_OFFICER = 3;
@@ -6699,6 +6797,124 @@
                 if (path && path.length) this.fleeRoute = path;
             }
         }
+        // What this person is after: each group can have its own goal in an all-out riot (station, officers or buildings).
+        objective() {
+            const sq = game.squads.get(this.squadId);
+            return (sq && sq.objective) || game.raidAI.objective;
+        }
+        // ----- giving up, falling back, and changing your mind -----
+        // One rioter has had enough. Only they go. Nobody else is told to follow, but the mates around them
+        // who are still fit may change their minds about it (see reconsiderMates).
+        giveUp() {
+            if (this.state === 'fleeing') return;
+            if (game.allOutRiot) { this.regroup(); return; }                 // an all-out riot never gives up, it only falls back
+            this.startFleeing(); game.routed++;
+            this.reconsiderMates();
+        }
+        // Fall back to the group's start point, catch a breath, then come again, usually by another road.
+        regroup() {
+            this.regroupT = 7 + Math.random() * 6; this.engaged = false;
+            this.pbPhase = 'lurk'; this.pbCd = 6;
+            game.waveStats.regrouped = (game.waveStats.regrouped || 0) + 1;
+        }
+        // Fit mates standing near someone who gives up often hold their nerve: some tag on to another group, some go round.
+        reconsiderMates() {
+            for (const q of game.raiders) {
+                if (q === this || !q.alive || q.kind === 'crowd' || q.kind === 'petrol') continue;
+                if (q.state === 'fleeing' || q.state === 'fading' || q.beingArrested || q.regroupT > 0) continue;
+                if (Math.hypot(q.x - this.x, q.y - this.y) > TILE * 7) continue;
+                if (q.hp / q.maxHp < 0.55 || q.timeSinceDamage < 2) continue;      // the hurt and the freshly hit still go
+                if (Math.random() > 0.65) continue;
+                q.gMorale = Math.max(q.gMorale === undefined ? 100 : q.gMorale, 62);
+                game.waveStats.reconsidered = (game.waveStats.reconsidered || 0) + 1;
+                if (Math.random() < 0.5) q.joinOtherGroup(); else q.flankAround();
+            }
+        }
+        joinOtherGroup() {
+            let best = null, bestScore = -1;
+            for (const sq of game.squads.values()) {
+                if (sq.isCrowd || sq.id === this.squadId) continue;
+                const c = sq.computeCentroid();
+                if (c.count < 2) continue;
+                const score = c.count / (1 + Math.hypot(c.x - this.x, c.y - this.y) / (TILE * 20));
+                if (score > bestScore) { bestScore = score; best = sq; }
+            }
+            if (!best) { this.flankAround(); return; }
+            this.squadId = best.id; this.route = null; this.goalNodeId = null; this.repathTimer = 0.2; this.avoidSet = null;
+        }
+        // Go round the line: take a route that keeps well away from where the officers are standing.
+        flankAround() {
+            const avoid = new Set();
+            for (let i = 0; i < OFFICER_SYNDICATES; i++) {
+                const sy = game.syndicates[i];
+                if (!sy || sy.commandX === undefined) continue;
+                for (const n of ROAD_NODES) if (Math.hypot(n.x * TILE - sy.commandX, n.y * TILE - sy.commandY) < TILE * 12) avoid.add(n.id);
+            }
+            this.avoidSet = avoid; this.flankUntil = (game.waveClock || 0) + 30;
+            this.route = null; this.goalNodeId = null; this.repathTimer = 0;
+            game.waveStats.flanked = (game.waveStats.flanked || 0) + 1;
+        }
+        // ----- petrol bombers: hang back, make a bomb, run through the crowd, throw -----
+        // Returns true when the bomber has used up this frame.
+        updatePetrol(dt) {
+            if (this.pbPhase === undefined) { this.pbPhase = 'lurk'; this.pbCd = 5 + Math.random() * 7; }
+            this.pbCd = Math.max(0, this.pbCd - dt);
+            let near = null, nd = Infinity;
+            for (const o of game.officers) {
+                if (!o.alive || o.state !== 'active') continue;
+                const d = Math.hypot(o.x - this.x, o.y - this.y);
+                if (d < nd) { nd = d; near = o; }
+            }
+            if (this.pbPhase === 'lurk') {
+                if (this.objective() === 'buildings' && this.targetBuilding && this.targetBuilding.alive) return false;     // goes for the building instead
+                if (near && this.pbCd <= 0 && nd < TILE * 24 && nd > TILE * 5) { this.pbPhase = 'prep'; this.pbT = 3.2; this.pbTarget = near; return true; }
+                if (near && nd < TILE * 9) {                                    // keep behind the front rank until the bomb is ready
+                    this.isMoving = false; this.state = 'holding';
+                    this.dir = { x: (near.x - this.x) / (nd || 1), y: (near.y - this.y) / (nd || 1) };
+                    return true;
+                }
+                return false;
+            }
+            if (this.pbPhase === 'prep') {                                       // lighting the rag
+                this.pbT -= dt; this.isMoving = false; this.state = 'petrol_prep';
+                if (near) this.dir = { x: (near.x - this.x) / (nd || 1), y: (near.y - this.y) / (nd || 1) };
+                if (this.pbT <= 0) {
+                    this.pbPhase = 'run'; this.pbRunT = 0;
+                    if (near) petrolWarning(this, near);
+                }
+                return true;
+            }
+            if (this.pbPhase === 'run') {                                         // through the crowd at the nearest officers
+                this.pbRunT += dt; this.state = 'petrol_run';
+                if (!near) { this.pbPhase = 'lurk'; this.pbCd = 6; return false; }
+                if (nd < TILE * 6.5 || this.pbRunT > 9) {
+                    game.projectiles.push({ sx: this.x, sy: this.y - 12, tx: near.x, ty: near.y, t: 0, duration: 0.8, petrol: true, aoe: TILE * 3.2, dmg: 0, victim: near });
+                    this.attackFlash = 0.3; this.dir = { x: (near.x - this.x) / (nd || 1), y: (near.y - this.y) / (nd || 1) };
+                    this.pbPhase = 'lurk'; this.pbCd = 16 + Math.random() * 10; this.state = 'advancing';
+                    return true;
+                }
+                this.moveToward(near.x, near.y, dt, 2.7);
+                return true;
+            }
+            return false;
+        }
+        // Rioters see a hole in the line and pour through it for their goal.
+        exploitGap(dt) {
+            if (!game.gaps || !game.gaps.length) { this.breakT = Math.max(0, (this.breakT || 0) - dt); return false; }
+            for (const g of game.gaps) {
+                if (g.t > 0 && Math.hypot(g.x - this.x, g.y - this.y) < TILE * 12) { this.breakT = 4.5; break; }
+            }
+            if (!(this.breakT > 0)) return false;
+            this.breakT -= dt;
+            if (this.hp / this.maxHp < 0.3) return false;
+            let gx = BASE_TILE_X * TILE, gy = BASE_TILE_Y * TILE;
+            const obj = this.objective();
+            if (obj === 'buildings' && this.targetBuilding && this.targetBuilding.alive && this.targetBuilding.frontX !== undefined) { gx = this.targetBuilding.frontX; gy = this.targetBuilding.frontY; }
+            if (Math.hypot(gx - this.x, gy - this.y) < TILE * 2.5) return false;
+            this.engaged = false; this.state = 'advancing';
+            this.moveToward(gx, gy, dt, this.def.speed * 1.3);
+            return true;
+        }
         // Rioters notice a strong line and go for an easier target instead (an undefended building, a repair crew).
         pickEasierTarget() {
             const now = game.lastTime || 0;
@@ -6743,7 +6959,7 @@
             return BASE_NODE_ID;
         }
         pickGoalNode() {
-            const ai = game.raidAI;
+            const ai = { objective: this.objective() };
             if (this.kind !== 'crowd') { const soft = this.pickEasierTarget(); if (soft) return soft; }
             if (ai.objective === 'hunt') {
                 const o = this.nearestActiveOfficer();
@@ -6815,9 +7031,21 @@
             return false;
         }
 
+        // Is a moving line of officers walking into this person, pushing them along the street ahead of it?
+        pushedBy() {
+            for (let i = 0; i < OFFICER_SYNDICATES; i++) {
+                const sy = game.syndicates[i];
+                if (!sy || !(sy.pushT > 0) || sy._pcx === undefined) continue;
+                const rx = this.x - sy._pcx, ry = this.y - sy._pcy;
+                const along = rx * sy.pushDirX + ry * sy.pushDirY, side = Math.abs(rx * sy.pushDirY - ry * sy.pushDirX);
+                if (along > -TILE * 0.5 && along < TILE * 9 && side < TILE * 4.8) return sy;
+            }
+            return null;
+        }
         // --- mood: what is it about the street right now that is calming or winding this person up? ---
         updateMood(dt) {
             const P = postureFx();
+            const pushedNow = this.pushedBy();
             let near = null, nd = Infinity;
             for (const o of game.officers) {
                 if (!o.alive || o.isAllOut || o.state !== 'active') continue;
@@ -6827,13 +7055,13 @@
             this.nearOfficer = near; this.nearDist = nd;
             // An escort: a line walking alongside the march (not pushing against it) keeps tempers down.
             const escSy = (near && nd < TILE * 9) ? game.syndicates[hostOf(near.syndicateIndex)] : null;
-            this.escortT = (escSy && syndicateIsEscorting(escSy)) ? 4 : Math.max(0, (this.escortT || 0) - dt);
+            this.escortT = (escSy && syndicateIsEscorting(escSy) && !pushedNow) ? 4 : Math.max(0, (this.escortT || 0) - dt);
             let delta = this.mood > this.baseMood ? -0.25 : 0.05;       // slowly drifts back to its own baseline
             if (this.escortT > 0) delta -= 2.2 * P.calm;
             if (near && nd < TILE * 7) {
                 const sy = game.syndicates[hostOf(near.syndicateIndex)];
                 if (sy && syndicateIsPassive(sy)) delta -= 1.4 * P.calm;              // resting / stacked officers: calming
-                else if (sy && syndicateIsEscorting(sy)) delta -= 0.6 * P.calm;          // walking with us: reassuring
+                else if (sy && syndicateIsEscorting(sy) && !pushedNow) delta -= 0.6 * P.calm;          // walking with us: reassuring
                 else if (sy) {
                     const tac = activeTacticOf(sy);
                     if (tac === 'wall' || tac === 'box') delta += (nd < TILE * 4 ? 1.5 : 0.8) * P.press;   // blocked, pressed
@@ -6964,6 +7192,25 @@
                 if (this.kind !== 'crowd') return;                 // showed their hand this frame
             }
 
+            // A line walking into the crowd pushes it along the street ahead of it. Do it for long, or do it often, and it boils over.
+            const pusher = this.pushedBy();
+            if (pusher) {
+                this.pushedT = (this.pushedT || 0) + dt;
+                const P = postureFx();
+                this.mood = Math.min(100, this.mood + (0.6 + Math.min(3.4, this.pushedT * 0.18)) * P.press * dt);
+                const spd = Math.max(this.def.speed * 0.95, Math.min(3.4, (pusher.pushSpeed || 1.5) * 1.1));
+                this.state = 'crowd_move';
+                this.moveToward(this.x + pusher.pushDirX * TILE * 3, this.y + pusher.pushDirY * TILE * 3, dt, spd);
+                this.dir = { x: -pusher.pushDirX, y: -pusher.pushDirY };       // walking backwards, facing the line
+                this.blockedT = Math.max(0, this.blockedT - dt);
+                if (!this.pushCounted) { this.pushCounted = true; game.waveStats.pushed = (game.waveStats.pushed || 0) + 1; }
+                const hi = pusher.index !== undefined ? pusher.index : 0, now = game.lastTime || 0;
+                if (now - (pusher._pushShoutAt || -1e9) > 14000) { pusher._pushShoutAt = now; for (let k = 0; k < OFFICER_SYNDICATES; k++) if (game.syndicates[k] === pusher) commanderShout(k, 'Move along. Keep moving.'); }
+                if (this.pushedT > 7 && now - (game._pushToastAt || -1e9) > 40000) { game._pushToastAt = now; showToast(':warning: Pushing a crowd along for long winds it up. Let them breathe.'); }
+                return;
+            }
+            this.pushedT = Math.max(0, (this.pushedT || 0) - dt * 0.5);
+
             // forget a detour once it has done its job
             if (this.avoidSet && !this.detouring && (game.waveClock || 0) > this.detourUntil) this.avoidSet = null;
             if (this.detouring && (game.waveClock || 0) > this.detourUntil) this.detouring = false;
@@ -7061,6 +7308,7 @@
                 if (this.kind !== 'crowd') this.state = 'gas_stunned';
                 if (this.gasStunTimer <= 0) {
                     if (this.kind === 'crowd') { if (this.state !== 'fleeing') this.state = 'crowd_wait'; }
+                    else if (game.allOutRiot) this.regroup();
                     else { this.startFleeing(); game.routed++; }
                 }
                 return;
@@ -7098,6 +7346,21 @@
 
             if (furnitureDetour(this, dt)) return;
             smashNearbyFurniture(this, dt);
+
+            // a flanking route is only kept for a while
+            if (this.avoidSet && this.flankUntil && (game.waveClock || 0) > this.flankUntil) { this.avoidSet = null; this.flankUntil = 0; this.route = null; }
+            // falling back to regroup (all-out riot)
+            if (this.regroupT > 0) {
+                this.regroupT -= dt;
+                const hsq = game.squads.get(this.squadId), hn = hsq ? getNode(hsq.spawnNodeId) : null;
+                this.state = 'withdrawing'; this.engaged = false;
+                if (hn && Math.hypot(hn.x * TILE - this.x, hn.y * TILE - this.y) > TILE * 6) this.moveToward(hn.x * TILE, hn.y * TILE, dt, this.def.speed * 1.25); else this.isMoving = false;
+                this.hp = Math.min(this.maxHp, this.hp + 5 * dt);
+                if (this.regroupT <= 0) { this.gMorale = 80; this.hp = Math.max(this.hp, this.maxHp * 0.5); this.state = 'advancing'; this.flankAround(); }
+                return;
+            }
+            if (this.kind === 'petrol' && this.updatePetrol(dt)) return;
+            if (this.kind !== 'petrol' && this.exploitGap(dt)) return;
 
             if (this.kind === 'brickthrower' && this.state !== 'fleeing' && !this.beingArrested) {
                 for (const r of game.raiders) {
@@ -7157,13 +7420,15 @@
                     if (this.gMorale === undefined) this.gMorale = 100;
                     if (this.timeSinceDamage > 6 && this.gMorale < 100) this.gMorale = Math.min(100, this.gMorale + 1.2);   // calm down if left alone
                     const gm = this.gMorale;
-                    if (gm < 14 && hpPct < 0.45) {
-                        // this rioter's own group has had enough: they (and the mates beside them) give up
-                        if (Math.random() < (14 - gm) * 0.03) { this.startFleeing(); game.routed++; }
-                    } else if (game.waveMoralePct <= 0 && (gm < 60 || hpPct < 0.6)) {
-                        if (Math.random() < 0.35) { this.startFleeing(); game.routed++; }          // night is lost: the beaten groups go home first
+                    if (this.kind === 'petrol' && this.pbPhase && this.pbPhase !== 'lurk') {
+                        // a bomber in the middle of a run is not going to turn back
+                    } else if (gm < 14 && hpPct < 0.45) {
+                        // this rioter has had enough. Only they go: the mates beside them may well hold their nerve (see reconsiderMates)
+                        if (Math.random() < (14 - gm) * 0.03) this.giveUp();
+                    } else if (game.waveMoralePct <= 0 && !game.allOutRiot && (gm < 45 || hpPct < 0.5)) {
+                        if (Math.random() < 0.1) this.giveUp();            // night is lost: the beaten ones drift off a few at a time
                     } else if (hpPct < 0.08 && Math.random() < 0.15) {
-                        this.startFleeing(); game.routed++;
+                        this.giveUp();
                     }
                 }
             }
@@ -7264,7 +7529,8 @@
                 if (this.surgeTimer <= 0) { spd *= 1.8; if (this.surgeTimer < -0.6) this.surgeTimer = 2 + Math.random() * 3; }
             }
 
-            const atBaseTarget = (game.raidAI.objective === 'base' &&
+            const myObjective = this.objective();
+            const atBaseTarget = (myObjective === 'base' &&
                 Math.hypot(BASE_TILE_X * TILE - this.x, BASE_TILE_Y * TILE - this.y) < TILE * 5);
 
             const squad = game.squads.get(this.squadId);
@@ -7331,7 +7597,7 @@
                 } else this.routeIdx++;
             }
 
-            const ai = game.raidAI;
+            const ai = { objective: myObjective };
 
             if (ai.objective === 'buildings') {
                 if (!this.targetBuilding || !this.targetBuilding.alive) this.targetBuilding = pickRaidBuilding(this);
@@ -7349,7 +7615,11 @@
                         if (this.atkTimer <= 0) {
                             this.atkTimer = this.def.atkCooldown;
                             this.attackFlash = 0.22;
-                            damageBuilding(this.targetBuilding, this.def.damage * 2.2 * this.dmgMult);
+                            if (this.kind === 'petrol') {              // a petrol bomb through the window
+                                damageBuilding(this.targetBuilding, 110);
+                                game.fires.push({ x: this.targetBuilding.tx * TILE + (Math.random() - 0.5) * TILE * 2, y: this.targetBuilding.ty * TILE + TILE, t: 6, max: 6, r: TILE * 1.2 });
+                                sfx('glass', 0.8);
+                            } else damageBuilding(this.targetBuilding, this.def.damage * 2.2 * this.dmgMult);
                         }
                         return;
                     }
@@ -7399,6 +7669,18 @@
             drawRaiderFigure(ctx, this);
             ctx.restore();
             if (this.state === 'fading') return;
+            if (this.kind === 'petrol' && this.state !== 'fleeing') {          // the bottle in their hand, and a fuel marker so the player can spot a bomber
+                const lit = this.state === 'petrol_prep' || this.state === 'petrol_run';
+                const side = (this.dir && this.dir.x < 0) ? -1 : 1, bx = sx + side * 6, by = sy - 7;
+                ctx.fillStyle = '#5d8a4a'; ctx.fillRect(bx - 1.5, by - 2, 3, 6);
+                ctx.fillStyle = '#f6e7a8'; ctx.fillRect(bx - 0.5, by - 4, 1, 2);
+                if (lit) {
+                    const tm = performance.now() / 90;
+                    ctx.fillStyle = (Math.floor(tm) % 2) ? '#ffb030' : '#ff5a1c'; ctx.beginPath(); ctx.arc(bx, by - 6, 2.8 + Math.sin(tm) * 0.6, 0, Math.PI * 2); ctx.fill();
+                    ctx.fillStyle = '#fff2a0'; ctx.beginPath(); ctx.arc(bx, by - 5.5, 1.2, 0, Math.PI * 2); ctx.fill();
+                }
+                drawIcon(ctx, 'fuel', sx, sy - 31, lit ? 12 : 9);
+            }
             if (this.kind === 'crowd' && this.state !== 'fleeing') {
                 const m = this.agitator ? (this.spotted ? 100 : 0) : this.mood;
                 if (m > 38) {
@@ -7712,6 +7994,33 @@
     }
     // Vehicles and their gunners that rioters can attack (rebuilt once a frame).
     // A line that is walking alongside a march (any tactic except the pushing ones) counts as an escort.
+    // ----- HERDING: a line that walks forward pushes the peaceful crowd in front of it along the street -----
+    // Every frame we note how fast each syndicate's officers are moving as a group. A wall, box or wedge that is
+    // moving gets pushT > 0 and a direction; the crowd in front of it (see Raider.pushedBy) is moved along ahead of it.
+    function updateSyndicatePush(dt) {
+        if (!(dt > 0)) return;
+        for (let i = 0; i < OFFICER_SYNDICATES; i++) {
+            const sy = game.syndicates[i];
+            if (!sy) continue;
+            let cx = 0, cy = 0, n = 0;
+            for (const o of game.officers) {
+                if (!o.alive || o.isAllOut || o.syndicateIndex !== i || o.state !== 'active') continue;
+                cx += o.x; cy += o.y; n++;
+            }
+            if (!n) { sy.pushT = 0; sy._pcx = undefined; continue; }
+            cx /= n; cy /= n;
+            if (sy._pcx !== undefined) {
+                const k = Math.min(1, dt * 4);
+                sy._pvx = (sy._pvx || 0) + ((cx - sy._pcx) / dt - (sy._pvx || 0)) * k;
+                sy._pvy = (sy._pvy || 0) + ((cy - sy._pcy) / dt - (sy._pvy || 0)) * k;
+            }
+            sy._pcx = cx; sy._pcy = cy;
+            const sp = Math.hypot(sy._pvx || 0, sy._pvy || 0);
+            if (sp > TILE * 0.9 && !syndicateIsPassive(sy)) {
+                sy.pushT = 0.8; sy.pushDirX = sy._pvx / sp; sy.pushDirY = sy._pvy / sp; sy.pushSpeed = sp / TILE;
+            } else sy.pushT = Math.max(0, (sy.pushT || 0) - dt);
+        }
+    }
     function syndicateIsEscorting(sy) {
         if (!sy || !sy.path || !sy.path.length) return false;
         const t = activeTacticOf(sy);
@@ -7791,11 +8100,101 @@
     }
 
     // ========== PROJECTILES ==========
+    // ===== PETROL BOMBERS =====
+    // A bomber hangs back, lights a bottle, then runs through the crowd at the nearest officers. A commander (or one of the
+    // officers) shouts a warning, the line opens up in front of the bomber, and the rioters pour through the gap.
+    function unitCallout(unit, text) { game.callouts.push({ unit, text, t: 2.6 }); }
+    function petrolWarning(bomber, target) {
+        const idx = target.syndicateIndex;
+        const c = (idx !== undefined && idx >= 0) ? (commanderOf(hostOf(idx)) || commanderOf(idx)) : null;
+        if (c) c.shout = { text: 'PETROL BOMBERS!', t: 2.8 }; else unitCallout(target, 'PETROL BOMBERS!');
+        sfx('riot', 0.7);
+        const ax = target.x - bomber.x, ay = target.y - bomber.y, al = Math.hypot(ax, ay) || 1;
+        const px = -ay / al, py = ax / al;                       // across the line
+        for (const o of game.officers) {
+            if (!o.alive || o.state !== 'active' || o.isAllOut) continue;
+            const dx = o.x - target.x, dy = o.y - target.y, d = Math.hypot(dx, dy);
+            if (d > TILE * 3.8) continue;
+            const side = (dx * px + dy * py) >= 0 ? 1 : -1;
+            const vx = px * side * 0.85 + (d > 8 ? dx / d * 0.4 : 0), vy = py * side * 0.85 + (d > 8 ? dy / d * 0.4 : 0);
+            const vl = Math.hypot(vx, vy) || 1;
+            o.scatterAX = vx / vl; o.scatterAY = vy / vl; o.scatterT = 2.4; o.scatterDelay = 0.2 + Math.random() * 0.55;
+        }
+        game.gaps.push({ x: target.x, y: target.y, t: 5.5 });
+        game.waveStats.petrolRuns = (game.waveStats.petrolRuns || 0) + 1;
+    }
+    // The bottle lands: it takes out the officer it lands on and leaves two or three beside them with almost nothing.
+    function petrolBurst(x, y) {
+        sfx('glass', 0.9); triggerShake(2.4);
+        game.fires.push({ x, y, t: 6, max: 6, r: TILE * 1.5 });
+        const near = game.officers.filter(o => o.alive && !o.isAllOut && Math.hypot(o.x - x, o.y - y) < TILE * 3.2)
+            .sort((a, b) => Math.hypot(a.x - x, a.y - y) - Math.hypot(b.x - x, b.y - y));
+        let start = 0;
+        if (near.length && Math.hypot(near[0].x - x, near[0].y - y) < TILE * 2.2) {
+            near[0].hp = 0; near[0].alive = false; start = 1;
+            game.waveStats.petrolKills = (game.waveStats.petrolKills || 0) + 1;
+        }
+        const n = 2 + (Math.random() < 0.5 ? 1 : 0);
+        for (let k = start, hit = 0; k < near.length && hit < n; k++, hit++) near[k].hp = Math.min(near[k].hp, Math.max(1, near[k].maxHp * 0.06));
+        for (const t of (game._vht || [])) if (t.alive && t.reach(x, y) < TILE * 2.2) t.takeHit(90);
+        spawnHitEffect(x, y);
+        damageFurnitureInRadius(x, y, TILE * 3, 40);
+    }
+    function updateFires(dt) {
+        for (let i = game.fires.length - 1; i >= 0; i--) {
+            const f = game.fires[i];
+            f.t -= dt;
+            if (f.t <= 0) { game.fires.splice(i, 1); continue; }
+            for (const o of game.officers) {
+                if (!o.alive || o.isAllOut) continue;
+                if (Math.hypot(o.x - f.x, o.y - f.y) < f.r) { o.hp -= 4 * dt; if (o.hp <= 0) o.alive = false; }
+            }
+        }
+        for (let i = game.gaps.length - 1; i >= 0; i--) { game.gaps[i].t -= dt; if (game.gaps[i].t <= 0) game.gaps.splice(i, 1); }
+        for (let i = game.callouts.length - 1; i >= 0; i--) { game.callouts[i].t -= dt; if (game.callouts[i].t <= 0) game.callouts.splice(i, 1); }
+    }
+    function drawFires(ctx) {
+        for (const f of game.fires) {
+            const sx = f.x - game.camera.x, sy = f.y - game.camera.y;
+            if (sx < -60 || sy < -60 || sx > game.width + 60 || sy > game.height + 60) continue;
+            const k = Math.min(1, f.t / 1.5), tm = performance.now() / 1000;
+            ctx.save(); ctx.globalAlpha = 0.85 * k;
+            ctx.fillStyle = 'rgba(255,120,30,0.35)'; ctx.beginPath(); ctx.ellipse(sx, sy + 3, f.r, f.r * 0.6, 0, 0, Math.PI * 2); ctx.fill();
+            for (let j = 0; j < 7; j++) {
+                const a = j * 2.4 + f.x * 0.01, ox = Math.cos(a) * f.r * 0.6, oy = Math.sin(a) * f.r * 0.35;
+                const h = 7 + 5 * Math.sin(tm * 9 + j * 1.7);
+                ctx.fillStyle = j % 2 ? '#ff7a1c' : '#ffb030';
+                ctx.beginPath(); ctx.moveTo(sx + ox - 3.5, sy + oy + 2); ctx.lineTo(sx + ox, sy + oy - h); ctx.lineTo(sx + ox + 3.5, sy + oy + 2); ctx.closePath(); ctx.fill();
+                ctx.fillStyle = '#fff0a0'; ctx.beginPath(); ctx.moveTo(sx + ox - 1.6, sy + oy + 2); ctx.lineTo(sx + ox, sy + oy - h * 0.5); ctx.lineTo(sx + ox + 1.6, sy + oy + 2); ctx.closePath(); ctx.fill();
+            }
+            ctx.restore();
+        }
+    }
+    // A short shout above an ordinary officer (a commander uses its own bubble).
+    function drawCallouts(ctx) {
+        for (const c of game.callouts) {
+            const u = c.unit; if (!u || !u.alive) continue;
+            const sx = u.x - game.camera.x, sy = u.y - game.camera.y - 26;
+            if (sx < -80 || sy < -40 || sx > game.width + 80 || sy > game.height + 40) continue;
+            ctx.save();
+            ctx.globalAlpha = Math.min(1, c.t * 2.5);
+            ctx.font = 'bold 10px "Segoe UI", Tahoma, sans-serif';
+            const w = ctx.measureText(c.text).width + 14, h = 16;
+            ctx.fillStyle = 'rgba(255,245,230,0.97)'; ctx.strokeStyle = '#b3261e'; ctx.lineWidth = 1.4;
+            ctx.beginPath(); if (ctx.roundRect) ctx.roundRect(sx - w / 2, sy - h, w, h, 5); else ctx.rect(sx - w / 2, sy - h, w, h); ctx.fill(); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(sx - 3, sy); ctx.lineTo(sx, sy + 5); ctx.lineTo(sx + 3, sy); ctx.closePath(); ctx.fill(); ctx.stroke();
+            ctx.fillStyle = '#b3261e'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            ctx.fillText(c.text, sx, sy - h / 2 + 0.5);
+            ctx.restore();
+        }
+    }
     function updateProjectiles(dt) {
         for (let i = game.projectiles.length - 1; i >= 0; i--) {
             const p = game.projectiles[i];
             p.t += dt;
+            if (p.petrol && p.victim && p.victim.alive) { p.tx = p.victim.x; p.ty = p.victim.y; }       // a thrown bottle finds whoever it was thrown at
             if (p.t >= p.duration) {
+                if (p.petrol) { petrolBurst(p.tx, p.ty); game.projectiles.splice(i, 1); continue; }
                 for (const o of game.officers) {
                     if (!o.alive) continue;
                     if (Math.hypot(o.x - p.tx, o.y - p.ty) < p.aoe) {
@@ -7830,6 +8229,13 @@
             ctx.save();
             ctx.translate(sx, sy);
             ctx.rotate(t * 8);
+            if (p.petrol) {                                        // a bottle with a burning rag
+                ctx.fillStyle = '#5d8a4a'; ctx.fillRect(-2, -3, 4, 7);
+                ctx.fillStyle = '#f6e7a8'; ctx.fillRect(-1, -5, 2, 2);
+                ctx.fillStyle = Math.random() < 0.5 ? '#ffb030' : '#ff5a1c'; ctx.beginPath(); ctx.arc(0, -8, 3.2, 0, Math.PI * 2); ctx.fill();
+                ctx.fillStyle = '#fff2a0'; ctx.beginPath(); ctx.arc(0, -7.5, 1.4, 0, Math.PI * 2); ctx.fill();
+                ctx.restore(); continue;
+            }
             ctx.fillStyle = '#a0704a';
             ctx.fillRect(-3, -2, 6, 4);
             ctx.strokeStyle = '#4a2a18'; ctx.lineWidth = 1;
@@ -7861,6 +8267,14 @@
         return prev.map(id => byId.get(id));
     }
     function assignFormation() { for (let idx = 0; idx < OFFICER_SYNDICATES; idx++) assignFormationForSyndicate(idx); }
+    // A line normally faces one of the four compass directions. On a diagonal street it may face one of the four diagonals.
+    function snapFacing8(fx, fy) {
+        fx = fx || 0; fy = fy || 0;
+        if (!fx && !fy) fx = 1;
+        const ax = Math.abs(fx), ay = Math.abs(fy), m = Math.max(ax, ay);
+        if (ax > m * 0.4 && ay > m * 0.4) return [Math.sign(fx) * Math.SQRT1_2, Math.sign(fy) * Math.SQRT1_2];
+        return ax >= ay ? [Math.sign(fx), 0] : [0, Math.sign(fy)];
+    }
     function assignFormationForSyndicate(idx) {
         if (hostOf(idx) !== idx) return;      // merged into / reinforcing another syndicate: it takes that line's slots
         let alive = game.officers.filter(o => o.alive && !o.isAllOut && o.state === 'active' && hostOf(o.syndicateIndex) === idx);
@@ -7873,8 +8287,7 @@
         const cx = sy.commandX, cy = sy.commandY;
         const tactic = activeTacticOf(sy);
         if (tactic !== 'pulse') alive = orderByFrontStrength(alive, sy, tactic);
-        let fx = sy.facingX || 1, fy = sy.facingY || 0;
-        if (Math.abs(fx) > Math.abs(fy)) { fx = Math.sign(fx) || 1; fy = 0; } else { fx = 0; fy = Math.sign(fy) || 1; }
+        let [fx, fy] = snapFacing8(sy.facingX, sy.facingY);
         const px = fy, py = -fx;
         const setSlot = (o, x, y) => {
             if (isValidOfficerPosition(x, y)) { o.targetX = x; o.targetY = y; o._snapRaw = null; return; }
@@ -7898,7 +8311,7 @@
                 const count = end - start;
                 if (count <= 0) continue;
 
-                const lineDist = half + TILE * 0.5;
+                const lineDist = (d.diag ? half * 1.4142 : half) + TILE * 0.5;      // a diagonal arm opens out further from the middle
                 const lx = j.x + d.fx * lineDist;
                 const ly = j.y + d.fy * lineDist;
 
@@ -8206,6 +8619,7 @@
         const sy = ensureSyndicateState(game.selectedSyndicate);
         sy.post = null;
         sy.arriveAxis = spot ? spot.dir : null;
+        sy.arriveVec = (spot && spot.dir === 'd') ? { x: spot.vx, y: spot.vy } : null;
         pathSyndicateTo(sy, worldX, worldY);
         updateSelectionUI();
     }
@@ -8218,7 +8632,12 @@
         } else if (axis === 'v') {     // road runs north-south
             sy.facingY = (sy.facingX === 0 && sy.facingY) ? Math.sign(sy.facingY) : (sy.commandY < BASE_TILE_Y * TILE ? -1 : 1);
             sy.facingX = 0;
+        } else if (axis === 'd' && sy.arriveVec) {     // a diagonal street: face along it, away from the station
+            const v = sy.arriveVec, out = (sy.commandX - BASE_TILE_X * TILE) * v.x + (sy.commandY - BASE_TILE_Y * TILE) * v.y;
+            const k = out >= 0 ? 1 : -1;
+            sy.facingX = v.x * k; sy.facingY = v.y * k;
         }
+        sy.arriveVec = null;
     }
 
     function commandSyndicateToPost(post) {
@@ -8234,7 +8653,7 @@
         pathSyndicateTo(sy, post.junction.x, post.junction.y);
         assignFormation();
         updateSelectionUI();
-        const dirNames = { N: 'north', S: 'south', E: 'east', W: 'west' };
+        const dirNames = JUNCTION_NAMES;
         const covered = post.cover.map(d => dirNames[d]).join(', ');
         showToast(':target: Syndicate moving to ' + dirNames[post.dir] + ' post — covering ' + covered + '.');
     }
@@ -8319,7 +8738,7 @@
             sy._flipCd = Math.max(0, (sy._flipCd || 0) - 0.3);
             const dx = best.x - cx, dy = best.y - cy;
             const along = dx * fx0 + dy * fy0;                                  // + in front of the line, - behind it
-            const beside = Math.abs(fy0 === 0 ? dy : dx);                      // how far to one side
+            const beside = Math.abs(dx * fy0 - dy * fx0);                      // how far to one side (works for diagonal lines too)
             if (along < -TILE * 4 && -along > beside * 0.6 && sy._flipCd <= 0) {
                 sy.facingX = -fx0; sy.facingY = -fy0;
                 sy._flipCd = 3;
@@ -8720,6 +9139,21 @@
         return 1 + score / Math.max(1, samples);
     }
 
+    // Every 10th night (10, 20, 30 ...) is an all-out riot.
+    function isAllOutRiotWave(wave) { return wave > 0 && wave % 10 === 0; }
+    // The night is lost and the holdouts drift away a handful at a time: the most beaten rioter and the few standing
+    // closest to them go home. The fitter ones in that handful may tag on to another group instead.
+    function peelOffOneGroup() {
+        const live = game.raiders.filter(r => r.alive && r.kind !== 'crowd' && r.kind !== 'petrol' && r.state !== 'fleeing' && r.state !== 'fading' && !r.beingArrested);
+        if (!live.length) return;
+        live.sort((a, b) => a.hp / a.maxHp - b.hp / b.maxHp);
+        const w = live[0];
+        const cluster = live.filter(r => Math.hypot(r.x - w.x, r.y - w.y) < TILE * 6).slice(0, 6);
+        for (const r of cluster) {
+            if (r.hp / r.maxHp >= 0.7) { const before = r.squadId; r.joinOtherGroup(); if (r.squadId !== before) continue; }
+            r.startFleeing(); game.routed++;
+        }
+    }
     function startWave() {
         game._causeToastShown = false;
         game._stragglersSent = false;
@@ -8743,6 +9177,10 @@
         const mods = levelMods(wave);
         game.waveStartMood = mods.startMood; game.crowdMood = mods.startMood;
         game.waveStats = { calmed: 0, turned: 0, hurt: 0, agitArrested: 0, backups: 0, startOpinion: game.opinion, coinBonus: mods.coinBonus, hadCrowd: false, rioterArrests: 0, blockedFails: 0, rerouted: 0, completed: 0, protesters: 0, revealed: 0 };
+        // Every tenth night is an ALL-OUT RIOT: no protesters, only rioters, who do not give up (they only fall back to regroup).
+        const allOut = isAllOutRiotWave(wave);
+        game.allOutRiot = allOut; game._peelT = undefined;
+        if (allOut) game.waveStats.coinBonus = (game.waveStats.coinBonus || 1) * 1.5;
         if (game.overtimeTired) {
             game.overtimeTired = false;
             for (const o of game.officers) if (o.alive && !o.isAllOut) o.hp = Math.max(1, o.hp * 0.85);
@@ -8761,10 +9199,10 @@
         const D = (window.CordonDifficulty && CordonDifficulty.tune) ? CordonDifficulty.tune(game) : { rioters: 1, protesters: 1, hidden: 1, pace: 1, mood: 0 };
         game.diffTune = D;
         const G = game.grievance || 0;
-        const raiderCount = Math.max(5, Math.round((24 + wave * 8 + Math.floor(wave * wave * 0.4)) * forceScale() * mods.rioters * D.rioters));
-        const crowdCount = Math.max(4, Math.min(38, Math.round(((4 + nightOf(wave) * 2) * mods.protesters + wave * 0.5) * D.protesters)));
-        const hiddenCount = wave < 2 ? 0 : Math.max(1, Math.round(mods.agitators * (1.2 + nightOf(wave) * 0.6) * D.hidden) + Math.floor(G / 25));
-        game.waveStats.hadCrowd = true;
+        const raiderCount = Math.max(5, Math.round((24 + wave * 8 + Math.floor(wave * wave * 0.4)) * forceScale() * mods.rioters * D.rioters * (allOut ? 1.35 : 1)));
+        const crowdCount = allOut ? 0 : Math.max(4, Math.min(38, Math.round(((4 + nightOf(wave) * 2) * mods.protesters + wave * 0.5) * D.protesters)));
+        const hiddenCount = (wave < 2 || allOut) ? 0 : Math.max(1, Math.round(mods.agitators * (1.2 + nightOf(wave) * 0.6) * D.hidden) + Math.floor(G / 25));
+        game.waveStats.hadCrowd = !allOut;
         game.waveStartMood = Math.min(95, game.waveStartMood + G * 0.12 + (D.mood || 0)); game.crowdMood = game.waveStartMood;
 
         const maxGates = Math.min(EXIT_NODE_IDS.length, 2 + Math.floor(wave / 2));
@@ -8799,6 +9237,12 @@
             squad.role = (r < 0.55) ? 'main' : (r < 0.8) ? 'flank' : 'distraction';
         }
 
+        // In an all-out riot each group has its own goal: wreck the station, hunt the officers, or wreck the buildings.
+        if (allOut) {
+            const goals = ['base', 'hunt', 'buildings'];
+            let gi = Math.floor(Math.random() * 3);
+            createdSquads.forEach((c, i) => { c.squad.objective = (i === 0) ? 'base' : goals[(gi + i) % 3]; c.squad.role = 'main'; });
+        }
         // The rioters are split into arrival groups that turn up at different times (see the riot director).
         game.waveSpawnQueue = [];
         let totalHp = 0;
@@ -8807,6 +9251,7 @@
         for (let g = 0; g < groupN; g++) groups.push([]);
         createdSquads.forEach((c, i) => groups[i % groupN].push(c));
         const events = [];
+        let petrolLeft = allOut ? Math.min(16, 4 + Math.floor(wave / 10) * 2) : 0, assignedKinds = 0;
         for (const grp of groups) {
             const sq = [];
             for (const { squad, count } of grp) {
@@ -8814,8 +9259,10 @@
                 for (let i = 0; i < count; i++) {
                     const roll2 = Math.random();
                     let kind = 'standard';
-                    if (roll2 < 0.15 * mods.bricks) kind = 'brickthrower';
+                    if (allOut && petrolLeft > 0 && Math.random() < Math.max(0.08, petrolLeft / Math.max(1, raiderCount - assignedKinds))) { kind = 'petrol'; petrolLeft--; }
+                    else if (roll2 < 0.15 * mods.bricks) kind = 'brickthrower';
                     else if (roll2 < 0.15 * mods.bricks + 0.25) kind = 'bruiser';
+                    assignedKinds++;
                     kinds.push(kind);
                     totalHp += RAIDER_TYPES[kind].hp;
                 }
@@ -8823,9 +9270,11 @@
             }
             events.push({ type: 'arrive', squads: sq });
         }
-        if (hiddenCount > 0) events.push({ type: 'reveal', frac: 0.5 });
-        if (hiddenCount > 2 || wave >= 4) events.push({ type: 'reveal', frac: 1 });
-        if (wave >= 3 && Math.random() < 0.7) events.push({ type: 'flare' });
+        if (!allOut) {
+            if (hiddenCount > 0) events.push({ type: 'reveal', frac: 0.5 });
+            if (hiddenCount > 2 || wave >= 4) events.push({ type: 'reveal', frac: 1 });
+            if (wave >= 3 && Math.random() < 0.7) events.push({ type: 'flare' });
+        }
         for (let i = events.length - 1; i > 0; i--) {
             const j = Math.floor(Math.random() * (i + 1));
             [events[i], events[j]] = [events[j], events[i]];
@@ -8834,7 +9283,7 @@
 
         // the peaceful crowd (and anyone hiding in it) marches in straight away, with a plan
         const crowdSquadIds = [];
-        const crowdSquads = Math.min(2, Math.max(1, Math.floor(gateCount / 2)));
+        const crowdSquads = allOut ? 0 : Math.min(2, Math.max(1, Math.floor(gateCount / 2)));
         for (let c = 0; c < crowdSquads; c++) {
             const exit = exits[Math.floor(Math.random() * exits.length)];
             const squad = new RaiderSquad(game.nextSquadId++, exit, 'sneaky');
@@ -8863,7 +9312,11 @@
         game.totalRaidersInWave = raiderCount;
         game.waveSpawnTimer = 0;
         announceWave(exits.length, gateCount);
-        commanderShoutAll('Here they come — hold the line!');
+        if (allOut) {
+            riotAlert(':siren: ALL-OUT RIOT! Only rioters tonight. They will not give up.');
+            showToast(':siren: ALL-OUT RIOT! They are after the station, the officers and the buildings. Watch for petrol bombers.');
+            commanderShoutAll('ALL-OUT RIOT! Hold the station!');
+        } else commanderShoutAll('Here they come — hold the line!');
         if (window.CordonAudio) {                  // radio crackle + control-room voice (also shown as text)
             const rl = CordonAudio.radioOperationStart(!!settings.voices, !settings.sound);
             if (rl) pushMsg({ text: ':megaphone: Control: \u201c' + rl.control + '\u201d' + (rl.reply ? '  \u2014 \u201c' + rl.reply + '\u201d' : ''), cls: 'radio', ttl: 5200, key: 'radio' });
@@ -9107,7 +9560,7 @@
         const eventsPending = !!(game.riot && game.riot.events.length > 0);
         const hiddenAlive = game.raiders.some(r => r.alive && r.kind === 'crowd' && r.agitator);
         const anyLeft = game.raiders.some(r => r.alive) || game.waveSpawnQueue.length > 0 || eventsPending;
-        const moraleBroken = game.waveMoralePct <= 0;
+        const moraleBroken = game.waveMoralePct <= 0 && !game.allOutRiot;          // an all-out riot is never lost by morale alone
         const routedEnough = !eventsPending && !hiddenAlive && (game.raidersDefeated / Math.max(1, game.totalRaidersInWave)) >= 0.95;
 
         if (moraleBroken || routedEnough) {
@@ -9138,11 +9591,11 @@
                 renderOptionsPanel();
             } else {
                 game.fsClear = (game.fsClear || 0) + dt;
-                if (moraleBroken && game.fsClear > 12 && !game._stragglersSent) {          // groups still holding out after the night is lost go home too
-                    game._stragglersSent = true;
-                    for (const r of game.raiders) if (r.alive && r.state !== 'fleeing' && !r.beingArrested) { r.startFleeing(); if (r.kind !== 'crowd') game.routed++; }
+                if (moraleBroken && game.fsClear > 8) {                                    // groups still holding out go home one at a time, never all at once
+                    game._peelT = (game._peelT === undefined ? 0 : game._peelT) - dt;
+                    if (game._peelT <= 0) { game._peelT = 6 + Math.random() * 4; peelOffOneGroup(); }
                 }
-                if (game.fsClear > FS.CLEAR_STALL) {
+                if (game.fsClear > (moraleBroken ? 80 : FS.CLEAR_STALL)) {
                     for (const r of game.raiders) if (r.alive && !r.beingArrested) fadeRaider(r);
                 }
             }
@@ -9409,7 +9862,7 @@
             }
             // a junction centre wins if the tap is on it: the vehicle parks right in the middle of the crossroads
             let jBest = null, jD = TILE * 3.2;
-            if (roadLayout) for (const j of roadLayout.junctions) {
+            if (roadLayout) for (const j of roadLayout.junctions.concat(roadLayout.diagJ || [])) {
                 if (j.isBase) continue;
                 const d = Math.hypot(j.x - wx, j.y - wy);
                 if (d < jD) { jD = d; jBest = j; }
@@ -10182,7 +10635,9 @@
         if (game.vehicle && game.vehicle.alive) game.vehicle.draw(ctx); else if (game.vehicle) game.vehicle.drawWreck(ctx);
         if (game.vehicle2 && game.vehicle2.alive) game.vehicle2.draw(ctx); else if (game.vehicle2) game.vehicle2.drawWreck(ctx);
 
+        drawFires(ctx);
         drawProjectiles(ctx);
+        drawCallouts(ctx);
         drawRubberTracers(ctx);
         drawEffects(ctx);
 
@@ -10472,6 +10927,7 @@
           try {
             updateWaves(dt);
             updateSquadAI(dt);
+            updateSyndicatePush(dt);
             updateCrowdMood(dt);
             if (game.shake > 0) game.shake = Math.max(0, game.shake - dt * 14);
             if (game.backupCooldown > 0) { game.backupCooldown -= dt; if (game.backupCooldown <= 0) { game.backupCooldown = 0; renderOptionsPanel(); } }
@@ -10555,6 +11011,7 @@
             if (game.vehicle2) game.vehicle2.update(dt);
             updateAmbulance(dt);
             updateProjectiles(dt);
+            updateFires(dt);
             updateRubberTracers(dt);
             updateAttackMarkers(dt);
             updateHeavyAttack(dt);
@@ -10611,6 +11068,7 @@
         game.ambulance = null; game.ambulanceCooldown = 0; game.camGlide = 1.4;
         game.townSeed = (Math.random() * 0x7fffffff) | 0;
         game.projectiles = [];
+        game.fires = []; game.gaps = []; game.callouts = []; game.allOutRiot = false;
         game.syndicates = [];
         game.selectedSyndicate = 0;
         game.baseHp = BASE_MAX_HP;
@@ -11057,6 +11515,12 @@
             switchMap(next); mapBtn(); showToast(':map: ' + CordonMaps.get(next).name);
         });
         mapBtn();
+        $('t-allout').addEventListener('click', () => {
+            if (game.waveState !== 'intermission') { showToast('Wait for the night to finish first'); return; }
+            game.waveNumber = Math.ceil(game.waveNumber / 10) * 10;          // jump to the next tenth night
+            game.waveTimer = 0;
+            showToast(':siren: Starting night ' + game.waveNumber + ' (all-out riot)');
+        });
         $('t-hidden').addEventListener('click', () => {
             const sq = [...game.squads.values()].find(s => s.isCrowd) || null;
             if (!sq) { showToast('Start a night first, so there is a protest to hide in.'); return; }

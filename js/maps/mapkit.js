@@ -29,6 +29,16 @@
      signals {row, xs}     junctions that get traffic lights + a yellow box
      sea {y1, sandY1}      optional: tiles above y1 are sea, up to sandY1 are beach
      decorate(api)         optional: place signs and road paint
+
+   DIAGONAL ROADS (optional, used by markettown.js):
+     diagonals[]           { x1,y1,x2,y2 }  a straight road between two points, any angle (tiles).
+                           It is the same width as every other road. Put its end points ON the centre
+                           line of the road it joins (or on a 'bend' where it meets a road end).
+     links[]               ['NODE_A','NODE_B']  tells the road graph that two nodes are joined by a
+                           diagonal road (the straight east-west / north-south links are found by themselves)
+     diagJunctions[]       { x, y, arms:['w','e','sw'] }  junctions that have a diagonal arm. Arms are
+                           n s e w ne nw se sw. These give the player junction posts on the diagonal arms.
+     zoneAt(tx, ty)        optional: which part of town a tile is in ('res', 'biz' or 'ind')
    ===================================================================== */
 (function () {
     'use strict';
@@ -67,19 +77,36 @@
         });
         const hSegs = segs.filter(s => s.dir === 'h'), vSegs = segs.filter(s => s.dir === 'v');
 
-        function isRoad(tx, ty) {
+        // Diagonal roads: straight segments at any angle. A tile is road when its centre is within hw of the segment.
+        const dSegs = (def.diagonals || []).map((d, i) => {
+            const dx = d.x2 - d.x1, dy = d.y2 - d.y1, len = Math.hypot(dx, dy) || 1;
+            return { i: i, x1: d.x1, y1: d.y1, x2: d.x2, y2: d.y2, len: len, vx: dx / len, vy: dy / len };
+        });
+        function distToDiag(s, tx, ty) {
+            const px = tx - s.x1, py = ty - s.y1;
+            let t = (px * s.vx + py * s.vy);
+            t = Math.max(0, Math.min(s.len, t));
+            return Math.hypot(px - s.vx * t, py - s.vy * t);
+        }
+        function isAxisRoad(tx, ty) {
             for (const s of segs) {
                 if (s.dir === 'h') { if (ty >= s.c - hw && ty <= s.c + hw && tx >= s.a && tx <= s.b) return true; }
                 else if (tx >= s.c - hw && tx <= s.c + hw && ty >= s.a && ty <= s.b) return true;
             }
             return false;
         }
+        function isDiagRoad(tx, ty) {
+            for (const s of dSegs) if (distToDiag(s, tx, ty) <= hw) return true;
+            return false;
+        }
+        function isRoad(tx, ty) { return isAxisRoad(tx, ty) || (dSegs.length > 0 && isDiagRoad(tx, ty)); }
         function isSidewalk(tx, ty) {
             if (isRoad(tx, ty)) return false;
             for (const s of segs) {
                 if (s.dir === 'h') { if (ty >= s.c - swHw && ty <= s.c + swHw && tx >= s.sa && tx <= s.sb) return true; }
                 else if (tx >= s.c - swHw && tx <= s.c + swHw && ty >= s.sa && ty <= s.sb) return true;
             }
+            for (const s of dSegs) if (distToDiag(s, tx, ty) <= swHw) return true;
             return false;
         }
         // sea / beach rows (optional)
@@ -93,7 +120,8 @@
                 const tx = s.c;
                 return { c: (tx + 0.5) * TILE, a: s.a * TILE, b: (s.rawB === 'end' ? env.H : s.b + 1) * TILE, tx: tx, bottomEntry: s.rawB === 'end' };
             });
-            return { H: H, V: V };
+            const D = dSegs.map(s => ({ x1: (s.x1 + 0.5) * TILE, y1: (s.y1 + 0.5) * TILE, x2: (s.x2 + 0.5) * TILE, y2: (s.y2 + 0.5) * TILE, vx: s.vx, vy: s.vy, len: s.len * TILE, i: s.i }));
+            return { H: H, V: V, D: D };
         }
 
         // Blockade spots (where a vehicle can park across a road).
@@ -124,10 +152,19 @@
                     spots.push({ key: 'V' + s.c + '_' + ty, dir: 'v', x: s.c * TILE + TILE / 2, y: ty * TILE + TILE / 2 });
                 }
             }
+            // dots along the diagonal roads (kept clear of both ends, where the junctions are)
+            for (const s of dSegs) {
+                const cut = margin + 1.5;
+                for (let k = Math.ceil(cut); k <= Math.floor(s.len - cut); k++) {
+                    const tx = s.x1 + s.vx * k, ty = s.y1 + s.vy * k;
+                    spots.push({ key: 'D' + s.i + '_' + k, dir: 'd', vx: s.vx, vy: s.vy, x: (tx + 0.5) * TILE, y: (ty + 0.5) * TILE });
+                }
+            }
             return spots;
         }
 
-        return { def: def, hw: hw, segs: segs, hSegs: hSegs, vSegs: vSegs,
+        return { def: def, hw: hw, segs: segs, hSegs: hSegs, vSegs: vSegs, dSegs: dSegs,
+                 isAxisRoad: isAxisRoad, isDiagRoad: isDiagRoad, distToDiag: distToDiag,
                  isRoad: isRoad, isSidewalk: isSidewalk, isSea: isSea, isSand: isSand,
                  layoutRoads: layoutRoads, blockadeSpots: blockadeSpots,
                  nodes: () => (typeof def.nodes === 'function' ? def.nodes(env) : (def.nodes || [])) };

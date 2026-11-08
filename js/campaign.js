@@ -23,7 +23,8 @@
 
    mapId                             which street layout the chapter is played on. The layouts
                                      live in js/maps/ (base = Original Streets, promenade =
-                                     Promenade Quarter). Leave it out and the chapter uses base.
+                                     Promenade Quarter, markettown = Market Town Centre, with diagonal
+                                     roads). Leave it out and the chapter uses base.
                                      To add a new layout: copy js/maps/promenade.js, edit it,
                                      add its <script> line to index.html and zombie.html, then
                                      give a chapter  mapId: 'yourname'.
@@ -114,6 +115,18 @@ window.CORDON_CAMPAIGN = {
                 'Dawn. Exhausted on both sides', 'The city holds its breath'],
             night: 0.55, tint: '#120f2e', zones: { res: 20, biz: 85 }, seed: 67,
             crowd: { protesters: 1.5, agitators: 1.5, rioters: 1.2, bricks: 1.1 }, startMood: 42,
+        },
+        {
+            id: 'council', mapId: 'markettown', city: 'The Midlands', district: 'Town Centre', title: 'Council Night',
+            cause: 'Residents march on the town hall over the council budget.',
+            intro: 'The council has voted through a budget of deep cuts, and the town centre is filling up. Most people are heading for the town hall to be heard. The ring road, the diagonal back streets and the High Street all lead there, so a crowd can come at you from almost any angle. Hold the junctions, walk a wall down a street to steer people, and do not push them for too long.',
+            introTrusted: 'Shopkeepers have kept the High Street open and are telling people to stay calm. Do not make them regret it.',
+            introHostile: 'Shutters are down across the town centre. Word is that the police are not welcome at the town hall tonight.',
+            nights: ['The budget is announced', 'Placards outside the town hall', 'Shops pull their shutters down', 'The march splits across the ring road',
+                'Councillors are booed', 'Hoods in the crowd on the back streets', 'The bin charge vote', 'Bottles in the market square',
+                'Not everyone wants to go home', 'The council meets again'],
+            night: 0.3, tint: '#141c44', zones: { res: 20, biz: 118 }, seed: 71,
+            crowd: { protesters: 1.7, agitators: 0.9, rioters: 0.7, bricks: 0.6 }, startMood: 22,
         },
     ],
     // How the public sees you, by opinion score (0-100). Used for headlines and next-level modifiers.

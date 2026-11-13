@@ -112,6 +112,8 @@
         bad(v) { const t = ctx.currentTime; tone(t, 'sawtooth', 220, 140, 0.35, 0.22 * v); },
         horn(v) { const t = ctx.currentTime; tone(t, 'sawtooth', 200, 200, 0.5, 0.18 * v, 0.03); tone(t, 'square', 300, 300, 0.5, 0.1 * v, 0.03); },
         // a riot turns: low rumble + shout
+        // helicopter rotor chop: a run of low thumps
+        heli(v) { const t = ctx.currentTime; for (let i = 0; i < 12; i++) noise(t + i * 0.085, 0.07, 'lowpass', 220, 0.9, 0.45 * v, 0.004); tone(t, 'sawtooth', 96, 88, 1.0, 0.04 * v, 0.1); },
         riot(v) { const t = ctx.currentTime; noise(t, 0.8, 'lowpass', 400, 0.8, 0.35 * v, 0.1); tone(t, 'sawtooth', 180, 120, 0.6, 0.12 * v, 0.05); },
     };
 

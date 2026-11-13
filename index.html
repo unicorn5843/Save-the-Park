@@ -438,6 +438,7 @@
         .sk-pill:active { transform: translateY(1px); }
         .sk-coins { background: rgba(0,0,0,.28); border-radius: 999px; padding: 3px 12px; color: #ffe27a; font-size: 14px; }
         #sk-msg { flex: 0 0 auto; min-height: 21px; padding: 3px 10px; font-size: 12px; font-weight: 700; background: #fff8d6; border-bottom: 1px solid #c9bf8a; color: #6b5200; }
+        #sk-msg:empty { display: none; }
         #sk-msg.ok { background: #e2f8e2; color: #1b7a26; border-bottom-color: #9ad09a; }
         #sk-msg.bad { background: #ffe8e4; color: #a43b2b; border-bottom-color: #e0a99f; }
         .sk-scroll { flex: 1 1 auto; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; touch-action: pan-y; padding: 8px 10px 16px; text-align: left;
@@ -496,7 +497,19 @@
             flex: 1 1 0; min-height: 0; padding: 0 1px; font-size: 9.5px; white-space: nowrap; overflow: hidden;
             border-width: 5px 6px; border-image-width: 5px 6px; display: flex; align-items: center; justify-content: center;
         }
-        #bottom-right-ui #dpad-container { width: 128px; height: 128px; margin: 0; }
+        #bottom-right-ui #dpad-container { width: 132px; height: 132px; margin: 0; padding: 0; gap: 0; display: block; background: none; border: 0; border-radius: 0; backdrop-filter: none; }
+        #dpad-svg { width: 100%; height: 100%; display: block; touch-action: manipulation; -webkit-tap-highlight-color: transparent; user-select: none; -webkit-user-select: none; }
+        #dpad-svg .dp-base { fill: rgba(13, 16, 23, 0.9); stroke: #2e3a4f; stroke-width: 2; }
+        #dpad-svg .dp-pad { fill: #2e3a4f; stroke: #5a6f96; stroke-width: 1.2; cursor: pointer; }
+        #dpad-svg .dp-pad.diag { fill: #26334a; }
+        #dpad-svg .dp-pad:active, #dpad-svg .dp-pad.press { fill: #6b8fd0; }
+        #dpad-svg .dp-pad.off { opacity: 0.2; pointer-events: none; }
+        #dpad-svg .dp-pad.diag.off { opacity: 0.1; }
+        #dpad-svg .dp-pad.diag:not(.off) { fill: #3a5a8c; stroke: #8fb4f0; }
+        #dpad-svg .dp-arrow { fill: #e8edf5; pointer-events: none; }
+        #dpad-svg .dp-pad.off + .dp-arrow { opacity: 0.35; }
+        #dpad-svg .dp-hub { fill: #1b2333; stroke: #47597a; stroke-width: 1.2; }
+        #dpad-svg .dp-dot { fill: #47597a; }
         /* ===== quick decisions strip (under the top bar) ===== */
         /* The Soft/Firm, Overtime and Backup buttons live in a pull-out drawer tucked against the left edge of the map.
            Closed = only the small tab shows. Tap the tab to slide it open. */
@@ -655,13 +668,7 @@
             <button class="syn-btn vehicle" data-idx="3">:car:</button>
             <button class="syn-btn vehicle" data-idx="5">:van:</button>
         </div>
-        <div id="dpad-container">
-            <button class="dpad-btn dpad-up" id="btn-up">:arrow_u:</button>
-            <button class="dpad-btn dpad-left" id="btn-left">:arrow_l:</button>
-            <div class="dpad-btn dpad-center"></div>
-            <button class="dpad-btn dpad-right" id="btn-right">:play:</button>
-            <button class="dpad-btn dpad-down" id="btn-down">:arrow_d:</button>
-        </div>
+        <div id="dpad-container"></div>
         </div>
     </div>
 
@@ -746,7 +753,7 @@
                     <span class="sk-title">Skills</span>
                     <span class="sk-coins" id="sk-coins">:coin: 0</span>
                 </div>
-                <div id="sk-msg">Clear levels to earn coins, then unlock anything in any order.</div>
+                <div id="sk-msg"></div>
                 <div class="sk-scroll">
                     <div class="sk-card" id="sk-progress"></div>
                     <div id="sk-tree"></div>
@@ -761,47 +768,47 @@
                 <div class="xp-body set-body">
                     <div class="set-list">
                         <div class="set-row">
-                            <div class="set-txt"><b>:bolt: Test mode</b><small>Unlocks every skill, gives 99,999 coins and adds a TEST button in-game. It uses its own separate save, so your real progress is never touched.</small></div>
+                            <div class="set-txt"><b>:bolt: Test mode</b></div>
                             <button class="set-btn" id="set-test">OFF</button>
                         </div>
                         <div class="set-row" id="set-level-row">
-                            <div class="set-txt"><b>Test start level</b><small>The level a test game begins at.</small></div>
+                            <div class="set-txt"><b>Test start level</b></div>
                             <button class="set-btn" id="set-level-dn">&minus;5</button>
                             <button class="set-btn" id="set-level">1</button>
                             <button class="set-btn" id="set-level-up">+5</button>
                         </div>
                         <div class="set-row" id="set-map-row">
-                            <div class="set-txt"><b>:map: Map</b><small id="set-map-txt">Tap to cycle. Auto follows the campaign; pick one to test a street layout. Applies the next time you start a game.</small></div>
+                            <div class="set-txt"><b>:map: Map</b><small id="set-map-txt"></small></div>
                             <button class="set-btn" id="set-map" style="min-width:104px">Auto</button>
                         </div>
                         <div class="set-row">
-                            <div class="set-txt"><b>:megaphone: Sound</b><small>Sirens, chanting and impact sounds. The game makes them itself, no files needed.</small></div>
+                            <div class="set-txt"><b>:megaphone: Sound</b></div>
                             <button class="set-btn" id="set-sound">ON</button>
                         </div>
                         <div class="set-row">
-                            <div class="set-txt"><b>:megaphone: Radio voices</b><small>A control-room voice calls the start of each night over the radio. Uses your phone's built-in voices. Off keeps just the radio crackle.</small></div>
+                            <div class="set-txt"><b>:megaphone: Radio voices</b></div>
                             <button class="set-btn" id="set-voices">ON</button>
                         </div>
                         <div class="set-row">
-                            <div class="set-txt"><b>:burst: Screen shake</b><small>A small shake on big impacts.</small></div>
+                            <div class="set-txt"><b>:burst: Screen shake</b></div>
                             <button class="set-btn" id="set-shake">ON</button>
                         </div>
                         <div class="set-row">
-                            <div class="set-txt"><b>:placard: Show rioter items</b><small>Placards, sticks and bricks on every rioter. Off keeps the street tidy.</small></div>
+                            <div class="set-txt"><b>:placard: Show rioter items</b></div>
                             <button class="set-btn" id="set-items">OFF</button>
                         </div>
                         <div class="set-row">
-                            <div class="set-txt"><b>:eye: Show FPS</b><small>A small speed counter in the corner.</small></div>
+                            <div class="set-txt"><b>:eye: Show FPS</b></div>
                             <button class="set-btn" id="set-fps">OFF</button>
                         </div>
                         <div class="set-row">
-                            <div class="set-txt"><b>:save: Save code</b><small>Copy your progress as text to keep somewhere safe, or paste a code here to restore it.</small></div>
+                            <div class="set-txt"><b>:save: Save code</b></div>
                             <button class="set-btn" id="set-copy">Copy</button>
                             <button class="set-btn" id="set-load">Load</button>
                         </div>
                         <textarea class="set-code" id="set-code" placeholder="Your save code appears here. To restore, paste a code and press Load." spellcheck="false" autocomplete="off" autocapitalize="off"></textarea>
                         <div class="set-row">
-                            <div class="set-txt"><b>:shield: Protect my save</b><small id="set-persist-txt">Asks the browser not to clear your save when it is short of space.</small></div>
+                            <div class="set-txt"><b>:shield: Protect my save</b><small id="set-persist-txt"></small></div>
                             <button class="set-btn" id="set-persist">Ask</button>
                         </div>
                         <div class="set-note" id="set-msg"></div>
@@ -1385,6 +1392,7 @@
         add('repair1',   'station', ':worker:', 'Repair Team 1', 'Escorted crew that fixes damaged buildings.', 120);
         add('repair2',   'station', ':worker:', 'Repair Team 2', 'A second repair crew.', 220, ['repair1']);
         add('ambulance', 'station', ':ambulance:', 'Ambulance', 'Collects and treats injured officers.', 180);
+        add('heli',      'station', ':eye:', 'Helicopter', 'Flies over the crowd and marks hidden rioters for arrest.', 300);
         // command
         add('allout',   'command', ':siren:', 'All Out', 'A shield box of extra officers around the station.', 150);
         add('mergeall', 'command', ':helmet:', 'All Units On Me', 'Every syndicate converges on the one you select.', 200);
@@ -1506,6 +1514,7 @@
         if (game.waveState === 'active') { game.waveState = 'intermission'; game.waveTimer = 2.5; }
         game.repairOfficers = []; game.repairEscorts = [];
         game.ambulance = null; game.ambulanceCooldown = 0;
+        game.heli = null; game.heliCooldown = 0;
         generateMap(); buildTerrainCanvas(); buildMinimapTerrainCanvas();
         const near = (rad) => {
             const cx = BASE_TILE_X * TILE, cy = BASE_TILE_Y * TILE;
@@ -1837,11 +1846,6 @@
         if (soft) pb.classList.add('active-choice');
         pb.addEventListener('click', togglePosture);
         panel.appendChild(pb);
-        const pn = document.createElement('div');
-        pn.className = 'dec-note';
-        pn.textContent = soft ? 'Gentler. Crowds cool faster, opinion rises, but officers hit softer.'
-                              : 'Harder hits. Crowds anger faster and opinion falls.';
-        panel.appendChild(pn);
 
         const ob = document.createElement('button');
         const paid = game.overtime === 'paid';
@@ -1850,9 +1854,6 @@
         ob.addEventListener('click', buyOvertime);
         panel.appendChild(ob);
         if (otReserveTotal() > 0) {
-            const olbl = document.createElement('div');
-            olbl.className = 'dec-note'; olbl.textContent = 'Overtime officers waiting. Add each block of ' + OT_BLOCK + ' to a syndicate:';
-            panel.appendChild(olbl);
             const idxs = [];
             for (let i = 0; i < game.syndicatesDeployed; i++) if (otReserveFor(i) > 0) idxs.push(i);
             for (const i of idxs) {
@@ -1875,10 +1876,6 @@
         if (cd > 0) bb.disabled = true;
         bb.addEventListener('click', callBackup);
         panel.appendChild(bb);
-        const dn = document.createElement('div');
-        dn.className = 'dec-note';
-        dn.textContent = 'Overtime: +6 officers for every syndicate (you choose where they go), heal and +20% damage, tired next night. Backup: refills syndicates up to 15, unsettles crowds.';
-        panel.appendChild(dn);
     }
 
     // ----- end of a night: opinion verdict -----
@@ -2021,6 +2018,7 @@
         camera: { x: 0, y: 0 },
         cameraUserLock: 0, camGlide: 1.4,
         ambulance: null, ambulanceCooldown: 0,
+        heli: null, heliCooldown: 0,
         mouse: { down: false, startX: 0, startY: 0, curX: 0, curY: 0, moved: false },
         lastTime: 0,
         gameOver: false,
@@ -2552,6 +2550,8 @@
     ASSET_PATHS['city_atlas'] = 'assets/map/buildings/city_atlas.png';
     ASSET_PATHS['city_v2'] = 'assets/map/buildings/city_v2.png';
     ASSET_PATHS['landmarks_v2'] = 'assets/map/buildings/landmarks_v2.png';
+    ASSET_PATHS['city2_v2'] = 'assets/map/buildings/city2_v2.png';                // small new-look houses and sheds that replace the last old-style buildings
+    ASSET_PATHS['landmarks2_v2'] = 'assets/map/buildings/landmarks2_v2.png';      // new police station, school, library, hotel and wind turbine (see tools/make_landmarks2_v2.py)
     ASSET_PATHS['parks_v2'] = 'assets/map/buildings/parks_v2.png';      // mansion, fire station, formal garden, playgrounds (see tools/make_parks_v2.py)
     ASSET_PATHS['beach_v2'] = 'assets/map/beach/beach_v2.png';      // animated sea, sand and beach decorations (see tools/make_beach_v2.py)
     const BEACH_V2 = {"water":[[0,0],[16,0],[32,0],[48,0],[64,0],[80,0],[96,0],[112,0]],"sand":[[0,16],[16,16],[32,16],[48,16]]};
@@ -2630,10 +2630,16 @@
     Object.assign(ATLAS_TABLE, {"v2_ice_cream":{"kind":"b","zone":"biz","wT":7,"hT":13,"src":"v2_ice","noflip":true,"x":0,"y":0,"w":112,"h":208,"file":"city_v2","boost":3,"max":2},"v2_bakery":{"kind":"b","zone":"biz","wT":7,"hT":14,"src":"v2_bakery","noflip":true,"x":114,"y":0,"w":112,"h":224,"file":"city_v2","boost":3,"max":2},"v2_market":{"kind":"b","zone":"biz","wT":7,"hT":7,"src":"v2_market","noflip":true,"x":228,"y":0,"w":112,"h":112,"file":"city_v2","boost":3,"max":3},"v2_flats_a":{"kind":"b","zone":"biz","wT":6,"hT":9,"src":"v2_flats","noflip":true,"x":342,"y":0,"w":96,"h":154,"file":"city_v2","boost":3},"v2_yellow_a":{"kind":"b","zone":"biz","wT":8,"hT":9,"src":"v2_yellow","noflip":true,"x":440,"y":0,"w":128,"h":154,"file":"city_v2","boost":3},"v2_brown_a":{"kind":"b","zone":"res","wT":7,"hT":9,"src":"v2_brown","noflip":true,"x":570,"y":0,"w":112,"h":154,"file":"city_v2","boost":3,"zones":["res","biz"]},"v2_yellow_b":{"kind":"b","zone":"biz","wT":8,"hT":9,"src":"v2_yellow","noflip":true,"x":684,"y":0,"w":128,"h":154,"file":"city_v2","boost":3},"v2_yellow_c":{"kind":"b","zone":"biz","wT":8,"hT":9,"src":"v2_yellow","noflip":true,"x":814,"y":0,"w":128,"h":154,"file":"city_v2","boost":3},"v2_yellow_d":{"kind":"b","zone":"biz","wT":8,"hT":9,"src":"v2_yellow","noflip":true,"x":0,"y":226,"w":128,"h":154,"file":"city_v2","boost":3},"v2_brown_b":{"kind":"b","zone":"res","wT":7,"hT":9,"src":"v2_brown","noflip":true,"x":130,"y":226,"w":112,"h":154,"file":"city_v2","boost":3,"zones":["res","biz"]},"v2_brown_c":{"kind":"b","zone":"res","wT":7,"hT":9,"src":"v2_brown","noflip":true,"x":244,"y":226,"w":112,"h":154,"file":"city_v2","boost":3,"zones":["res","biz"]},"v2_brown_d":{"kind":"b","zone":"res","wT":7,"hT":9,"src":"v2_brown","noflip":true,"x":358,"y":226,"w":112,"h":154,"file":"city_v2","boost":3,"zones":["res","biz"]},"v2_flats_b":{"kind":"b","zone":"biz","wT":6,"hT":9,"src":"v2_flats","noflip":true,"x":472,"y":226,"w":96,"h":154,"file":"city_v2","boost":3},"v2_flats_c":{"kind":"b","zone":"biz","wT":6,"hT":9,"src":"v2_flats","noflip":true,"x":570,"y":226,"w":96,"h":154,"file":"city_v2","boost":3},"v2_n_flats_a_l":{"kind":"b","zone":"biz","wT":3,"hT":9,"src":"v2_n","noflip":true,"x":668,"y":226,"w":48,"h":154,"file":"city_v2","boost":3},"v2_n_flats_a_r":{"kind":"b","zone":"biz","wT":3,"hT":9,"src":"v2_n","noflip":true,"x":718,"y":226,"w":48,"h":154,"file":"city_v2","boost":3},"v2_n_yellow_a_l":{"kind":"b","zone":"biz","wT":4,"hT":9,"src":"v2_n","noflip":true,"x":768,"y":226,"w":64,"h":154,"file":"city_v2","boost":3},"v2_n_yellow_a_r":{"kind":"b","zone":"biz","wT":4,"hT":9,"src":"v2_n","noflip":true,"x":834,"y":226,"w":64,"h":154,"file":"city_v2","boost":3},"v2_n_brown_a_l":{"kind":"b","zone":"res","wT":4,"hT":9,"src":"v2_n","noflip":true,"x":900,"y":226,"w":64,"h":154,"file":"city_v2","boost":3,"zones":["res","biz"]},"v2_n_brown_a_r":{"kind":"b","zone":"res","wT":4,"hT":9,"src":"v2_n","noflip":true,"x":0,"y":382,"w":64,"h":154,"file":"city_v2","boost":3,"zones":["res","biz"]},"v2_n_yellow_b_l":{"kind":"b","zone":"biz","wT":4,"hT":9,"src":"v2_n","noflip":true,"x":66,"y":382,"w":64,"h":154,"file":"city_v2","boost":3},"v2_n_yellow_b_r":{"kind":"b","zone":"biz","wT":4,"hT":9,"src":"v2_n","noflip":true,"x":132,"y":382,"w":64,"h":154,"file":"city_v2","boost":3},"v2_n_yellow_c_l":{"kind":"b","zone":"biz","wT":4,"hT":9,"src":"v2_n","noflip":true,"x":198,"y":382,"w":64,"h":154,"file":"city_v2","boost":3},"v2_n_yellow_c_r":{"kind":"b","zone":"biz","wT":4,"hT":9,"src":"v2_n","noflip":true,"x":264,"y":382,"w":64,"h":154,"file":"city_v2","boost":3},"v2_n_yellow_d_l":{"kind":"b","zone":"biz","wT":4,"hT":9,"src":"v2_n","noflip":true,"x":330,"y":382,"w":64,"h":154,"file":"city_v2","boost":3},"v2_n_yellow_d_r":{"kind":"b","zone":"biz","wT":4,"hT":9,"src":"v2_n","noflip":true,"x":396,"y":382,"w":64,"h":154,"file":"city_v2","boost":3},"v2_n_brown_b_l":{"kind":"b","zone":"res","wT":4,"hT":9,"src":"v2_n","noflip":true,"x":462,"y":382,"w":64,"h":154,"file":"city_v2","boost":3,"zones":["res","biz"]},"v2_n_brown_b_r":{"kind":"b","zone":"res","wT":4,"hT":9,"src":"v2_n","noflip":true,"x":528,"y":382,"w":64,"h":154,"file":"city_v2","boost":3,"zones":["res","biz"]},"v2_n_brown_c_l":{"kind":"b","zone":"res","wT":4,"hT":9,"src":"v2_n","noflip":true,"x":594,"y":382,"w":64,"h":154,"file":"city_v2","boost":3,"zones":["res","biz"]},"v2_n_brown_c_r":{"kind":"b","zone":"res","wT":4,"hT":9,"src":"v2_n","noflip":true,"x":660,"y":382,"w":64,"h":154,"file":"city_v2","boost":3,"zones":["res","biz"]},"v2_n_brown_d_l":{"kind":"b","zone":"res","wT":4,"hT":9,"src":"v2_n","noflip":true,"x":726,"y":382,"w":64,"h":154,"file":"city_v2","boost":3,"zones":["res","biz"]},"v2_n_brown_d_r":{"kind":"b","zone":"res","wT":4,"hT":9,"src":"v2_n","noflip":true,"x":792,"y":382,"w":64,"h":154,"file":"city_v2","boost":3,"zones":["res","biz"]},"v2_n_flats_b_l":{"kind":"b","zone":"biz","wT":3,"hT":9,"src":"v2_n","noflip":true,"x":858,"y":382,"w":48,"h":154,"file":"city_v2","boost":3},"v2_n_flats_b_r":{"kind":"b","zone":"biz","wT":3,"hT":9,"src":"v2_n","noflip":true,"x":908,"y":382,"w":48,"h":154,"file":"city_v2","boost":3},"v2_n_flats_c_l":{"kind":"b","zone":"biz","wT":3,"hT":9,"src":"v2_n","noflip":true,"x":958,"y":382,"w":48,"h":154,"file":"city_v2","boost":3},"v2_n_flats_c_r":{"kind":"b","zone":"biz","wT":3,"hT":9,"src":"v2_n","noflip":true,"x":0,"y":538,"w":48,"h":154,"file":"city_v2","boost":3},"v2_h_brick_0_64_red":{"kind":"b","zone":"res","wT":4,"hT":9,"src":"v2h_brick_0","noflip":true,"x":50,"y":538,"w":64,"h":144,"file":"city_v2","boost":3,"zones":["res","biz"]},"v2_h_brick_0_64_green":{"kind":"b","zone":"res","wT":4,"hT":9,"src":"v2h_brick_0","noflip":true,"x":116,"y":538,"w":64,"h":144,"file":"city_v2","boost":3,"zones":["res","biz"]},"v2_h_brick_0_48_brown":{"kind":"b","zone":"res","wT":3,"hT":9,"src":"v2h_brick_0","noflip":true,"x":182,"y":538,"w":48,"h":144,"file":"city_v2","boost":3,"zones":["res","biz"]},"v2_h_brick_0_48_slate":{"kind":"b","zone":"res","wT":3,"hT":9,"src":"v2h_brick_0","noflip":true,"x":232,"y":538,"w":48,"h":144,"file":"city_v2","boost":3,"zones":["res","biz"]},"v2_h_brick_1_64_red":{"kind":"b","zone":"res","wT":4,"hT":9,"src":"v2h_brick_1","noflip":true,"x":282,"y":538,"w":64,"h":144,"file":"city_v2","boost":3,"zones":["res","biz"]},"v2_h_brick_1_64_green":{"kind":"b","zone":"res","wT":4,"hT":9,"src":"v2h_brick_1","noflip":true,"x":348,"y":538,"w":64,"h":144,"file":"city_v2","boost":3,"zones":["res","biz"]},"v2_h_brick_2_64_brown":{"kind":"b","zone":"res","wT":4,"hT":9,"src":"v2h_brick_2","noflip":true,"x":414,"y":538,"w":64,"h":144,"file":"city_v2","boost":3,"zones":["res","biz"]},"v2_h_brick_2_64_slate":{"kind":"b","zone":"res","wT":4,"hT":9,"src":"v2h_brick_2","noflip":true,"x":480,"y":538,"w":64,"h":144,"file":"city_v2","boost":3,"zones":["res","biz"]},"v2_h_flats_0_64_red":{"kind":"b","zone":"res","wT":4,"hT":8,"src":"v2h_flats_0","noflip":true,"x":546,"y":538,"w":64,"h":128,"file":"city_v2","boost":3,"zones":["res","biz"]},"v2_h_flats_0_64_green":{"kind":"b","zone":"res","wT":4,"hT":8,"src":"v2h_flats_0","noflip":true,"x":612,"y":538,"w":64,"h":128,"file":"city_v2","boost":3,"zones":["res","biz"]},"v2_h_flats_0_48_brown":{"kind":"b","zone":"res","wT":3,"hT":8,"src":"v2h_flats_0","noflip":true,"x":678,"y":538,"w":48,"h":128,"file":"city_v2","boost":3,"zones":["res","biz"]},"v2_h_flats_0_48_slate":{"kind":"b","zone":"res","wT":3,"hT":8,"src":"v2h_flats_0","noflip":true,"x":728,"y":538,"w":48,"h":128,"file":"city_v2","boost":3,"zones":["res","biz"]},"v2_h_yel_0_64_red":{"kind":"b","zone":"res","wT":4,"hT":8,"src":"v2h_yel_0","noflip":true,"x":778,"y":538,"w":64,"h":128,"file":"city_v2","boost":3,"zones":["res","biz"]},"v2_h_yel_0_64_green":{"kind":"b","zone":"res","wT":4,"hT":8,"src":"v2h_yel_0","noflip":true,"x":844,"y":538,"w":64,"h":128,"file":"city_v2","boost":3,"zones":["res","biz"]},"v2_h_yel_0_48_brown":{"kind":"b","zone":"res","wT":3,"hT":8,"src":"v2h_yel_0","noflip":true,"x":910,"y":538,"w":48,"h":128,"file":"city_v2","boost":3,"zones":["res","biz"]},"v2_h_yel_0_48_slate":{"kind":"b","zone":"res","wT":3,"hT":8,"src":"v2h_yel_0","noflip":true,"x":960,"y":538,"w":48,"h":128,"file":"city_v2","boost":3,"zones":["res","biz"]},"v2_h_yel_1_64_red":{"kind":"b","zone":"res","wT":4,"hT":8,"src":"v2h_yel_1","noflip":true,"x":0,"y":694,"w":64,"h":128,"file":"city_v2","boost":3,"zones":["res","biz"]},"v2_h_yel_1_64_green":{"kind":"b","zone":"res","wT":4,"hT":8,"src":"v2h_yel_1","noflip":true,"x":66,"y":694,"w":64,"h":128,"file":"city_v2","boost":3,"zones":["res","biz"]},"v2_h_brn_0_64_brown":{"kind":"b","zone":"res","wT":4,"hT":8,"src":"v2h_brn_0","noflip":true,"x":132,"y":694,"w":64,"h":128,"file":"city_v2","boost":3,"zones":["res","biz"]},"v2_h_brn_0_64_slate":{"kind":"b","zone":"res","wT":4,"hT":8,"src":"v2h_brn_0","noflip":true,"x":198,"y":694,"w":64,"h":128,"file":"city_v2","boost":3,"zones":["res","biz"]},"v2_h_brn_0_48_red":{"kind":"b","zone":"res","wT":3,"hT":8,"src":"v2h_brn_0","noflip":true,"x":264,"y":694,"w":48,"h":128,"file":"city_v2","boost":3,"zones":["res","biz"]},"v2_h_brn_0_48_green":{"kind":"b","zone":"res","wT":3,"hT":8,"src":"v2h_brn_0","noflip":true,"x":314,"y":694,"w":48,"h":128,"file":"city_v2","boost":3,"zones":["res","biz"]},"v2_h_brn_1_64_brown":{"kind":"b","zone":"res","wT":4,"hT":8,"src":"v2h_brn_1","noflip":true,"x":364,"y":694,"w":64,"h":128,"file":"city_v2","boost":3,"zones":["res","biz"]},"v2_h_brn_1_64_slate":{"kind":"b","zone":"res","wT":4,"hT":8,"src":"v2h_brn_1","noflip":true,"x":430,"y":694,"w":64,"h":128,"file":"city_v2","boost":3,"zones":["res","biz"]},"v2_h_yel2_0_64_red":{"kind":"b","zone":"res","wT":4,"hT":8,"src":"v2h_yel2_0","noflip":true,"x":496,"y":694,"w":64,"h":128,"file":"city_v2","boost":3,"zones":["res","biz"]},"v2_h_yel2_0_64_green":{"kind":"b","zone":"res","wT":4,"hT":8,"src":"v2h_yel2_0","noflip":true,"x":562,"y":694,"w":64,"h":128,"file":"city_v2","boost":3,"zones":["res","biz"]},"v2_h_yel2_0_48_brown":{"kind":"b","zone":"res","wT":3,"hT":8,"src":"v2h_yel2_0","noflip":true,"x":628,"y":694,"w":48,"h":128,"file":"city_v2","boost":3,"zones":["res","biz"]},"v2_h_yel2_0_48_slate":{"kind":"b","zone":"res","wT":3,"hT":8,"src":"v2h_yel2_0","noflip":true,"x":678,"y":694,"w":48,"h":128,"file":"city_v2","boost":3,"zones":["res","biz"]},"v2_h_yel2_1_64_red":{"kind":"b","zone":"res","wT":4,"hT":8,"src":"v2h_yel2_1","noflip":true,"x":728,"y":694,"w":64,"h":128,"file":"city_v2","boost":3,"zones":["res","biz"]},"v2_h_yel2_1_64_green":{"kind":"b","zone":"res","wT":4,"hT":8,"src":"v2h_yel2_1","noflip":true,"x":794,"y":694,"w":64,"h":128,"file":"city_v2","boost":3,"zones":["res","biz"]},"v2_h_yel3_0_64_brown":{"kind":"b","zone":"res","wT":4,"hT":8,"src":"v2h_yel3_0","noflip":true,"x":860,"y":694,"w":64,"h":128,"file":"city_v2","boost":3,"zones":["res","biz"]},"v2_h_yel3_0_64_slate":{"kind":"b","zone":"res","wT":4,"hT":8,"src":"v2h_yel3_0","noflip":true,"x":926,"y":694,"w":64,"h":128,"file":"city_v2","boost":3,"zones":["res","biz"]},"v2_h_yel3_0_48_red":{"kind":"b","zone":"res","wT":3,"hT":8,"src":"v2h_yel3_0","noflip":true,"x":0,"y":824,"w":48,"h":128,"file":"city_v2","boost":3,"zones":["res","biz"]},"v2_h_yel3_0_48_green":{"kind":"b","zone":"res","wT":3,"hT":8,"src":"v2h_yel3_0","noflip":true,"x":50,"y":824,"w":48,"h":128,"file":"city_v2","boost":3,"zones":["res","biz"]},"v2_h_yel3_1_64_brown":{"kind":"b","zone":"res","wT":4,"hT":8,"src":"v2h_yel3_1","noflip":true,"x":100,"y":824,"w":64,"h":128,"file":"city_v2","boost":3,"zones":["res","biz"]},"v2_h_yel3_1_64_slate":{"kind":"b","zone":"res","wT":4,"hT":8,"src":"v2h_yel3_1","noflip":true,"x":166,"y":824,"w":64,"h":128,"file":"city_v2","boost":3,"zones":["res","biz"]},"v2_h_brn2_0_64_red":{"kind":"b","zone":"res","wT":4,"hT":8,"src":"v2h_brn2_0","noflip":true,"x":232,"y":824,"w":64,"h":128,"file":"city_v2","boost":3,"zones":["res","biz"]},"v2_h_brn2_0_64_green":{"kind":"b","zone":"res","wT":4,"hT":8,"src":"v2h_brn2_0","noflip":true,"x":298,"y":824,"w":64,"h":128,"file":"city_v2","boost":3,"zones":["res","biz"]},"v2_h_brn2_0_48_brown":{"kind":"b","zone":"res","wT":3,"hT":8,"src":"v2h_brn2_0","noflip":true,"x":364,"y":824,"w":48,"h":128,"file":"city_v2","boost":3,"zones":["res","biz"]},"v2_h_brn2_0_48_slate":{"kind":"b","zone":"res","wT":3,"hT":8,"src":"v2h_brn2_0","noflip":true,"x":414,"y":824,"w":48,"h":128,"file":"city_v2","boost":3,"zones":["res","biz"]},"v2_h_brn2_1_64_red":{"kind":"b","zone":"res","wT":4,"hT":8,"src":"v2h_brn2_1","noflip":true,"x":464,"y":824,"w":64,"h":128,"file":"city_v2","boost":3,"zones":["res","biz"]},"v2_h_brn2_1_64_green":{"kind":"b","zone":"res","wT":4,"hT":8,"src":"v2h_brn2_1","noflip":true,"x":530,"y":824,"w":64,"h":128,"file":"city_v2","boost":3,"zones":["res","biz"]},"v2_h_brn3_0_64_brown":{"kind":"b","zone":"res","wT":4,"hT":8,"src":"v2h_brn3_0","noflip":true,"x":596,"y":824,"w":64,"h":128,"file":"city_v2","boost":3,"zones":["res","biz"]},"v2_h_brn3_0_64_slate":{"kind":"b","zone":"res","wT":4,"hT":8,"src":"v2h_brn3_0","noflip":true,"x":662,"y":824,"w":64,"h":128,"file":"city_v2","boost":3,"zones":["res","biz"]},"v2_h_brn3_0_48_red":{"kind":"b","zone":"res","wT":3,"hT":8,"src":"v2h_brn3_0","noflip":true,"x":728,"y":824,"w":48,"h":128,"file":"city_v2","boost":3,"zones":["res","biz"]},"v2_h_brn3_0_48_green":{"kind":"b","zone":"res","wT":3,"hT":8,"src":"v2h_brn3_0","noflip":true,"x":778,"y":824,"w":48,"h":128,"file":"city_v2","boost":3,"zones":["res","biz"]},"v2_h_brn3_1_64_brown":{"kind":"b","zone":"res","wT":4,"hT":8,"src":"v2h_brn3_1","noflip":true,"x":828,"y":824,"w":64,"h":128,"file":"city_v2","boost":3,"zones":["res","biz"]},"v2_h_brn3_1_64_slate":{"kind":"b","zone":"res","wT":4,"hT":8,"src":"v2h_brn3_1","noflip":true,"x":894,"y":824,"w":64,"h":128,"file":"city_v2","boost":3,"zones":["res","biz"]},"v2_h_brn4_0_64_red":{"kind":"b","zone":"res","wT":4,"hT":8,"src":"v2h_brn4_0","noflip":true,"x":960,"y":824,"w":64,"h":128,"file":"city_v2","boost":3,"zones":["res","biz"]},"v2_h_brn4_0_64_green":{"kind":"b","zone":"res","wT":4,"hT":8,"src":"v2h_brn4_0","noflip":true,"x":0,"y":954,"w":64,"h":128,"file":"city_v2","boost":3,"zones":["res","biz"]},"v2_h_brn4_0_48_brown":{"kind":"b","zone":"res","wT":3,"hT":8,"src":"v2h_brn4_0","noflip":true,"x":66,"y":954,"w":48,"h":128,"file":"city_v2","boost":3,"zones":["res","biz"]},"v2_h_brn4_0_48_slate":{"kind":"b","zone":"res","wT":3,"hT":8,"src":"v2h_brn4_0","noflip":true,"x":116,"y":954,"w":48,"h":128,"file":"city_v2","boost":3,"zones":["res","biz"]},"v2_h_brn4_1_64_red":{"kind":"b","zone":"res","wT":4,"hT":8,"src":"v2h_brn4_1","noflip":true,"x":166,"y":954,"w":64,"h":128,"file":"city_v2","boost":3,"zones":["res","biz"]},"v2_h_brn4_1_64_green":{"kind":"b","zone":"res","wT":4,"hT":8,"src":"v2h_brn4_1","noflip":true,"x":232,"y":954,"w":64,"h":128,"file":"city_v2","boost":3,"zones":["res","biz"]},"v2_h_flats2_0_64_brown":{"kind":"b","zone":"res","wT":4,"hT":8,"src":"v2h_flats2_0","noflip":true,"x":298,"y":954,"w":64,"h":128,"file":"city_v2","boost":3,"zones":["res","biz"]},"v2_h_flats2_0_64_slate":{"kind":"b","zone":"res","wT":4,"hT":8,"src":"v2h_flats2_0","noflip":true,"x":364,"y":954,"w":64,"h":128,"file":"city_v2","boost":3,"zones":["res","biz"]},"v2_h_flats2_0_48_red":{"kind":"b","zone":"res","wT":3,"hT":8,"src":"v2h_flats2_0","noflip":true,"x":430,"y":954,"w":48,"h":128,"file":"city_v2","boost":3,"zones":["res","biz"]},"v2_h_flats2_0_48_green":{"kind":"b","zone":"res","wT":3,"hT":8,"src":"v2h_flats2_0","noflip":true,"x":480,"y":954,"w":48,"h":128,"file":"city_v2","boost":3,"zones":["res","biz"]},"v2_shed_a":{"kind":"b","zone":"ind","wT":4,"hT":7,"src":"v2i_shed_a","noflip":true,"x":530,"y":954,"w":64,"h":112,"file":"city_v2","boost":3},"v2_shed_b":{"kind":"b","zone":"ind","wT":5,"hT":7,"src":"v2i_shed_b","noflip":true,"x":596,"y":954,"w":80,"h":112,"file":"city_v2","boost":3},"v2_shed_c":{"kind":"b","zone":"ind","wT":6,"hT":7,"src":"v2i_shed_c","noflip":true,"x":678,"y":954,"w":96,"h":112,"file":"city_v2","boost":3},"v2_shed_d":{"kind":"b","zone":"ind","wT":5,"hT":7,"src":"v2i_shed_d","noflip":true,"x":776,"y":954,"w":80,"h":112,"file":"city_v2","boost":3},"v2_shed_e":{"kind":"b","zone":"ind","wT":8,"hT":8,"src":"v2i_shed_e","noflip":true,"x":858,"y":954,"w":128,"h":128,"file":"city_v2","boost":3},"v2_shed_f":{"kind":"b","zone":"ind","wT":7,"hT":7,"src":"v2i_shed_f","noflip":true,"x":0,"y":1084,"w":112,"h":112,"file":"city_v2","boost":3},"v2_sh48_green":{"kind":"b","zone":"ind","wT":3,"hT":5,"src":"v2i_s48green","noflip":true,"x":114,"y":1084,"w":48,"h":80,"file":"city_v2","boost":3},"v2_sh64_green":{"kind":"b","zone":"ind","wT":4,"hT":5,"src":"v2i_s64green","noflip":true,"x":164,"y":1084,"w":64,"h":80,"file":"city_v2","boost":3},"v2_sh48_rust":{"kind":"b","zone":"ind","wT":3,"hT":5,"src":"v2i_s48rust","noflip":true,"x":230,"y":1084,"w":48,"h":80,"file":"city_v2","boost":3},"v2_sh64_rust":{"kind":"b","zone":"ind","wT":4,"hT":5,"src":"v2i_s64rust","noflip":true,"x":280,"y":1084,"w":64,"h":80,"file":"city_v2","boost":3},"v2_sh48_steel":{"kind":"b","zone":"ind","wT":3,"hT":5,"src":"v2i_s48steel","noflip":true,"x":346,"y":1084,"w":48,"h":80,"file":"city_v2","boost":3},"v2_sh64_steel":{"kind":"b","zone":"ind","wT":4,"hT":5,"src":"v2i_s64steel","noflip":true,"x":396,"y":1084,"w":64,"h":80,"file":"city_v2","boost":3},"v2_sh48_blue":{"kind":"b","zone":"ind","wT":3,"hT":5,"src":"v2i_s48blue","noflip":true,"x":462,"y":1084,"w":48,"h":80,"file":"city_v2","boost":3},"v2_sh64_blue":{"kind":"b","zone":"ind","wT":4,"hT":5,"src":"v2i_s64blue","noflip":true,"x":512,"y":1084,"w":64,"h":80,"file":"city_v2","boost":3},"v2_work_a":{"kind":"b","zone":"ind","wT":8,"hT":9,"src":"v2i_work_a","noflip":true,"x":578,"y":1084,"w":128,"h":154,"file":"city_v2","boost":3},"v2_work_b":{"kind":"b","zone":"ind","wT":8,"hT":9,"src":"v2i_work_b","noflip":true,"x":708,"y":1084,"w":128,"h":154,"file":"city_v2","boost":3}});
     Object.assign(ATLAS_TABLE, {"v2p_mansion":{"kind":"b","zone":"res","wT":13,"hT":15,"src":"v2p_mansion","noflip":true,"x":0,"y":0,"w":208,"h":240,"file":"parks_v2","min":1,"max":1,"boost":1},"v2p_firestation":{"kind":"b","zone":"biz","wT":8,"hT":7,"src":"v2p_firestation","noflip":true,"x":210,"y":0,"w":128,"h":112,"file":"parks_v2","min":1,"max":1,"boost":1},"v2p_park_formal":{"kind":"b","zone":"res","wT":13,"hT":10,"src":"v2p_park_formal","noflip":true,"x":340,"y":0,"w":208,"h":160,"file":"parks_v2","min":1,"max":2,"boost":1},"v2p_park_play":{"kind":"b","zone":"res","wT":16,"hT":11,"src":"v2p_park_play","noflip":true,"x":0,"y":242,"w":256,"h":176,"file":"parks_v2","min":1,"max":2,"boost":1},"v2p_park_play_s":{"kind":"b","zone":"res","wT":12,"hT":11,"src":"v2p_park_play_s","noflip":true,"x":258,"y":242,"w":192,"h":176,"file":"parks_v2","max":2,"boost":1}});
     Object.assign(ATLAS_TABLE, BEACH_PROPS);
-    for (const k of ['hospital', 'townhall', 'factory']) ATLAS_TABLE[k + '_old'] = Object.assign({}, ATLAS_TABLE[k]);
+    for (const k of ['hospital', 'townhall', 'factory', 'school', 'library']) ATLAS_TABLE[k + '_old'] = Object.assign({}, ATLAS_TABLE[k]);
     Object.assign(ATLAS_TABLE, {"hospital":{"kind":"b","landmark":true,"zone":"res","wT":10,"hT":15,"src":"hospital","noflip":true,"x":0,"y":0,"w":160,"h":240,"file":"landmarks_v2","plotW":12},"townhall":{"kind":"b","landmark":true,"zone":"biz","wT":22,"hT":21,"src":"townhall","noflip":true,"x":162,"y":0,"w":352,"h":336,"file":"landmarks_v2","plotW":12},"factory":{"kind":"b","landmark":true,"zone":"ind","wT":12,"hT":8,"src":"factory","noflip":true,"x":0,"y":338,"w":192,"h":128,"file":"landmarks_v2","plotW":12}});
 
+    Object.assign(ATLAS_TABLE, {"v2s_h3x4_0": {"kind": "b", "zone": "res", "wT": 3, "hT": 4, "src": "v2s_h3x4_0", "noflip": true, "x": 0, "y": 0, "w": 48, "h": 64, "file": "city2_v2", "boost": 3, "zones": ["res", "biz"]}, "v2s_h3x4_1": {"kind": "b", "zone": "res", "wT": 3, "hT": 4, "src": "v2s_h3x4_1", "noflip": true, "x": 50, "y": 0, "w": 48, "h": 64, "file": "city2_v2", "boost": 3, "zones": ["res", "biz"]}, "v2s_h3x4_2": {"kind": "b", "zone": "res", "wT": 3, "hT": 4, "src": "v2s_h3x4_2", "noflip": true, "x": 100, "y": 0, "w": 48, "h": 64, "file": "city2_v2", "boost": 3, "zones": ["res", "biz"]}, "v2s_h4x4_0": {"kind": "b", "zone": "res", "wT": 4, "hT": 4, "src": "v2s_h4x4_0", "noflip": true, "x": 150, "y": 0, "w": 64, "h": 64, "file": "city2_v2", "boost": 3, "zones": ["res", "biz"]}, "v2s_h4x4_1": {"kind": "b", "zone": "res", "wT": 4, "hT": 4, "src": "v2s_h4x4_1", "noflip": true, "x": 216, "y": 0, "w": 64, "h": 64, "file": "city2_v2", "boost": 3, "zones": ["res", "biz"]}, "v2s_h4x4_2": {"kind": "b", "zone": "res", "wT": 4, "hT": 4, "src": "v2s_h4x4_2", "noflip": true, "x": 282, "y": 0, "w": 64, "h": 64, "file": "city2_v2", "boost": 3, "zones": ["res", "biz"]}, "v2s_h4x6_0": {"kind": "b", "zone": "res", "wT": 4, "hT": 6, "src": "v2s_h4x6_0", "noflip": true, "x": 348, "y": 0, "w": 64, "h": 96, "file": "city2_v2", "boost": 3, "zones": ["res", "biz"]}, "v2s_h4x6_1": {"kind": "b", "zone": "res", "wT": 4, "hT": 6, "src": "v2s_h4x6_1", "noflip": true, "x": 414, "y": 0, "w": 64, "h": 96, "file": "city2_v2", "boost": 3, "zones": ["res", "biz"]}, "v2s_h4x6_2": {"kind": "b", "zone": "res", "wT": 4, "hT": 6, "src": "v2s_h4x6_2", "noflip": true, "x": 0, "y": 98, "w": 64, "h": 96, "file": "city2_v2", "boost": 3, "zones": ["res", "biz"]}, "v2s_h4x7_0": {"kind": "b", "zone": "res", "wT": 4, "hT": 7, "src": "v2s_h4x7_0", "noflip": true, "x": 66, "y": 98, "w": 64, "h": 112, "file": "city2_v2", "boost": 3, "zones": ["res", "biz"]}, "v2s_h4x7_1": {"kind": "b", "zone": "res", "wT": 4, "hT": 7, "src": "v2s_h4x7_1", "noflip": true, "x": 132, "y": 98, "w": 64, "h": 112, "file": "city2_v2", "boost": 3, "zones": ["res", "biz"]}, "v2s_h4x7_2": {"kind": "b", "zone": "res", "wT": 4, "hT": 7, "src": "v2s_h4x7_2", "noflip": true, "x": 198, "y": 98, "w": 64, "h": 112, "file": "city2_v2", "boost": 3, "zones": ["res", "biz"]}, "v2s_h5x6_0": {"kind": "b", "zone": "res", "wT": 5, "hT": 6, "src": "v2s_h5x6_0", "noflip": true, "x": 264, "y": 98, "w": 80, "h": 96, "file": "city2_v2", "boost": 3, "zones": ["res", "biz"]}, "v2s_h5x6_1": {"kind": "b", "zone": "res", "wT": 5, "hT": 6, "src": "v2s_h5x6_1", "noflip": true, "x": 346, "y": 98, "w": 80, "h": 96, "file": "city2_v2", "boost": 3, "zones": ["res", "biz"]}, "v2s_h5x6_2": {"kind": "b", "zone": "res", "wT": 5, "hT": 6, "src": "v2s_h5x6_2", "noflip": true, "x": 428, "y": 98, "w": 80, "h": 96, "file": "city2_v2", "boost": 3, "zones": ["res", "biz"]}, "v2s_s3x4_green": {"kind": "b", "zone": "ind", "wT": 3, "hT": 4, "src": "v2s_s3x4_green", "noflip": true, "x": 0, "y": 212, "w": 48, "h": 64, "file": "city2_v2", "boost": 3}, "v2s_s3x4_blue": {"kind": "b", "zone": "ind", "wT": 3, "hT": 4, "src": "v2s_s3x4_blue", "noflip": true, "x": 50, "y": 212, "w": 48, "h": 64, "file": "city2_v2", "boost": 3}, "v2s_s4x6_green": {"kind": "b", "zone": "ind", "wT": 4, "hT": 6, "src": "v2s_s4x6_green", "noflip": true, "x": 100, "y": 212, "w": 64, "h": 96, "file": "city2_v2", "boost": 3}, "v2s_s4x6_blue": {"kind": "b", "zone": "ind", "wT": 4, "hT": 6, "src": "v2s_s4x6_blue", "noflip": true, "x": 166, "y": 212, "w": 64, "h": 96, "file": "city2_v2", "boost": 3}});      // small new-look houses (3x4, 4x4, 4x6, 4x7, 5x6) and sheds (3x4, 4x6)
+    Object.assign(ATLAS_TABLE, {"school": {"kind": "b", "landmark": true, "zone": "res", "wT": 10, "hT": 8, "src": "school", "noflip": true, "x": 194, "y": 0, "w": 160, "h": 128, "file": "landmarks2_v2", "plotW": 10}, "library": {"kind": "b", "landmark": true, "zone": "biz", "wT": 10, "hT": 8, "src": "library", "noflip": true, "x": 356, "y": 0, "w": 160, "h": 128, "file": "landmarks2_v2", "plotW": 10}, "v2_hotel": {"kind": "b", "zone": "biz", "wT": 11, "hT": 10, "src": "v2_hotel", "noflip": true, "x": 0, "y": 146, "w": 176, "h": 160, "file": "landmarks2_v2", "min": 1, "max": 1, "boost": 1, "zones": ["biz", "res"]}, "v2_turbine": {"kind": "b", "zone": "ind", "wT": 4, "hT": 8, "src": "v2_turbine", "noflip": true, "x": 178, "y": 146, "w": 64, "h": 128, "file": "landmarks2_v2", "max": 2, "boost": 2}});      // new-look school, library, hotel and wind turbine (tools/make_landmarks2_v2.py)
+    const STATION_V2 = {"x": 0, "y": 0, "w": 192, "h": 144};      // new-look police station, drawn over the old one when the sheet loads
+
     ASSET_PATHS['units_sheet'] = 'assets/units/units_sheet.png';
+    ASSET_PATHS['heli_police'] = 'assets/units/heli_police.png';     // the police helicopter: POLICE on the left side, HEDDLU on the right
+    ASSET_PATHS['heli_rotor'] = 'assets/units/heli_rotor.png';
     ASSET_PATHS['gunner_sheet'] = 'assets/units/gunner_sheet.png';   // the two baton-round gunners that climb out of the rubber van
     ASSET_PATHS['raider_sheet'] = 'assets/raiders/raider_sheet.png';
     ASSET_PATHS['k9_sheet'] = 'assets/units/k9_gsd_sheet.png';
@@ -2681,6 +2687,7 @@
     let cityKind = null;
     let sceneryBuildings = [];
     let sceneryProps = [];
+    let animProps = [];             // buoys, gulls and crabs: drawn live every frame so they can move (see drawAnimatedScenery)
     let propGrid = new Map();
     let sceneryDirty = false, lastSceneryCompose = 0;
     function markSceneryDirty() { sceneryDirty = true; }
@@ -2693,7 +2700,7 @@
             if (a.kind !== 'b' || a.landmark) continue;        // the hospital, school and factory sit on fixed plots (see MAP_DEF.landmarks)
             // buildings from the old tile-built sheet are used less now, so the new-look ones lead (a.file marks the new sheets)
             const oldLook = !a.file;
-            (a.zones || [a.zone]).forEach(zn => cat[zn].push({ id, wT: a.wT, hT: a.hT, src: a.src, noflip: !!a.noflip, max: a.max || 0, min: a.min || 0, boost: (a.boost || 1) * (oldLook ? (zn === 'ind' ? 0.12 : 0.3) : 1) }));
+            (a.zones || [a.zone]).forEach(zn => cat[zn].push({ id, wT: a.wT, hT: a.hT, src: a.src, noflip: !!a.noflip, max: a.max || 0, min: a.min || 0, boost: (a.boost || 1) * (oldLook ? 0.02 : 1) }));
         }
         return cat;
     }
@@ -2960,6 +2967,7 @@
     };
     function placeSceneryProps() {
         sceneryProps = [];
+        animProps = [];
         const rnd = mulberry32(MAP_W * 977 + MAP_H * 31 + 99 + districtSeed * 131);
         const W = MAP_W, H = MAP_H;
         const occ = new Uint8Array(W * H);
@@ -3249,6 +3257,88 @@
             debris(8, dull, p.w * 1.3);
         }
     }
+
+    // ========== ANIMATED SCENERY ==========
+    // Buoys bob on the swell, gulls wheel over the sea and flap, crabs scuttle sideways, the two fountains in the formal
+    // garden play, and wind turbines turn. Everything here is cosmetic: it never blocks anyone or takes damage.
+    let _animB = null, _animBList = [];
+    function drawAnimatedScenery(ctx) {
+        const cam = game.camera, now = performance.now() / 1000;
+        const vis = (x, y, m) => x > cam.x - m && x < cam.x + game.width + m && y > cam.y - m && y < cam.y + game.height + m;
+        const smooth = ctx.imageSmoothingEnabled; ctx.imageSmoothingEnabled = false;
+        const sprite = (key, cx, cy, sy) => {              // draw a beach prop with its feet at (cx, cy)
+            const a = ATLAS_TABLE[key]; if (!a) return;
+            const img = assets[a.file || 'city_atlas']; if (!img) return;
+            const h = a.h * (sy || 1);
+            ctx.drawImage(img, a.x, a.y, a.w, a.h, Math.round(cx - cam.x - a.w / 2), Math.round(cy - cam.y - h * 0.92), a.w, Math.round(h));
+        };
+        for (const p of animProps) {
+            const bx = p.tx * TILE, by = p.ty * TILE;
+            if (!vis(bx, by, 90)) continue;
+            if (p.anim === 'buoy') {
+                const bob = Math.sin(now * 1.7 + p.ph) * 1.8, tilt = Math.sin(now * 1.25 + p.ph) * 0.07;
+                const k = ((now * 0.45 + p.ph) % 1);
+                ctx.save();
+                ctx.strokeStyle = 'rgba(234,252,248,' + (0.55 * (1 - k)).toFixed(2) + ')'; ctx.lineWidth = 1;
+                ctx.beginPath(); ctx.ellipse(bx - cam.x, by - cam.y + 1, 5 + k * 9, 2 + k * 3.5, 0, 0, Math.PI * 2); ctx.stroke();
+                ctx.translate(Math.round(bx - cam.x), Math.round(by - cam.y + bob * 0.5)); ctx.rotate(tilt);
+                const a = ATLAS_TABLE[p.key], img = a && assets[a.file || 'city_atlas'];
+                if (img) ctx.drawImage(img, a.x, a.y, a.w, a.h, -Math.round(a.w / 2), -Math.round(a.h * 0.92), a.w, a.h);
+                ctx.restore();
+            } else if (p.anim === 'gull') {
+                const ang = now * p.sp * 0.55 + p.ph, vx = -Math.sin(ang) * p.rx, vy = Math.cos(ang) * p.ry;
+                const gx = bx + Math.cos(ang) * p.rx, gy = by + Math.sin(ang) * p.ry;
+                const key = Math.abs(vx) >= Math.abs(vy) * 1.6 ? (vx < 0 ? 'bch_gull_l' : 'bch_gull_r') : (vy < 0 ? 'bch_gull_up' : 'bch_gull_dn');
+                const flap = 1 + 0.2 * Math.sin(now * 13 + p.ph * 3);
+                ctx.fillStyle = 'rgba(10,30,50,0.16)'; ctx.beginPath(); ctx.ellipse(gx - cam.x + 3, gy - cam.y + 9, 7, 2.4, 0, 0, Math.PI * 2); ctx.fill();
+                sprite(key, gx, gy - 6 + Math.sin(now * 2 + p.ph) * 1.5, flap);
+            } else if (p.anim === 'crab') {
+                const u = now * 0.4 * p.sp + p.ph, moving = Math.abs(Math.cos(u)) > 0.35;
+                const cx = bx + Math.sin(u) * 11;
+                const key = (moving && Math.floor(now * 5 + p.ph) % 2) ? 'bch_crab_blue2' : 'bch_crab_blue';
+                sprite(key, cx, by, 1);
+            }
+        }
+        // buildings with live parts
+        if (_animB !== sceneryBuildings) { _animB = sceneryBuildings; _animBList = sceneryBuildings.filter(b => b.key === 'v2p_park_formal' || b.key === 'v2_turbine'); }
+        for (const b of _animBList) {
+            if (!b.alive) continue;
+            const ox = b.x0 * TILE, oy = b.y0 * TILE;
+            if (!vis(ox + b.wT * TILE / 2, oy + b.hT * TILE / 2, 140)) continue;
+            if (b.key === 'v2p_park_formal') {
+                for (let f = 0; f < 2; f++) {
+                    const sx = ox + (f ? 152.5 : 56.5) - cam.x, sy = oy + 127 - cam.y;     // top of the jet; the basin is just below
+                    for (let i = 0; i < 7; i++) {
+                        const ph = (now * 1.5 + i / 7 + f * 0.31) % 1, side = (i % 2 ? 1 : -1) * (0.4 + (i % 3) * 0.35);
+                        const dx = side * ph * 5, dy = 5 - Math.sin(ph * Math.PI) * 9 + ph * ph * 5;
+                        ctx.fillStyle = 'rgba(225,248,255,' + (0.9 - ph * 0.6).toFixed(2) + ')';
+                        ctx.fillRect(Math.round(sx + dx), Math.round(sy + dy), 1, 1);
+                    }
+                    for (let k = 0; k < 3; k++) {                                          // glints crossing the basin
+                        const gx = sx - 8 + ((now * 9 + k * 6 + f * 3) % 17);
+                        ctx.fillStyle = 'rgba(216,246,255,0.75)'; ctx.fillRect(Math.round(gx), Math.round(sy + 11 + (k % 2)), 2, 1);
+                    }
+                    ctx.fillStyle = (Math.floor(now * 6 + f) % 2) ? 'rgba(160,230,245,0.8)' : 'rgba(110,200,225,0.8)';
+                    ctx.fillRect(Math.round(sx - 1), Math.round(sy + 2), 2, 7);            // the jet itself
+                }
+            } else if (b.key === 'v2_turbine') {
+                const hx_ = ox + 32 - cam.x, hy_ = oy + 30 - cam.y, spin = now * 1.1 + b.x0 * 0.7;
+                for (let pass = 0; pass < 2; pass++) {
+                    ctx.save(); ctx.translate(hx_, hy_); ctx.rotate(spin - pass * 0.16); ctx.globalAlpha = pass ? 0.28 : 1;
+                    for (let k = 0; k < 3; k++) {
+                        ctx.rotate(k ? Math.PI * 2 / 3 : 0);
+                        ctx.fillStyle = '#f6f8fb'; ctx.strokeStyle = '#97a0ae'; ctx.lineWidth = 1;
+                        ctx.beginPath(); ctx.moveTo(-1.6, -3); ctx.lineTo(-3, -12); ctx.lineTo(-1, -30); ctx.lineTo(0.6, -30); ctx.lineTo(2.2, -12); ctx.lineTo(1.6, -3); ctx.closePath(); ctx.fill(); ctx.stroke();
+                    }
+                    ctx.restore();
+                }
+                ctx.fillStyle = '#dde2e8'; ctx.strokeStyle = '#7b8493'; ctx.lineWidth = 1;
+                ctx.beginPath(); ctx.arc(hx_, hy_, 3.2, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+            }
+        }
+        ctx.imageSmoothingEnabled = smooth;
+    }
+
     function drawSceneryLayer(t) {
         const items = [];
         for (const b of sceneryBuildings) items.push({ y: b.y0 + b.hT, b });
@@ -3261,6 +3351,7 @@
                 else drawRubble(t, b);
             } else {
                 const p = it.p;
+                if (p.anim) continue;                       // moving props are drawn live, on top of the sea
                 if (!p.alive) { drawWreck(t, p); continue; }
                 const x = p.tx * TILE - p.w / 2, y = p.ty * TILE - p.h * (p.vehicle ? 0.5 : 0.92);
                 drawPropSprite(t, p, x, y, p.w, p.h);
@@ -3635,6 +3726,8 @@
         const put = (key, tx, ty, r) => {
             if (!propAvailable('bch_' + key) || !free(tx, ty, r)) return false;
             const p = makeProp(tx, ty, 'bch_' + key, undefined, false); if (!p) return false;
+            const ak = /^buoy/.test(key) ? 'buoy' : /^gull/.test(key) ? 'gull' : /^crab/.test(key) ? 'crab' : null;
+            if (ak) { p.anim = ak; p.ph = rnd() * 6.283; p.sp = 0.7 + rnd() * 0.7; p.rx = (1.6 + rnd() * 2.4) * TILE; p.ry = (0.4 + rnd() * 0.8) * TILE; animProps.push(p); }
             sceneryProps.push(p); taken.push({ x: tx, y: ty }); return true;
         };
         const span = (n, from, to, fn) => { for (let i = 0; i < n; i++) fn(from + (to - from) * ((i + rnd() * 0.8) / n), i); };
@@ -3766,6 +3859,11 @@
     }
     function drawStation(t) {
         const x0 = STATION_TX0 * TILE, y0 = STATION_TY0 * TILE;
+        const v2 = assets['landmarks2_v2'];
+        if (v2 && STATION_TW === 12 && STATION_TH === 9) {
+            t.drawImage(v2, STATION_V2.x, STATION_V2.y, STATION_V2.w, STATION_V2.h, x0, y0, STATION_V2.w, STATION_V2.h);
+            return;
+        }
         const img = assets['city_atlas'];
         if (img) {
             t.drawImage(img, STATION_ATLAS.x, STATION_ATLAS.y, STATION_ATLAS.w, STATION_ATLAS.h, x0, y0, STATION_ATLAS.w, STATION_ATLAS.h);
@@ -4363,6 +4461,7 @@
             if (facesLeft(this)) ctx.scale(-1, 1);
             drawOfficerFigure(ctx, this);
             ctx.restore();
+            drawSyndicateNumber(ctx, this, sx, sy);
             drawHpBar(ctx, sx, sy - 23, this.hp, this.maxHp, this.isAllOut ? '#ffb45c' : '#6cc4ff');
             if (this.isAllOut) {
                 ctx.fillStyle = '#ff8a5c'; ctx.font = 'bold 8px monospace'; ctx.textAlign = 'center';
@@ -4373,6 +4472,17 @@
                 ctx.fillText(this.state === 'retreating' ? '!' : '...', sx, sy - 32);
             }
         }
+    }
+    // A small dark 1, 2 or 3 on the hi-vis tabard says which syndicate an officer belongs to.
+    const NUM_GLYPH = { 1: ['.#.', '##.', '.#.', '.#.', '###'], 2: ['##.', '..#', '.#.', '#..', '###'], 3: ['##.', '..#', '.##', '..#', '##.'] };
+    function drawSyndicateNumber(ctx, u, sx, sy) {
+        const n = u.syndicateIndex;
+        if (u.isAllOut || n === undefined || n === null || n < 0 || n > 2) return;
+        const g = NUM_GLYPH[n + 1];
+        if (!g) return;
+        const ox = Math.round(sx + (facesLeft(u) ? 1 : -1) - 1.5), oy = Math.round(sy - 10.5);
+        ctx.fillStyle = 'rgba(16,26,52,0.82)';
+        for (let r = 0; r < 5; r++) for (let c = 0; c < 3; c++) if (g[r][c] === '#') ctx.fillRect(ox + c, oy + r, 1, 1);
     }
     function drawOfficerFigure(ctx, u, forcedPalette) {
         if (drawUnitSprite(ctx, u, shieldRowFor(u))) return;
@@ -5808,6 +5918,354 @@
             if (game.selectedSyndicate === STATION_INDEX && game._ambPanel > 1) { game._ambPanel = 0; renderOptionsPanel(); }
         }
         if (game.ambulance && game.ambulance.alive) game.ambulance.update(dt);
+    }
+
+
+    // ========== POLICE HELICOPTER ==========
+    // Station > Send Helicopter. It flies in from the map edge nearest the station, goes over the biggest part of the crowd
+    // and holds there, sweeping a searchlight across it. Anyone hiding in the crowd who is caught in the light is MARKED
+    // (a yellow ring). A syndicate that walks past a marked rioter lifts them on the spot, which calms the crowd and
+    // stops the trouble before it starts. Art: assets/units/heli_police.png (fuselage) and heli_rotor.png.
+    const HELI_LEN = 104;                       // fuselage length in pixels (6.5 tiles, about the size of a real police helicopter on this map)
+    const HELI_HUB_Y = 0.40;                    // where the rotor mast sits along the fuselage (0 = nose, 1 = tail)
+    const HELI_SPEED = TILE * 15;               // flying speed, pixels per second
+    const HELI_SCAN_R = TILE * 7.5;             // radius of the searchlight pool on the ground
+    const HELI_ON_STATION = 34;                 // seconds it stays over the crowd
+    const HELI_COOLDOWN = 80;                   // seconds before it can go up again
+    const HELI_MARK_DWELL = 0.9;                // seconds in the light before a hidden rioter is marked
+    const HELI_MARK_TIME = 120;                 // a mark lasts this long
+    const HELI_SNATCH_RANGE = TILE * 3.0;       // an officer this close to a marked rioter lifts them
+    const HELI_SNATCH_TIME = 1.2;               // seconds to cuff and lift
+    let _heliShadow = null;
+
+    // the biggest knot of people, found on a coarse grid (a cell plus its eight neighbours)
+    function heliCrowdTarget() {
+        const CELL = TILE * 9, cells = new Map();
+        for (const r of game.raiders) {
+            if (!r.alive || r.state === 'fleeing' || r.state === 'fading') continue;
+            const cx = Math.floor(r.x / CELL), cy = Math.floor(r.y / CELL), k = cx + ',' + cy;
+            let c = cells.get(k);
+            if (!c) { c = { cx, cy, n: 0, x: 0, y: 0, hot: 0, hid: 0 }; cells.set(k, c); }
+            c.n++; c.x += r.x; c.y += r.y;
+            if (r.kind !== 'crowd' || r.agitator) c.hot++;
+            if (heliWantsMark(r) || r.marked) c.hid++;
+        }
+        if (!cells.size) return null;
+        let best = null, bs = -1;
+        for (const c of cells.values()) {
+            let n = 0, x = 0, y = 0, hot = 0, hid = 0;
+            for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++) {
+                const q = cells.get((c.cx + dx) + ',' + (c.cy + dy));
+                if (q) { n += q.n; x += q.x; y += q.y; hot += q.hot; hid += q.hid; }
+            }
+            const sc = n + hot * 0.5 + hid * 4;                 // the biggest group, and above all the one with people hiding in it
+            if (sc > bs) { bs = sc; best = { x: x / n, y: y / n, n }; }
+        }
+        return best;
+    }
+    function heliEntryPoint() {
+        const bx = BASE_TILE_X * TILE, by = BASE_TILE_Y * TILE, W = MAP_W * TILE, H = MAP_H * TILE, OUT = 110;
+        const opts = [{ x: -OUT, y: by }, { x: W + OUT, y: by }, { x: bx, y: -OUT }, { x: bx, y: H + OUT }];
+        let best = opts[0], bd = Infinity;
+        for (const o of opts) { const d = Math.hypot(o.x - bx, o.y - by); if (d < bd) { bd = d; best = o; } }
+        return best;
+    }
+    // Anyone the light should pick out: the hidden troublemakers in the crowd and rioters dressed as protesters.
+    function heliWantsMark(r) {
+        if (!r.alive || r.state === 'fleeing' || r.state === 'fading' || r.beingArrested) return false;
+        return (r.kind === 'crowd' && r.agitator) || (r.disguised && r.looksPeaceful);
+    }
+
+    class PoliceHeli {
+        constructor() {
+            const e = heliEntryPoint();
+            this.x = e.x; this.y = e.y; this.entry = { x: e.x, y: e.y };
+            this.heading = 0; this.v = HELI_SPEED * 0.6; this.alive = true; this.state = 'inbound';
+            this.rot = 0; this.t = 0; this.stationT = HELI_ON_STATION; this.retargetT = 0;
+            this.crowd = null; this.pool = { x: e.x, y: e.y }; this.marked = 0; this.sfxT = 0;
+            const c = heliCrowdTarget();
+            if (c) this.crowd = c;
+            const tx = this.crowd ? this.crowd.x : BASE_TILE_X * TILE, ty = this.crowd ? this.crowd.y : BASE_TILE_Y * TILE;
+            this.heading = Math.atan2(ty - this.y, tx - this.x);
+        }
+        turnToward(want, dt, rate) {
+            let d = want - this.heading;
+            while (d > Math.PI) d -= 2 * Math.PI;
+            while (d < -Math.PI) d += 2 * Math.PI;
+            const step = rate * dt;
+            this.heading += Math.max(-step, Math.min(step, d));
+            return Math.abs(d);
+        }
+        fly(tx, ty, dt, speed) {
+            const dx = tx - this.x, dy = ty - this.y, dist = Math.hypot(dx, dy) || 1;
+            const off = this.turnToward(Math.atan2(dy, dx), dt, 2.6);
+            const want = speed * Math.max(0.3, Math.cos(Math.min(off, 1.4)));
+            this.v += (want - this.v) * Math.min(1, dt * 1.6);
+            const step = Math.min(dist, this.v * dt);
+            this.x += Math.cos(this.heading) * step; this.y += Math.sin(this.heading) * step;
+            return dist;
+        }
+        // stay with the crowd it came for: follow that group as it moves, and only look elsewhere if it has gone
+        retarget() {
+            if (this.crowd) {
+                let n = 0, x = 0, y = 0;
+                for (const r of game.raiders) {
+                    if (!r.alive || r.state === 'fleeing' || r.state === 'fading') continue;
+                    if (Math.hypot(r.x - this.crowd.x, r.y - this.crowd.y) < TILE * 16) { n++; x += r.x; y += r.y; }
+                }
+                if (n >= 4) { this.crowd = { x: x / n, y: y / n, n }; return; }
+            }
+            const c = heliCrowdTarget();
+            if (c) this.crowd = c;
+        }
+        // the scan pool sweeps back and forth across the crowd
+        poolTarget() {
+            const c = this.crowd || { x: this.x, y: this.y };
+            return { x: c.x + Math.cos(this.t * 0.75) * TILE * 4.2, y: c.y + Math.sin(this.t * 0.55) * TILE * 3.2 };
+        }
+        update(dt) {
+            this.t += dt; this.rot += dt * 38;
+            this.sfxT -= dt;
+            if (this.sfxT <= 0) {
+                this.sfxT = 1.1;
+                const sx = this.x - game.camera.x, sy = this.y - game.camera.y;
+                if (sx > -200 && sy > -200 && sx < game.width + 200 && sy < game.height + 200) sfx('heli', 0.55);
+            }
+            if (this.state === 'inbound') {
+                if (!this.crowd) this.crowd = heliCrowdTarget();
+                if (!this.crowd) { this.state = 'outbound'; return; }
+                const d = this.fly(this.crowd.x, this.crowd.y, dt, HELI_SPEED);
+                this.pool.x = this.x; this.pool.y = this.y;
+                if (d < TILE * 5) { this.state = 'scanning'; this.pool = { x: this.x, y: this.y }; showToast(':eye: Helicopter on station. Sweeping the crowd.'); }
+            } else if (this.state === 'scanning') {
+                this.stationT -= dt;
+                this.retargetT -= dt;
+                if (this.retargetT <= 0) { this.retargetT = 1.5; this.retarget(); }
+                if (!game.raiders.some(r => r.alive && r.state !== 'fleeing' && r.state !== 'fading')) this.stationT = Math.min(this.stationT, 0);
+                const pt = this.poolTarget();
+                this.pool.x += (pt.x - this.pool.x) * Math.min(1, dt * 1.8);
+                this.pool.y += (pt.y - this.pool.y) * Math.min(1, dt * 1.8);
+                // hover a little back from the pool, nose toward it
+                const away = Math.atan2(this.entry.y - this.pool.y, this.entry.x - this.pool.x);
+                const hx = this.pool.x + Math.cos(away) * TILE * 3.5, hy = this.pool.y + Math.sin(away) * TILE * 3.5;
+                const dx = hx - this.x, dy = hy - this.y, dist = Math.hypot(dx, dy);
+                const sp = Math.min(HELI_SPEED * 0.45, dist * 1.8);
+                if (dist > 1) { this.x += dx / dist * sp * dt; this.y += dy / dist * sp * dt; }
+                this.turnToward(Math.atan2(this.pool.y - this.y, this.pool.x - this.x), dt, 1.6);
+                this.sweepMark(dt);
+                if (this.stationT <= 0) { this.state = 'outbound'; showToast(':eye: Helicopter leaving. ' + (this.marked ? this.marked + ' rioter' + (this.marked > 1 ? 's' : '') + ' marked.' : 'Nobody was hiding in the crowd.')); }
+            } else {
+                const d = this.fly(this.entry.x, this.entry.y, dt, HELI_SPEED);
+                if (d < TILE * 2 || this.x < -TILE * 6 || this.y < -TILE * 6 || this.x > MAP_W * TILE + TILE * 6 || this.y > MAP_H * TILE + TILE * 6) {
+                    this.alive = false; game.heliCooldown = HELI_COOLDOWN;
+                    if (game.selectedSyndicate === STATION_INDEX) renderOptionsPanel();
+                }
+            }
+        }
+        // anyone hiding who stays in the light for a moment is marked
+        sweepMark(dt) {
+            for (const r of game.raiders) {
+                if (!heliWantsMark(r) && !(r.marked)) continue;
+                if (r.marked) { r.markT = Math.max(r.markT, HELI_MARK_TIME * 0.5); continue; }
+                const d = Math.hypot(r.x - this.pool.x, r.y - this.pool.y);
+                if (d < HELI_SCAN_R) {
+                    r._scanDwell = (r._scanDwell || 0) + dt;
+                    if (r._scanDwell >= HELI_MARK_DWELL) {
+                        r.marked = true; r.markT = HELI_MARK_TIME; r._scanDwell = 0; this.marked++;
+                        game.effects.push({ x: r.x, y: r.y, t: 0, life: 0.45 });
+                        sfx('ui', 0.7);
+                        if (this.marked === 1) showToast(':eye: Marked a hidden rioter. Walk a syndicate past to lift them.');
+                    }
+                } else r._scanDwell = Math.max(0, (r._scanDwell || 0) - dt);
+            }
+        }
+        draw(ctx) {
+            if (!this.alive) return;
+            const body = assets['heli_police'], rotor = assets['heli_rotor'];
+            const sx = this.x - game.camera.x, sy = this.y - game.camera.y;
+            if (sx < -160 || sy < -160 || sx > game.width + 160 || sy > game.height + 160) return;
+            const ALT = 30;                                   // how high it looks above its shadow
+            const hubX = (body ? body.width : 39) / 2, hubY = HELI_LEN * HELI_HUB_Y;
+            const rotA = this.heading + Math.PI / 2;
+            const smooth = ctx.imageSmoothingEnabled; ctx.imageSmoothingEnabled = false;
+
+            // shadow on the ground
+            ctx.save();
+            ctx.translate(sx + 14, sy + 10); ctx.rotate(rotA); ctx.scale(0.94, 0.94);
+            if (body) {
+                if (!_heliShadow || _heliShadow._src !== body) {
+                    const c = document.createElement('canvas'); c.width = body.width; c.height = body.height;
+                    const g = c.getContext('2d'); g.drawImage(body, 0, 0); g.globalCompositeOperation = 'source-in'; g.fillStyle = 'rgba(0,0,0,0.9)'; g.fillRect(0, 0, c.width, c.height);
+                    c._src = body; _heliShadow = c;
+                }
+                ctx.globalAlpha = 0.28; ctx.drawImage(_heliShadow, -hubX, -hubY);
+            } else { ctx.globalAlpha = 0.25; ctx.fillStyle = '#000'; ctx.fillRect(-8, -hubY, 16, HELI_LEN); }
+            ctx.globalAlpha = 0.12; ctx.fillStyle = '#000';
+            ctx.beginPath(); ctx.arc(0, 0, HELI_LEN * 0.41, 0, Math.PI * 2); ctx.fill();
+            ctx.restore();
+
+            // the aircraft
+            ctx.save();
+            ctx.translate(sx, sy - ALT); ctx.rotate(rotA);
+            if (body) ctx.drawImage(body, -hubX, -hubY);
+            else {                                           // fallback if the picture is missing
+                ctx.fillStyle = '#e8eef8'; ctx.fillRect(-8, -hubY, 16, HELI_LEN * 0.55);
+                ctx.fillStyle = '#1e3a8c'; ctx.fillRect(-2, HELI_LEN * 0.4 - hubY, 4, HELI_LEN * 0.55);
+            }
+            // blue strobes on the tail and nav lights on the skids
+            const fl = Math.floor(this.t * 5) % 2;
+            const tailY = HELI_LEN * 0.95 - hubY;
+            ctx.fillStyle = fl ? 'rgba(80,140,255,1)' : 'rgba(255,255,255,0.9)'; ctx.fillRect(-5, tailY, 2, 2);
+            ctx.fillStyle = fl ? 'rgba(255,255,255,0.9)' : 'rgba(80,140,255,1)'; ctx.fillRect(3, tailY, 2, 2);
+            ctx.fillStyle = 'rgba(255,60,60,0.95)'; ctx.fillRect(-hubX + 1, HELI_LEN * 0.30 - hubY, 2, 2);
+            ctx.fillStyle = 'rgba(70,230,110,0.95)'; ctx.fillRect(hubX - 3, HELI_LEN * 0.30 - hubY, 2, 2);
+            // tail rotor
+            ctx.save(); ctx.translate(5, HELI_LEN * 0.93 - hubY); ctx.rotate(this.rot * 2.4);
+            ctx.fillStyle = 'rgba(20,28,52,0.75)'; ctx.fillRect(-5, -0.6, 10, 1.2); ctx.fillRect(-0.6, -5, 1.2, 10);
+            ctx.fillStyle = 'rgba(200,215,240,0.18)'; ctx.beginPath(); ctx.arc(0, 0, 5, 0, Math.PI * 2); ctx.fill();
+            ctx.restore();
+            // main rotor: a soft disc with two blurred sets of blades
+            ctx.fillStyle = 'rgba(200,215,240,0.07)'; ctx.beginPath(); ctx.arc(0, 0, HELI_LEN * 0.41, 0, Math.PI * 2); ctx.fill();
+            if (rotor) {
+                const rd = rotor.width;
+                ctx.imageSmoothingEnabled = true;
+                ctx.save(); ctx.rotate(this.rot); ctx.globalAlpha = 0.3; ctx.drawImage(rotor, -rd / 2, -rd / 2); ctx.restore();
+                ctx.save(); ctx.rotate(this.rot + 0.7); ctx.globalAlpha = 0.18; ctx.drawImage(rotor, -rd / 2, -rd / 2); ctx.restore();
+                ctx.imageSmoothingEnabled = false;
+            } else {
+                ctx.strokeStyle = 'rgba(20,28,52,0.6)'; ctx.lineWidth = 2;
+                for (let i = 0; i < 4; i++) { const a = this.rot + i * Math.PI / 2; ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(Math.cos(a) * HELI_LEN * 0.4, Math.sin(a) * HELI_LEN * 0.4); ctx.stroke(); }
+            }
+            ctx.fillStyle = '#10182c'; ctx.beginPath(); ctx.arc(0, 0, 2.2, 0, Math.PI * 2); ctx.fill();
+            ctx.restore();
+            ctx.imageSmoothingEnabled = smooth;
+        }
+    }
+
+    function deployHeli() {
+        if (!skillOwned('heli')) { showToast(':lock: The helicopter is locked. Unlock it in Skills.'); return; }
+        if (game.heli && game.heli.alive) { showToast(':eye: The helicopter is already up.'); return; }
+        if ((game.heliCooldown || 0) > 0) { showToast(':eye: Helicopter refuelling: ' + Math.ceil(game.heliCooldown) + 's.'); return; }
+        if (!heliCrowdTarget()) { showToast(':eye: There is no crowd out there to scan yet.'); return; }
+        game.heli = new PoliceHeli();
+        showToast(':eye: Police helicopter airborne. Heading for the crowd.');
+        sfx('heli', 0.8);
+        renderOptionsPanel();
+    }
+    function updateHeli(dt) {
+        if (game.heliCooldown > 0) {
+            game.heliCooldown = Math.max(0, game.heliCooldown - dt);
+            game._heliPanel = (game._heliPanel || 0) + dt;
+            if (game.selectedSyndicate === STATION_INDEX && game._heliPanel > 1) { game._heliPanel = 0; renderOptionsPanel(); }
+        }
+        game._padT = (game._padT || 0) - dt;
+        if (game._padT <= 0) { game._padT = 0.25; updateMoveButtons(); }
+        if (game.heli && game.heli.alive) game.heli.update(dt);
+        else if (game.heli) game.heli = null;
+    }
+
+    // ----- marked rioters: any syndicate that walks past lifts them -----
+    function updateHeliMarks(dt) {
+        for (const r of game.raiders) {
+            if (!r.alive || !r.marked) continue;
+            if (r.state === 'fleeing' || r.state === 'fading') { r.marked = false; r.snatchT = undefined; continue; }
+            r.markT -= dt;
+            if (r.markT <= 0) { r.marked = false; r.snatchT = undefined; if (r.snatchBy) { r.beingArrested = false; r.arrestOfficer = null; r.snatchBy = null; } continue; }
+            if (r.snatchT !== undefined) {
+                const o = r.snatchBy;
+                if (!o || !o.alive || Math.hypot(o.x - r.x, o.y - r.y) > HELI_SNATCH_RANGE * 2) {
+                    r.snatchT = undefined; r.snatchBy = null; r.beingArrested = false; r.arrestOfficer = null; continue;
+                }
+                const dx = r.x - o.x, dy = r.y - o.y, dl = Math.hypot(dx, dy) || 1;
+                o.dir = { x: dx / dl, y: dy / dl };
+                r.snatchT += dt;
+                if (r.snatchT >= HELI_SNATCH_TIME) heliLift(r, o);
+                continue;
+            }
+            if (r.beingArrested) continue;                         // an arrest team already has them
+            let best = null, bd = HELI_SNATCH_RANGE;
+            for (const o of game.officers) {
+                if (!o.alive || o.state !== 'active') continue;
+                const d = Math.hypot(o.x - r.x, o.y - r.y);
+                if (d < bd) { bd = d; best = o; }
+            }
+            if (best) { r.snatchT = 0; r.snatchBy = best; r.beingArrested = true; r.arrestOfficer = best; }
+        }
+    }
+    function heliLift(r, o) {
+        r.alive = false; r.beingArrested = false; r.marked = false; r.snatchT = undefined; r.snatchBy = null; r.arrestOfficer = null;
+        game.arrested++;
+        if (r.kind !== 'crowd') { game.raidersDefeated++; game.raiderGroupMorale = Math.max(0, game.raiderGroupMorale - 8); groupMoraleHit(r.x, r.y, 14); }
+        spawnHitEffect(r.x, r.y);
+        sfx('arrest');
+        // same rewards as any arrest: the crowd settles, opinion improves, the chiefs are pleased
+        incite(r.x, r.y, TILE * 18, -24);
+        adjustOpinion(1.2);
+        const st = game.waveStats; st.rioterArrests = (st.rioterArrests || 0) + 1;
+        const pay = 2 + Math.floor(game.waveNumber / 3);
+        profile.coins += pay; game.runCoins += pay; saveProfile();
+        game.crowdMood = Math.max(0, game.crowdMood - 4);
+        const who = (o && o.syndicateIndex >= 0) ? 'S' + (o.syndicateIndex + 1) : 'An officer';
+        showToast(':lock: ' + who + ' lifted a marked rioter. Crowd calmer, chiefs pleased +' + pay + ' :coin:');
+        if (o && o.syndicateIndex >= 0) commanderShout(o.syndicateIndex, 'Marked one — got him!');
+    }
+
+    // ----- drawing: the searchlight pool, the marks, and the aircraft on top -----
+    function drawHeliLayer(ctx) {
+        const h = game.heli;
+        const now = (game.lastTime || 0) / 1000;
+        // marks on rioters
+        for (const r of game.raiders) {
+            if (!r.alive || !r.marked) continue;
+            const sx = r.x - game.camera.x, sy = r.y - game.camera.y;
+            if (sx < -30 || sy < -50 || sx > game.width + 30 || sy > game.height + 30) continue;
+            const pulse = 0.5 + 0.5 * Math.sin(now * 6 + r.id);
+            ctx.save();
+            ctx.strokeStyle = 'rgba(255,210,38,' + (0.65 + 0.3 * pulse).toFixed(2) + ')'; ctx.lineWidth = 2;
+            ctx.beginPath(); ctx.ellipse(sx, sy + 3, 9 + pulse * 2, 5 + pulse, 0, 0, Math.PI * 2); ctx.stroke();
+            const by = sy - 36 + Math.sin(now * 5 + r.id) * 1.5;
+            ctx.fillStyle = '#ffd426'; ctx.strokeStyle = '#4a3a00'; ctx.lineWidth = 1;
+            ctx.beginPath(); ctx.moveTo(sx - 4, by - 5); ctx.lineTo(sx + 4, by - 5); ctx.lineTo(sx, by + 1); ctx.closePath(); ctx.fill(); ctx.stroke();
+            if (r.snatchT !== undefined && r.snatchBy) {
+                const p = Math.min(1, r.snatchT / HELI_SNATCH_TIME);
+                ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 2.5;
+                ctx.beginPath(); ctx.arc(sx, sy - 12, 8, -Math.PI / 2, -Math.PI / 2 + p * Math.PI * 2); ctx.stroke();
+                ctx.strokeStyle = 'rgba(255,255,255,0.55)'; ctx.lineWidth = 1; ctx.setLineDash([3, 3]);
+                ctx.beginPath(); ctx.moveTo(sx, sy - 8); ctx.lineTo(r.snatchBy.x - game.camera.x, r.snatchBy.y - game.camera.y - 8); ctx.stroke(); ctx.setLineDash([]);
+            }
+            ctx.restore();
+        }
+        if (!h || !h.alive) return;
+        // searchlight pool
+        if (h.state === 'scanning') {
+            const px = h.pool.x - game.camera.x, py = h.pool.y - game.camera.y;
+            const hx = h.x - game.camera.x, hy = h.y - game.camera.y - 26;
+            ctx.save();
+            ctx.globalCompositeOperation = 'lighter';
+            // the beam from the aircraft down to the pool
+            const ang = Math.atan2(py - hy, px - hx), len = Math.hypot(px - hx, py - hy);
+            const bg = ctx.createLinearGradient(hx, hy, px, py);
+            bg.addColorStop(0, 'rgba(230,242,255,0.22)'); bg.addColorStop(1, 'rgba(200,225,255,0.05)');
+            ctx.fillStyle = bg;
+            ctx.beginPath(); ctx.moveTo(hx, hy);
+            ctx.lineTo(px + Math.cos(ang + Math.PI / 2) * HELI_SCAN_R * 0.42, py + Math.sin(ang + Math.PI / 2) * HELI_SCAN_R * 0.42);
+            ctx.lineTo(px + Math.cos(ang - Math.PI / 2) * HELI_SCAN_R * 0.42, py + Math.sin(ang - Math.PI / 2) * HELI_SCAN_R * 0.42);
+            ctx.closePath(); ctx.fill();
+            // the pool
+            const g = ctx.createRadialGradient(px, py, 0, px, py, HELI_SCAN_R);
+            g.addColorStop(0, 'rgba(225,238,255,0.34)'); g.addColorStop(0.7, 'rgba(190,215,255,0.2)'); g.addColorStop(1, 'rgba(170,200,255,0)');
+            ctx.fillStyle = g; ctx.beginPath(); ctx.arc(px, py, HELI_SCAN_R, 0, Math.PI * 2); ctx.fill();
+            // a radar-style sweep arm
+            const a = h.t * 2.4;
+            ctx.fillStyle = 'rgba(220,240,255,0.22)';
+            ctx.beginPath(); ctx.moveTo(px, py); ctx.arc(px, py, HELI_SCAN_R, a, a + 0.55); ctx.closePath(); ctx.fill();
+            ctx.restore();
+            ctx.save();
+            ctx.strokeStyle = 'rgba(200,228,255,0.7)'; ctx.lineWidth = 1.5; ctx.setLineDash([6, 5]);
+            ctx.beginPath(); ctx.arc(px, py, HELI_SCAN_R, 0, Math.PI * 2); ctx.stroke(); ctx.setLineDash([]);
+            ctx.restore();
+        }
+        h.draw(ctx);
     }
 
     // ========== K9 ==========
@@ -7353,7 +7811,7 @@
         // Hidden rioters wait for their moment: a timer, pressure from a line of officers, or an angry crowd.
         watchForCover(dt) {
             const escorted = this.escortT > 0;
-            this.revealT -= dt * (escorted ? 0.5 : 1);                                  // hidden rioters lose their nerve under escort
+            this.revealT -= dt * (escorted ? 0.5 : 1) * (this.marked ? 0.5 : 1);        // hidden rioters lose their nerve under escort, and once the helicopter has marked them
             const near = this.nearOfficer, nd = this.nearDist;
             const sy = near ? game.syndicates[hostOf(near.syndicateIndex)] : null;
             if (near && nd < TILE * 6 && sy && !syndicateIsPassive(sy) && !syndicateIsEscorting(sy)) this.pressT += dt; else this.pressT = Math.max(0, this.pressT - dt);
@@ -7559,7 +8017,7 @@
                         break;
                     }
                 }
-                this.moveToward(ftx, fty, dt, this.def.speed * 2);
+                this.moveToward(ftx, fty, dt, this.def.speed * (this.calmHome ? 1.1 : 2));      // protesters going home walk, they do not run
                 const dist = Math.hypot(this.fleeExitX - this.x, this.fleeExitY - this.y);
                 if (dist < TILE * 1.5) { this.alive = false; return; }
                 if (this.stuckTimer > 2) {
@@ -7917,7 +8375,7 @@
                     ctx.lineWidth = 1.5; ctx.beginPath(); ctx.ellipse(sx, sy + 1, 7, 3, 0, 0, Math.PI * 2); ctx.stroke();
                 }
             }
-            drawHpBar(ctx, sx, sy - 21, this.hp, this.maxHp, this.state === 'fleeing' ? '#aaaaaa' : this.beingArrested ? '#ffcc33' : this.kind === 'crowd' ? '#c8b48a' : '#ff8a5c');
+            if (!this.calmHome) drawHpBar(ctx, sx, sy - 21, this.hp, this.maxHp, this.state === 'fleeing' ? '#aaaaaa' : this.beingArrested ? '#ffcc33' : this.kind === 'crowd' ? '#c8b48a' : '#ff8a5c');
 
         }
     }
@@ -7939,7 +8397,7 @@
         if (u.hitAt && now - u.hitAt < 210) { anim = 'hurt'; f = Math.floor((now - u.hitAt) / 72); }
         else if (u.attackFlash > 0) { anim = 'attack'; f = Math.floor((1 - u.attackFlash / 0.22) * 5); }
         else if (u.isMoving) {
-            const fast = u.state === 'fleeing' || u.state === 'withdrawing';
+            const fast = (u.state === 'fleeing' && !u.calmHome) || u.state === 'withdrawing';
             anim = fast ? 'run' : 'walk'; f = Math.floor(u.animTimer * (fast ? 14 : 9));
         } else f = Math.floor(u.animTimer * 5);
         const fr = RAIDER_FRAMES[anim];
@@ -8776,6 +9234,45 @@
             assignFormation(); updateSelectionUI();
         }
     }
+    // A diagonal petal: one step along the diagonal street the syndicate is on, staying on its centre line.
+    function diagStepFor(sy, dx, dy) {
+        const sg = diagSegNear(sy.commandX, sy.commandY, 1.0);
+        if (!sg) return null;
+        const len = Math.hypot(dx, dy), ux = dx / len, uy = dy / len;
+        const dot = ux * sg.vx + uy * sg.vy;
+        if (Math.abs(dot) < 0.88) return null;
+        const k = dot >= 0 ? 1 : -1;
+        const x0 = (sg.x1 + 0.5) * TILE, y0 = (sg.y1 + 0.5) * TILE;
+        const t = (sy.commandX - x0) * sg.vx + (sy.commandY - y0) * sg.vy + k * TILE;
+        if (t < -TILE * 0.5 || t > sg.len * TILE + TILE * 0.5) return null;               // that is the end of the street: use the straight petals
+        const nx = x0 + sg.vx * t, ny = y0 + sg.vy * t;
+        if (!isValidOfficerPosition(nx, ny)) return null;
+        return { x: nx, y: ny, fx: sg.vx * k, fy: sg.vy * k };
+    }
+    function commandMoveDiag(dx, dy) {
+        if (isVehicleIdx(game.selectedSyndicate)) { const l = Math.hypot(dx, dy); commandMoveVehicle(dx / l, dy / l); return; }
+        if (game.selectedSyndicate === STATION_INDEX) return;
+        const sy0 = game.syndicates[game.selectedSyndicate];
+        if (!sy0) return;
+        const step = diagStepFor(sy0, dx, dy);
+        if (!step) return;
+        leaveLineIfPartner(game.selectedSyndicate);
+        const sy = ensureSyndicateState(game.selectedSyndicate);
+        sy.post = null; sy.arriveAxis = null; sy.path = null; sy.pathIdx = 0;
+        sy.commandX = step.x; sy.commandY = step.y; sy.goalX = step.x; sy.goalY = step.y;
+        sy.facingX = step.fx; sy.facingY = step.fy;
+        commanderShout(game.selectedSyndicate, 'Move along the diagonal!');
+        assignFormation(); updateSelectionUI();
+    }
+    function canMoveDiag(dx, dy) {
+        if (isVehicleIdx(game.selectedSyndicate)) {
+            if (!vehicleAt(game.selectedSyndicate)) return false;
+            return !!(MAPGEO && MAPGEO.dSegs && MAPGEO.dSegs.length);
+        }
+        if (game.selectedSyndicate === STATION_INDEX) return false;
+        const sy = game.syndicates[game.selectedSyndicate];
+        return !!(sy && diagStepFor(sy, dx, dy));
+    }
     function commandMoveVehicle(dx, dy) {
         const v = vehicleAt(game.selectedSyndicate);
         if (!v) return;
@@ -8886,6 +9383,28 @@
         showToast(':target: Syndicate moving to ' + dirNames[post.dir] + ' post — covering ' + covered + '.');
     }
 
+    // On a diagonal street the line turns to run ALONG it (not just north/south/east/west), so File Left and
+    // File Right keep hugging the same kerb the whole way instead of bunching into a block while it marches.
+    function diagSegNear(x, y, slack) {
+        const segs = MAPGEO && MAPGEO.dSegs;
+        if (!segs || !segs.length) return null;
+        const tx = x / TILE - 0.5, ty = y / TILE - 0.5;
+        let best = null, bd = Infinity;
+        for (const sg of segs) {
+            const d = MAPGEO.distToDiag(sg, tx, ty);
+            if (d < bd) { bd = d; best = sg; }
+        }
+        return (best && bd <= MAPGEO.hw + (slack === undefined ? 1.4 : slack)) ? best : null;
+    }
+    function diagHeading(x, y, ux, uy) {
+        const sg = diagSegNear(x, y);
+        if (!sg) return null;
+        const dot = ux * sg.vx + uy * sg.vy;
+        if (Math.abs(dot) < 0.88) return null;
+        const k = dot >= 0 ? 1 : -1;
+        return [sg.vx * k, sg.vy * k];
+    }
+
     function updateSyndicateMovement(dt) {
         for (let i = 0; i < OFFICER_SYNDICATES; i++) {
             const sy = game.syndicates[i];
@@ -8911,15 +9430,20 @@
                 sy.commandY += uy * step;
                 budget -= step;
 
-                const ax = Math.abs(ux), ay = Math.abs(uy);
-                const wasHoriz = sy.facingY === 0;
-                const goHoriz = wasHoriz ? ax >= ay * 0.6 : ax > ay * 1.6;
-                if (goHoriz) {
-                    const sx = Math.sign(ux) || sy.facingX || 1;
-                    if (sy.facingX !== sx || sy.facingY !== 0) { sy.facingX = sx; sy.facingY = 0; }
+                const dgf = diagHeading(sy.commandX, sy.commandY, ux, uy);
+                if (dgf) {
+                    sy.facingX = dgf[0]; sy.facingY = dgf[1];             // marching along a diagonal street: face along it
                 } else {
-                    const syDir = Math.sign(uy) || sy.facingY || 1;
-                    if (sy.facingX !== 0 || sy.facingY !== syDir) { sy.facingX = 0; sy.facingY = syDir; }
+                    const ax = Math.abs(ux), ay = Math.abs(uy);
+                    const wasHoriz = sy.facingY === 0;
+                    const goHoriz = wasHoriz ? ax >= ay * 0.6 : ax > ay * 1.6;
+                    if (goHoriz) {
+                        const sx = Math.sign(ux) || sy.facingX || 1;
+                        if (sy.facingX !== sx || sy.facingY !== 0) { sy.facingX = sx; sy.facingY = 0; }
+                    } else {
+                        const syDir = Math.sign(uy) || sy.facingY || 1;
+                        if (sy.facingX !== 0 || sy.facingY !== syDir) { sy.facingX = 0; sy.facingY = syDir; }
+                    }
                 }
 
                 if (step >= d - 0.001) sy.pathIdx++;
@@ -9384,6 +9908,7 @@
     }
     function startWave() {
         game._causeToastShown = false;
+        game._protestCarry = false;
         game._stragglersSent = false;
         game.waveClock = 0; game.fsIdle = 0; game.fsIdleFired = false; game.fsCapFired = false; game.fsClear = 0;
         game.waveState = 'active';
@@ -9553,6 +10078,7 @@
     }
 
     // ========== RAIDER FAILSAFE ==========
+    const PROTEST_CARRY_ON = 55;       // seconds a peaceful protest carries on after the trouble has been dealt with
     const FS = {
         KICK_STILL: 25, FADE_AFTER_KICK: 15, FLEE_KICK: 6, FLEE_FADE: 10, FLEE_MAX: 30,
         OFFMAP_KICK: 3, OFFMAP_FADE: 8, ARREST_MAX: 45, WAVE_IDLE: 30, CLEAR_STALL: 25,
@@ -9603,7 +10129,7 @@
 
             if (r.state === 'fleeing') {
                 f.flee += dt;
-                if (f.flee > FS.FLEE_MAX) { fadeRaider(r); continue; }
+                if (f.flee > (r.calmHome ? FS.FLEE_MAX * 3 : FS.FLEE_MAX)) { fadeRaider(r); continue; }
             } else f.flee = 0;
 
             if (r.attackFlash > 0 || r.timeSinceDamage < 1.5 || r.gasStunTimer > 0) {
@@ -9797,7 +10323,12 @@
         }
         if (routedEnough) {
             for (const r of game.raiders) {
-                if (r.alive && r.state !== 'fleeing' && !r.beingArrested) { r.startFleeing(); if (r.kind !== 'crowd') game.routed++; }
+                // only the troublemakers run; a peaceful protest is left to carry on with its march or rally
+                if (r.alive && r.kind !== 'crowd' && r.state !== 'fleeing' && !r.beingArrested) { r.startFleeing(); game.routed++; }
+            }
+            if (!game._protestCarry && game.raiders.some(r => r.alive && r.kind === 'crowd' && r.state !== 'fleeing')) {
+                game._protestCarry = true;
+                showToast(':dove: The trouble is over. The peaceful protest carries on.');
             }
         }
 
@@ -9824,7 +10355,13 @@
                     if (game._peelT <= 0) { game._peelT = 6 + Math.random() * 4; peelOffOneGroup(); }
                 }
                 if (game.fsClear > (moraleBroken ? 80 : FS.CLEAR_STALL)) {
-                    for (const r of game.raiders) if (r.alive && !r.beingArrested) fadeRaider(r);
+                    for (const r of game.raiders) {
+                        if (!r.alive || r.beingArrested) continue;
+                        if (r.kind === 'crowd') {
+                            // peaceful protesters are never faded out: once their protest has had its time they pack up and walk home
+                            if (r.state !== 'fleeing' && game.fsClear > PROTEST_CARRY_ON && !r._packed) { r._packed = true; r.completePlan(); }
+                        } else fadeRaider(r);
+                    }
                 }
             }
         } else {
@@ -10278,6 +10815,15 @@
             ab.addEventListener('click', deployAmbulance);
             panel.appendChild(ab);
 
+            const hb = document.createElement('button');
+            const heliOut = game.heli && game.heli.alive, hcd = game.heliCooldown || 0;
+            if (!skillOwned('heli')) { hb.textContent = ':lock: Helicopter'; hb.classList.add('locked'); }
+            else if (heliOut) { hb.textContent = ':eye: Helicopter (up)'; hb.disabled = true; hb.classList.add('active-choice'); }
+            else if (hcd > 0) { hb.textContent = ':eye: Helicopter (' + Math.ceil(hcd) + 's)'; hb.disabled = true; }
+            else hb.textContent = ':eye: Send Helicopter';
+            hb.addEventListener('click', deployHeli);
+            panel.appendChild(hb);
+
             const auto = document.createElement('button');
             auto.textContent = ':repeat: Auto-Repair: ' + (game.autoRepair ? 'ON' : 'OFF');
             if (game.autoRepair) auto.classList.add('active-choice');
@@ -10291,14 +10837,6 @@
             });
             panel.appendChild(auto);
 
-            const info = document.createElement('div');
-            info.className = 'info-line';
-            const damaged = sceneryBuildings.filter(b => b.hp < b.maxHp && b.frontX !== undefined).length;
-            info.textContent =
-                'Two worker teams, each with a 10-officer escort. Auto-repair dispatches a team as soon as a ' +
-                'building drops below 50% health. Damaged buildings right now: ' + damaged + '. ' +
-                'Low public morale slows the crews down. The ambulance drives to the most injured syndicate and heals everyone nearby (90s restock).';
-            panel.appendChild(info);
             renderDecisionSection(panel);
             return;
         }
@@ -10330,12 +10868,6 @@
         renderReinforceSection(panel, game.selectedSyndicate);
 
         if (sy.post) {
-            const w = document.createElement('div');
-            w.className = 'info-line'; w.style.color = '#8ec8f0';
-            const dirNames = { N: 'north', S: 'south', E: 'east', W: 'west' };
-            const covered = sy.post.cover.map(d => dirNames[d]).join(' + ');
-            w.textContent = ':target: JUNCTION POST (' + dirNames[sy.post.dir] + ') — line covering ' + covered + ' approaches. Picking a formation clears the post.';
-            panel.appendChild(w);
             const clearBtn = document.createElement('button');
             clearBtn.textContent = ':cross: Clear post (fall back to formation)';
             clearBtn.addEventListener('click', () => {
@@ -10345,12 +10877,6 @@
             panel.appendChild(clearBtn);
         }
 
-        if (tacticIsPassive(sy.tactic) && sy.provokedTimer <= 0) {
-            const w = document.createElement('div');
-            w.className = 'info-line'; w.style.color = '#8ec8f0';
-            w.textContent = ':dove: Holding fire — this posture will not engage unless attacked. Protesters may walk right through.';
-            panel.appendChild(w);
-        }
         if (sy.tactic === 'rest' && sy.autoWallTimer > 0) {
             const w = document.createElement('div');
             w.className = 'info-line'; w.style.color = '#8ec8f0';
@@ -10371,11 +10897,6 @@
         }
 
         renderDecisionSection(panel);
-        const tip = document.createElement('div');
-        tip.className = 'info-line';
-        tip.style.cssText = 'color:#7fc47f;padding-top:6px;border-top:1px solid #232c3a;margin-top:4px';
-        tip.textContent = ':bulb: Tap a green dot on a road to send the syndicate there: they line up across the road to block it. Use the d-pad to turn them. Tap a junction post dot to cover a junction.';
-        panel.appendChild(tip);
     }
 
     // "Reinforce": pull another syndicate or a vehicle into the selected syndicate.
@@ -10391,12 +10912,7 @@
             panel.appendChild(b);
             return;
         }
-        const note = document.createElement('div');
-        note.className = 'info-line';
         if (isLinked(idx)) {
-            note.style.color = '#8ec8f0';
-            note.textContent = ':merge: Fighting as part of S' + (hostOf(idx) + 1) + '. Give this syndicate any order to pull it out again.';
-            panel.appendChild(note);
             const rel = document.createElement('button');
             rel.textContent = ':cross: Leave S' + (hostOf(idx) + 1);
             rel.addEventListener('click', () => { releaseLink(idx, false); renderOptionsPanel(); updateSelectionUI(); });
@@ -10422,10 +10938,6 @@
             panel.appendChild(b);
             shown++;
         }
-        note.textContent = shown
-            ? 'Tap a unit to bring it into this line. It fights with this syndicate\'s tactic and adds extra armour.'
-            : 'No other syndicate or vehicle available to call up.';
-        panel.appendChild(note);
     }
 
     function renderVehiclePanel(panel, idx) {
@@ -10437,12 +10949,6 @@
         label.className = 'section-label'; label.textContent = isRubber ? 'Rubber Bullet Response Van' : 'Water Cannon Vehicle';
         panel.appendChild(label);
 
-        if (isLinked(idx)) {
-            const lk = document.createElement('div');
-            lk.className = 'info-line'; lk.style.color = '#8ec8f0';
-            lk.textContent = ':merge: Reinforcing S' + (hostOf(idx) + 1) + ' — it parks behind that line. Any order frees it.';
-            panel.appendChild(lk);
-        }
         const bMobile = document.createElement('button');
         bMobile.textContent = ':car: Roam';
         if (v && !v.parked && !v.targetSpot) bMobile.classList.add('active-choice');
@@ -10474,20 +10980,7 @@
         });
         panel.appendChild(bBlock);
 
-        if (isRubber) {
-            const d = document.createElement('div');
-            d.className = 'info-line';
-            if (!v) d.textContent = 'Vehicle unavailable.';
-            else {
-                const parts = [];
-                if (v.parked) parts.push(':pin: Holding position — the two-man team is out and firing baton rounds at any rioter within range, one round each every 2 seconds.');
-                else if (v.targetSpot) parts.push('Driving to position…');
-                else parts.push('Roaming — tap the map or d-pad to send it to a road position. The team only deploys once parked.');
-                d.textContent = parts.join(' ');
-            }
-            panel.appendChild(d);
-            return;
-        }
+        if (isRubber) return;
 
         const cLabel = document.createElement('div');
         cLabel.className = 'section-label'; cLabel.textContent = 'Vehicle Weapon';
@@ -10505,18 +10998,6 @@
         });
         panel.appendChild(bWater);
 
-        const d = document.createElement('div');
-        d.className = 'info-line';
-        if (!v) d.textContent = 'Vehicle unavailable.';
-        else {
-            const parts = [];
-            if (v.parked) parts.push(':pin: Holding position.');
-            else if (v.targetSpot) parts.push('Driving to position…');
-            else parts.push('Roaming — tap the map or d-pad to send it to a road position.');
-            if (v.waterCannonOn) parts.push(':drop: Water cannon ON — auto-firing at nearby rioters.');
-            d.textContent = parts.join(' ');
-        }
-        panel.appendChild(d);
     }
 
     // ========== BOTTOM-RIGHT UI ==========
@@ -10587,16 +11068,50 @@
         if (gasBtn) gasBtn.addEventListener('click', deployTearGas);
         const k9Btn = document.getElementById('deploy-k9');
         if (k9Btn) k9Btn.addEventListener('click', deployK9);
-        document.getElementById('btn-up').addEventListener('click', () => commandMove(0, -1));
-        document.getElementById('btn-down').addEventListener('click', () => commandMove(0, 1));
-        document.getElementById('btn-left').addEventListener('click', () => commandMove(-1, 0));
-        document.getElementById('btn-right').addEventListener('click', () => commandMove(1, 0));
+        buildDpad();
     }
+    // ----- the round D-pad: four wide petals (up, right, down, left) and four small diagonal petals that light up on diagonal streets -----
+    const DPAD_PADS = [
+        { id: 'btn-up',    dx: 0,  dy: -1, a0: -28, a1: 28,  diag: false },
+        { id: 'btn-ur',    dx: 1,  dy: -1, a0: 31,  a1: 59,  diag: true },
+        { id: 'btn-right', dx: 1,  dy: 0,  a0: 62,  a1: 118, diag: false },
+        { id: 'btn-dr',    dx: 1,  dy: 1,  a0: 121, a1: 149, diag: true },
+        { id: 'btn-down',  dx: 0,  dy: 1,  a0: 152, a1: 208, diag: false },
+        { id: 'btn-dl',    dx: -1, dy: 1,  a0: 211, a1: 239, diag: true },
+        { id: 'btn-left',  dx: -1, dy: 0,  a0: 242, a1: 298, diag: false },
+        { id: 'btn-ul',    dx: -1, dy: -1, a0: 301, a1: 329, diag: true },
+    ];
+    function buildDpad() {
+        const host = document.getElementById('dpad-container');
+        if (!host || host.firstChild) return;
+        const NS = 'http://www.w3.org/2000/svg';
+        const mk = (tag, attrs, parent) => { const e = document.createElementNS(NS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); if (parent) parent.appendChild(e); return e; };
+        const svg = mk('svg', { id: 'dpad-svg', viewBox: '-66 -66 132 132' }, host);
+        mk('circle', { r: 64, class: 'dp-base' }, svg);
+        const RI = 19, RO = 59;
+        const pt = (r, deg) => { const a = deg * Math.PI / 180; return [(r * Math.sin(a)).toFixed(2), (-r * Math.cos(a)).toFixed(2)]; };
+        for (const p of DPAD_PADS) {
+            const o0 = pt(RO, p.a0), o1 = pt(RO, p.a1), i1 = pt(RI, p.a1), i0 = pt(RI, p.a0);
+            const large = (p.a1 - p.a0) > 180 ? 1 : 0;
+            const d = 'M' + o0.join(' ') + ' A' + RO + ' ' + RO + ' 0 ' + large + ' 1 ' + o1.join(' ') + ' L' + i1.join(' ') + ' A' + RI + ' ' + RI + ' 0 ' + large + ' 0 ' + i0.join(' ') + ' Z';
+            const el = mk('path', { id: p.id, d: d, class: 'dp-pad' + (p.diag ? ' diag' : '') }, svg);
+            // arrow head pointing outwards, sitting in the middle of the petal
+            const mid = (p.a0 + p.a1) / 2, c = pt(p.diag ? 44 : 40, mid), sz = p.diag ? 4.6 : 8;
+            mk('polygon', { class: 'dp-arrow', points: (-sz) + ',' + (sz * 0.6) + ' ' + sz + ',' + (sz * 0.6) + ' 0,' + (-sz * 0.9), transform: 'translate(' + c.join(' ') + ') rotate(' + mid + ')' }, svg);
+            const go = (e) => { e.preventDefault(); if (el.classList.contains('off')) return; moveByPad(p.dx, p.dy); };
+            el.addEventListener('click', go);
+        }
+        mk('circle', { r: 14, class: 'dp-hub' }, svg);
+        mk('circle', { r: 3, class: 'dp-dot' }, svg);
+    }
+    function moveByPad(dx, dy) { if (dx && dy) commandMoveDiag(dx, dy); else commandMove(dx, dy); }
     function updateMoveButtons() {
-        document.getElementById('btn-up').disabled = !canMove(0, -1);
-        document.getElementById('btn-down').disabled = !canMove(0, 1);
-        document.getElementById('btn-left').disabled = !canMove(-1, 0);
-        document.getElementById('btn-right').disabled = !canMove(1, 0);
+        for (const p of DPAD_PADS) {
+            const el = document.getElementById(p.id);
+            if (!el) continue;
+            const ok = (p.dx && p.dy) ? canMoveDiag(p.dx, p.dy) : canMove(p.dx, p.dy);
+            el.classList.toggle('off', !ok);
+        }
     }
     function updateSelectionUI() {
         const idx = game.selectedSyndicate;
@@ -10764,6 +11279,7 @@
             const ex = Math.min(mw, cam.x + game.width), ey = Math.min(mh, cam.y + game.height);
             if (ex > sx && ey > sy) ctx.drawImage(game.terrainCanvas, sx, sy, ex - sx, ey - sy, sx - cam.x, sy - cam.y, ex - sx, ey - sy);
             drawWaterOverlay(ctx);
+            drawAnimatedScenery(ctx);
         }
         if (!game.cloudBase) return;
         const now = performance.now() / 1000;
@@ -10872,6 +11388,7 @@
 
         game.tearGasOfficers.forEach(t => { if (t.alive) t.drawGasCloud(ctx); });
         drawNight(ctx);
+        drawHeliLayer(ctx);
 
         // Radiating rings over active hotspots (buildings, station, officers under fire)
 
@@ -11050,9 +11567,19 @@
         // --- Raiders share the other colour. ---
         game.raiders.forEach(r => {
             if (!r.alive) return;
+            if (r.marked) { ctx.fillStyle = '#ffd426'; ctx.fillRect(PX(r.x) - 0.5, PX(r.y) - 0.5, 3, 3); return; }
             ctx.fillStyle = r.state === 'fleeing' ? RAIDER_FLEE : RAIDER_COL;
             ctx.fillRect(PX(r.x), PX(r.y), 2, 2);
         });
+        if (game.heli && game.heli.alive) {
+            const h = game.heli;
+            if (h.state === 'scanning') {
+                ctx.strokeStyle = 'rgba(170,215,255,0.85)'; ctx.lineWidth = 1;
+                ctx.beginPath(); ctx.arc(PX(h.pool.x), PX(h.pool.y), Math.max(2, PX(HELI_SCAN_R)), 0, Math.PI * 2); ctx.stroke();
+            }
+            ctx.fillStyle = '#ffffff'; ctx.fillRect(PX(h.x) - 2, PX(h.y) - 2, 5, 5);
+            ctx.fillStyle = (Math.floor((game.lastTime || 0) / 250) % 2) ? '#3a6cff' : '#ff3a3a'; ctx.fillRect(PX(h.x) - 1, PX(h.y) - 1, 3, 3);
+        }
 
         // --- Attack rings on the minimap (same source as the world rings) ---
         if (game.attackMarkers && game.attackMarkers.length) {
@@ -11239,6 +11766,8 @@
             if (game.vehicle) game.vehicle.update(dt);
             if (game.vehicle2) game.vehicle2.update(dt);
             updateAmbulance(dt);
+            updateHeli(dt);
+            updateHeliMarks(dt);
             updateProjectiles(dt);
             updateFires(dt);
             updateRubberTracers(dt);
@@ -11295,6 +11824,7 @@
         game.tearGasOfficers = [];
         game.commanders = [];
         game.ambulance = null; game.ambulanceCooldown = 0; game.camGlide = 1.4;
+        game.heli = null; game.heliCooldown = 0;
         game.townSeed = (Math.random() * 0x7fffffff) | 0;
         game.projectiles = [];
         game.fires = []; game.gaps = []; game.callouts = []; game.allOutRiot = false;
@@ -11464,7 +11994,7 @@
         document.getElementById('gameover-overlay').classList.remove('show');
         game.paused = true;
         document.getElementById('menu-root').classList.remove('hidden');
-        skillsMessage('Clear levels to earn coins, then unlock anything in any order.', null);
+        skillsMessage('', null);
         renderSkills();
         showMenuScreen('menu-skills');
     }
@@ -11494,7 +12024,7 @@
         if (st === 'owned') status = s.free ? ':check: Included' : ':check: Unlocked';
         else if (st === 'locked') status = ':lock: Needs ' + skillMissing(s.key).map(r => SKILLS[r].name).join(' + ');
         else status = ':coin: ' + s.cost + (st === 'short' ? ' (' + (s.cost - profile.coins) + ' short)' : '');
-        for (const [cls, text] of [['sk-icon', s.icon], ['sk-name', s.name], ['sk-desc', s.desc], ['sk-status', status]]) {
+        for (const [cls, text] of [['sk-icon', s.icon], ['sk-name', s.name], ['sk-status', status]]) {
             const span = document.createElement('span');
             span.className = cls; span.textContent = text;
             b.appendChild(span);
@@ -11535,10 +12065,6 @@
         seg((!(profile.autoStart && hasCp) ? ':dot: ' : ':dot_off: ') + 'Start from the beginning (Level 1)',
             !(profile.autoStart && hasCp), () => { profile.autoStart = false; saveProfile(); renderSkills(); });
         prog.appendChild(row);
-        const hint = document.createElement('div');
-        hint.className = 'sk-hint';
-        hint.textContent = 'A checkpoint is saved every ' + CHECKPOINT_EVERY + ' levels (Level ' + (CHECKPOINT_EVERY + 1) + ', ' + (2 * CHECKPOINT_EVERY + 1) + ', …). Coins and unlocks are always kept, whichever way you start.';
-        prog.appendChild(hint);
 
         // the tree
         const tree = document.getElementById('sk-tree');
@@ -11547,8 +12073,7 @@
             const sec = document.createElement('div');
             sec.className = 'sk-section';
             const t = document.createElement('div'); t.className = 'sk-sec-title'; t.textContent = br.title;
-            const n = document.createElement('div'); n.className = 'sk-sec-note'; n.textContent = br.note;
-            sec.appendChild(t); sec.appendChild(n);
+            sec.appendChild(t);
             const items = SKILL_LIST.filter(s => s.branch === br.key);
             if (br.key === 'syndicates') {
                 const cols = document.createElement('div'); cols.className = 'sk-cols';
@@ -11635,9 +12160,9 @@
     }
     function refreshPersistText() {
         const t = document.getElementById('set-persist-txt');
-        if (!(navigator.storage && navigator.storage.persisted)) { t.textContent = 'This browser cannot promise to keep your save. Use the Save code to back it up.'; return; }
+        if (!(navigator.storage && navigator.storage.persisted)) { t.textContent = 'Not available here'; return; }
         navigator.storage.persisted().then(yes => {
-            t.textContent = yes ? 'Protected: the browser has promised to keep your save.' : 'Not protected yet. Tap Ask so the browser keeps your save even when space is short.';
+            t.textContent = yes ? 'Protected' : 'Not protected yet';
         }).catch(() => { });
     }
     function renderSettings() {

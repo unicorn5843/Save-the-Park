@@ -181,7 +181,8 @@
             const all = (window.speechSynthesis && speechSynthesis.getVoices()) || [];
             let gb = all.filter(v => /^en[-_]GB/i.test(v.lang));
             if (!gb.length) gb = all.filter(v => /^en/i.test(v.lang));
-            return gb;
+            const q = v => /natural|neural|online|premium|enhanced|siri|google/i.test(v.name + v.voiceURI) ? 1 : 0;
+            return gb.sort((a, b) => q(b) - q(a));
         } catch (e) { return []; }
     }
     // returns two different speakers { voice, pitch, rate }
@@ -192,24 +193,50 @@
         const wantFemaleFirst = Math.random() < 0.5;
         const mk = (female) => {
             const pool = female ? fem : mal;
-            const voice = pool.length ? rpick(pool) : (list.length ? rpick(list) : null);
+            const voice = pool.length ? rpick(pool.slice(0, Math.max(2, Math.ceil(pool.length / 2)))) : (list.length ? rpick(list) : null);
             // with only one voice installed we still vary the pitch so it sounds like two different people
-            const pitch = female ? 1.05 + Math.random() * 0.3 : 0.72 + Math.random() * 0.28;
-            return { voice, pitch, rate: 0.98 + Math.random() * 0.18 };
+            const pitch = female ? 1.0 + Math.random() * 0.08 : 0.93 + Math.random() * 0.07;
+            return { voice, pitch, rate: 0.93 + Math.random() * 0.1 };
         };
         return [mk(wantFemaleFirst), mk(!wantFemaleFirst)];
     }
-    function speak(text, sp, onDone) {
+    function speak(text, sp, onDone) {       // spoken a phrase at a time, with small pauses and slight wobble so it sounds like a person, not a machine
         let done = false;
         const finish = () => { if (done) return; done = true; if (onDone) onDone(); };
         try {
-            const u = new SpeechSynthesisUtterance(text);
-            u.lang = 'en-GB'; if (sp.voice) u.voice = sp.voice;
-            u.pitch = sp.pitch; u.rate = sp.rate; u.volume = 0.95;
-            u.onend = finish; u.onerror = finish;
-            speechSynthesis.speak(u);
-            setTimeout(finish, 9000);               // never get stuck if the phone's voice engine stays silent
+            const parts = text.split(/(?<=[.!?,;])\s+/).filter(Boolean);
+            parts.forEach((part, k) => {
+                const u = new SpeechSynthesisUtterance(part);
+                u.lang = 'en-GB'; if (sp.voice) u.voice = sp.voice;
+                u.pitch = sp.pitch * (0.97 + Math.random() * 0.06); u.rate = sp.rate * (0.96 + Math.random() * 0.08); u.volume = 0.95;
+                if (k === parts.length - 1) { u.onend = finish; u.onerror = finish; }
+                speechSynthesis.speak(u);
+            });
+            setTimeout(finish, 12000);
         } catch (e) { finish(); }
+    }
+    const clipCache = {};
+    function loadClip(url) {                // one pre-recorded radio clip, fetched once and kept
+        if (!clipCache[url]) clipCache[url] = fetch(url).then(r => { if (!r.ok) throw new Error('missing'); return r.arrayBuffer(); }).then(b => new Promise((res, rej) => ctx.decodeAudioData(b, res, rej)));
+        return clipCache[url];
+    }
+    function playClips(urls) {              // lead-in + road name (+ ending) played back to back inside one radio transmission
+        return Promise.all(urls.map(loadClip)).then(bufs => {
+            let t = ctx.currentTime + 0.14;
+            radioOpen(ctx.currentTime, 1); radioCrackle(ctx.currentTime, 0.3, 1);
+            bufs.forEach(b => { const src = ctx.createBufferSource(); src.buffer = b; src.connect(master); src.start(t); t += b.duration + 0.03; });
+            radioClose(t, 1); return true;
+        });
+    }
+    function radioSay(text, speakVoices, mute, clips) {      // one short control-room call; same recorded voice on every phone, phone voice only as a back-up
+        const c = ctx; if (mute || !c || c.state !== 'running' || !ok('radio', 3)) return false;
+        const fallback = () => {
+            radioOpen(c.currentTime, 1); radioCrackle(c.currentTime, 0.35, 1);
+            if (speakVoices && window.speechSynthesis && typeof SpeechSynthesisUtterance !== 'undefined') speak(text, twoSpeakers()[0], () => { if (ctx) radioClose(ctx.currentTime, 1); });
+            else radioClose(c.currentTime + 0.5, 1);
+        };
+        if (speakVoices && clips && clips.length) playClips(clips).catch(fallback); else fallback();
+        return true;
     }
     function radioOpen(t, v) {      // push-to-talk "click" + a little static
         noise(t, 0.12, 'bandpass', 2600, 1.2, 0.22 * v, 0.003);
@@ -303,6 +330,8 @@
         siren,
         sirenShort,
         radioOperationStart,
+        radioSay,
+        _playClips: playClips,
         // mood 0..1, size 0..1 (how big the crowd is). Call every half-second or so.
         setCrowd(mood, size) {
             lastSet = performance.now();

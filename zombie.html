@@ -266,7 +266,22 @@
     .xp-body p { font-size: min(3.6vh,14px); color: #2a4a30; line-height: 1.4; }
 </style>
     <link rel="stylesheet" href="assets/ui/moonroar.css">
-    <script src="assets/ui/moonroar.js"></script>
+    <style id="dpad-v2">
+        #bottom-right-ui #dpad-container { width: 132px; height: 132px; margin: 0; padding: 0; gap: 0; display: block; background: none; border: 0; border-radius: 0; backdrop-filter: none; }
+        #dpad-svg { width: 100%; height: 100%; display: block; touch-action: manipulation; -webkit-tap-highlight-color: transparent; user-select: none; -webkit-user-select: none; }
+        #dpad-svg .dp-base { fill: rgba(13, 16, 23, 0.9); stroke: #2e3a4f; stroke-width: 2; }
+        #dpad-svg .dp-pad { fill: #2e3a4f; stroke: #5a6f96; stroke-width: 1.2; cursor: pointer; }
+        #dpad-svg .dp-pad.diag { fill: #26334a; }
+        #dpad-svg .dp-pad:active, #dpad-svg .dp-pad.press { fill: #6b8fd0; }
+        #dpad-svg .dp-pad.off { opacity: 0.2; pointer-events: none; }
+        #dpad-svg .dp-pad.diag.off { opacity: 0.1; }
+        #dpad-svg .dp-pad.diag:not(.off) { fill: #3a5a8c; stroke: #8fb4f0; }
+        #dpad-svg .dp-arrow { fill: #e8edf5; pointer-events: none; }
+        #dpad-svg .dp-pad.off + .dp-arrow { opacity: 0.35; }
+        #dpad-svg .dp-hub { fill: #1b2333; stroke: #47597a; stroke-width: 1.2; }
+        #dpad-svg .dp-dot { fill: #47597a; }
+</style>
+<script src="assets/ui/moonroar.js"></script>
     <style id="cordon-v2">
         /* ===== layout shared with the main game: no overlaps, syndicates in a column beside the d-pad ===== */
         #bottom-right-ui { right: 6px; bottom: 44px; min-width: 0; gap: 5px; align-items: flex-end; flex-direction: column; }
@@ -378,13 +393,7 @@
             <button class="syn-btn acid" data-idx="3">:van:</button>
             <button class="syn-btn acid" data-idx="5">:van:</button>
         </div>
-        <div id="dpad-container">
-            <button class="dpad-btn dpad-up" id="btn-up">:arrow_u:</button>
-            <button class="dpad-btn dpad-left" id="btn-left">:arrow_l:</button>
-            <div class="dpad-btn dpad-center"></div>
-            <button class="dpad-btn dpad-right" id="btn-right">:play:</button>
-            <button class="dpad-btn dpad-down" id="btn-down">:arrow_d:</button>
-        </div>
+        <div id="dpad-container"></div>
         </div>
     </div>
 
@@ -467,6 +476,10 @@
 <script src="js/maps/base.js"></script>
 <script src="js/maps/promenade.js"></script>
 <script src="js/difficulty.js"></script>
+<script src="js/audio.js"></script>
+<script src="js/skins.js"></script>
+<script src="js/radioclips.js"></script>
+<script src="js/roadnames.js"></script>
 <script>
 /* ============================================================================
  * CORDON: OUTBREAK MODE
@@ -836,7 +849,7 @@ function applyMap(id){
     SYNDICATE_START_X = so.map(o => BASE_TILE_X + o[0]);
     SYNDICATE_START_Y = so.map(o => BASE_TILE_Y + o[1]);
     refreshStationEnter(); buildAllOutBox();
-    MAPGEO = CordonMaps.build(def, { W: MAP_W, H: MAP_H });
+    MAPGEO = CordonMaps.build(def, { W: MAP_W, H: MAP_H }); if (window.CordonRoads) CordonRoads.setMap(def);
 }
 // ============================ ROAD GRAPH ============================
 let ROAD_NODES = [], ROAD_EDGES = [], ROAD_ADJ = new Map();
@@ -1123,7 +1136,7 @@ function postDotPos(post){
     return { x: post.junction.x + d.fx*16, y: post.junction.y + d.fy*16 };
 }
 function rebuildRoadNetwork(){
-    MAPGEO = CordonMaps.build(MAP_DEF || CordonMaps.get('base'), { W: MAP_W, H: MAP_H });
+    MAPGEO = CordonMaps.build(MAP_DEF || CordonMaps.get('base'), { W: MAP_W, H: MAP_H }); if (window.CordonRoads) CordonRoads.setMap(MAP_DEF || CordonMaps.get('base'));
     buildRoadGraph();
     buildBlockadeSpots();
     buildJunctionPosts();
@@ -1167,7 +1180,7 @@ function saveSettings(){
 }
 
 const ASSET_PATHS = {
-    city_atlas: 'assets/map/buildings/city_atlas_zombie.png',
+    city_atlas: 'assets/map/buildings/city_atlas_ruined.png',
     road_asphalt: 'assets/map/roads/road_asphalt.png',
     road_paving: 'assets/map/roads/road_paving.png',
     road_zebra_ns: 'assets/map/roads/road_zebra_ns.png',
@@ -1176,7 +1189,7 @@ const ASSET_PATHS = {
     road_giveway: 'assets/map/roads/road_giveway_zombie.png',
     road_slow: 'assets/map/roads/road_slow_zombie.png',
     // ---- Zombie-side art: its own copies live in assets/zombie/ so this game can diverge from the main one ----
-    units_sheet: 'assets/zombie/units/units_sheet.png',
+    units_sheet: window.CordonSkins ? CordonSkins.sheet() : 'assets/zombie/units/units_sheet.png',
     gunner_sheet: 'assets/zombie/units/gunner_sheet.png',     // the two baton-round gunners (same art as the main game)
     k9_sheet: 'assets/zombie/units/k9_gsd_sheet.png',
     zombie_sheet: 'assets/zombie/units/zombie_sheet.png',
@@ -2071,7 +2084,7 @@ function getAcidTarget(idx, forceFresh){
 }
 
 // ============================ UNIT ROWS ============================
-const UNIT_ROWS = { officer:0, arrest:1, handler:2, allout:3, commander:4, gas:5 };
+const UNIT_ROWS = { officer:0, arrest:1, handler:2, heddlu:3, allout:3, commander:4, gas:5 };
 const OFFICER_PALETTE = { cloth:'#1a2840', dark:'#0c1428', visor:'#8fd6ff', shield:'#c8d0d8', shieldEdge:'#5a6878', flag:'#c53040' };
 const ALL_OUT_PALETTE = { cloth:'#5a2a30', dark:'#2a1018', visor:'#ffd08a', shield:'#e8c9a0', shieldEdge:'#a08050', flag:'#ffcf6b' };
 
@@ -2124,6 +2137,23 @@ function drawSpriteUnit(ctx, u, row){
         ctx.beginPath(); ctx.arc(7, -6, 11, -1.0, 0.7); ctx.stroke();
     }
     return true;
+}
+
+// Shield lettering: syndicate 2 = HEDDLU, syndicates 1 and 3 = POLICE; All Out officers get a fixed random mix.
+function shieldRowFor(u){
+    if (!u.isAllOut && u.syndicateIndex >= 0) return u.syndicateIndex === 1 ? UNIT_ROWS.heddlu : UNIT_ROWS.officer;
+    if (u._shieldRow === undefined) u._shieldRow = Math.random() < 0.5 ? UNIT_ROWS.heddlu : UNIT_ROWS.officer;
+    return u._shieldRow;
+}
+// A small dark 1, 2 or 3 on the hi-vis tabard says which syndicate an officer belongs to.
+const NUM_GLYPH = { 1: ['.#.', '##.', '.#.', '.#.', '###'], 2: ['##.', '..#', '.#.', '#..', '###'], 3: ['##.', '..#', '.##', '..#', '##.'] };
+function drawSyndicateNumber(ctx, u, sx, sy){
+    const n = u.syndicateIndex;
+    if (u.isAllOut || n === undefined || n === null || n < 0 || n > 2) return;
+    const g = NUM_GLYPH[n + 1]; if (!g) return;
+    const ox = Math.round(sx + (facesLeft(u) ? 1 : -1) - 1.5), oy = Math.round(sy - 10.5);
+    ctx.fillStyle = 'rgba(16,26,52,0.82)';
+    for (let r = 0; r < 5; r++) for (let c = 0; c < 3; c++) if (g[r][c] === '#') ctx.fillRect(ox + c, oy + r, 1, 1);
 }
 
 // ============================ OFFICER ============================
@@ -2396,13 +2426,14 @@ class Officer {
         if (sx < -30 || sy < -30 || sx > game.width+30 || sy > game.height+30) return;
         ctx.save(); ctx.translate(sx, sy);
         if (facesLeft(this)) ctx.scale(-1, 1);
-        const drew = drawSpriteUnit(ctx, this, this.isAllOut ? UNIT_ROWS.allout : UNIT_ROWS.officer);
+        const drew = drawSpriteUnit(ctx, this, shieldRowFor(this));
         if (!drew){
             const pal = this.isAllOut ? ALL_OUT_PALETTE : OFFICER_PALETTE;
             ctx.fillStyle = pal.cloth; ctx.fillRect(-4, -14, 8, 12);
             ctx.fillStyle = pal.dark; ctx.beginPath(); ctx.arc(0, -16, 3.4, 0, Math.PI*2); ctx.fill();
         }
         ctx.restore();
+        if (drew) drawSyndicateNumber(ctx, this, sx, sy);
         drawHpBar(ctx, sx, sy - 23, this.hp, this.maxHp, this.isAllOut ? '#ffb45c' : '#6cc4ff');
         if (this.isAllOut){
             ctx.fillStyle = '#ff8a5c'; ctx.font = 'bold 8px monospace'; ctx.textAlign = 'center';
@@ -5120,7 +5151,7 @@ function commandMove(dx, dy){
         sy.goalX = snapped.x; sy.goalY = snapped.y;
         if (dx !== 0){ sy.facingX = dx; sy.facingY = 0; }
         else if (dy !== 0){ sy.facingX = 0; sy.facingY = dy; }
-        commanderShout(game.selectedSyndicate, 'Move ' + (dx > 0 ? 'east' : dx < 0 ? 'west' : dy > 0 ? 'south' : 'north') + '!');
+        { const rn = window.CordonRoads && CordonRoads.atPx(sy.commandX, sy.commandY, TILE); commanderShout(game.selectedSyndicate, 'Move ' + (dx > 0 ? 'east' : dx < 0 ? 'west' : dy > 0 ? 'south' : 'north') + (rn ? ' along ' + rn : '') + '!'); if (rn) CordonRoads.reply(rn, zRadio()); }
         assignFormation(); updateSelectionUI();
     }
 }
@@ -5834,11 +5865,42 @@ function renderOptionsPanel(){
     tip.textContent = ':bulb: Tap a road dot to move the syndicate. Tap a junction post dot to give them a facing.';
     panel.appendChild(tip);
 }
+const DPAD_PADS = [
+        { id: 'btn-up',    dx: 0,  dy: -1, a0: -28, a1: 28,  diag: false },
+        { id: 'btn-ur',    dx: 1,  dy: -1, a0: 31,  a1: 59,  diag: true },
+        { id: 'btn-right', dx: 1,  dy: 0,  a0: 62,  a1: 118, diag: false },
+        { id: 'btn-dr',    dx: 1,  dy: 1,  a0: 121, a1: 149, diag: true },
+        { id: 'btn-down',  dx: 0,  dy: 1,  a0: 152, a1: 208, diag: false },
+        { id: 'btn-dl',    dx: -1, dy: 1,  a0: 211, a1: 239, diag: true },
+        { id: 'btn-left',  dx: -1, dy: 0,  a0: 242, a1: 298, diag: false },
+        { id: 'btn-ul',    dx: -1, dy: -1, a0: 301, a1: 329, diag: true },
+    ];
+    function buildDpad() {
+        const host = document.getElementById('dpad-container');
+        if (!host || host.firstChild) return;
+        const NS = 'http://www.w3.org/2000/svg';
+        const mk = (tag, attrs, parent) => { const e = document.createElementNS(NS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); if (parent) parent.appendChild(e); return e; };
+        const svg = mk('svg', { id: 'dpad-svg', viewBox: '-66 -66 132 132' }, host);
+        mk('circle', { r: 64, class: 'dp-base' }, svg);
+        const RI = 19, RO = 59;
+        const pt = (r, deg) => { const a = deg * Math.PI / 180; return [(r * Math.sin(a)).toFixed(2), (-r * Math.cos(a)).toFixed(2)]; };
+        for (const p of DPAD_PADS) {
+            const o0 = pt(RO, p.a0), o1 = pt(RO, p.a1), i1 = pt(RI, p.a1), i0 = pt(RI, p.a0);
+            const large = (p.a1 - p.a0) > 180 ? 1 : 0;
+            const d = 'M' + o0.join(' ') + ' A' + RO + ' ' + RO + ' 0 ' + large + ' 1 ' + o1.join(' ') + ' L' + i1.join(' ') + ' A' + RI + ' ' + RI + ' 0 ' + large + ' 0 ' + i0.join(' ') + ' Z';
+            const el = mk('path', { id: p.id, d: d, class: 'dp-pad' + (p.diag ? ' diag' : '') }, svg);
+            // arrow head pointing outwards, sitting in the middle of the petal
+            const mid = (p.a0 + p.a1) / 2, c = pt(p.diag ? 44 : 40, mid), sz = p.diag ? 4.6 : 8;
+            mk('polygon', { class: 'dp-arrow', points: (-sz) + ',' + (sz * 0.6) + ' ' + sz + ',' + (sz * 0.6) + ' 0,' + (-sz * 0.9), transform: 'translate(' + c.join(' ') + ') rotate(' + mid + ')' }, svg);
+            const go = (e) => { e.preventDefault(); if (el.classList.contains('off')) return; moveByPad(p.dx, p.dy); };
+            el.addEventListener('click', go);
+        }
+        mk('circle', { r: 14, class: 'dp-hub' }, svg);
+        mk('circle', { r: 3, class: 'dp-dot' }, svg);
+    }
+function moveByPad(dx, dy){ if (!(dx && dy)) commandMove(dx, dy); }
 function updateMoveButtons(){
-    document.getElementById('btn-up').disabled = !canMove(0, -1);
-    document.getElementById('btn-down').disabled = !canMove(0, 1);
-    document.getElementById('btn-left').disabled = !canMove(-1, 0);
-    document.getElementById('btn-right').disabled = !canMove(1, 0);
+    for (const p of DPAD_PADS){ const el = document.getElementById(p.id); if (el) el.classList.toggle('off', (p.dx && p.dy) ? true : !canMove(p.dx, p.dy)); }
 }
 function dropMsg(el, now){
     if (!el || !el.parentNode) return;
@@ -5967,6 +6029,10 @@ function exitDefence(exitId){
     }
     return 1 + score / Math.max(1, samples);
 }
+Object.defineProperty(window, 'game', { get: () => game });      // lets the tactical-mode script reach the game state
+// radio sound follows the main game's saved settings (on unless switched off there)
+function zRadio(){ try { const d = JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}') || {}; return { sound: d.sound !== false, voices: d.voices !== false }; } catch (e) { return { sound: true, voices: true }; } }
+document.addEventListener('pointerdown', () => { if (window.CordonAudio) CordonAudio.unlock(); }, { once: true });
 function startWave(){
     for (const idx of [VEHICLE_SYNDICATE, VEHICLE_SYNDICATE_2]){      // overnight the workshop sorts the vehicles out
         const vv = game.vehicles[idx];
@@ -6047,6 +6113,12 @@ function startWave(){
         html: '<div class="w-title">WAVE ' + game.waveNumber + '</div>' +
               '<div class="w-tone">' + tone + ' · ' + gateCount + ' entr' + (gateCount === 1 ? 'y' : 'ies') + '</div>' +
               (houndCount ? '<div class="w-obj">:dog: ' + houndCount + (houndCount === 1 ? ' HOUND' : ' HOUNDS') + ' loose</div>' : '') });
+    if (window.CordonRoads){ try {             // dispatcher: which street the horde is coming in on
+        const n = getNode(exits[0]);
+        const px = n ? (n.x < MAP_W + 2 ? n.x * TILE : n.x) : null, py = n ? (n.y < MAP_H + 2 ? n.y * TILE : n.y) : null;
+        const call = CordonRoads.dispatch('horde', px !== null ? CordonRoads.atPx(px, py, TILE) : null, { sound: zRadio().sound, voices: zRadio().voices });
+        setTimeout(() => pushMsg({ cls: 'wave', ttl: 4200, html: '<div class="w-obj">Control: \u201c' + call + '\u201d</div>' }), 3500);
+    } catch (e) {} }
     spawnCrate();
 }
 // How hard was that wave? Feeds the adaptive difficulty (see js/difficulty.js). The waves themselves stay the same shape.
@@ -6387,10 +6459,7 @@ function setupBottomRightUI(){
         updateStationButton();
         game.cameraUserLock = 0; game.camGlide = 0.8;
     });
-    document.getElementById('btn-up').addEventListener('click', () => commandMove(0, -1));
-    document.getElementById('btn-down').addEventListener('click', () => commandMove(0, 1));
-    document.getElementById('btn-left').addEventListener('click', () => commandMove(-1, 0));
-    document.getElementById('btn-right').addEventListener('click', () => commandMove(1, 0));
+    buildDpad();
     document.getElementById('act-acid').addEventListener('click', deployAcid);
     document.getElementById('act-grabber').addEventListener('click', deployGrabber);
     document.getElementById('act-k9').addEventListener('click', deployK9);
@@ -6705,6 +6774,7 @@ function endGame(win){
     overlay.classList.add('show');
 }
 function restartGame(){
+    if (window.CordonRoads) CordonRoads.reroll();
     document.getElementById('gameover-overlay').classList.remove('show');
     game.paused = false;
     initGameState();
@@ -7095,5 +7165,7 @@ function bootWhenReady(){
 bootWhenReady();
 })();
 </script>
+<script>window.TACTICAL_TOP = 80;</script>
+<script src="js/tactical.js"></script>
 </body>
 </html>

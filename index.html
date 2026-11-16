@@ -470,10 +470,14 @@
         .sk-node.short .sk-status { color: #a43b2b; }
         .sk-node.locked { opacity: .55; border-style: dashed; }
         .sk-reset { margin-top: 4px; padding: 6px 12px; border-radius: 8px; border: 2px solid #b04a3a; background: #fff0ee; color: #8a2a1c; font: 700 11.5px Tahoma, Verdana, sans-serif; cursor: pointer; }
+    .sk-sec-note,.sk-desc{display:none!important}
     </style>
     <link rel="stylesheet" href="assets/ui/moonroar.css">
     <script src="assets/ui/moonroar.js"></script>
     <script src="js/campaign.js"></script>
+    <script src="js/skins.js"></script>
+<script src="js/radioclips.js"></script>
+<script src="js/roadnames.js"></script>
     <script src="js/maps/mapkit.js"></script>
     <script src="js/maps/base.js"></script>
     <script src="js/maps/promenade.js"></script>
@@ -2276,6 +2280,7 @@
 
     function rebuildRoadNetwork() {
         MAPGEO = CordonMaps.build(MAP_DEF || CordonMaps.get('base'), { W: MAP_W, H: MAP_H });
+        if (window.CordonRoads) CordonRoads.setMap(MAP_DEF || CordonMaps.get('base'));
         buildRoadGraph();
         buildBlockadeSpots();
         buildJunctionPosts();
@@ -2637,7 +2642,7 @@
     Object.assign(ATLAS_TABLE, {"school": {"kind": "b", "landmark": true, "zone": "res", "wT": 10, "hT": 8, "src": "school", "noflip": true, "x": 194, "y": 0, "w": 160, "h": 128, "file": "landmarks2_v2", "plotW": 10}, "library": {"kind": "b", "landmark": true, "zone": "biz", "wT": 10, "hT": 8, "src": "library", "noflip": true, "x": 356, "y": 0, "w": 160, "h": 128, "file": "landmarks2_v2", "plotW": 10}, "v2_hotel": {"kind": "b", "zone": "biz", "wT": 11, "hT": 10, "src": "v2_hotel", "noflip": true, "x": 0, "y": 146, "w": 176, "h": 160, "file": "landmarks2_v2", "min": 1, "max": 1, "boost": 1, "zones": ["biz", "res"]}, "v2_turbine": {"kind": "b", "zone": "ind", "wT": 4, "hT": 8, "src": "v2_turbine", "noflip": true, "x": 178, "y": 146, "w": 64, "h": 128, "file": "landmarks2_v2", "max": 2, "boost": 2}});      // new-look school, library, hotel and wind turbine (tools/make_landmarks2_v2.py)
     const STATION_V2 = {"x": 0, "y": 0, "w": 192, "h": 144};      // new-look police station, drawn over the old one when the sheet loads
 
-    ASSET_PATHS['units_sheet'] = 'assets/units/units_sheet.png';
+    ASSET_PATHS['units_sheet'] = window.CordonSkins ? CordonSkins.sheet() : 'assets/units/units_sheet.png';
     ASSET_PATHS['heli_police'] = 'assets/units/heli_police.png';     // the police helicopter: POLICE on the left side, HEDDLU on the right
     ASSET_PATHS['heli_rotor'] = 'assets/units/heli_rotor.png';
     ASSET_PATHS['gunner_sheet'] = 'assets/units/gunner_sheet.png';   // the two baton-round gunners that climb out of the rubber van
@@ -5166,12 +5171,13 @@
     function drawRepairFigure(ctx, u) {
         // Sprite worker: hi-vis jacket + hard hat. Walks/runs like the officers; hammers when repairing.
         const wimg = assets['units_sheet'];
+        const wv = ((u.id || 0) % 4) * 2;          // each worker gets one of four looks (hat colour, skin tone, vest, jeans)
         if (wimg) {
             if (u.state === 'repair') {
                 const f = Math.floor(((game.lastTime || 0) / 1000) * 9 + (u.id || 0)) % 6;
-                ctx.drawImage(wimg, f * 64, UNIT_ROWS.workerWork * 64, 64, 64, -13, -23, 32, 32);
+                ctx.drawImage(wimg, f * 64, (UNIT_ROWS.workerWork + wv) * 64, 64, 64, -13, -23, 32, 32);
             } else {
-                drawUnitSprite(ctx, u, UNIT_ROWS.worker);
+                drawUnitSprite(ctx, u, UNIT_ROWS.worker + wv);
             }
             return;
         }
@@ -8613,7 +8619,8 @@
             if (now - (game._bldgSirenT || -1e9) > 14000) {
                 game._bldgSirenT = now;
                 if (window.CordonAudio && settings.sound) CordonAudio.siren(3.2, 0.8);
-                pushMsg({ text: ':ruins: Buildings are being damaged!', cls: 'alert', ttl: 3200, key: 'bldg' });
+                const call = window.CordonRoads ? CordonRoads.dispatch('damage', CordonRoads.atPx(b.tx * TILE, b.ty * TILE, TILE), { sound: !!settings.sound, voices: !!settings.voices }) : null;
+                pushMsg({ text: call ? ':ruins: Control: \u201c' + call + '\u201d' : ':ruins: Buildings are being damaged!', cls: 'alert', ttl: 3600, key: 'bldg' });
             }
         }
         spawnHitEffect(b.tx * TILE, b.ty * TILE);
@@ -9230,7 +9237,7 @@
             sy.goalX = snapped.x; sy.goalY = snapped.y;
             if (dx !== 0) { sy.facingX = dx; sy.facingY = 0; }
             else if (dy !== 0) { sy.facingX = 0; sy.facingY = dy; }
-            commanderShout(game.selectedSyndicate, 'Move ' + (dx > 0 ? 'east' : dx < 0 ? 'west' : dy > 0 ? 'south' : 'north') + '!');
+            { const rn = window.CordonRoads && CordonRoads.atPx(sy.commandX, sy.commandY, TILE); commanderShout(game.selectedSyndicate, 'Move ' + (dx > 0 ? 'east' : dx < 0 ? 'west' : dy > 0 ? 'south' : 'north') + (rn ? ' along ' + rn : '') + '!'); if (rn) CordonRoads.reply(rn, { sound: !!settings.sound, voices: !!settings.voices }); }
             assignFormation(); updateSelectionUI();
         }
     }
@@ -10074,6 +10081,13 @@
             const rl = CordonAudio.radioOperationStart(!!settings.voices, !settings.sound);
             if (rl) pushMsg({ text: ':megaphone: Control: \u201c' + rl.control + '\u201d' + (rl.reply ? '  \u2014 \u201c' + rl.reply + '\u201d' : ''), cls: 'radio', ttl: 5200, key: 'radio' });
         }
+        if (window.CordonRoads) { try {            // dispatcher: which street the crowd is coming in on
+            const ex = (typeof exits !== 'undefined' && exits && exits[0]) || null;
+            const px = ex && typeof ex.x === 'number' ? (ex.x < MAP_W + 2 ? ex.x * TILE : ex.x) : null, py = ex ? (ex.y < MAP_H + 2 ? ex.y * TILE : ex.y) : null;
+            const road = px !== null ? CordonRoads.atPx(px, py, TILE) : null;
+            const call = CordonRoads.dispatch('crowd', road, { sound: !!settings.sound, voices: !!settings.voices });
+            setTimeout(() => pushMsg({ text: ':megaphone: Control: \u201c' + call + '\u201d', cls: 'radio', ttl: 4200, key: 'dispatch' }), 3500);
+        } catch (e) {} }
         renderOptionsPanel();
     }
 
@@ -11645,6 +11659,7 @@
         overlay.classList.add('show');
     }
     function restartGame() {
+        if (window.CordonRoads) CordonRoads.reroll();
         document.getElementById('gameover-overlay').classList.remove('show');
         game.paused = false;
         initGameState();
@@ -12304,5 +12319,6 @@
     }
     bootWhenReady();
 </script>
+<script src="js/tactical.js"></script>
 </body>
 </html>
